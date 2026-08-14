@@ -2,19 +2,19 @@
 
 ## Scope
 
-dsh-ears 可能接触语音输入、dsh 模型配置和可选的 ASR 服务配置。当前版本尚未实现这些运行时功能，但从现在开始按公开仓库标准处理安全问题。
+dsh-ears may eventually handle voice input, dsh model routes, and optional ASR service configuration. Those runtime features are not implemented in the current baseline, but the repository follows public-project security rules from day one.
 
 ## Never commit
 
-- API Key、OAuth token、Cookie、密码或私钥。
-- 包含凭据的 dsh profile、`.env` 文件或本机配置导出。
-- 用户语音、转录文本、日志和个人数据。
-- 带内部域名、内网地址或个人绝对路径的配置和文档。
+- API keys, OAuth tokens, cookies, passwords, private keys, or credentials.
+- dsh profiles or `.env` files containing credentials.
+- User audio, transcripts, logs, screenshots, or personal data.
+- Private endpoints, internal addresses, or personal absolute paths.
 
 ## Reporting
 
-如果发现疑似凭据泄露或安全问题，请不要创建包含秘密的公开 issue。先停止相关提交和发布，通过维护者的私下渠道报告，并提供最小必要复现信息。
+Do not open a public issue containing a secret or a complete exploit. Stop the relevant work and report the issue privately to the maintainer with only the minimum information needed to reproduce it.
 
 ## Release rule
 
-公开仓库转换、npm 发布和 push 都不是默认动作，必须在发布前完成人工审查、敏感信息扫描和验证记录。
+Push, public-repository conversion, npm publishing, and release tags are not default actions. Before any public release, complete a human review, sensitive-information scan, build/test verification, and license review.

@@ -1,18 +1,22 @@
 # Agent Context
 
-`.agent/` 保存跨 agent、跨会话共享的项目上下文。它不是秘密存储，也不是临时日志目录。
+`.agent/` contains the durable context shared across agents and sessions. It is not a secret store and it is not a scratch log.
 
-## 阅读顺序
+## Reading order
 
-1. `agent.md`：先看当前状态和下一步。
-2. `context.md`：理解项目背景、术语和架构边界。
-3. `decisions.md`：确认哪些选择已经冻结。
-4. `workflow.md`：执行协作、验证、提交和安全流程。
+1. `agent.md` — current status and next step.
+2. `context.md` — stable product and architecture context.
+3. `decisions.md` — accepted decisions and their status.
+4. `workflow.md` — collaboration, validation, commit, and security rules.
 
-## 更新规则
+## Language
 
-- `agent.md` 是活跃交接文档，每个里程碑或阻塞状态变化后更新。
-- `context.md` 只记录低频变化的稳定事实；架构改变时更新。
-- `decisions.md` 采用追加式 ADR 记录，不删除历史决策；被替代时注明替代关系。
-- `workflow.md` 只有协作规范变化时才更新。
-- 不写入凭据、私有 URL、Cookie、完整本机路径或未经验证的 API 细节。
+All context documents are English-first to match the official DeepSeek Harness repository and make future public review easier. Product-facing prompt text may use Chinese when the product requires Chinese recognition and polishing behavior.
+
+## Update rules
+
+- Update `agent.md` after every milestone, verification change, blocker, or handoff.
+- Keep `context.md` for stable facts; update it when boundaries or architecture change.
+- Keep `decisions.md` append-only. When a decision is replaced, record the replacement instead of deleting history.
+- Update `workflow.md` only when the collaboration contract changes.
+- Never write credentials, private URLs, cookies, user data, or personal absolute paths here.

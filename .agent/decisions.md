@@ -1,41 +1,52 @@
 # Architecture Decision Records
 
-## D-001: Project identity
+## D-001 — Project identity
 
-- 状态：accepted
-- 决定：项目名统一为 `dsh-ears`。
-- 原因：与“给纯文本 DeepSeek 装耳朵”的定位一致，避免使用 Typeless 商标。
+- Status: accepted
+- Decision: The project name is `dsh-ears`.
+- Rationale: It matches the “give text-only DeepSeek ears” positioning without using the Typeless trademark.
 
-## D-002: Interaction contract
+## D-002 — Interaction contract
 
-- 状态：accepted
-- 决定：点击麦克风开始；识别结果实时进入可编辑 draft；停止后由用户手动发送。
-- 禁止：自动发送、把识别结果直接当成已确认消息。
+- Status: accepted
+- Decision: Click to start; stream recognition into an editable draft; stop; let the user send manually.
+- Prohibited: automatic send or treating an unconfirmed transcript as a sent message.
 
-## D-003: First ASR milestone
+## D-003 — First ASR milestone
 
-- 状态：accepted
-- 决定：M2 先实现 Web Speech API；不把它与录音 PCM 或 Whisper 采集混为一谈。
-- 失败行为：保留已识别 draft，提示用户重新录音。
+- Status: accepted
+- Decision: M2 implements the browser Web Speech API only.
+- Failure behavior: preserve the recognized draft and ask the user to record again.
 
-## D-004: LLM ownership
+## D-004 — LLM ownership
 
-- 状态：accepted
-- 决定：润色只使用 dsh 已接入的 provider/model，插件保存 `{ provider, model }` 选择。
-- 禁止：插件自定义 `base_url`、`api_key`、provider、模型输入框或浏览器端 LLM 请求。
+- Status: accepted
+- Decision: Polishing uses any provider/model route already configured in dsh and stores `{ provider, model }`.
+- Prohibited: plugin-owned LLM `base_url`, `api_key`, provider, model input, or browser-side LLM request.
 
-## D-005: Host/Client packaging
+## D-005 — Host/Client packaging
 
-- 状态：accepted
-- 决定：正式包必须同时提供 Host `.` 与 Client `./client` 两个 exports，并声明 `dsh.bundle.patch` 和 `dsh.client`。
-- 开发 HMR overlay 与发布 bundle patch 分离。
+- Status: accepted
+- Decision: The package exposes Host `.` and browser `./client` entries and declares `dsh.bundle.patch` plus `dsh.client`.
+- Development HMR overlay and published bundle patch remain separate.
 
-## D-006: Compatibility
+## D-006 — Compatibility
 
-- 状态：accepted
-- 决定：第一版只验证 dsh `0.1.0-rc.6`，不提前承诺其他 rc 版本。
+- Status: accepted
+- Decision: The first release is validated only against dsh `0.1.0-rc.6`.
 
-## D-007: Deferred scope
+## D-007 — Deferred scope
 
-- 状态：accepted
-- 决定：本机 Whisper、云端 ASR 和情绪 UI 延后；情绪字段可以预留，但不能成为第一版主流程依赖。
+- Status: accepted
+- Decision: Local Whisper, cloud ASR, and emotion UI are deferred. An emotion field may be reserved but cannot be a first-release dependency.
+
+## D-008 — Language and public quality
+
+- Status: accepted
+- Decision: Source, code comments, repository docs, context docs, issue-ready text, and commit messages are English-first and follow official dsh repository conventions.
+- Runtime prompts may use Chinese when required by the product behavior.
+
+## D-009 — Release safety
+
+- Status: accepted
+- Decision: No push, public-repository conversion, npm publish, or legal license selection is automatic. Each requires an explicit release decision.

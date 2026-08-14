@@ -1,39 +1,45 @@
 # dsh-ears Agent Instructions
 
-本文件是仓库级 coding agent 入口。所有 agent 在修改代码或文档前必须阅读它，并按引用顺序读取项目上下文。
+This is the repository-level entry point for coding agents. Read it before changing code or documentation, then follow the project context order below.
 
-## 阅读顺序
+## Required reading order
 
-1. `PLAN.md`：产品目标、范围、里程碑和验收条件。
-2. `.agent/agent.md`：当前状态、正在进行的工作和交接信息。
-3. `.agent/context.md`：稳定背景、架构边界和术语。
-4. `.agent/decisions.md`：已确认决策，不能未经确认推翻。
-5. `.agent/workflow.md`：协作、验证、提交和安全规则。
+1. `PLAN.md` — product scope, milestones, and acceptance criteria.
+2. `.agent/agent.md` — current status, active work, and handoff notes.
+3. `.agent/context.md` — stable project context, terminology, and architecture boundaries.
+4. `.agent/decisions.md` — accepted decisions that must not be silently reversed.
+5. `.agent/workflow.md` — collaboration, validation, commit, and security rules.
 
-## 当前基线
+## Current baseline
 
-- 工作区：当前 Git 仓库根目录（用 `git rev-parse --show-toplevel` 确认）。
-- dsh：`0.1.0-rc.6`；第一版不承诺其他 rc 版本。
-- 当前阶段：文档与协作基线已完成，M1 尚未开始。
-- 当前只允许本地工作；未经用户明确授权不得 `git push`、创建远程仓库或发布包。
+- dsh target: `0.1.0-rc.6`; the first release does not promise other rc versions.
+- Current stage: documentation and collaboration baseline complete; M1 is next.
+- The current checkout is local-only. Do not push, publish, create a remote repository, or change external state without explicit user authorization.
+- The main project language is English. Use English for source code, code comments, public documentation, context documents, issue-ready text, and commit messages. Runtime product prompts may use Chinese when the product behavior requires Chinese output.
 
-## 修改规则
+## Engineering standards
 
-- 先查上下文，再修改；不根据猜测补齐未确认的 dsh API。
-- 一次只处理一个可独立验收的原子目标。
-- 使用明确的 `git add <path...>`，禁止无审查的 `git add -A`。
-- 提交使用 Conventional Commits，提交信息描述领域行为，例如 `feat(client): add web speech draft updates`。
-- 每个提交前运行与改动匹配的验证，并执行 `git diff --cached --check`。
-- 不把构建产物、`.dsh/` 本地 patch、日志或个人机器路径提交到仓库。
-- 文档、代码、测试和配置的边界要清楚；不要为了顺手而做无关重构。
+- Follow the official DeepSeek Harness repository's package shape, README structure, naming, lifecycle, and TypeScript style where applicable.
+- Prefer the smallest change that completes one independently verifiable task.
+- Verify dsh APIs against current documentation and the installed rc.6 packages; do not guess an API from memory.
+- Keep Host and browser Client responsibilities explicit. Do not introduce a browser-side credential path for Host-owned services.
+- Do not implement deferred Whisper, cloud ASR, emotion UI, or custom LLM provider support while working on M1/M2.
 
-## 安全规则
+## Git rules
 
-- API Key、OAuth token、Cookie、私有 URL、个人数据和本机绝对路径不得进入提交。
-- 示例只能使用占位值，例如 `YOUR_API_KEY`；不能使用真实凭据做示例。
-- 润色调用复用 dsh Host 侧的 provider/model 与 credentials；插件不新增浏览器端密钥存储。
-- 发现疑似敏感信息时先停止提交，移除并检查 Git diff；不要把秘密复制到 agent 上下文文件。
+- Use explicit paths with `git add <path...>`; do not use unreviewed `git add -A`.
+- Keep commits atomic and use Conventional Commits, for example `feat(client): add web speech draft updates`.
+- Run a relevant validation command and `git diff --cached --check` before every commit.
+- Do not mix unrelated refactors, formatting churn, documentation changes, and feature behavior in one commit.
+- Update `.agent/agent.md` after each milestone, verification change, or blocker.
 
-## 交接要求
+## Security rules
 
-完成一个阶段后更新 `.agent/agent.md`，记录：已完成内容、验证命令和结果、未完成事项、阻塞点、下一步建议。不要把临时猜测写成已确认事实。
+- Never commit API keys, OAuth tokens, cookies, passwords, private keys, private endpoints, user data, or personal absolute paths.
+- Examples must use placeholders such as `YOUR_API_KEY` and must never contain a real credential.
+- Do not copy secrets into context files, logs, tests, screenshots, or commit messages.
+- If a possible secret is found, stop before committing, remove it, inspect the full Git diff, and report the issue without publishing the value.
+
+## Handoff requirement
+
+Every completed task must leave a concise record in `.agent/agent.md`: completed work, validation commands and results, unfinished work, blockers, next step, and commit hash.

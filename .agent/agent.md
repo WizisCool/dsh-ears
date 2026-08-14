@@ -1,59 +1,53 @@
 # dsh-ears Agent Handoff
 
-> 本文件是当前工作交接页。完成里程碑、改变验证结果或遇到阻塞时必须更新。
+> This is the active handoff document. Update it when a milestone, verification result, blocker, or ownership boundary changes.
 
-## 状态
+## Status
 
-- 阶段：文档与协作基线完成，准备进入 M1。
-- 当前版本目标：dsh `0.1.0-rc.6`。
-- 最近提交：`9601ebb docs: establish project context and security workflow`；基线提交：`c0ae3b9 chore: bootstrap dsh plugin workspace`。
-- 远程操作：未执行 push；后续仍需用户明确授权。
+- Stage: documentation and collaboration baseline complete; M1 is next.
+- Target: dsh `0.1.0-rc.6`.
+- Latest commit: `e0b621a docs: refresh agent handoff state`.
+- Baseline commits: `9601ebb docs: establish project context and security workflow`, `c0ae3b9 chore: bootstrap dsh plugin workspace`.
+- Remote operations: no push or publish has been performed.
+- Repository language: English-first for code, docs, context, comments, and commits.
 
-## 已完成
+## Completed
 
-- 初始化项目 Git 仓库并建立开发骨架。
-- 验证 `pnpm check` 通过。
-- 验证本机 dsh 版本为 `0.1.0-rc.6`。
-- 建立脱敏后的仓库内 `PLAN.md`。
-- 建立 `AGENTS.md`、`.agent/` 上下文、贡献指南和安全说明。
-- 为本地秘密文件补充 `.gitignore` 规则；提交前敏感信息扫描通过。
+- Initialized the project Git repository and development probe.
+- Verified `pnpm check`.
+- Verified the local dsh version is `0.1.0-rc.6`.
+- Added a public-safe repository `PLAN.md`.
+- Added `AGENTS.md`, `.agent/` context, contribution guidance, and security policy.
+- Added ignored local secret-file patterns and checked for common credential formats and personal absolute paths.
 
-## 最近验证
+## Current implementation facts
 
-- `pnpm check`：通过。
-- `git diff --cached --check`：通过。
-- 常见凭据格式与个人绝对路径扫描：未发现结果。
-- 最后状态：工作树干净；未执行 push。
+- `src/index.ts` is still only a Host-side Cordis lifecycle/HMR probe.
+- The formal Host/Client package exports are not implemented yet.
+- `dsh.client`, `conversation.input.right`, `inputActions.setDraft()`, Web Speech, polishing RPC, settings UI, Whisper, cloud ASR, and emotion UI are not implemented.
 
-## 当前实现事实
+## Next task: M1
 
-- `src/index.ts` 目前只是 Host 侧 Cordis 生命周期/HMR 探针。
-- 尚未实现 `package.json` 的正式 Host/Client 双入口。
-- 尚未实现 `dsh.client`、`conversation.input.right`、`inputActions.setDraft()` 或 Web Speech。
-- 尚未实现润色 RPC、dsh `ctx.llm` 模型发现/选择、设置页、Whisper、云端 ASR 或情绪 UI。
+1. Confirm the rc.6 package entry and client dependency conventions against the installed official packages.
+2. Add a Host entry and a browser Client entry with official-style exports.
+3. Add `dsh.bundle.patch` and `dsh.client` declarations.
+4. Replace the single-entry TypeScript build with a reproducible two-entry build, preferably using the repository's official `tsdown` convention.
+5. Keep `.dsh/` development HMR overlay separate from the publishable patch.
+6. Verify the package build, `dsh --profile web --dump-config`, and a real Web profile boot.
 
-## 下一步：M1
-
-1. 核对 dsh rc.6 的正式插件包入口、`dsh.client` 和 bundle patch 约束。
-2. 将 TypeScript 构建调整为 Host 与 Client 两个可发布入口。
-3. 添加最小 `package.json` exports、`dsh.bundle.patch` 和 `dsh.client` 声明。
-4. 保留独立的开发 HMR overlay，不把本机 patch 混进发布 patch。
-5. 使用 `dsh --profile web --dump-config` 和真实 Web 启动做验证。
-
-## 工作交接格式
-
-后续 agent 结束时追加以下信息到本文件相应位置：
+## Handoff template
 
 ```text
-完成：...
-验证：命令 / 结果
-未完成：...
-阻塞：无 / 具体原因
-下一步：...
-提交：commit hash + message
+Completed: ...
+Validation: command / result
+Unfinished: ...
+Blocked: none / exact reason
+Next: ...
+Commit: hash + message
 ```
 
-## 不确定项
+## Known uncertainty
 
-- dsh rc.6 中 `ctx.llm` 的模型发现、路由选择和 completion 调用的精确类型/API，需要在 M3 前用当前安装版本核对。
-- 本地 Whisper、云端 ASR 和情绪标签均不属于 M1/M2 的范围。
+- The exact rc.6 `ctx.llm` model discovery, route selection, and completion types must be verified before M3.
+- Local Whisper, cloud ASR, and emotion labels are deferred and must not leak into M1/M2 scope.
+- The project license is intentionally undecided; no legal license file has been added.
