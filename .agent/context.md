@@ -13,6 +13,7 @@
 - The microphone control follows the Codex composer reference: compact circular right-side toolbar button, microphone at rest, stop square while recording, and manual send only.
 - Plugin configuration belongs in dsh's native Plugins settings page through `settings.plugin.item`; do not create a separate Voice settings tab or section.
 - Polishing uses dsh Host `ctx.llm` and credentials; the plugin stores a `{ provider, model }` selection only.
+- The current Host contract exposes strict Typert RPCs for settings, dsh route discovery, and text-only polishing. The browser receives the `dshEars` namespace through a Cordis scope that explicitly injects `remote.dshEars`.
 - The plugin does not add custom LLM `base_url`, `api_key`, provider, or model configuration.
 - Whisper, cloud ASR, and emotion UI are deferred.
 
@@ -43,6 +44,8 @@ dsh Plugins settings page
   └─ settings.plugin.item
        └─ dsh-ears configuration card
 ```
+
+The settings card treats an empty provider/model pair as the explicit “do not polish” state. A configured dsh route is optional for the first browser-only ASR milestone.
 
 Later audio ASR requires explicit contracts for format, chunking, cancellation, timeout, memory limits, and errors. A generic JSON RPC is not automatically an audio-stream transport.
 

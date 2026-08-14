@@ -4,10 +4,10 @@
 
 ## Status
 
-- Stage: M1 package scaffold and M2 microphone implementation complete; M3 is next.
+- Stage: M1 package scaffold, M2 microphone implementation, M3 polishing, and M4 native settings complete; M5 is next.
 - Target: dsh `0.1.0-rc.6`.
-- Latest commit: `8b91406 fix(client): align microphone with dsh composer`.
-- Baseline commits: `9601ebb docs: establish project context and security workflow`, `c0ae3b9 chore: bootstrap dsh plugin workspace`.
+- Latest commit: `4b22fd9 feat: add dsh-owned polishing and native settings`.
+- Recent UI baseline: `b2d65ad docs: record composer theme and ordering fix`.
 - Remote operations: no push or publish has been performed.
 - Repository language: English-first for code, docs, context, comments, and commits.
 
@@ -26,6 +26,10 @@
 - Added the Codex-style microphone control, Web Speech session, failure state, and draft updates.
 - Adapted the microphone control to dsh semantic color tokens and both dsh light/dark themes.
 - Corrected rc.6 composer ordering to model selector → microphone → send button.
+- Added strict Typert Host RPCs for settings, dsh route discovery, and text-only transcript polishing.
+- Added the native `settings.plugin.item` configuration card with dsh provider/model route selection and persistence.
+- Bound asynchronous Client controllers and React callbacks to a Cordis scope that injects `remote.dshEars`.
+- Added Host route/fallback, prompt, and Remote contract tests.
 
 ## M1 verification
 
@@ -39,7 +43,7 @@
 
 ## M2 verification
 
-- `pnpm test`: passed; 3 tests passed.
+- `pnpm test`: passed; 9 tests passed.
 - `pnpm check`: passed.
 - `pnpm build`: passed; Host ESM, Client factory bundle, CSS, and declarations generated.
 - `pnpm pack --dry-run`: passed; tarball contains `lib/client.js` and `lib/client.d.ts`.
@@ -49,15 +53,17 @@
 - Local browser light-theme path: passed; model selector, microphone, and send button retained the expected order and positions.
 - Local browser dark-theme path: passed; the same order and dsh semantic tokens rendered without a light-theme-only color fallback.
 - Impeccable UI detector: passed with no findings.
-- Native settings inspection: passed; dsh exposes `设置 → 插件 → 插件配置` as the target surface for future `settings.plugin.item` registration.
+- Native settings inspection: passed; `设置 → 插件 → 插件配置` renders the `语音输入` card.
 
 ## Current implementation facts
 
-- `src/index.ts` remains the minimal Host-side Cordis lifecycle/HMR probe.
+- `src/index.ts` loads the Host-side `PolishService`; its strict Typert contract is exported through `src/typert.ts` and `src/remote.ts`.
 - The formal Host/Client package exports and `dsh.client` declaration are implemented.
 - `conversation.input.right`, `inputActions.setDraft()`, the Web Speech session, and the Codex-style microphone control are implemented in commit `1787a90`.
 - The browser bundle now registers through `window.__ModuleLoader__.load` and the real Web surface renders the microphone control.
-- Polishing RPC, native plugin configuration UI, Whisper, cloud ASR, and emotion UI are not implemented.
+- The browser bundle mounts the dsh-ears Remote contribution and passes the injected `dshEars` namespace into the microphone and settings controllers.
+- Native plugin configuration includes language, recording limit, polishing toggle, and any dsh-configured provider/model route.
+- Whisper, cloud ASR, ASR backend selection, and emotion UI are not implemented.
 
 ## M2 UI fix verification
 
@@ -65,11 +71,25 @@
 - The control uses dsh semantic tokens for toolbar, information, primary-label, error, and focus colors; it does not hardcode Codex palette values.
 - Browser measurements at the local Web surface confirmed model → microphone → send in both light and dark themes.
 
-## Next task: M3
+## M3/M4 verification
 
-1. Verify the rc.6 Host `ctx.llm` discovery, route selection, and completion contract.
-2. Add the Host-side text-only polishing RPC and dsh route selection.
-3. Register future configuration in the native Plugins page through `settings.plugin.item`.
+- `pnpm check`: passed.
+- `pnpm test`: passed; 9 tests passed.
+- `pnpm build`: passed; Host ESM, Client factory bundle, CSS, and declarations generated.
+- `pnpm pack --dry-run`: passed; the package contains both runtime entries, declarations, the Typert contract, and the public bundle patch.
+- Fresh dsh Web boot on temporary port `3091`: passed; the microphone and native settings card loaded.
+- Native `Plugins → 插件配置`: passed; provider/model routes were listed and the recording limit was changed and restored through the card.
+- Cordis Remote regression: passed; no `remote.dshEars without inject` error appeared on the fresh boot or after hot reload.
+- Composer measurements: passed in light and dark themes; model selector → microphone → send button.
+- Theme measurements: passed in light and dark themes; microphone color follows dsh semantic tokens.
+
+The real dsh route list was exercised. A successful non-empty polish completion still needs a browser run with a usable configured model; mocked tests cover route failure and raw-transcript fallback.
+
+## Next task: M5
+
+1. Define the audio capture contract before adding a non-Web-Speech backend.
+2. Evaluate local Whisper and cloud adapters separately with real endpoint and cancellation tests.
+3. Add privacy documentation, broader browser coverage, and stale/manual draft protection tests.
 
 ## Native settings decision
 
@@ -89,7 +109,7 @@ Commit: hash + message
 
 ## Known uncertainty
 
-- The exact rc.6 `ctx.llm` model discovery, route selection, and completion types have been verified from the installed `@deepseek-ai/dsh-llm` types; implementation remains the next task.
+- The exact rc.6 `ctx.llm` model discovery, route selection, and completion types are implemented and verified for route listing; a successful live polish completion remains environment-dependent.
 - Successful spoken recognition still needs a browser with an explicitly granted microphone permission; the local smoke run verified the unavailable/failed path.
-- Local Whisper, cloud ASR, emotion labels, and LLM polishing are deferred and must not leak into M2 scope.
+- Local Whisper, cloud ASR, ASR backend selection, and emotion labels are deferred and must not leak into M5 scope without separate contracts.
 - The project license is intentionally undecided; no legal license file has been added.

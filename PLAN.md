@@ -17,7 +17,8 @@ The first implementation uses the browser Web Speech API. Local Whisper and clou
 - M0: documentation and collaboration baseline complete.
 - M1: package shape and load verification complete.
 - M2: microphone button, Web Speech pipeline, dsh theme adaptation, and composer ordering fix are complete.
-- M3+: not implemented.
+- M3: dsh-owned text polishing and route discovery are implemented.
+- M4: native Plugins settings card and persistence are implemented.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -116,6 +117,7 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 - M2 uses dsh public `data-slot` topology plus semantic CSS tokens to adapt the control to rc.6 ordering and light/dark themes.
 - M2 does not use RPC, MediaRecorder, AudioWorklet, PCM, or Whisper.
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
+- Client Remote calls use a Cordis child scope that injects `remote.dshEars`; asynchronous controllers and React event callbacks receive the concrete namespace rather than retaining an unscoped `ctx.remote` object.
 - Later audio RPC must define a channel, endpoint, payload/chunk size, cancellation, timeout, and error schema before implementation.
 - Settings use the dsh-native Plugins page and its `settings.plugin.item` list slot after the rc.6 surface is verified. No standalone `settings.section` or `settings.general.item` entry is planned.
 
@@ -129,6 +131,7 @@ Polishing is owned by dsh:
 - Do not hardcode `deepseek-v4-flash`, `gemini-3.7-flash-high`, or any other model name as a plugin preset.
 - Do not force DeepSeek-specific `thinking` fields. Reasoning mode, endpoint, and credentials belong to the selected dsh route.
 - If the selected route is missing, unavailable, times out, or fails, return the original transcript and never block the draft.
+- An empty provider/model selection is valid and means that polishing is disabled for the recording; it is not a settings validation error.
 
 The polishing prompt removes filler words, repairs likely ASR errors, restores punctuation, preserves meaning, formats explicit enumerations as lists, and treats transcript text as data rather than instructions. The runtime prompt may be Chinese; its implementation and tests remain English-documented.
 
@@ -173,13 +176,14 @@ Later backends must verify their actual endpoint, multipart fields, response for
 
 ## Settings
 
-The native dsh Plugins page will eventually contain a `dsh-ears` plugin configuration card with:
+The native dsh Plugins page contains a `dsh-ears` plugin configuration card with:
 
-- ASR backend selection and availability state.
 - Language, default `zh-CN`.
 - Per-recording limit, default 120 seconds.
 - Polishing enabled/disabled.
-- A provider/model selector populated from dsh's configured routes.
+- A provider/model selector populated from dsh's configured routes. Empty selection is the explicit no-polish state.
+
+ASR backend selection and availability UI remain part of the later audio-backend milestone.
 
 The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials, when implemented, remain Host-side and separate from polishing.
 
@@ -200,20 +204,32 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 - Verify in Chrome with unsupported-browser and mid-session failure cases.
 - Verify dsh light/dark themes and model → microphone → send ordering on the real rc.6 Web surface.
 
-### M3 — dsh-owned polishing
+### M3 — dsh-owned polishing — complete
 
 - Add the text-only Host RPC and dsh `ctx.llm` route selection.
 - Populate the selector from dsh provider/model configuration.
 - Replace the draft after polishing; always fall back to the raw transcript.
 - Add prompt and route failure tests.
 
-### M4 — Native settings
+### M4 — Native settings — complete
 
 - Register the plugin configuration card in `settings.plugin.item`.
 - Keep configuration inside dsh's native Plugins page; do not add a separate Voice settings tab or section.
 - Verify dsh-native appearance, persistence, selection, and fallback behavior.
 
-### M5 — Later ASR backends and hardening
+### M3/M4 verification
+
+- `pnpm check`: passed.
+- `pnpm test`: passed; 9 tests passed.
+- `pnpm build`: passed; Host RPC, Client bundle, CSS modules, and declarations generated.
+- Fresh dsh Web boot on a temporary port: passed; the microphone and native settings card loaded.
+- Native `Plugins → 插件配置`: passed; the `语音输入` card appeared and loaded dsh provider routes.
+- Settings persistence: passed; recording limit changed and was restored through the native card.
+- Cordis Remote regression: passed; no `remote.dshEars without inject` error appeared on the fresh boot or after hot reload.
+- Composer order: passed in light and dark themes; model selector → microphone → send button.
+- Theme tokens: passed in light and dark themes; the microphone computed color/background changed with dsh theme tokens and no Codex palette constants are used.
+
+### M5 — Later ASR backends and hardening — next
 
 - Design and verify audio capture, chunking, cancellation, and memory limits.
 - Add local Whisper and provider-specific cloud adapters only after real smoke tests.
