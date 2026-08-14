@@ -6,7 +6,7 @@
 
 - 阶段：文档与协作基线完成，准备进入 M1。
 - 当前版本目标：dsh `0.1.0-rc.6`。
-- 最近提交：`c0ae3b9 chore: bootstrap dsh plugin workspace`。
+- 最近提交：`9601ebb docs: establish project context and security workflow`；基线提交：`c0ae3b9 chore: bootstrap dsh plugin workspace`。
 - 远程操作：未执行 push；后续仍需用户明确授权。
 
 ## 已完成
@@ -16,6 +16,14 @@
 - 验证本机 dsh 版本为 `0.1.0-rc.6`。
 - 建立脱敏后的仓库内 `PLAN.md`。
 - 建立 `AGENTS.md`、`.agent/` 上下文、贡献指南和安全说明。
+- 为本地秘密文件补充 `.gitignore` 规则；提交前敏感信息扫描通过。
+
+## 最近验证
+
+- `pnpm check`：通过。
+- `git diff --cached --check`：通过。
+- 常见凭据格式与个人绝对路径扫描：未发现结果。
+- 最后状态：工作树干净；未执行 push。
 
 ## 当前实现事实
 
