@@ -4,7 +4,7 @@ An open-source voice input plugin for DeepSeek Harness: give the text-only DeepS
 
 The intended interaction is close to Codex Desktop: click the microphone, speak, watch the transcript arrive in an editable draft, stop recording, optionally polish the text with any model already configured in dsh, and send it manually.
 
-The repository has completed its documentation baseline and M1 package scaffold. The Host/Client package is loadable, while the microphone button and Web Speech pipeline remain M2 work. The authoritative scope is [PLAN.md](./PLAN.md).
+The repository has completed its documentation baseline and M1 package scaffold. The current M2 work adds the microphone button and Web Speech pipeline. The authoritative scope is [PLAN.md](./PLAN.md).
 
 ## Project goals
 
@@ -19,12 +19,13 @@ The repository has completed its documentation baseline and M1 package scaffold.
 - M2 starts with the browser Web Speech API only.
 - Web Speech API may send audio to a browser vendor service; zero additional cost does not mean local-only recognition.
 - If Web Speech fails, the current draft is preserved and the user is asked to record again. The first release does not switch backends invisibly during one session.
-- Local Whisper, cloud ASR, emotion labels, and polishing implementation are not present in the current baseline.
+- Local Whisper, cloud ASR, emotion labels, and LLM polishing are deferred.
 
 ## Development
 
 ```sh
 pnpm install
+dsh plugin --profile web add "$PWD"
 pnpm check
 pnpm dev:config
 pnpm dev:web
@@ -36,7 +37,7 @@ Run the compiler watcher in another terminal when iterating on source files:
 pnpm dev:watch
 ```
 
-The local development patch enables Cordis HMR and watches the project `lib/` output. `dev:config` builds the probe, writes a machine-local patch under `.dsh/`, and verifies the composed profile with `dsh --profile web --dump-config`. `dev:web` boots the existing dsh Web profile without modifying the profile's tracked configuration.
+Install the checkout into the local `web` profile once before the first browser run. The local development patch then enables Cordis HMR and watches the project `lib/` output; it does not insert a second `dsh-ears` loader entry. `dev:config` builds the package, writes a machine-local HMR-only patch under `.dsh/`, and verifies the composed profile with `dsh --profile web --dump-config`. `dev:web` boots the profile without modifying its tracked configuration.
 
 With dsh `rc.6`, use the explicit `dsh --profile web` form when passing a patch. The development scripts encode this verified CLI behavior.
 

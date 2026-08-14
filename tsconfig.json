@@ -7,7 +7,8 @@
     "declaration": true,
     "noEmit": true,
     "isolatedModules": true,
+    "jsx": "react-jsx",
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

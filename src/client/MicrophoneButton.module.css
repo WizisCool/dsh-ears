@@ -1,0 +1,26 @@
+.button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+
+.button[data-state='recording'] {
+  background: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.button[data-state='recording']:hover {
+  background: var(--dsw-alias-button-contrast-fill);
+}
+
+.button[data-state='error'] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
