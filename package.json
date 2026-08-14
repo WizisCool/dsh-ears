@@ -1,0 +1,19 @@
+{
+  "name": "dsh-ears",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev:watch": "tsc --watch -p tsconfig.json",
+    "prepare:patch": "node scripts/create-dev-patch.mjs",
+    "dev:config": "pnpm build && pnpm prepare:patch && dsh --profile web --dump-config --patch ./.dsh/cordis.patch.yml",
+    "dev:web": "pnpm build && pnpm prepare:patch && dsh --profile web --patch ./.dsh/cordis.patch.yml"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "typescript": "6.0.3"
+  }
+}
