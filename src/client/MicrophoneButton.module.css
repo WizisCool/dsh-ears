@@ -5,22 +5,64 @@
   padding: 0;
   border-radius: 50%;
   justify-content: center;
+  background: var(--dsw-alias-button-tool-bar-fill);
+  color: var(--dsw-alias-label-primary);
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
+.button:hover:not(:disabled) {
+  background: var(--dsw-alias-button-tool-bar-hover);
+}
+
+.button[data-state='starting'],
 .button[data-state='recording'] {
-  background: var(--dsw-alias-button-contrast-fill);
+  background: var(--dsw-alias-button-info-fill);
   color: var(--dsw-alias-label-primary-foreground);
 }
 
-.button[data-state='recording']:hover {
-  background: var(--dsw-alias-button-contrast-fill);
+.button[data-state='starting']:hover:not(:disabled),
+.button[data-state='recording']:hover:not(:disabled) {
+  background: var(--dsw-alias-button-info-hover);
 }
 
 .button[data-state='error'] {
+  background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-state-error-primary);
 }
 
 .button:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 2px;
+}
+
+/*
+ * rc.6 renders the list slot before the named model seat. The data-slot
+ * attributes are part of the public slot topology, so use them to preserve
+ * the Codex-style visual order without relying on generated class names:
+ * model → microphone → send.
+ */
+:global([data-slot='conversation.input.model']) {
+  order: 1;
+}
+
+:global([data-slot='conversation.input.model'] > button) {
+  order: 1;
+}
+
+:global([data-slot='conversation.input.right']) {
+  order: 2;
+}
+
+:global([data-slot='conversation.input.right'] > button) {
+  order: 2;
+}
+
+:global([data-slot='conversation.input.model'] ~ button) {
+  order: 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
 }
