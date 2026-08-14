@@ -1,15 +1,12 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { PolishService } from './polish/service.js'
 
 export const name = 'dsh-ears'
 
-export function apply(ctx: Context): void {
-  console.log('[dsh-ears] plugin loaded')
+export async function apply(ctx: Context): Promise<void> {
+  await ctx.plugin(PolishService)
 
   ctx.effect(() => {
-    console.log('[dsh-ears] plugin active — hot reload verified')
-
-    return () => {
-      console.log('[dsh-ears] plugin disposed')
-    }
-  })
+    return () => undefined
+  }, 'dsh-ears lifecycle')
 }
