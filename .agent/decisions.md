@@ -50,3 +50,16 @@
 
 - Status: accepted
 - Decision: No push, public-repository conversion, npm publish, or legal license selection is automatic. Each requires an explicit release decision.
+
+## D-010 — Codex-style microphone control
+
+- Status: accepted
+- Decision: The microphone control follows the provided Codex composer reference for placement, density, visual state, and interaction: right-side circular toolbar affordance, microphone icon at rest, stop square while recording, live draft updates, and manual send only.
+- Constraint: Reuse dsh primitives and tokens where possible; do not copy Codex source code, private assets, or implementation details.
+
+## D-011 — Native plugin configuration surface
+
+- Status: accepted
+- Decision: Register `dsh-ears` configuration in dsh's native Plugins settings page through the `settings.plugin.item` list slot.
+- Prohibited: a separate Voice settings tab, standalone Voice settings section, or plugin-owned settings page outside the native Plugins surface.
+- Rationale: dsh's Plugins page is the canonical host-plugin configuration surface and keeps plugin settings discoverable and visually consistent.

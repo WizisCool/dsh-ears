@@ -16,7 +16,7 @@ The first implementation uses the browser Web Speech API. Local Whisper and clou
 
 - M0: documentation and collaboration baseline complete.
 - M1: package shape and load verification complete.
-- M2: microphone button and Web Speech pipeline are next.
+- M2: microphone button and Web Speech pipeline are implemented; final smoke coverage is in progress.
 - M3+: not implemented.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
@@ -45,6 +45,8 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D8 | Development starts private; public release and package publishing require a later release decision. | Accepted |
 | D9 | First release is validated only against dsh `0.1.0-rc.6`. | Accepted |
 | D10 | Web Speech failure preserves the current draft and asks the user to record again. | Accepted |
+| D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, microphone when idle, stop square while recording, live draft updates, and manual send only. | Accepted |
+| D12 | Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section. | Accepted |
 
 ## Package shape
 
@@ -53,7 +55,9 @@ dsh-ears/
 ├── package.json              # Host/Client exports and dsh manifests
 ├── cordis.patch.yml          # Published bundle patch
 ├── tsconfig.json
-├── tsdown.config.ts          # M1 build entry configuration
+├── tsconfig.build.json        # declaration-only package type build
+├── tsdown.config.ts          # Host and Client build entry configuration
+├── tsdown.client.ts          # dsh client-module bundle preset
 ├── README.md
 ├── AGENTS.md
 ├── .agent/
@@ -102,7 +106,7 @@ The published manifest must expose both faces and declare the two dsh mechanisms
 }
 ```
 
-The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. It must not replace or duplicate the published bundle patch.
+The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugin itself is installed into the local profile once with `dsh plugin --profile web add <path>`; the development patch must not insert a second `dsh-ears` loader entry or replace the published bundle patch.
 
 ## dsh integration contract
 
@@ -112,7 +116,7 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. It must n
 - M2 does not use RPC, MediaRecorder, AudioWorklet, PCM, or Whisper.
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
 - Later audio RPC must define a channel, endpoint, payload/chunk size, cancellation, timeout, and error schema before implementation.
-- Settings use dsh-native slots such as `settings.section` and `settings.general.item` after the rc.6 surface is verified.
+- Settings use the dsh-native Plugins page and its `settings.plugin.item` list slot after the rc.6 surface is verified. No standalone `settings.section` or `settings.general.item` entry is planned.
 
 ## LLM polishing
 
@@ -162,13 +166,13 @@ interface ASRBackend {
 }
 ```
 
-M2 backend: `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording.
+M2 backend: `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording.
 
 Later backends must verify their actual endpoint, multipart fields, response format, streaming support, limits, and cancellation behavior individually. “OpenAI compatible” is not a sufficient proof of identical ASR behavior.
 
 ## Settings
 
-The dsh-native Voice section will eventually contain:
+The native dsh Plugins page will eventually contain a `dsh-ears` plugin configuration card with:
 
 - ASR backend selection and availability state.
 - Language, default `zh-CN`.
@@ -189,6 +193,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 ### M2 — Microphone button and Web Speech
 
 - Register the client button in `conversation.input.right`.
+- Match the Codex-style composer affordance: right-aligned circular control, clear idle/recording states, accessible tooltip/label, and no layout jump.
 - Stream Web Speech interim/final results into the draft.
 - Preserve draft on failure and keep manual send semantics.
 - Verify in Chrome with unsupported-browser and mid-session failure cases.
@@ -202,7 +207,8 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 
 ### M4 — Native settings
 
-- Add the Voice settings section with hot runtime updates.
+- Register the plugin configuration card in `settings.plugin.item`.
+- Keep configuration inside dsh's native Plugins page; do not add a separate Voice settings tab or section.
 - Verify dsh-native appearance, persistence, selection, and fallback behavior.
 
 ### M5 — Later ASR backends and hardening
