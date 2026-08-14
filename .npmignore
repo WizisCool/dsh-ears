@@ -1,0 +1,14 @@
+# Keep the published package focused on the built public surface.
+src/
+tests/
+scripts/
+.agent/
+.dsh/
+.git/
+.github/
+AGENTS.md
+CONTRIBUTING.md
+PLAN.md
+SECURITY.md
+tsconfig.json
+tsdown.config.ts

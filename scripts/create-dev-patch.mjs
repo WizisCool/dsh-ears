@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const projectRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const patchDirectory = path.join(projectRoot, '.dsh')
 const patchPath = path.join(patchDirectory, 'cordis.patch.yml')
-const pluginPath = path.join(projectRoot, 'dist', 'index.js')
+const pluginPath = path.join(projectRoot, 'lib', 'index.js')
 
 await mkdir(patchDirectory, { recursive: true })
 await writeFile(
@@ -15,7 +15,7 @@ await writeFile(
     '  disabled: false',
     '  config:',
     `    base: ${JSON.stringify(projectRoot)}`,
-    "    root: ['dist']",
+    "    root: ['lib']",
     '    ignored:',
     "      - '**/node_modules'",
     "      - '**/.*'",

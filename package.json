@@ -1,19 +1,58 @@
 {
   "name": "dsh-ears",
   "version": "0.1.0",
-  "private": true,
+  "description": "Voice input plugin for DeepSeek Harness",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WizisCool/dsh-ears.git"
+  },
   "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
   "packageManager": "pnpm@11.19.0",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsdown",
     "check": "tsc --noEmit -p tsconfig.json",
-    "dev:watch": "tsc --watch -p tsconfig.json",
+    "dev:watch": "tsdown --watch",
+    "prepack": "pnpm build",
     "prepare:patch": "node scripts/create-dev-patch.mjs",
     "dev:config": "pnpm build && pnpm prepare:patch && dsh --profile web --dump-config --patch ./.dsh/cordis.patch.yml",
     "dev:web": "pnpm build && pnpm prepare:patch && dsh --profile web --patch ./.dsh/cordis.patch.yml"
   },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
+    "tsdown": "^0.22.14",
     "typescript": "6.0.3"
   }
 }
