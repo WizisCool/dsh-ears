@@ -4,7 +4,7 @@ An open-source voice input plugin for DeepSeek Harness: give the text-only DeepS
 
 The intended interaction is close to Codex Desktop: click the microphone, speak, watch the transcript arrive in an editable draft, stop recording, optionally polish the text with any model already configured in dsh, and send it manually.
 
-The repository is currently at the documentation and development-baseline stage. The Host hot-reload probe exists; the publishable Host/Client package, microphone button, and Web Speech pipeline are planned for M1/M2. The authoritative scope is [PLAN.md](./PLAN.md).
+The repository has completed its documentation baseline and M1 package scaffold. The Host/Client package is loadable, while the microphone button and Web Speech pipeline remain M2 work. The authoritative scope is [PLAN.md](./PLAN.md).
 
 ## Project goals
 

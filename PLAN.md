@@ -15,8 +15,9 @@ The first implementation uses the browser Web Speech API. Local Whisper and clou
 ## Status
 
 - M0: documentation and collaboration baseline complete.
-- M1: package shape and load verification are next.
-- M2+: not implemented.
+- M1: package shape and load verification complete.
+- M2: microphone button and Web Speech pipeline are next.
+- M3+: not implemented.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
