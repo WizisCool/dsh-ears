@@ -16,7 +16,7 @@ The first implementation uses the browser Web Speech API. Local Whisper and clou
 
 - M0: documentation and collaboration baseline complete.
 - M1: package shape and load verification complete.
-- M2: microphone button and Web Speech pipeline are implemented; final smoke coverage is in progress.
+- M2: microphone button, Web Speech pipeline, dsh theme adaptation, and composer ordering fix are complete.
 - M3+: not implemented.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
@@ -113,6 +113,7 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 - The bundle patch activates the Host package entry when installed into a profile.
 - `dsh.client` declares the browser package and its injected runtime dependencies.
 - M2 uses `conversation.input.right` and `inputActions.setDraft()` in the browser face.
+- M2 uses dsh public `data-slot` topology plus semantic CSS tokens to adapt the control to rc.6 ordering and light/dark themes.
 - M2 does not use RPC, MediaRecorder, AudioWorklet, PCM, or Whisper.
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
 - Later audio RPC must define a channel, endpoint, payload/chunk size, cancellation, timeout, and error schema before implementation.
@@ -197,6 +198,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 - Stream Web Speech interim/final results into the draft.
 - Preserve draft on failure and keep manual send semantics.
 - Verify in Chrome with unsupported-browser and mid-session failure cases.
+- Verify dsh light/dark themes and model → microphone → send ordering on the real rc.6 Web surface.
 
 ### M3 — dsh-owned polishing
 
