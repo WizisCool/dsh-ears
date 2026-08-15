@@ -55,6 +55,8 @@ Browser (`exports["./client"]`)
 
 The browser records a bounded one-shot encoded audio payload. The Host writes it to a private `mkdtemp()` directory and invokes the configured `whisper` executable with an argument array. The adapter uses JSON output, enforces time/size limits, forwards cancellation, and removes the directory in `finally`. Model weights remain owned by the user's Host installation.
 
+Model availability is surfaced through `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`: the Host discovers the installed whisper's Python interpreter (whisper CLI shebang first — Homebrew/pipx venvs — then platform-specific PATH probes with a fast `importlib.util.find_spec` check that never imports the heavy module), reports CLI availability and the library-computed cache file, and downloads missing models through `whisper._download` (the library's own URLs/checks) with tqdm-stderr progress parsing. Downloads are single-flight; discovery self-heals after ENOENT so upgraded Homebrew Cellar paths recover on the next query. The client shows downloaded / not-downloaded / downloading (percent + bar) / error states and polls every 800 ms while a download runs.
+
 ### OpenAI-compatible cloud ASR
 
 The Host sends multipart form data containing `file`, `model`, and optional language to an explicit HTTP(S) endpoint. The response must be JSON with a string `text` field. Audio and response sizes are bounded. Embedded URL credentials are rejected. An optional dsh credential reference is resolved per operation and only the resulting bearer header is sent from the Host.

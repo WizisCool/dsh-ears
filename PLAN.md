@@ -162,7 +162,7 @@ type ASRBackendInfo = {
 
 The browser backend uses `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The final backends use `MediaRecorder` with mono, echo-cancellation, noise-suppression, and automatic-gain-control constraints. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording. Teardown aborts are silent and never write into an unmounted draft.
 
-Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. The cloud adapter sends `file`, `model`, and optional language fields to an explicit HTTP(S) endpoint. Cloud credentials are resolved per operation from dsh credential references. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
+Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. Model availability is surfaced through two Host RPCs: the state RPC discovers the installed whisper's Python (CLI shebang first, then platform PATH probes with a fast spec-only check) and reports CLI availability plus the standard cache file, while the download RPC fetches a missing model through the installed library's own downloader with tqdm progress. The cloud adapter sends `file`, `model`, and optional language fields to an explicit HTTP(S) endpoint. Cloud credentials are resolved per operation from dsh credential references. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
 
 ## Settings
 
@@ -256,7 +256,7 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 - dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6.
 - Web Speech availability and privacy behavior vary by browser and platform.
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
-- Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights.
+- Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights. State checks and downloads delegate to the installed library, so pip/Homebrew/pipx/conda/Windows layouts follow the library's own paths; a host without a whisper-capable Python reports an honest error instead of guessing.
 - OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
 - The MIT license decision and private repository release are recorded in `.agent/decisions.md` (D-016); npm publishing and public visibility changes remain gated by an explicit release decision.
 

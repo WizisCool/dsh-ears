@@ -9,7 +9,7 @@
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest docs commit: `3000339 docs: record dedicated settings page decision`.
-- Latest client commit: `7db12c0 feat(client): progressive polishing settings, disabled by default, required route`.
+- Latest client commit: `fdadfb5 feat: whisper model download state and progress`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
