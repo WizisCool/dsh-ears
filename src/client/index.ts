@@ -62,7 +62,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
               earsCard: settingsController.getCardStore(),
               earsRoutes: settingsController.getRouteStore(),
               earsBackends: settingsController.getBackendStore(),
-              earsReasoning: settingsController.getReasoningStore()
+              earsReasoning: settingsController.getReasoningStore(),
+              earsWhisper: settingsController.getWhisperStore()
             },
             earsT,
             ...settingsController.actions()

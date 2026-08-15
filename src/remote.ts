@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema } from './remote-contract.js'
-import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -12,6 +12,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
     listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
     listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    getWhisperModelState: (model: string) => Promise<RemoteResult<WhisperModelState>>
+    downloadWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
     transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
@@ -22,6 +24,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
     'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
     'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    'dshEars/getWhisperModelState': (model: string) => Promise<RemoteResult<WhisperModelState>>
+    'dshEars/downloadWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
@@ -128,6 +132,34 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         }
       ],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/getWhisperModelState',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'getWhisperModelState',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/downloadWhisperModel',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'downloadWhisperModel',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
     {
       id: 'dsh-ears#dshEars/polish',

@@ -180,6 +180,53 @@
   line-height: 18px;
 }
 
+.modelStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modelStatus[data-kind='success'] {
+  margin: 0;
+  color: var(--dsw-alias-state-success-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.modelStatus[data-kind='error'] {
+  margin: 0;
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.modelStatusText {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.modelDownloadButton {
+  flex: none;
+}
+
+.progressTrack {
+  background: var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  height: 4px;
+  flex: 1;
+  max-width: 160px;
+  overflow: hidden;
+}
+
+.progressFill {
+  background: var(--dsw-alias-state-business-primary);
+  border-radius: 999px;
+  height: 100%;
+  display: block;
+  transition: width 0.15s ease-in-out;
+}
+
 .footer {
   display: flex;
   align-items: center;

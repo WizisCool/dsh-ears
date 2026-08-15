@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
 const polishTranscriptSchema = z.string()
 const polishProviderSchema = z.string()
 const polishModelSchema = z.string()
 const polishReasoningEffortSchema = z.string()
+const whisperModelNameSchema = z.string()
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -105,6 +106,34 @@ export const TYPERT = {
       result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
     },
     {
+      id: 'dsh-ears#dshEars/getWhisperModelState',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'getWhisperModelState',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/downloadWhisperModel',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'downloadWhisperModel',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
       id: 'dsh-ears#dshEars/polish',
       service: 'dshEarsPolish',
       namespace: 'dshEars',
@@ -193,6 +222,20 @@ export const TYPERT = {
           },
           {
             kind: 'method',
+            name: 'getWhisperModelState',
+            signature: 'getWhisperModelState(model: string): Promise<WhisperModelState>',
+            summary: 'Report one local Whisper model download state.',
+            jsDoc: '/** Report one local Whisper model download state. */'
+          },
+          {
+            kind: 'method',
+            name: 'downloadWhisperModel',
+            signature: 'downloadWhisperModel(model: string): Promise<WhisperModelState>',
+            summary: 'Download one local Whisper model through the installed library.',
+            jsDoc: '/** Download one local Whisper model through the installed library. */'
+          },
+          {
+            kind: 'method',
             name: 'transcribe',
             signature: 'transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string>',
             summary: 'Transcribe one recorded audio payload through the selected ASR backend.',
@@ -230,6 +273,10 @@ export const TYPERT = {
           {
             name: 'ReasoningEffortsView',
             declaration: 'export interface ReasoningEffortsView { efforts: ReasoningEffortInfo[]; defaultEffort?: string }'
+          },
+          {
+            name: 'WhisperModelState',
+            declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null }'
           }
         ]
       }

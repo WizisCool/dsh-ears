@@ -59,6 +59,15 @@ export const reasoningEffortsViewSchema = z.object({
   efforts: z.array(reasoningEffortInfoSchema),
   defaultEffort: z.string().optional()
 })
+export const whisperModelStateSchema = z.object({
+  cliAvailable: z.boolean(),
+  downloaded: z.boolean(),
+  downloading: z.boolean(),
+  progress: z.number().nullable(),
+  bytes: z.number().nullable(),
+  totalBytes: z.number().nullable(),
+  error: z.string().nullable()
+})
 export const asrBackendInfoSchema = z.object({
   id: asrBackendSchema,
   name: z.string(),
@@ -80,3 +89,4 @@ export type EarsSettingsView = {
 export type { PolishRoute }
 export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
+export type { WhisperModelState } from './asr/whisper-models.js'

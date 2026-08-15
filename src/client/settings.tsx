@@ -3,22 +3,22 @@ import type { ChangeEvent, ReactNode } from 'react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
+import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './SettingsSection.module.css'
 
 export const LOCALE_NAMESPACE = 'settings.dshEars'
 
 export const localeZh = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。', backendHintCloudOpenai: '停止录音后通过你配置的 HTTP(S) 端点转录。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请重启 dsh web 后刷新此页面。', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
+  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。', backendHintCloudOpenai: '停止录音后通过你配置的 HTTP(S) 端点转录。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', whisperDownloaded: '模型已下载', whisperNotDownloaded: '模型未下载，首次使用时会自动下载。', whisperDownloading: '下载中', download: '下载', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请重启 dsh web 后刷新此页面。', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
 } as const
 
 export const localeEn = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation.', backendHintCloudOpenai: 'Transcribed through your configured HTTP(S) endpoint after recording stops.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Restart dsh web and refresh this page.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
+  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation.', backendHintCloudOpenai: 'Transcribed through your configured HTTP(S) endpoint after recording stops.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', whisperDownloaded: 'Model downloaded', whisperNotDownloaded: 'Not downloaded; the first use downloads it automatically.', whisperDownloading: 'Downloading', download: 'Download', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Restart dsh web and refresh this page.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
 } as const
 
 type LocaleKey = keyof typeof localeEn
@@ -56,19 +56,33 @@ export interface EarsCardState {
 export interface RouteState { status: 'loading' | 'ready'; routes: readonly PolishRoute[] }
 export interface BackendState { status: 'loading' | 'ready'; backends: readonly AsrBackendInfo[] }
 export interface ReasoningEffortsState { status: 'loading' | 'ready'; efforts: readonly ReasoningEffortInfo[]; defaultEffort?: string }
+export interface WhisperModelView { status: 'loading' | 'ready'; state: WhisperModelState }
 export type EarsSettingsHook = SnapshotSelectorHook<EarsSettings>
 export type EarsCardHook = SnapshotSelectorHook<EarsCardState>
 export type RouteHook = SnapshotSelectorHook<RouteState>
 export type BackendHook = SnapshotSelectorHook<BackendState>
 export type ReasoningEffortsHook = SnapshotSelectorHook<ReasoningEffortsState>
+export type WhisperModelHook = SnapshotSelectorHook<WhisperModelView>
+
+const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
+  cliAvailable: false,
+  downloaded: false,
+  downloading: false,
+  progress: null,
+  bytes: null,
+  totalBytes: null,
+  error: null
+})
 
 interface EarsSettingsSectionProps {
   readonly useEarsCard: EarsCardHook
   readonly useEarsRoutes: RouteHook
   readonly useEarsBackends: BackendHook
   readonly useEarsReasoning: ReasoningEffortsHook
+  readonly useEarsWhisper: WhisperModelHook
   readonly earsT: Translate
   readonly edit: (field: FieldName, text: string) => void
+  readonly downloadModel: () => void
 }
 
 const AUTO_SAVE_DELAY_MS = 400
@@ -80,16 +94,19 @@ export class EarsSettingsController {
   private readonly routeStore: SnapshotStore<RouteState>
   private readonly backendStore: SnapshotStore<BackendState>
   private readonly reasoningStore: SnapshotStore<ReasoningEffortsState>
+  private readonly whisperStore: SnapshotStore<WhisperModelView>
   private readonly drafts = new Map<FieldName, string>()
   private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
+  private whisperView: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE }
   private saving = false
   private loaded = false
   private failed = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
   private saveTimer: ReturnType<typeof setTimeout> | undefined
+  private whisperPollTimer: ReturnType<typeof setInterval> | undefined
 
   constructor(remote: EarsRemote) {
     this.remote = remote
@@ -98,6 +115,7 @@ export class EarsSettingsController {
     this.routeStore = createSnapshotStore(this.routeState)
     this.backendStore = createSnapshotStore(this.backendState)
     this.reasoningStore = createSnapshotStore(this.reasoningState)
+    this.whisperStore = createSnapshotStore(this.whisperView)
   }
 
   getSettingsStore(): SnapshotStore<EarsSettings> { return this.settingsStore }
@@ -105,10 +123,12 @@ export class EarsSettingsController {
   getRouteStore(): SnapshotStore<RouteState> { return this.routeStore }
   getBackendStore(): SnapshotStore<BackendState> { return this.backendStore }
   getReasoningStore(): SnapshotStore<ReasoningEffortsState> { return this.reasoningStore }
+  getWhisperStore(): SnapshotStore<WhisperModelView> { return this.whisperStore }
 
   actions() {
     return {
-      edit: (field: FieldName, text: string) => this.edit(field, text)
+      edit: (field: FieldName, text: string) => this.edit(field, text),
+      downloadModel: () => void this.downloadModel()
     }
   }
 
@@ -117,6 +137,7 @@ export class EarsSettingsController {
     this.saveTimer = undefined
     if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
     this.retryTimer = undefined
+    this.stopWhisperPolling()
   }
 
   async refreshSettings(): Promise<void> {
@@ -128,6 +149,7 @@ export class EarsSettingsController {
         this.loaded = true
         this.publishCard()
         void this.refreshReasoningEfforts()
+        void this.refreshWhisperState()
         return
       }
     } catch {
@@ -186,6 +208,50 @@ export class EarsSettingsController {
     this.reasoningStore.set(this.reasoningState)
   }
 
+  async refreshWhisperState(): Promise<void> {
+    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+    try {
+      const result = await this.remote.getWhisperModelState(model)
+      this.whisperView = { status: 'ready', state: result.ok ? result.value : { ...EMPTY_WHISPER_STATE } }
+    } catch {
+      this.whisperView = { status: 'ready', state: { ...EMPTY_WHISPER_STATE, error: 'Whisper model state query failed' } }
+    }
+    this.whisperStore.set(this.whisperView)
+    if (this.whisperView.state.downloading) {
+      this.startWhisperPolling()
+    } else {
+      this.stopWhisperPolling()
+    }
+  }
+
+  private async downloadModel(): Promise<void> {
+    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+    try {
+      const result = await this.remote.downloadWhisperModel(model)
+      if (result.ok) {
+        this.whisperView = { status: 'ready', state: result.value }
+        this.whisperStore.set(this.whisperView)
+        if (result.value.downloading) this.startWhisperPolling()
+      }
+    } catch {
+      this.whisperView = { status: 'ready', state: { ...EMPTY_WHISPER_STATE, error: 'Whisper model download failed' } }
+      this.whisperStore.set(this.whisperView)
+    }
+  }
+
+  private startWhisperPolling(): void {
+    if (this.whisperPollTimer !== undefined) return
+    this.whisperPollTimer = setInterval(() => {
+      void this.refreshWhisperState()
+    }, 800)
+  }
+
+  private stopWhisperPolling(): void {
+    if (this.whisperPollTimer === undefined) return
+    clearInterval(this.whisperPollTimer)
+    this.whisperPollTimer = undefined
+  }
+
   private edit(field: FieldName, text: string): void {
     if (field === 'polishProvider') {
       this.drafts.set('polishModel', '')
@@ -196,6 +262,7 @@ export class EarsSettingsController {
     this.publishCard()
     this.scheduleSave()
     if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
+    if (field === 'localWhisperModel' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
   }
 
   private scheduleSave(): void {
@@ -293,6 +360,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const routes = props.useEarsRoutes((snapshot) => snapshot)
   const backends = props.useEarsBackends((snapshot) => snapshot)
   const reasoning = props.useEarsReasoning((snapshot) => snapshot)
+  const whisper = props.useEarsWhisper((snapshot) => snapshot)
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [activeTab, setActiveTab] = useState<'recognition' | 'polishing'>('recognition')
@@ -345,7 +413,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, t)} value={state.asrBackend.text} options={backendOptions} disabled={!state.writable} invalid={state.asrBackend.invalid} onChange={(value) => props.edit('asrBackend', value)} />
           {selectedBackend && !selectedBackend.available ? <p className={styles.statusError}>{t('backendUnavailable')}{backendUnavailableDetail(selectedBackend, t)}</p> : null}
-          {state.asrBackend.text === 'local-whisper' ? <SelectRow label={t('localModel')} hint={t('localModelHint')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} onChange={(value) => props.edit('localWhisperModel', value)} /> : null}
+          {state.asrBackend.text === 'local-whisper' ? <>
+            <SelectRow label={t('localModel')} hint={t('localModelHint')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} onChange={(value) => props.edit('localWhisperModel', value)} />
+            {whisper.status === 'ready' ? <WhisperModelStatus state={whisper.state} t={t} writable={state.writable} onDownload={props.downloadModel} /> : null}
+          </> : null}
           {state.asrBackend.text === 'cloud-openai' ? <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
@@ -420,6 +491,30 @@ function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: {
     <RowField label={label} hint={hint} invalid={invalid}>
       <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-invalid={invalid} onChange={onChange} />
     </RowField>
+  )
+}
+
+function WhisperModelStatus({ state: modelState, t, writable, onDownload }: { state: WhisperModelState; t: Translate; writable: boolean; onDownload: () => void }) {
+  if (modelState.error !== null) {
+    return <p className={styles.modelStatus} data-kind="error" role="alert">{modelState.error}</p>
+  }
+  if (modelState.downloading) {
+    const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
+    return (
+      <div className={styles.modelStatus}>
+        <span className={styles.modelStatusText}>{t('whisperDownloading')}{percent === null ? '' : ` ${String(percent)}%`}</span>
+        {percent === null ? null : <span className={styles.progressTrack}><span className={styles.progressFill} style={{ width: `${percent}%` }} /></span>}
+      </div>
+    )
+  }
+  if (modelState.downloaded) {
+    return <p className={styles.modelStatus} data-kind="success">{t('whisperDownloaded')}</p>
+  }
+  return (
+    <div className={styles.modelStatus}>
+      <span className={styles.modelStatusText}>{t('whisperNotDownloaded')}</span>
+      <Button className={styles.modelDownloadButton} variant="outline" size="sm" disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('download')}</Button>
+    </div>
   )
 }
 
