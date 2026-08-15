@@ -84,7 +84,7 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
     // The raw transcript is already in the draft. A failed optional polish must not remove it.
   } finally {
     if (options.polishAbortRef.current === controller) options.polishAbortRef.current = null
-    options.setState('idle')
+    if (!controller.signal.aborted) options.setState('idle')
   }
 }
 

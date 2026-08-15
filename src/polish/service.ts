@@ -195,6 +195,7 @@ export class PolishService extends TypertRemoteService {
     const raw = transcript.trim()
     if (raw === '' || provider.trim() === '' || model.trim() === '') return raw
     if (raw.length > MAX_TRANSCRIPT_CHARACTERS) return raw
+    if (signal.aborted) return raw
 
     const timeout = new AbortController()
     const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)

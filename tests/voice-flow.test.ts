@@ -59,6 +59,41 @@ describe('voice draft flow', () => {
     expect(latestDraftRef.current).toBe('manual edit')
   })
 
+  it('does not publish an idle state after polishing is aborted', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    let signal: AbortSignal | undefined
+    const polish = vi.fn((_transcript: string, _provider: string, _model: string, _reasoningEffort: string, nextSignal: AbortSignal) => {
+      signal = nextSignal
+      return new Promise<{ ok: false }>((_resolve, reject) => {
+        nextSignal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+      })
+    })
+    const remote = { polish } as never
+    const polishAbortRef = { current: null as AbortController | null }
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef
+    })
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    polishAbortRef.current?.abort()
+    await vi.waitFor(() => expect(polish).toHaveBeenCalledTimes(1))
+    await Promise.resolve()
+
+    expect(setState).toHaveBeenCalledWith('polishing')
+    expect(setState).not.toHaveBeenLastCalledWith('idle')
+  })
+
   it('keeps draft spacing predictable', () => {
     expect(appendToDraft('', 'hello')).toBe('hello')
     expect(appendToDraft('hello', 'world')).toBe('hello world')
