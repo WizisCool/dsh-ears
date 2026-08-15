@@ -170,6 +170,59 @@ describe('EarsSettingsController settings lifecycle', () => {
     expect(controller.getReasoningStore().getSnapshot().efforts[0]?.id).toBe('p2-effort')
     controller.dispose()
   })
+
+  it('holds an incomplete polishing enable until the route is complete', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(true) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('polishingEnabled', 'on')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().invalid).toBe(true)
+
+      controller.actions().edit('polishProvider', 'provider')
+      controller.actions().edit('polishModel', 'model')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).toHaveBeenCalledWith({
+        polishingEnabled: true,
+        polishProvider: 'provider',
+        polishModel: 'model',
+        polishReasoningEffort: ''
+      })
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('holds a cloud backend switch until its required endpoint is valid', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('asrBackend', 'cloud-openai')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
+
+      controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).toHaveBeenCalledWith({
+        asrBackend: 'cloud-openai',
+        cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions'
+      })
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
 })
 
 function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
@@ -197,6 +250,15 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
 
 function whisperState(bytes: number): WhisperModelState {
   return { ...INITIAL_WHISPER_STATE, bytes, totalBytes: bytes }
+}
+
+function settingsView(polishingEnabled: boolean): EarsSettingsView {
+  return {
+    available: true,
+    writable: true,
+    settings: { ...DEFAULT_EARS_SETTINGS, polishingEnabled },
+    overridden: []
+  }
 }
 
 function deferred<T>() {

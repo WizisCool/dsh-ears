@@ -361,12 +361,19 @@ export class EarsSettingsController {
     const modelText = this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel
     const polishingEnabledText = this.drafts.get('polishingEnabled') ?? (this.settingsView.settings.polishingEnabled ? 'on' : 'off')
     const routeInvalid = polishingEnabledText === 'on' && (providerText.trim() === '' || modelText.trim() === '')
+    const asrBackendText = this.drafts.get('asrBackend') ?? this.settingsView.settings.asrBackend
+    const cloudEndpointText = this.drafts.get('cloudAsrEndpoint') ?? this.settingsView.settings.cloudAsrEndpoint
+    const cloudModelText = this.drafts.get('cloudAsrModel') ?? this.settingsView.settings.cloudAsrModel
+    const cloudCredentialText = this.drafts.get('cloudAsrCredentialRef') ?? this.settingsView.settings.cloudAsrCredentialRef
+    const cloudConfigInvalid = isCloudConfigurationInvalid(asrBackendText, cloudEndpointText, cloudModelText, cloudCredentialText)
     const patch: EarsSettingsPatch = {}
     const submittedDrafts = new Map<FieldName, string>()
     for (const [field, text] of this.drafts) {
-      if (field === 'polishProvider' || field === 'polishModel') {
-        if (routeInvalid) continue
-      } else if (isInvalid(field, text)) {
+      if (routeInvalid && (field === 'polishingEnabled' || field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort')) {
+        continue
+      }
+      if (field === 'asrBackend' && cloudConfigInvalid) continue
+      if (isInvalidForSave(field, text, asrBackendText)) {
         continue
       }
       const value = parseField(field, text)
@@ -416,7 +423,9 @@ export class EarsSettingsController {
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
     const routeInvalid = polishingEnabled.text === 'on' && (polishProvider.text.trim() === '' || polishModel.text.trim() === '')
-    const cloudConfigInvalid = asrBackend.text === 'cloud-openai' && (cloudAsrEndpoint.text.trim() === '' || cloudAsrEndpoint.invalid || cloudAsrModel.text.trim() === '' || cloudAsrCredentialRef.invalid)
+    const cloudConfigInvalid = isCloudConfigurationInvalid(asrBackend.text, cloudAsrEndpoint.text, cloudAsrModel.text, cloudAsrCredentialRef.text)
+    const cloudEndpointRequired = asrBackend.text === 'cloud-openai' && cloudAsrEndpoint.text.trim() === ''
+    const cloudModelRequired = asrBackend.text === 'cloud-openai' && cloudAsrModel.text.trim() === ''
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -426,9 +435,9 @@ export class EarsSettingsController {
       invalid: asrBackend.invalid || localWhisperModel.invalid || cloudConfigInvalid || language.invalid || maxRecordingSeconds.invalid || polishingEnabled.invalid || polishProvider.invalid || polishModel.invalid || polishReasoningEffort.invalid || routeInvalid,
       asrBackend,
       localWhisperModel,
-      cloudAsrEndpoint: { ...cloudAsrEndpoint, invalid: cloudAsrEndpoint.invalid || cloudConfigInvalid },
-      cloudAsrModel: { ...cloudAsrModel, invalid: cloudAsrModel.invalid || cloudConfigInvalid },
-      cloudAsrCredentialRef: { ...cloudAsrCredentialRef, invalid: cloudAsrCredentialRef.invalid || cloudConfigInvalid },
+      cloudAsrEndpoint: { ...cloudAsrEndpoint, invalid: cloudAsrEndpoint.invalid || cloudEndpointRequired },
+      cloudAsrModel: { ...cloudAsrModel, invalid: cloudAsrModel.invalid || cloudModelRequired },
+      cloudAsrCredentialRef,
       language,
       maxRecordingSeconds,
       polishingEnabled,
@@ -459,4 +468,15 @@ function isInvalid(field: FieldName, text: string): boolean {
   if (field === 'polishingEnabled') return text !== 'on' && text !== 'off'
   const value = Number(text)
   return !isValidRecordingLimit(value)
+}
+
+function isInvalidForSave(field: FieldName, text: string, asrBackend: string): boolean {
+  if (isInvalid(field, text)) return true
+  if (asrBackend !== 'cloud-openai') return false
+  return (field === 'cloudAsrEndpoint' || field === 'cloudAsrModel') && text.trim() === ''
+}
+
+function isCloudConfigurationInvalid(asrBackend: string, endpoint: string, model: string, credentialRef: string): boolean {
+  if (asrBackend !== 'cloud-openai') return false
+  return !isHttpEndpoint(endpoint) || model.trim() === '' || (credentialRef.trim() !== '' && !isCredentialReference(credentialRef))
 }
