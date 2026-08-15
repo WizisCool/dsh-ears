@@ -74,6 +74,21 @@ const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
   error: null
 })
 
+function whisperFailureMessage(message: string, fallback: string): string {
+  const text = message.trim()
+  return text === '' ? fallback : text
+}
+
+function whisperErrorView(view: WhisperModelView, message: string, fallback: string): WhisperModelView {
+  return {
+    status: 'ready',
+    state: {
+      ...view.state,
+      error: whisperFailureMessage(message, fallback)
+    }
+  }
+}
+
 interface EarsSettingsSectionProps {
   readonly useEarsCard: EarsCardHook
   readonly useEarsRoutes: RouteHook
@@ -216,9 +231,11 @@ export class EarsSettingsController {
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.getWhisperModelState(model)
-      this.whisperView = { status: 'ready', state: result.ok ? result.value : { ...EMPTY_WHISPER_STATE } }
+      this.whisperView = result.ok
+        ? { status: 'ready', state: result.value }
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state.')
     } catch {
-      this.whisperView = { status: 'ready', state: { ...EMPTY_WHISPER_STATE, error: 'Whisper model state query failed' } }
+      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model state query failed')
     }
     this.whisperStore.set(this.whisperView)
     if (this.whisperView.state.downloading) {
@@ -232,13 +249,13 @@ export class EarsSettingsController {
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.downloadWhisperModel(model)
-      if (result.ok) {
-        this.whisperView = { status: 'ready', state: result.value }
-        this.whisperStore.set(this.whisperView)
-        if (result.value.downloading) this.startWhisperPolling()
-      }
+      this.whisperView = result.ok
+        ? { status: 'ready', state: result.value }
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download.')
+      this.whisperStore.set(this.whisperView)
+      if (result.ok && result.value.downloading) this.startWhisperPolling()
     } catch {
-      this.whisperView = { status: 'ready', state: { ...EMPTY_WHISPER_STATE, error: 'Whisper model download failed' } }
+      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model download failed')
       this.whisperStore.set(this.whisperView)
     }
   }
@@ -247,13 +264,14 @@ export class EarsSettingsController {
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.cancelWhisperModelDownload(model)
-      if (result.ok) {
-        this.whisperView = { status: 'ready', state: result.value }
-        this.whisperStore.set(this.whisperView)
-        this.stopWhisperPolling()
-      }
+      this.whisperView = result.ok
+        ? { status: 'ready', state: result.value }
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download.')
+      this.whisperStore.set(this.whisperView)
+      if (result.ok) this.stopWhisperPolling()
     } catch {
-      // Keep the current view; the next poll settles it.
+      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model cancellation failed')
+      this.whisperStore.set(this.whisperView)
     }
   }
 
@@ -261,13 +279,13 @@ export class EarsSettingsController {
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.deleteWhisperModel(model)
-      if (result.ok) {
-        this.whisperView = { status: 'ready', state: result.value }
-        this.whisperStore.set(this.whisperView)
-        this.stopWhisperPolling()
-      }
+      this.whisperView = result.ok
+        ? { status: 'ready', state: result.value }
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model.')
+      this.whisperStore.set(this.whisperView)
+      if (result.ok) this.stopWhisperPolling()
     } catch {
-      this.whisperView = { status: 'ready', state: { ...EMPTY_WHISPER_STATE, error: 'Whisper model deletion failed' } }
+      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model deletion failed')
       this.whisperStore.set(this.whisperView)
     }
   }
