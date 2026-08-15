@@ -124,6 +124,14 @@ export class EarsSettingsController {
   private retryTimer: ReturnType<typeof setTimeout> | undefined
   private saveTimer: ReturnType<typeof setTimeout> | undefined
   private whisperPollTimer: ReturnType<typeof setInterval> | undefined
+  private disposed = false
+  private settingsRequest = 0
+  private routeRequest = 0
+  private backendRequest = 0
+  private reasoningRequest = 0
+  private whisperRequest = 0
+  private whisperRefreshInFlight = false
+  private whisperRefreshQueued = false
 
   constructor(remote: EarsRemote) {
     this.remote = remote
@@ -152,6 +160,13 @@ export class EarsSettingsController {
   }
 
   dispose(): void {
+    this.disposed = true
+    this.settingsRequest += 1
+    this.routeRequest += 1
+    this.backendRequest += 1
+    this.reasoningRequest += 1
+    this.whisperRequest += 1
+    this.whisperRefreshQueued = false
     if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
     this.saveTimer = undefined
     if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
@@ -160,12 +175,17 @@ export class EarsSettingsController {
   }
 
   async refreshSettings(): Promise<void> {
+    if (this.disposed) return
+    const request = ++this.settingsRequest
     try {
       const result = await this.remote.getSettings()
+      if (this.disposed || request !== this.settingsRequest) return
       if (result.ok) {
         this.settingsView = result.value
         this.settingsStore.set(result.value.settings)
         this.loaded = true
+        if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
+        this.retryTimer = undefined
         this.publishCard()
         void this.refreshReasoningEfforts()
         void this.refreshWhisperState()
@@ -174,6 +194,7 @@ export class EarsSettingsController {
     } catch {
       // Fall through to the not-loaded retry path.
     }
+    if (this.disposed || request !== this.settingsRequest) return
     this.publishCard()
     void this.refreshReasoningEfforts()
     if (!this.loaded && this.retryTimer === undefined) {
@@ -185,6 +206,8 @@ export class EarsSettingsController {
   }
 
   async refreshRoutes(): Promise<void> {
+    if (this.disposed) return
+    const request = ++this.routeRequest
     this.routeState = { status: 'loading', routes: [] }
     this.routeStore.set(this.routeState)
     try {
@@ -193,10 +216,13 @@ export class EarsSettingsController {
     } catch {
       this.routeState = { status: 'ready', routes: [] }
     }
+    if (this.disposed || request !== this.routeRequest) return
     this.routeStore.set(this.routeState)
   }
 
   async refreshBackends(): Promise<void> {
+    if (this.disposed) return
+    const request = ++this.backendRequest
     this.backendState = { status: 'loading', backends: [] }
     this.backendStore.set(this.backendState)
     try {
@@ -205,15 +231,19 @@ export class EarsSettingsController {
     } catch {
       this.backendState = { status: 'ready', backends: [] }
     }
+    if (this.disposed || request !== this.backendRequest) return
     this.backendStore.set(this.backendState)
   }
 
   async refreshReasoningEfforts(): Promise<void> {
+    if (this.disposed) return
+    const request = ++this.reasoningRequest
     this.reasoningState = { status: 'loading', efforts: [] }
     this.reasoningStore.set(this.reasoningState)
     const provider = (this.drafts.get('polishProvider') ?? this.settingsView.settings.polishProvider).trim()
     const model = (this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel).trim()
     if (provider === '' || model === '') {
+      if (this.disposed || request !== this.reasoningRequest) return
       this.reasoningState = { status: 'ready', efforts: [] }
       this.reasoningStore.set(this.reasoningState)
       return
@@ -224,67 +254,98 @@ export class EarsSettingsController {
     } catch {
       this.reasoningState = { status: 'ready', efforts: [] }
     }
+    if (this.disposed || request !== this.reasoningRequest) return
     this.reasoningStore.set(this.reasoningState)
   }
 
   async refreshWhisperState(): Promise<void> {
-    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
-    try {
-      const result = await this.remote.getWhisperModelState(model)
-      this.whisperView = result.ok
-        ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state.')
-    } catch {
-      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model state query failed')
+    if (this.disposed) return
+    this.whisperRequest += 1
+    if (this.whisperRefreshInFlight) {
+      this.whisperRefreshQueued = true
+      return
     }
-    this.whisperStore.set(this.whisperView)
-    if (this.whisperView.state.downloading) {
-      this.startWhisperPolling()
-    } else {
-      this.stopWhisperPolling()
+
+    this.whisperRefreshInFlight = true
+    try {
+      while (!this.disposed) {
+        this.whisperRefreshQueued = false
+        const request = this.whisperRequest
+        const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+        let nextView: WhisperModelView
+        try {
+          const result = await this.remote.getWhisperModelState(model)
+          nextView = result.ok
+            ? { status: 'ready', state: result.value }
+            : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state.')
+        } catch {
+          nextView = whisperErrorView(this.whisperView, '', 'Whisper model state query failed')
+        }
+        if (!this.disposed && request === this.whisperRequest) {
+          this.whisperView = nextView
+          this.whisperStore.set(this.whisperView)
+          if (this.whisperView.state.downloading) {
+            this.startWhisperPolling()
+          } else {
+            this.stopWhisperPolling()
+          }
+        }
+        if (!this.whisperRefreshQueued) break
+      }
+    } finally {
+      this.whisperRefreshInFlight = false
     }
   }
 
   private async downloadModel(): Promise<void> {
+    if (this.disposed) return
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.downloadWhisperModel(model)
+      if (this.disposed) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download.')
       this.whisperStore.set(this.whisperView)
       if (result.ok && result.value.downloading) this.startWhisperPolling()
     } catch {
+      if (this.disposed) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model download failed')
       this.whisperStore.set(this.whisperView)
     }
   }
 
   private async cancelModel(): Promise<void> {
+    if (this.disposed) return
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.cancelWhisperModelDownload(model)
+      if (this.disposed) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download.')
       this.whisperStore.set(this.whisperView)
       if (result.ok) this.stopWhisperPolling()
     } catch {
+      if (this.disposed) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model cancellation failed')
       this.whisperStore.set(this.whisperView)
     }
   }
 
   private async deleteModel(): Promise<void> {
+    if (this.disposed) return
     const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
     try {
       const result = await this.remote.deleteWhisperModel(model)
+      if (this.disposed) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model.')
       this.whisperStore.set(this.whisperView)
       if (result.ok) this.stopWhisperPolling()
     } catch {
+      if (this.disposed) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model deletion failed')
       this.whisperStore.set(this.whisperView)
     }
@@ -304,8 +365,11 @@ export class EarsSettingsController {
   }
 
   private edit(field: FieldName, text: string): void {
+    if (this.disposed) return
     if (field === 'polishProvider') {
       this.drafts.set('polishModel', '')
+      this.drafts.set('polishReasoningEffort', '')
+    } else if (field === 'polishModel') {
       this.drafts.set('polishReasoningEffort', '')
     }
     this.drafts.set(field, text)
@@ -325,12 +389,13 @@ export class EarsSettingsController {
   }
 
   private async save(): Promise<void> {
-    if (this.saving || !this.settingsView.writable) return
+    if (this.disposed || this.saving || !this.settingsView.writable) return
     const providerText = this.drafts.get('polishProvider') ?? this.settingsView.settings.polishProvider
     const modelText = this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel
     const polishingEnabledText = this.drafts.get('polishingEnabled') ?? (this.settingsView.settings.polishingEnabled ? 'on' : 'off')
     const routeInvalid = polishingEnabledText === 'on' && (providerText.trim() === '' || modelText.trim() === '')
     const patch: EarsSettingsPatch = {}
+    const submittedDrafts = new Map<FieldName, string>()
     for (const [field, text] of this.drafts) {
       if (field === 'polishProvider' || field === 'polishModel') {
         if (routeInvalid) continue
@@ -338,7 +403,10 @@ export class EarsSettingsController {
         continue
       }
       const value = parseField(field, text)
-      if (value !== undefined) (patch as Record<string, unknown>)[field] = value
+      if (value !== undefined) {
+        (patch as Record<string, unknown>)[field] = value
+        submittedDrafts.set(field, text)
+      }
     }
     if (Object.keys(patch).length === 0) return
     this.saving = true
@@ -347,14 +415,18 @@ export class EarsSettingsController {
     try {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
+      if (this.disposed) return
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
-      for (const field of Object.keys(patch)) this.drafts.delete(field as FieldName)
+      for (const [field, text] of submittedDrafts) {
+        if (this.drafts.get(field) === text) this.drafts.delete(field)
+      }
       void this.refreshBackends()
     } catch {
-      this.failed = true
+      if (!this.disposed) this.failed = true
     } finally {
       this.saving = false
+      if (this.disposed) return
       this.publishCard()
       if (this.drafts.size > 0 && !this.failed) this.scheduleSave()
     }
@@ -524,7 +596,7 @@ function SelectRow({ label, hint, value, options, placeholder, disabled, invalid
         align="end"
         portal
         anchor={
-          <button type="button" className={styles.selector} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
+          <button type="button" className={styles.selector} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
             {labelText}
             <IconChevronDownOutline14 className={styles.chevron} />
           </button>
@@ -537,7 +609,7 @@ function SelectRow({ label, hint, value, options, placeholder, disabled, invalid
 function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; numeric?: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void }) {
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
-      <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-invalid={invalid} onChange={onChange} />
+      <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-label={label} aria-invalid={invalid} onChange={onChange} />
     </RowField>
   )
 }
@@ -568,7 +640,7 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
         align="end"
         portal
         anchor={
-          <button type="button" className={styles.selector} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
+            <button type="button" className={styles.selector} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
             {labelText}
             <IconChevronDownOutline14 className={styles.chevron} />
           </button>

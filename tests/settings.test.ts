@@ -39,6 +39,8 @@ const INITIAL_WHISPER_STATE: WhisperModelState = {
   error: null
 }
 
+type EffortsResult = RemoteResult<{ efforts: Array<{ id: string; name: string }> }>
+
 describe('EarsSettingsController Whisper state', () => {
   it('surfaces a RemoteResult failure without discarding the last known state', async () => {
     const getWhisperModelState = vi.fn<() => Promise<RemoteResult<WhisperModelState>>>()
@@ -53,6 +55,103 @@ describe('EarsSettingsController Whisper state', () => {
       status: 'ready',
       state: { ...INITIAL_WHISPER_STATE, error: 'Whisper service unavailable' }
     })
+    controller.dispose()
+  })
+
+  it('ignores an older Whisper response after the selected model changes', async () => {
+    const base = deferred<RemoteResult<WhisperModelState>>()
+    const small = deferred<RemoteResult<WhisperModelState>>()
+    const getWhisperModelState = vi.fn((model: string) => model === 'base' ? base.promise : small.promise)
+    const controller = new EarsSettingsController(createRemote({ getWhisperModelState }))
+
+    controller.actions().edit('localWhisperModel', 'base')
+    controller.actions().edit('localWhisperModel', 'small')
+    await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+
+    base.resolve({ ok: true, value: whisperState(1) })
+    await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(2))
+    small.resolve({ ok: true, value: whisperState(2) })
+    await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(2))
+
+    expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(2)
+    controller.dispose()
+  })
+})
+
+describe('EarsSettingsController settings lifecycle', () => {
+  it('clears the reasoning effort when the selected model changes', () => {
+    const controller = new EarsSettingsController(createRemote())
+    controller.actions().edit('polishReasoningEffort', 'high')
+    controller.actions().edit('polishModel', 'new-model')
+
+    expect(controller.getCardStore().getSnapshot().polishReasoningEffort.text).toBe('')
+    controller.dispose()
+  })
+
+  it('keeps a draft edited while its save request is in flight', async () => {
+    vi.useFakeTimers()
+    const update = deferred<RemoteResult<EarsSettingsView>>()
+    const savedView: EarsSettingsView = {
+      available: true,
+      writable: true,
+      settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
+      overridden: []
+    }
+    const updateSettings = vi.fn(() => update.promise)
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('language', 'en-US')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      controller.actions().edit('language', 'ja-JP')
+      update.resolve({ ok: true, value: savedView })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP'))
+
+      expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP')
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not schedule a retry after the controller is disposed', async () => {
+    vi.useFakeTimers()
+    const pending = deferred<RemoteResult<EarsSettingsView>>()
+    const getSettings = vi.fn(() => pending.promise)
+    const controller = new EarsSettingsController(createRemote({ getSettings }))
+    try {
+      const refresh = controller.refreshSettings()
+      controller.dispose()
+      pending.resolve({ ok: false, error: { code: 'HOST_FAILURE', message: 'unavailable', details: {} } })
+      await refresh
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(getSettings).toHaveBeenCalledTimes(1)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not let an older reasoning-effort response replace a newer route', async () => {
+    const first = deferred<EffortsResult>()
+    const second = deferred<EffortsResult>()
+    const listReasoningEfforts = vi.fn((provider: string) => provider === 'p1' ? first.promise : second.promise)
+    const controller = new EarsSettingsController(createRemote({ listReasoningEfforts }))
+
+    controller.actions().edit('polishProvider', 'p1')
+    controller.actions().edit('polishModel', 'm1')
+    controller.actions().edit('polishProvider', 'p2')
+    controller.actions().edit('polishModel', 'm2')
+    await vi.waitFor(() => expect(listReasoningEfforts).toHaveBeenCalledTimes(2))
+
+    second.resolve({ ok: true, value: { efforts: [{ id: 'p2-effort', name: 'P2' }] } })
+    await vi.waitFor(() => expect(controller.getReasoningStore().getSnapshot().efforts[0]?.id).toBe('p2-effort'))
+    first.resolve({ ok: true, value: { efforts: [{ id: 'p1-effort', name: 'P1' }] } })
+    await Promise.resolve()
+
+    expect(controller.getReasoningStore().getSnapshot().efforts[0]?.id).toBe('p2-effort')
     controller.dispose()
   })
 })
@@ -78,4 +177,14 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     polish: async () => ({ ok: true, value: '' }),
     ...overrides
   } as EarsRemote
+}
+
+function whisperState(bytes: number): WhisperModelState {
+  return { ...INITIAL_WHISPER_STATE, bytes, totalBytes: bytes }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((nextResolve) => { resolve = nextResolve })
+  return { promise, resolve }
 }
