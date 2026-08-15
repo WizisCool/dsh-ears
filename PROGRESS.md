@@ -13,9 +13,9 @@ Status: local release-readiness checkpoint complete; no remote push or npm publi
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 28 tests across 7 files.
+- `pnpm test` passed: 29 tests across 7 files.
 - `pnpm build` passed.
-- `pnpm pack --dry-run` passed in the earlier package audit; rerun before any release.
+- `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.
 - Local Whisper produced a transcript from generated audio and the same result was returned through a real dsh Host RPC.
 - Light/dark composer layout and dsh token behavior were measured in the local Web surface.

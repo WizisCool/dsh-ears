@@ -6,7 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, and M5 final ASR backends/hardening complete; M6 release readiness is in progress.
 - Target: dsh `0.1.0-rc.6`.
-- Latest commit: `331ea73 fix(asr): bound browser recording buffers`.
+- Latest implementation commit: `b6467e8 refactor(client): isolate Host settings schema`.
+- Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
 - Remote operations: no push or publish has been performed.
 - Repository language: English-first for source, docs, context, comments, and commits.
@@ -30,9 +31,9 @@
 Commands currently passing:
 
 - `pnpm check`
-- `pnpm test` — 28 tests across 7 files
+- `pnpm test` — 29 tests across 7 files
 - `pnpm build`
-- `pnpm pack --dry-run` — previously passed; rerun during final release audit
+- `pnpm pack --dry-run` — passed; tarball contents reviewed
 - `git diff --check`
 
 Real dsh verification already completed:
@@ -55,10 +56,8 @@ Real dsh verification already completed:
 
 ## Remaining release work
 
-1. Synchronize all public and agent documentation with the implemented M5 state.
-2. Add/update changelog and a concise root `PROGRESS.md`.
-3. Rerun package tarball, profile composition, security/secret scans, dependency audit where available, and a fresh browser smoke pass.
-4. Review the compatibility and license decision before any future public release. Do not add a legal license automatically.
+1. Keep the compatibility matrix current when dsh releases change.
+2. Review the compatibility and license decision before any future public release. Do not add a legal license automatically.
 
 ## Blockers
 

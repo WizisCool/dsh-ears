@@ -81,7 +81,8 @@ dsh-ears/
 │   ├── polish/
 │   │   ├── service.ts        # Host-side ASR/settings/polish orchestration
 │   │   └── prompts.ts        # Product prompt text
-│   ├── config.ts             # Runtime settings; no credentials
+│   ├── config.ts             # Shared constants, types, and validation
+│   ├── config-schema.ts      # Host-only schemastery settings schema
 │   └── remote-contract.ts     # Strict Host/Client wire schemas
 └── tests/
 ```
@@ -207,7 +208,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 ### M3/M4 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 28 tests across 7 files.
+- `pnpm test`: passed; 29 tests across 7 files.
 - `pnpm build`: passed; Host RPC, Client bundle, CSS modules, and declarations generated.
 - Fresh dsh Web boot on a temporary port: passed; the microphone and native settings card loaded.
 - Native `Plugins → 插件配置`: passed; the `语音输入` card appeared and loaded dsh provider routes.
@@ -228,7 +229,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 ### M5 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 28 tests across 7 files.
+- `pnpm test`: passed; 29 tests across 7 files.
 - `pnpm build`: passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
 - Local Whisper smoke: passed with a generated AIFF file and the installed `whisper --model tiny` command.
 - dsh Host RPC smoke: passed with a real `dshEars/transcribe` request and transcript response.

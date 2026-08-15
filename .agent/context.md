@@ -67,7 +67,7 @@ The Host sends multipart form data containing `file`, `model`, and optional lang
 
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The native card edits language, recording limit, backend, local Whisper model, cloud endpoint/model/credential reference, polishing toggle, and dsh provider/model route. An empty provider/model pair is the explicit no-polish state.
 
-Host validation and client validation share the helpers in `src/config.ts`. Credential references follow the dsh POSIX-identifier shape and contain no secret value.
+Host validation and client validation share the helpers in `src/config.ts`; the Host-only `src/config-schema.ts` keeps `schemastery` out of the browser bundle. Credential references follow the dsh POSIX-identifier shape and contain no secret value.
 
 ## Runtime boundary
 

@@ -74,7 +74,7 @@ Web Speech may send audio to a browser-vendor recognition service. “No additio
 
 ## Verification
 
-The repository currently has 28 focused tests across 7 test files. The verified local dsh smoke path includes:
+The repository currently has 29 focused tests across 7 test files. The verified local dsh smoke path includes:
 
 - dsh Host and browser plugin loading;
 - native Plugins settings persistence;
