@@ -116,6 +116,37 @@ describe('voice draft flow', () => {
     expect(setState).not.toHaveBeenLastCalledWith('idle')
   })
 
+  it('ignores a late polish result when the remote ignores cancellation', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    let resolvePolish: ((result: { ok: true; value: string }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: true; value: string }>((resolve) => {
+      resolvePolish = resolve
+    }))
+    const polishAbortRef = { current: null as AbortController | null }
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef
+    })
+    await vi.waitFor(() => expect(polishAbortRef.current).not.toBeNull())
+    polishAbortRef.current?.abort()
+    resolvePolish?.({ ok: true, value: 'late polished text' })
+    await Promise.resolve()
+
+    expect(setDraft).toHaveBeenCalledTimes(1)
+    expect(latestDraftRef.current).toBe('original draft recognized text')
+  })
+
   it('keeps draft spacing predictable', () => {
     expect(appendToDraft('', 'hello')).toBe('hello')
     expect(appendToDraft('hello', 'world')).toBe('hello world')

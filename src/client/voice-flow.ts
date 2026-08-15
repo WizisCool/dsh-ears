@@ -75,6 +75,7 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
 
   try {
     const result = await options.remote.polish(options.transcript, options.provider, options.model, options.reasoningEffort, controller.signal)
+    if (controller.signal.aborted) return
     if (options.latestDraftRef.current !== options.draftAtStop) return
 
     const text = result.ok && result.value.trim() !== '' ? result.value.trim() : options.transcript
