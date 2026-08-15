@@ -20,11 +20,13 @@ export interface WhisperModelState {
 
 interface DownloadHandle {
   model: WhisperModelId
+  python: string
   progress: number
   bytes: number | null
   totalBytes: number | null
   error: string | null
   finished: boolean
+  cancelRequested?: boolean
   child?: ChildProcess
 }
 
@@ -54,16 +56,9 @@ let activeDownload: DownloadHandle | undefined
 export async function getWhisperModelState(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(model)) return { ...EMPTY_STATE, cliAvailable }
   const handle = activeDownload
-  if (handle !== undefined && handle.model === model && !handle.finished) {
-    return {
-      cliAvailable,
-      downloaded: false,
-      downloading: true,
-      progress: handle.progress,
-      bytes: handle.bytes,
-      totalBytes: handle.totalBytes,
-      error: handle.error
-    }
+  if (handle !== undefined && handle.model === model) {
+    if (!handle.finished) return stateFromHandle(handle, cliAvailable)
+    if (handle.error !== null) return stateFromHandle(handle, cliAvailable)
   }
   const python = await resolveWhisperPython()
   if (python === undefined) {
@@ -117,6 +112,7 @@ export async function downloadWhisperModel(model: WhisperModelId, cliAvailable: 
   }
   activeDownload = {
     model,
+    python,
     progress: 0,
     bytes: null,
     totalBytes: null,
@@ -130,20 +126,17 @@ export async function downloadWhisperModel(model: WhisperModelId, cliAvailable: 
 export async function cancelWhisperModelDownload(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
   const handle = activeDownload
   if (handle !== undefined && handle.model === model && !handle.finished) {
+    handle.cancelRequested = true
     handle.child?.kill('SIGTERM')
-    handle.finished = true
     // Best-effort cleanup of the partial file so it is not mistaken for a
     // complete model by the next state query.
     try {
-      const python = await resolveWhisperPython()
-      if (python !== undefined) {
-        const table = await resolveModelTable(python)
-        const file = table.files.get(model)
-        if (file !== undefined) await rm(join(table.root, file), { force: true })
-      }
-    } catch {
-      // The next state query will surface any leftover file honestly.
+      await removeModelFile(handle.python, model)
+    } catch (error) {
+      handle.error = `Whisper download cancellation cleanup failed: ${error instanceof Error ? error.message : String(error)}`
     }
+    handle.finished = true
+    if (handle.error !== null) return stateFromHandle(handle, cliAvailable)
   }
   return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
 }
@@ -212,10 +205,31 @@ async function runDownload(python: string, model: WhisperModelId): Promise<void>
     'sys.stderr.flush()',
     'os._exit(0)'
   ].join('\n')
-  const child = spawn(python, ['-u', '-c', script, model], {
-    stdio: ['ignore', 'ignore', 'pipe'],
-    windowsHide: true
-  })
+  let child: ChildProcess
+  let completionStarted = false
+  const finishFailure = (message: string) => {
+    if (completionStarted || handle.finished) return
+    completionStarted = true
+    void (async () => {
+      try {
+        await removeModelFile(python, model)
+      } catch (error) {
+        handle.error = `${message}; incomplete model cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+      if (handle.error === null) handle.error = message
+      handle.finished = true
+    })()
+  }
+  try {
+    child = spawn(python, ['-u', '-c', script, model], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true
+    })
+  } catch (error) {
+    if (isMissingExecutable(error)) discoveredPython = undefined
+    finishFailure(error instanceof Error ? error.message : String(error))
+    return
+  }
   handle.child = child
   let stderrTail = ''
   child.stderr?.on('data', (chunk: Buffer | string) => {
@@ -228,22 +242,28 @@ async function runDownload(python: string, model: WhisperModelId): Promise<void>
   })
   child.once('error', (error) => {
     if (isMissingExecutable(error)) discoveredPython = undefined
-    handle.error = error.message
-    handle.finished = true
+    if (handle.cancelRequested) return
+    finishFailure(error.message)
   })
   child.once('close', (code, signal) => {
-    if (handle.finished) return
+    if (handle.finished || handle.cancelRequested) return
     if (code === 0 || stderrTail.includes('__DSH_EARS_DONE__')) {
       handle.progress = 1
       handle.finished = true
       return
     }
     const tail = stderrTail.trim().split(/[\r\n]+/).filter((line) => line.trim() !== '').at(-1)?.trim() ?? ''
-    handle.error = tail === '' || tail.includes('__DSH_EARS_DONE__')
+    const message = tail === '' || tail.includes('__DSH_EARS_DONE__')
       ? `Whisper download exited with ${signal === null ? `code ${String(code)}` : signal}`
       : tail
-    handle.finished = true
+    finishFailure(message)
   })
+}
+
+async function removeModelFile(python: string, model: WhisperModelId): Promise<void> {
+  const table = await resolveModelTable(python)
+  const file = table.files.get(model)
+  if (file !== undefined) await rm(join(table.root, file), { force: true })
 }
 
 /**
