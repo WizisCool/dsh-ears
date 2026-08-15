@@ -29,6 +29,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Settings fields use the General/Permissions row pattern with pill Menu selectors, and changes auto-save (debounced) instead of a manual Save/Discard footer.
 - Auto-save feedback follows the native pattern: no success/saving text, only a failure line (with row-level red hints for invalid values).
 - Backend labels are clean (`Web Speech`, `Local Whisper`, `Cloud ASR`); only the active backend's configuration rows are shown, the selector hint follows the active backend, and each backend's settings still persist independently across switches.
+- Polishing rows were renamed (Provider / Model) with simplified hints and display-name-only pickers; the polishing toggle is now a native-style switch.
+- A per-route reasoning-effort picker (dsh `resolveModelInfo`-driven, model default supported) was added to the polishing settings (zh/en copy kept in sync).
 
 ### Deferred
 

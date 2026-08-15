@@ -14,6 +14,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Split the page into Plugins-style tab cards (Recognition / Polishing) with matching keyboard navigation.
 - Switched fields to the General/Permissions row pattern (pill Menu selectors) with debounced auto-save; feedback follows the native pattern — no success/saving text, only a failure line and red row hints.
 - Cleaned backend labels (Web Speech / Local Whisper / Cloud ASR); only the active backend's configuration rows and hint text are shown, each backend's settings persist independently across switches, and auto-save skips invalid fields individually instead of blocking.
+- Polishing rows renamed (Provider / Model) with simplified hints and display-name-only pickers; the polishing toggle is a native-style switch, and a dsh-route-driven reasoning-effort picker (model default supported) was added.
 
 ## Verified
 
