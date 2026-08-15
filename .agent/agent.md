@@ -9,6 +9,7 @@
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest docs commit: `004d799 docs: sync license and release decisions`.
+- Latest client commit: `da4c2ed fix(client): update settings card title and read-only hint`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
