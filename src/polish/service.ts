@@ -120,7 +120,7 @@ export class PolishService extends TypertRemoteService {
       },
       {
         id: 'cloud-openai',
-        name: 'OpenAI-compatible cloud ASR',
+        name: 'Cloud ASR',
         available: cloudAvailable,
         detail: cloudAvailable ? 'Configured transcription endpoint and credential reference.' : 'Configure an endpoint and an optional dsh credential reference.'
       }
