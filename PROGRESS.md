@@ -12,6 +12,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Renamed the plugin configuration card title to `dsh-ear` and clarified the read-only hint in both locales.
 - Moved plugin configuration to a dedicated `settings.section` page (`dsh-ear`, beside General/Models/Plugins) styled with the shipped settings pages' tokens and card geometry.
 - Split the page into Plugins-style tab cards (Recognition / Polishing) with matching keyboard navigation.
+- Switched fields to the General/Permissions row pattern (pill Menu selectors) with debounced auto-save and a saving/saved/failed status line; the manual Save/Discard footer is gone.
 
 ## Verified
 
