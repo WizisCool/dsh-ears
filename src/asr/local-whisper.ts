@@ -49,6 +49,7 @@ export async function transcribeWithWhisper(options: LocalWhisperOptions): Promi
   options.signal.addEventListener('abort', forwardAbort, { once: true })
 
   try {
+    options.signal.throwIfAborted()
     await writeFile(inputPath, options.audio)
     const language = options.language.trim().split('-', 1)[0]
     const languageArguments = language === '' ? [] : ['--language', language]
