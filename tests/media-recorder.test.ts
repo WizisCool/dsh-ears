@@ -44,6 +44,7 @@ describe('MediaRecorderSession', () => {
     expect(result.mimeType).toBe('audio/webm;codecs=opus')
     expect(atob(result.base64)).toBe('\x01\x02\x03')
     expect(trackStopped).toBe(true)
+    expect(() => session.start()).toThrow('cannot be restarted')
   })
 
   it('shares one stop promise and does not duplicate recorder shutdown', async () => {

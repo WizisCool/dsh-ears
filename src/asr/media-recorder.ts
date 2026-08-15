@@ -63,6 +63,7 @@ export class MediaRecorderSession {
 
   start(): void {
     if (this.aborted) throw new Error('Media recording session is no longer active')
+    if (this.closed || this.stopPromise !== undefined) throw new Error('Media recording session cannot be restarted')
     if (this.recorder.state !== 'inactive') throw new Error('Media recording session has already started')
     this.recorder.start(1_000)
   }
