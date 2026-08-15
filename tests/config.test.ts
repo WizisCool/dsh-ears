@@ -15,7 +15,8 @@ describe('dsh-ears settings validation', () => {
   })
 
   it('rejects incomplete polishing and cloud configuration', () => {
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishProvider: 'provider' })).toThrow('selected together')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider' })).toThrow('selected together')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true })).toThrow('selected together')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'cloud-openai' })).toThrow('Cloud ASR endpoint')
   })
 

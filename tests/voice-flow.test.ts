@@ -35,7 +35,7 @@ describe('voice draft flow', () => {
       resolvePolish = resolve
     }))
     const remote = { polish } as never
-    const settings = { ...DEFAULT_EARS_SETTINGS, polishProvider: 'provider', polishModel: 'model' }
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
 
     commitTranscript({
       transcript: 'recognized text',
