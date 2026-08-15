@@ -92,4 +92,4 @@ See [PLAN.md](./PLAN.md) for the full implementation plan, [SECURITY.md](./SECUR
 - [.agent/decisions.md](./.agent/decisions.md) — append-only architecture decisions.
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — contribution and review expectations.
 
-The checkout is local-only by default. Do not push, publish to npm, or add a legal license without an explicit release decision.
+The project is released to the private GitHub repository `WizisCool/dsh-ears` under the MIT license. npm publishing and any public visibility change still require an explicit release decision.

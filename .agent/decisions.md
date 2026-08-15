@@ -91,3 +91,10 @@
 - Status: accepted
 - Decision: Do not expose emotion recognition, labels, settings, or UI in the first release.
 - Rationale: Emotion output requires an independent model/evaluation contract and risks presenting an uncertain inference as a fact. It is not required for the core voice-to-draft workflow.
+
+## D-016 — License and repository strategy
+
+- Status: accepted
+- Decision: License the project under MIT and release the repository to the private GitHub project `WizisCool/dsh-ears` (2026-08-15).
+- Decision: npm publishing, release tags, and any public visibility change remain gated behind an explicit maintainer release decision.
+- Rationale: The local M6 release-readiness audit passed; MIT is a common permissive license for community packages. Keeping the repository private preserves the D-009 release safety boundary until the maintainer approves a public release.

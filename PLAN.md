@@ -20,7 +20,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - M3: dsh-owned text polishing and route discovery are implemented.
 - M4: native Plugins settings card and persistence are implemented.
 - M5: local/cloud ASR backends and lifecycle hardening are implemented.
-- M6: local release-readiness audit is complete; public release approval remains gated.
+- M6: local release-readiness audit is complete; the MIT license decision is recorded, and the repository is released privately on GitHub. npm publishing remains gated.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -50,6 +50,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D10 | Web Speech failure preserves the current draft and asks the user to record again. | Accepted |
 | D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, microphone when idle, stop square while recording, live draft updates, and manual send only. | Accepted |
 | D12 | Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section. | Accepted |
+| D13 | The project is licensed MIT and released to the private GitHub repository `WizisCool/dsh-ears`; npm publishing and public visibility changes remain gated. | Accepted |
 
 ## Package shape
 
@@ -260,7 +261,7 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
 - Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights.
 - OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
-- A license has not been selected yet; do not add legal licensing terms without an explicit decision.
+- The MIT license decision and private repository release are recorded in `.agent/decisions.md` (D-016); npm publishing and public visibility changes remain gated by an explicit release decision.
 
 ## References
 

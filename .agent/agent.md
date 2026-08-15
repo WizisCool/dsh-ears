@@ -5,14 +5,14 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Local release-readiness audit: complete; public release remains gated by an explicit license/release decision.
+- Local release-readiness audit: complete; the MIT license decision is recorded and the repository is released privately on GitHub; npm publishing remains gated by an explicit release decision.
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
 - Previous icon commit: `e7c4c94 fix(client): refine microphone icon`.
-- Remote operations: no push or publish has been performed.
+- Remote operations: pushed to the private GitHub repository `WizisCool/dsh-ears`; no npm publish, release tag, or public visibility change has been performed.
 - Repository language: English-first for source, docs, context, comments, and commits.
 
 ## Completed implementation
@@ -65,7 +65,7 @@ Real dsh verification already completed:
 ## Remaining release work
 
 1. Keep the compatibility matrix current when dsh releases change.
-2. Review the compatibility and license decision before any future public release. Do not add a legal license automatically.
+2. npm publishing, release tags, and any public visibility change require an explicit maintainer release decision.
 
 ## Blockers
 
