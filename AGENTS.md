@@ -13,7 +13,7 @@ This is the repository-level entry point for coding agents. Read it before chang
 ## Current baseline
 
 - dsh target: `0.1.0-rc.6`; the first release does not promise other rc versions.
-- Current stage: documentation, collaboration baseline, M1 package scaffold, M2 microphone, M3 polishing, M4 native settings, and M5 final ASR backends/hardening complete; M6 release readiness is in progress.
+- Current stage: documentation, collaboration baseline, M1 package scaffold, M2 microphone, M3 polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete. Public release remains explicitly gated.
 - The current checkout is local-only. Do not push, publish, create a remote repository, or change external state without explicit user authorization.
 - The main project language is English. Use English for source code, code comments, public documentation, context documents, issue-ready text, and commit messages. Runtime product prompts may use Chinese when the product behavior requires Chinese output.
 

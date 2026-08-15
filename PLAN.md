@@ -20,7 +20,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - M3: dsh-owned text polishing and route discovery are implemented.
 - M4: native Plugins settings card and persistence are implemented.
 - M5: local/cloud ASR backends and lifecycle hardening are implemented.
-- M6: release-readiness review is in progress.
+- M6: local release-readiness audit is complete; public release approval remains gated.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -237,7 +237,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 - Browser lifecycle tests: passed for MediaRecorder cleanup/idempotence, Web Speech silent abort, and synchronous-start failure.
 - Draft-flow tests: passed for stale manual edits and late polish results.
 
-### M6 — Release readiness — in progress
+### M6 — Release readiness — local audit complete
 
 - Review license choice, public repository readiness, package contents, changelog/release notes, dependency policy, and security scan.
 - Public release, npm publishing, tags, and directory submissions require explicit release approval.
