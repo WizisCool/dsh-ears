@@ -20,6 +20,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Model → microphone → send visual ordering on dsh rc.6.
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
 - Bounded local Whisper files, cloud response bodies, and ASR payloads.
+- Whisper helper scripts exit via `os._exit`, avoiding the Homebrew python/torch/openblas OpenMP-teardown SIGSEGV (isolated to the child process; download results stay authoritative).
 
 ### Changed
 
