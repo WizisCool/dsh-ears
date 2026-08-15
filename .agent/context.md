@@ -65,7 +65,9 @@ The Host sends multipart form data containing `file`, `model`, and optional lang
 
 ## Settings
 
-The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The native card edits language, recording limit, backend, local Whisper model, cloud endpoint/model/credential reference, polishing toggle, and dsh provider/model route. An empty provider/model pair is the explicit no-polish state.
+The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The native card (title `dsh-ear`) edits language, recording limit, backend, local Whisper model, cloud endpoint/model/credential reference, polishing toggle, and dsh provider/model route. An empty provider/model pair is the explicit no-polish state.
+
+The card's editable state comes from the Host `getSettings()` view: `writable` mirrors the dsh settings provider (`settings.writable`; the shipped file provider is always writable). The client controller starts from a fallback view (`available: true, writable: false`) and replaces it after the first successful settings RPC; a failed first fetch therefore keeps the card read-only until the page reloads and retries the fetch.
 
 Host validation and client validation share the helpers in `src/config.ts`; the Host-only `src/config-schema.ts` keeps `schemastery` out of the browser bundle. Credential references follow the dsh POSIX-identifier shape and contain no secret value.
 

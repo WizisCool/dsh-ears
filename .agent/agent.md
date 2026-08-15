@@ -73,6 +73,15 @@ Real dsh verification already completed:
 
 None. A non-empty live dsh polish completion still depends on a usable configured dsh model route; route discovery and failure fallback are verified.
 
+## Latest task record
+
+- Completed: renamed the plugin configuration card title to `dsh-ear` and expanded the read-only hint in both locales (zh/en parity); investigated the live read-only message with a temporary Host diagnostic plugin — the running settings service reports `writable: true` and dsh-ears `getSettings()` returns `writable: true`, so the message in the GUI was the client fallback view kept after a failed first settings RPC (stale served bundle / transient fetch failure).
+- Validation: `tsc --noEmit` passed; `vitest run` 29/29 passed; `tsdown` + declaration build passed; the served bundle (`/plugins/dsh-ears/client.js`) was verified to contain the new copy after rebuild; `git diff --cached --check` passed.
+- Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the card does not stay read-only — deferred pending maintainer decision.
+- Blocked: none.
+- Next: push the unpushed local commits after maintainer authorization.
+- Commit: `da4c2ed fix(client): update settings card title and read-only hint`.
+
 ## Handoff template
 
 ```text

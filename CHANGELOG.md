@@ -20,6 +20,11 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
 - Bounded local Whisper files, cloud response bodies, and ASR payloads.
 
+### Changed
+
+- Plugin configuration card title renamed to `dsh-ear`.
+- The read-only settings hint now explains the settings-provider condition and the required fix (zh/en).
+
 ### Deferred
 
 - Emotion recognition and emotion UI.
