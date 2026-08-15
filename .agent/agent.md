@@ -8,8 +8,8 @@
 - Local release-readiness audit: complete; the MIT license decision is recorded and the repository is released privately on GitHub; npm publishing remains gated by an explicit release decision.
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
-- Latest docs commit: `eddff4d docs: record settings copy and read-only behavior`.
-- Latest client commit: `da4c2ed fix(client): update settings card title and read-only hint`.
+- Latest docs commit: `3000339 docs: record dedicated settings page decision`.
+- Latest client commit: `e0117d8 feat(client): move configuration to a dedicated settings page`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
@@ -80,7 +80,7 @@ None. A non-empty live dsh polish completion still depends on a usable configure
 - Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the page does not stay read-only — deferred pending maintainer decision.
 - Blocked: none.
 - Next: browser verification of the new page after reload; push the unpushed local commits after maintainer authorization.
-- Commit: `da4c2ed fix(client): update settings card title and read-only hint`.
+- Commit: `e0117d8 feat(client): move configuration to a dedicated settings page`.
 
 ## Handoff template
 
