@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
-import { EarsSettingsController } from '../src/client/settings.js'
+import { EarsSettingsController } from '../src/client/settings-controller.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
 

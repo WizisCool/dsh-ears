@@ -4,7 +4,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
-import { EarsSettingsController, EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, localeEn, localeZh } from './settings.js'
+import { EarsSettingsController } from './settings-controller.js'
+import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, localeEn, localeZh } from './settings.js'
 
 /** Required Client service: the slot registry owns the UI contribution lifecycle. */
 export const inject = ['slots', 'remote', 'locale']
