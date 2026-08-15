@@ -5,13 +5,6 @@
   padding: 0;
   border-radius: 50%;
   justify-content: center;
-  background: var(--dsw-alias-button-tool-bar-fill);
-  color: var(--dsw-alias-label-primary);
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.button:hover:not(:disabled) {
-  background: var(--dsw-alias-button-tool-bar-hover);
 }
 
 .button[data-state='starting'],
@@ -30,26 +23,29 @@
 }
 
 .button[data-state='error'] {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dsw-alias-interactive-bg-hover-danger);
   color: var(--dsw-alias-state-error-primary);
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
 }
 
 /*
- * rc.6 renders the list slot before the named model seat. The data-slot
- * attributes are part of the public slot topology, so use them to preserve
- * the Codex-style visual order without relying on generated class names:
- * model → microphone → send.
+ * rc.6 renders the right list slot before the named model seat. The public
+ * data-slot topology lets the plugin preserve the intended visual order
+ * without relying on generated class names:
+ * model → microphone → native trailing controls → send.
+ *
+ * The final rule also keeps future dsh-owned controls that follow the model
+ * seat on the trailing side of the microphone (for example, ContextMeter).
  */
 :global([data-slot='conversation.input.model']) {
   order: 1;
 }
 
-:global([data-slot='conversation.input.model'] > button) {
+:global([data-slot='conversation.input.model'] > *) {
   order: 1;
 }
 
@@ -57,11 +53,11 @@
   order: 2;
 }
 
-:global([data-slot='conversation.input.right'] > button) {
+:global([data-slot='conversation.input.right'] > *) {
   order: 2;
 }
 
-:global([data-slot='conversation.input.model'] ~ button) {
+:global([data-slot='conversation.input.model'] ~ *) {
   order: 3;
 }
 
