@@ -13,6 +13,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Moved plugin configuration to a dedicated `settings.section` page (`dsh-ear`, beside General/Models/Plugins) styled with the shipped settings pages' tokens and card geometry.
 - Split the page into Plugins-style tab cards (Recognition / Polishing) with matching keyboard navigation.
 - Switched fields to the General/Permissions row pattern (pill Menu selectors) with debounced auto-save; feedback follows the native pattern — no success/saving text, only a failure line and red row hints.
+- Cleaned backend labels (Web Speech / Local Whisper / Cloud ASR); all backend configuration rows are always visible and independently saved, and auto-save skips invalid fields individually instead of blocking.
 
 ## Verified
 

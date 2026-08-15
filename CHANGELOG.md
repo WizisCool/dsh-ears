@@ -28,6 +28,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - The settings page splits Recognition and Polishing into Plugins-style tab cards.
 - Settings fields use the General/Permissions row pattern with pill Menu selectors, and changes auto-save (debounced) instead of a manual Save/Discard footer.
 - Auto-save feedback follows the native pattern: no success/saving text, only a failure line (with row-level red hints for invalid values).
+- Backend labels are clean (`Web Speech`, `Local Whisper`, `Cloud ASR`); every backend's configuration rows stay visible and independently saved, so switching the active backend never hides or loses another backend's settings.
 
 ### Deferred
 
