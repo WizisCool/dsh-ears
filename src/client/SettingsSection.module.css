@@ -144,50 +144,6 @@
   flex: none;
 }
 
-.switch {
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  display: inline-flex;
-  flex: none;
-}
-
-.switch:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.switchTrack {
-  background: var(--dsw-alias-border-l2);
-  width: 20px;
-  height: 10px;
-  transition: background-color 0.12s var(--ds-ease-in-out, ease-in-out);
-  border-radius: 5px;
-  flex: none;
-  display: inline-block;
-  position: relative;
-}
-
-.switchTrack[data-on='true'] {
-  background: var(--dsw-alias-state-business-primary);
-}
-
-.switchThumb {
-  background: var(--dsw-alias-bg-layer-1);
-  width: 6px;
-  height: 6px;
-  transition: transform 0.12s var(--ds-ease-in-out, ease-in-out);
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-}
-
-.switchTrack[data-on='true'] .switchThumb {
-  transform: translate(10px);
-}
-
 .textInput {
   box-sizing: border-box;
   width: 240px;
