@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { earsSettingsPatchSchema, earsSettingsViewSchema } from '../src/remote-contract.js'
+import { TYPERT } from '../src/typert.js'
+import { TYPERT_REMOTE } from '../src/remote.js'
 
 describe('settings Remote contract', () => {
   it('accepts an empty provider/model pair as the no-polish state', () => {
@@ -31,5 +33,12 @@ describe('settings Remote contract', () => {
       },
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
+  })
+
+  it('keeps Host and Client Remote descriptors aligned', () => {
+    const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
+    const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
+    expect(clientIds).toEqual(hostIds)
+    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['polish', 'transcribe', 'updateSettings'])
   })
 })
