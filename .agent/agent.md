@@ -9,7 +9,7 @@
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest docs commit: `3000339 docs: record dedicated settings page decision`.
-- Latest client commit: `c320a91 fix(client): inline whisper model status into its row`.
+- Latest client commit: `09e59f0 feat(client): whisper status as hint line with spinner, links, and cancel`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.

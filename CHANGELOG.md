@@ -12,7 +12,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Host-side local Whisper and OpenAI-compatible cloud ASR backends.
 - dsh credential-reference support without plugin-owned secret storage.
 - Typed Typert Remote contracts, cancellation, bounded payloads, and draft-race protection.
-- Whisper model availability UI: downloaded state, download action with tqdm-derived progress, and honest errors across pip/Homebrew/pipx/conda/Windows environments. The status renders inline in the model row (StateDot + text + link button) rather than as a floating block.
+- Whisper model availability UI: downloaded state, download action with tqdm-derived progress, and honest errors across pip/Homebrew/pipx/conda/Windows environments. The status reuses the row's hint line — spinner while checking, click-to-download and cancel-download links, no floating blocks or state dots — and later queries are instant after a one-time authoritative model-table load.
 
 ### Hardened
 
