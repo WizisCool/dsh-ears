@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, transcribeResultSchema } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema } from './remote-contract.js'
 const polishTranscriptSchema = z.string()
 const polishProviderSchema = z.string()
 const polishModelSchema = z.string()
+const polishReasoningEffortSchema = z.string()
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -82,6 +83,28 @@ export const TYPERT = {
       result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
     },
     {
+      id: 'dsh-ears#dshEars/listReasoningEfforts',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listReasoningEfforts',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'provider',
+          wire: 'provider',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: polishProviderSchema }
+        },
+        {
+          name: 'model',
+          wire: 'model',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: polishModelSchema }
+        }
+      ],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
+    },
+    {
       id: 'dsh-ears#dshEars/polish',
       service: 'dshEarsPolish',
       namespace: 'dshEars',
@@ -116,6 +139,16 @@ export const TYPERT = {
             mode: 'strict',
             typeSymbol: 'string',
             schema: polishModelSchema
+          }
+        },
+        {
+          name: 'reasoningEffort',
+          wire: 'reasoningEffort',
+          source: 'json',
+          codec: {
+            mode: 'strict',
+            typeSymbol: 'string',
+            schema: polishReasoningEffortSchema
           }
         }
       ],
@@ -153,6 +186,13 @@ export const TYPERT = {
           },
           {
             kind: 'method',
+            name: 'listReasoningEfforts',
+            signature: 'listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView>',
+            summary: 'List selectable reasoning efforts for one dsh route.',
+            jsDoc: '/** List selectable reasoning efforts for one dsh route. */'
+          },
+          {
+            kind: 'method',
             name: 'transcribe',
             signature: 'transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string>',
             summary: 'Transcribe one recorded audio payload through the selected ASR backend.',
@@ -161,7 +201,7 @@ export const TYPERT = {
           {
             kind: 'method',
             name: 'polish',
-            signature: 'polish(transcript: string, provider: string, model: string, signal: AbortSignal): Promise<string>',
+            signature: 'polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string>',
             summary: 'Polish one transcript through a selected dsh route.',
             jsDoc: '/** Polish one transcript through a selected dsh route. */'
           }
@@ -182,6 +222,14 @@ export const TYPERT = {
           {
             name: 'PolishRoute',
             declaration: 'export interface PolishRoute { provider: string; providerName: string; model: string; modelName: string }'
+          },
+          {
+            name: 'ReasoningEffortInfo',
+            declaration: 'export interface ReasoningEffortInfo { id: string; name: string; description?: string }'
+          },
+          {
+            name: 'ReasoningEffortsView',
+            declaration: 'export interface ReasoningEffortsView { efforts: ReasoningEffortInfo[]; defaultEffort?: string }'
           }
         ]
       }

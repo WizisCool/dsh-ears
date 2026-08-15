@@ -49,7 +49,7 @@ describe('PolishService', () => {
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', new AbortController().signal)).resolves.toBe('保留这段内容')
+    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).resolves.toBe('保留这段内容')
   })
 
   it('marks transcript content as data for the polishing model', () => {

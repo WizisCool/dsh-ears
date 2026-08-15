@@ -17,6 +17,7 @@ export interface EarsSettings {
   polishingEnabled: boolean
   polishProvider: string
   polishModel: string
+  polishReasoningEffort: string
 }
 
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
@@ -29,7 +30,8 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   maxRecordingSeconds: 120,
   polishingEnabled: true,
   polishProvider: '',
-  polishModel: ''
+  polishModel: '',
+  polishReasoningEffort: ''
 })
 
 export interface PolishRoute {
@@ -37,6 +39,17 @@ export interface PolishRoute {
   providerName: string
   model: string
   modelName: string
+}
+
+export interface ReasoningEffortInfo {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface ReasoningEffortsView {
+  efforts: ReasoningEffortInfo[]
+  defaultEffort?: string
 }
 
 const CREDENTIAL_REFERENCE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/

@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, transcribeResultSchema } from './remote-contract.js'
-import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema } from './remote-contract.js'
+import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -11,8 +11,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     updateSettings: (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
     listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
+    listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
     transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
-    polish: (transcript: string, provider: string, model: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+    polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
 
   interface TypertRemoteMap {
@@ -20,8 +21,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/updateSettings': (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
     'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
+    'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
     'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
-    'dshEars/polish': (transcript: string, provider: string, model: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+    'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
 
   interface TypertRemoteNamespaceMap {
@@ -106,6 +108,28 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
     },
     {
+      id: 'dsh-ears#dshEars/listReasoningEfforts',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listReasoningEfforts',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'provider',
+          wire: 'provider',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        },
+        {
+          name: 'model',
+          wire: 'model',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        }
+      ],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
+    },
+    {
       id: 'dsh-ears#dshEars/polish',
       service: 'dshEarsPolish',
       namespace: 'dshEars',
@@ -127,6 +151,12 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         {
           name: 'model',
           wire: 'model',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        },
+        {
+          name: 'reasoningEffort',
+          wire: 'reasoningEffort',
           source: 'json',
           codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
         }

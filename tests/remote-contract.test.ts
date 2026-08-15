@@ -29,7 +29,8 @@ describe('settings Remote contract', () => {
         maxRecordingSeconds: 120,
         polishingEnabled: true,
         polishProvider: '',
-        polishModel: ''
+        polishModel: '',
+        polishReasoningEffort: ''
       },
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)

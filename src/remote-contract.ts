@@ -16,7 +16,8 @@ export const earsSettingsSchema = z.object({
   maxRecordingSeconds: z.number(),
   polishingEnabled: z.boolean(),
   polishProvider: z.string(),
-  polishModel: z.string()
+  polishModel: z.string(),
+  polishReasoningEffort: z.string()
 })
 
 export const earsSettingsPatchSchema = z.object({
@@ -29,7 +30,8 @@ export const earsSettingsPatchSchema = z.object({
   maxRecordingSeconds: z.number().optional(),
   polishingEnabled: z.boolean().optional(),
   polishProvider: z.string().optional(),
-  polishModel: z.string().optional()
+  polishModel: z.string().optional(),
+  polishReasoningEffort: z.string().optional()
 })
 
 export const earsSettingsViewSchema = z.object({
@@ -48,6 +50,15 @@ export const polishRouteSchema = z.object({
 
 export const listRoutesResultSchema = z.array(polishRouteSchema)
 export const polishResultSchema = z.string()
+export const reasoningEffortInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional()
+})
+export const reasoningEffortsViewSchema = z.object({
+  efforts: z.array(reasoningEffortInfoSchema),
+  defaultEffort: z.string().optional()
+})
 export const asrBackendInfoSchema = z.object({
   id: asrBackendSchema,
   name: z.string(),
@@ -67,4 +78,5 @@ export type EarsSettingsView = {
   overridden: string[]
 }
 export type { PolishRoute }
-export type { AsrBackendId, AsrBackendInfo }
+export type { AsrBackendInfo }
+export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'

@@ -4,8 +4,8 @@ import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
-import type { LlmModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type WhisperModelId } from '../config.js'
+import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { isWhisperAvailable, transcribeWithWhisper } from '../asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
@@ -127,6 +127,25 @@ export class PolishService extends TypertRemoteService {
     ]
   }
 
+  async listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView> {
+    if (provider.trim() === '' || model.trim() === '') return { efforts: [] }
+    try {
+      const info = await this.ctx.llm.resolveModelInfo(provider, model)
+      if (info.reasoning === undefined) return { efforts: [] }
+      const efforts = info.reasoning.efforts.map((effort) => ({
+        id: effort.id,
+        name: effort.name,
+        ...(effort.description === undefined ? {} : { description: effort.description })
+      }))
+      return {
+        efforts,
+        ...(info.reasoning.defaultEffort === undefined ? {} : { defaultEffort: info.reasoning.defaultEffort })
+      }
+    } catch {
+      return { efforts: [] }
+    }
+  }
+
   async transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string> {
     const settings = this.requireSettings()
     const audio = decodeAudio(audioBase64)
@@ -154,7 +173,7 @@ export class PolishService extends TypertRemoteService {
     })
   }
 
-  async polish(transcript: string, provider: string, model: string, signal: AbortSignal): Promise<string> {
+  async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string> {
     const raw = transcript.trim()
     if (raw === '' || provider.trim() === '' || model.trim() === '') return raw
     if (raw.length > MAX_TRANSCRIPT_CHARACTERS) return raw
@@ -169,12 +188,14 @@ export class PolishService extends TypertRemoteService {
         provider,
         model
       }, timeout.signal)
+      const effort = await this.resolveReasoningEffort(provider, model, reasoningEffort)
       const message = createUserMessage({
         content: [{ type: 'text', text: polishUserText(raw) }],
         source: { kind: 'user' }
       })
       const output = await collectText(prepared.stream({
         ...prepared.config,
+        ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
         messages: [message],
         system: POLISH_SYSTEM_PROMPT,
         signal: timeout.signal
@@ -192,6 +213,18 @@ export class PolishService extends TypertRemoteService {
   private requireSettings() {
     if (this.settings === undefined) throw new Error('dsh-ears settings are unavailable')
     return this.settings.get()
+  }
+
+  private async resolveReasoningEffort(provider: string, model: string, requested: string): Promise<string | undefined> {
+    const effort = requested.trim()
+    if (effort === '') return undefined
+    try {
+      const info = await this.ctx.llm.resolveModelInfo(provider, model)
+      const efforts = info.reasoning?.efforts ?? []
+      return efforts.some((candidate) => candidate.id === effort) ? effort : undefined
+    } catch {
+      return undefined
+    }
   }
 
   private async whisperIsAvailable(): Promise<boolean> {

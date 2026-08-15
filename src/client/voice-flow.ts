@@ -44,6 +44,7 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     draftAtStop,
     provider: options.settings.polishProvider,
     model: options.settings.polishModel,
+    reasoningEffort: options.settings.polishReasoningEffort,
     remote: options.remote,
     setState: options.setState,
     latestDraftRef: options.latestDraftRef,
@@ -58,6 +59,7 @@ export interface PolishDraftOptions {
   draftAtStop: string
   provider: string
   model: string
+  reasoningEffort: string
   remote: EarsRemote
   setState: (state: VoiceInputState) => void
   latestDraftRef: { current: string }
@@ -71,7 +73,7 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
   options.setState('polishing')
 
   try {
-    const result = await options.remote.polish(options.transcript, options.provider, options.model, controller.signal)
+    const result = await options.remote.polish(options.transcript, options.provider, options.model, options.reasoningEffort, controller.signal)
     if (options.latestDraftRef.current !== options.draftAtStop) return
 
     const text = result.ok && result.value.trim() !== '' ? result.value.trim() : options.transcript
