@@ -16,6 +16,7 @@ import type { EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from './prompts.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
+const MAX_POLISHED_CHARACTERS = 24_000
 const POLISH_TIMEOUT_MS = 20_000
 
 export class PolishService extends TypertRemoteService {
@@ -219,7 +220,7 @@ export class PolishService extends TypertRemoteService {
         messages: [message],
         system: POLISH_SYSTEM_PROMPT,
         signal: timeout.signal
-      }))
+      }), MAX_POLISHED_CHARACTERS)
 
       return output === '' ? raw : output
     } catch {
@@ -303,13 +304,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-async function collectText(stream: AsyncIterable<StreamChunk>): Promise<string> {
+async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: number): Promise<string> {
   let text = ''
   let sawDelta = false
 
   for await (const chunk of stream) {
     if (chunk.type === 'text-delta') {
       text += chunk.text
+      if (text.length > maxCharacters) throw new Error('The dsh LLM polishing response is too large')
       sawDelta = true
       continue
     }
@@ -320,6 +322,7 @@ async function collectText(stream: AsyncIterable<StreamChunk>): Promise<string> 
 
     if (!sawDelta && chunk.type === 'block-end' && chunk.block.type === 'text') {
       text += chunk.block.text
+      if (text.length > maxCharacters) throw new Error('The dsh LLM polishing response is too large')
     }
   }
 
