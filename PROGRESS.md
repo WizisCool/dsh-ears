@@ -16,6 +16,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Cleaned backend labels (Web Speech / Local Whisper / Cloud ASR); only the active backend's configuration rows and hint text are shown, each backend's settings persist independently across switches, and auto-save skips invalid fields individually instead of blocking.
 - Polishing rows renamed (Provider / Model) with simplified hints and display-name-only pickers; the polishing toggle kept as a pill selector, and a dsh-route-driven reasoning-effort picker (model default supported) was added.
 - The settings page now distinguishes a failed first fetch (load-failure hint with one retry) from a genuinely read-only provider; Host-side updates require a dsh web restart.
+- Provider switches clear stale model/reasoning selections; the provider/model pair rule applies only while polishing is on (Host and client agree), and the reasoning picker offers the adapter's `off` effort as an explicit switch-off.
 
 ## Verified
 
