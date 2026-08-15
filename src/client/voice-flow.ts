@@ -10,6 +10,7 @@ export interface DraftActions {
 export interface CommitTranscriptOptions {
   transcript: string
   baseDraft: string
+  expectedDraft?: string
   requireUnchanged: boolean
   settings: EarsSettings
   remote: EarsRemote
@@ -25,7 +26,7 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     options.setState('idle')
     return
   }
-  if (options.requireUnchanged && options.latestDraftRef.current !== options.baseDraft) {
+  if (options.requireUnchanged && options.latestDraftRef.current !== (options.expectedDraft ?? options.baseDraft)) {
     options.setState('idle')
     return
   }
@@ -93,10 +94,11 @@ export function updateDraft(
   transcript: string,
   latestDraftRef: { current: string },
   actionsRef: { current: DraftActions }
-): void {
+): string {
   const nextDraft = appendToDraft(baseDraft, transcript)
   latestDraftRef.current = nextDraft
   actionsRef.current.setDraft(nextDraft)
+  return nextDraft
 }
 
 export function appendToDraft(baseDraft: string, transcript: string): string {

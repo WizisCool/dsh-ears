@@ -79,6 +79,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
 
   const startWebSpeech = () => {
     const baseDraft = input.draft
+    let sessionDraft = baseDraft
     let failed = false
     const session = new WebSpeechSession({
       language: settingsRef.current.language,
@@ -86,8 +87,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
         setState('recording')
         armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
       },
-      onInterim: (text) => updateDraft(baseDraft, text, latestDraftRef, actionsRef),
-      onFinal: (text) => updateDraft(baseDraft, text, latestDraftRef, actionsRef),
+      onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
+      onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
       onError: () => {
         failed = true
         setState('error')
@@ -102,7 +103,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
         commitTranscript({
           transcript: text,
           baseDraft,
-          requireUnchanged: false,
+          expectedDraft: sessionDraft,
+          requireUnchanged: true,
           settings: settingsRef.current,
           remote,
           setState,

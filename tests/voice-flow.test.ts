@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
-import { appendToDraft, commitTranscript } from '../src/client/voice-flow.js'
+import { appendToDraft, commitTranscript, updateDraft } from '../src/client/voice-flow.js'
 
 describe('voice draft flow', () => {
   it('does not overwrite a manual edit made while final ASR is pending', () => {
@@ -23,6 +23,28 @@ describe('voice draft flow', () => {
 
     expect(setDraft).not.toHaveBeenCalled()
     expect(remote.polish).not.toHaveBeenCalled()
+    expect(setState).toHaveBeenCalledWith('idle')
+  })
+
+  it('does not overwrite a manual edit after live recognition updates the draft', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'manual edit' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      expectedDraft: 'original draft recognized text',
+      requireUnchanged: true,
+      settings: DEFAULT_EARS_SETTINGS,
+      remote: { polish: vi.fn() } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    expect(setDraft).not.toHaveBeenCalled()
     expect(setState).toHaveBeenCalledWith('idle')
   })
 
@@ -99,5 +121,16 @@ describe('voice draft flow', () => {
     expect(appendToDraft('hello', 'world')).toBe('hello world')
     expect(appendToDraft('hello ', 'world')).toBe('hello world')
     expect(appendToDraft('hello', ' world')).toBe('hello world')
+  })
+
+  it('returns the draft written by a live recognition update', () => {
+    const setDraft = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+
+    const nextDraft = updateDraft('original draft', 'recognized text', latestDraftRef, { current: { setDraft } })
+
+    expect(nextDraft).toBe('original draft recognized text')
+    expect(latestDraftRef.current).toBe(nextDraft)
+    expect(setDraft).toHaveBeenCalledWith(nextDraft)
   })
 })
