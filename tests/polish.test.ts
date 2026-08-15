@@ -80,6 +80,17 @@ describe('PolishService', () => {
     await expect(context.get('dshEarsPolish')?.transcribe('not-base64', 'audio/wav', controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   })
 
+  it('rejects unknown backend and Whisper model identifiers', async () => {
+    const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, asrBackend: 'future-backend' })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).rejects.toThrow('Unknown dsh-ears ASR backend')
+    await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
+  })
+
   it('does not prepare a route when the request is already aborted', async () => {
     const prepareCall = vi.fn()
     const context = createContext({ prepareCall })

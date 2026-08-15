@@ -280,12 +280,12 @@ export class PolishService extends TypertRemoteService {
 
 function asrBackend(value: string): AsrBackendId {
   if ((ASR_BACKEND_IDS as readonly string[]).includes(value)) return value as AsrBackendId
-  return 'web-speech'
+  throw new Error(`Unknown dsh-ears ASR backend: ${value}`)
 }
 
 function whisperModel(value: string): WhisperModelId {
   if ((WHISPER_MODEL_IDS as readonly string[]).includes(value)) return value as WhisperModelId
-  return 'tiny'
+  throw new Error(`Unknown dsh-ears Whisper model: ${value}`)
 }
 
 function validateSettings(settings: EarsSettings): void {
