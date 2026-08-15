@@ -4,7 +4,13 @@
   height: 28px;
   padding: 0;
   border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
   justify-content: center;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .button[data-state='starting'],
@@ -28,8 +34,8 @@
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--dsw-alias-state-business-primary);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
 }
 
 /*

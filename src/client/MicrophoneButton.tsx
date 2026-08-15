@@ -68,7 +68,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
         className={styles.button}
         size="sm"
         title={backend === 'web-speech' ? 'Voice input is unavailable in this browser' : 'This browser cannot record audio for the selected ASR backend'}
-        variant="toolbar"
+        variant="ghost"
         icon={<MicrophoneIcon />}
       />
     )
@@ -213,7 +213,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
                 ? 'Stop voice input'
                 : 'Start voice input'
       }
-      variant="toolbar"
+      variant="ghost"
       icon={active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
     />
   )
