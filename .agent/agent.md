@@ -7,9 +7,9 @@
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Local release-readiness audit: complete; public release remains gated by an explicit license/release decision.
 - Target: dsh `0.1.0-rc.6`.
-- Latest implementation commit: `b6467e8 refactor(client): isolate Host settings schema`.
+- Latest implementation commit: `e7c4c94 fix(client): refine microphone icon`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
-- Current HEAD: `8473704 docs: close local release readiness`.
+- Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
 - Remote operations: no push or publish has been performed.
 - Repository language: English-first for source, docs, context, comments, and commits.
@@ -19,6 +19,7 @@
 - Official-style Host/Client package exports, `dsh.bundle.patch`, `dsh.client`, and CSS-module client bundling.
 - Web Speech live recognition with interim/final draft updates, retryable errors, recording limits, and silent teardown abort.
 - dsh-native composer placement and light/dark semantic token adaptation: model selector → microphone → send visually.
+- Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
 - Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
 - Native `settings.plugin.item` card for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route.
 - Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
@@ -37,6 +38,7 @@ Commands currently passing:
 - `pnpm build`
 - `pnpm pack --dry-run` — passed; tarball contents reviewed
 - `git diff --check`
+- `node /Users/junze/.agents/skills/impeccable/scripts/detect.mjs --json src/client/MicrophoneButton.tsx` — passed with no findings
 
 Real dsh verification already completed:
 
@@ -44,6 +46,7 @@ Real dsh verification already completed:
 - Native Plugins settings loaded dsh routes, persisted a recording-limit edit, and restored it.
 - No `remote.dshEars without inject` regression appeared after fresh boot/hot reload.
 - Composer position and dsh semantic colors were measured in both light and dark themes.
+- The refined microphone SVG hot-loaded in the local dsh browser and was visually checked in light and dark composer states; the original light theme setting was restored afterward.
 - A generated audio file was transcribed by the installed local Whisper command.
 - A real dsh Host `dshEars/transcribe` wire request returned the expected transcript.
 
