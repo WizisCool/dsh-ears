@@ -4,14 +4,19 @@ import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from '../src/polish/prompts.js'
 import { PolishService } from '../src/polish/service.js'
 
+vi.mock('../src/asr/local-whisper.js', () => ({
+  isWhisperAvailable: vi.fn(async () => false),
+  transcribeWithWhisper: vi.fn()
+}))
+
 type FakeSettingsScope = {
   get: () => typeof DEFAULT_EARS_SETTINGS
   update: (patch: unknown) => Promise<void>
 }
 
-function createSettingsScope(): FakeSettingsScope {
+function createSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS = DEFAULT_EARS_SETTINGS): FakeSettingsScope {
   return {
-    get: () => DEFAULT_EARS_SETTINGS,
+    get: () => settings,
     update: vi.fn(async () => undefined)
   }
 }
@@ -52,6 +57,29 @@ describe('PolishService', () => {
     await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).resolves.toBe('保留这段内容')
   })
 
+  it('does not report cloud ASR as available without a model', async () => {
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions',
+      cloudAsrModel: ''
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    const backends = await context.get('dshEarsPolish')?.listAsrBackends()
+    expect(backends?.find((backend) => backend.id === 'cloud-openai')?.available).toBe(false)
+  })
+
+  it('honors an aborted transcription before decoding the payload', async () => {
+    const context = createContext({})
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(context.get('dshEarsPolish')?.transcribe('not-base64', 'audio/wav', controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+  })
+
   it('does not prepare a route when the request is already aborted', async () => {
     const prepareCall = vi.fn()
     const context = createContext({ prepareCall })
@@ -70,12 +98,12 @@ describe('PolishService', () => {
   })
 })
 
-function createContext(llm: unknown): Context {
+function createContext(llm: unknown, settings = DEFAULT_EARS_SETTINGS): Context {
   const context = new Context()
   context.provide('llm', llm as never)
   context.provide('settings', {
     writable: true,
-    register: () => createSettingsScope()
+    register: () => createSettingsScope(settings)
   } as never)
   return context
 }

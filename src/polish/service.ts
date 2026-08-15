@@ -166,6 +166,7 @@ export class PolishService extends TypertRemoteService {
 
   async transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string> {
     const settings = this.requireSettings()
+    signal.throwIfAborted()
     const audio = decodeAudio(audioBase64)
     const backend = asrBackend(settings.asrBackend)
     if (backend === 'web-speech') throw new Error('Web Speech recordings are transcribed in the browser')
@@ -256,6 +257,7 @@ export class PolishService extends TypertRemoteService {
 
   private async cloudAsrIsAvailable(settings: EarsSettings): Promise<boolean> {
     if (!isHttpEndpoint(settings.cloudAsrEndpoint)) return false
+    if (settings.cloudAsrModel.trim() === '') return false
     if (settings.cloudAsrCredentialRef.trim() === '') return true
     if (this.describeCredential === undefined || !isCredentialReference(settings.cloudAsrCredentialRef)) return false
     try {
