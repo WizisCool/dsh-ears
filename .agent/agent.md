@@ -7,10 +7,11 @@
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Local release-readiness audit: complete; public release remains gated by an explicit license/release decision.
 - Target: dsh `0.1.0-rc.6`.
-- Latest implementation commit: `e7c4c94 fix(client): refine microphone icon`.
+- Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
+- Previous icon commit: `e7c4c94 fix(client): refine microphone icon`.
 - Remote operations: no push or publish has been performed.
 - Repository language: English-first for source, docs, context, comments, and commits.
 
@@ -20,6 +21,7 @@
 - Web Speech live recognition with interim/final draft updates, retryable errors, recording limits, and silent teardown abort.
 - dsh-native composer placement and light/dark semantic token adaptation: model selector → microphone → send visually.
 - Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
+- Matched microphone default/hover/focus behavior and label-secondary color to the native model selector.
 - Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
 - Native `settings.plugin.item` card for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route.
 - Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
@@ -39,6 +41,7 @@ Commands currently passing:
 - `pnpm pack --dry-run` — passed; tarball contents reviewed
 - `git diff --check`
 - `node /Users/junze/.agents/skills/impeccable/scripts/detect.mjs --json src/client/MicrophoneButton.tsx` — passed with no findings
+- Microphone and model selector computed text colors matched in both dsh themes; default microphone background was transparent and focus ring used `--dsw-alias-border-l3`.
 
 Real dsh verification already completed:
 
