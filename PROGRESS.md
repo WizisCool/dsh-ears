@@ -17,6 +17,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Polishing rows renamed (Provider / Model) with simplified hints and display-name-only pickers; the polishing toggle kept as a pill selector, and a dsh-route-driven reasoning-effort picker (model default supported) was added.
 - The settings page now distinguishes a failed first fetch (load-failure hint with one retry) from a genuinely read-only provider; Host-side updates require a dsh web restart.
 - Provider switches clear stale model/reasoning selections; the provider/model pair rule applies only while polishing is on (Host and client agree), and the reasoning picker offers the adapter's `off` effort as an explicit switch-off.
+- Polishing is disabled by default; its rows appear only after the toggle is enabled, the no-polish option is removed, an enabled polish requires a complete provider/model pair, and reasoning labels are adapter-native (untranslated `Default`, matching the model selector).
 
 ## Verified
 

@@ -40,7 +40,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 |---|---|---|
 | D1 | Project name is `dsh-ears`. | Accepted |
 | D2 | Click to start, live transcript into an editable draft, stop, then manual send. | Accepted |
-| D3 | Polishing is enabled by default and integrated into dsh settings. | Accepted |
+| D3 | Polishing is disabled by default; its configuration rows appear only after it is enabled, and an enabled polish requires a provider/model pair. | Accepted |
 | D4 | Users may select any provider/model route already configured in dsh. The plugin does not provide `base_url`, `api_key`, custom provider, or custom model fields for polishing. | Accepted |
 | D5 | M2 starts with Web Speech API; final local Whisper and cloud adapters use a separate MediaRecorder path. Same-session automatic switching is not promised. | Accepted |
 | D6 | Cloud ASR adapters are optional and separate from the dsh LLM polishing route. | Accepted |
@@ -139,7 +139,7 @@ Polishing is owned by dsh:
 - Do not hardcode `deepseek-v4-flash`, `gemini-3.7-flash-high`, or any other model name as a plugin preset.
 - Do not force DeepSeek-specific `thinking` fields. Reasoning mode, endpoint, and credentials belong to the selected dsh route.
 - If the selected route is missing, unavailable, times out, or fails, return the original transcript and never block the draft.
-- An empty provider/model selection is valid and means that polishing is disabled for the recording; it is not a settings validation error.
+- When polishing is enabled, a provider/model pair is required (an empty pair is invalid, not a no-polish state); when polishing is disabled, the pair is dormant and not validated.
 
 The polishing prompt removes filler words, repairs likely ASR errors, restores punctuation, preserves meaning, formats explicit enumerations as lists, and treats transcript text as data rather than instructions. The runtime prompt may be Chinese; its implementation and tests remain English-documented.
 
@@ -169,7 +169,7 @@ Local Whisper is invoked on the dsh Host with argument arrays and private tempor
 `dsh-ears` owns a dedicated settings page registered in `settings.section` (`dsh-ear`, nav order 16 — between Plugins and Agent presets), styled with the same semantic tokens, card geometry, and field patterns as the shipped Models page:
 
 - Recognition group: ASR backend selection, local Whisper model, cloud endpoint/model/dsh credential reference, language (default `zh-CN`), and per-recording limit (default 120 seconds).
-- Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. Empty selection is the explicit no-polish state.
+- Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. The group's rows appear only after polishing is enabled; an enabled polish requires a complete provider/model pair.
 
 The page keeps the same draft/save/discard flow and read-only fallback as the previous card. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the page stores only a dsh credential reference such as `OPENAI_API_KEY`.
 

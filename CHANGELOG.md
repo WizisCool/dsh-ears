@@ -34,6 +34,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - A failed first settings fetch now shows a dedicated load-failure hint with one delayed retry instead of the misleading read-only message; Host-side updates require a `dsh web` restart (the browser bundle updates on refresh).
 - Switching the polish provider clears the stale model and reasoning-effort selection, so another provider's models can never linger in the picker.
 - The provider/model pair rule now applies only while polishing is enabled; the reasoning picker labels the adapter's `off` effort as an explicit switch-off option.
+- Polishing is now disabled by default, its configuration rows appear only after the toggle is enabled (progressive disclosure), the meaningless no-polish picker option is gone, an enabled polish requires a complete provider/model pair, and reasoning-effort labels use the adapter's native names with an untranslated `Default` entry (matching the composer model selector).
 
 ### Deferred
 
