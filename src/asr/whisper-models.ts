@@ -194,13 +194,24 @@ function stateFromHandle(handle: DownloadHandle, cliAvailable: boolean): Whisper
 async function runDownload(python: string, model: WhisperModelId): Promise<void> {
   const handle = activeDownload
   if (handle === undefined || handle.model !== model) return
+  // Exit through os._exit: on this platform mix (Homebrew python + torch +
+  // openblas) the regular interpreter teardown races two OpenMP runtimes
+  // (libomp and libgomp) and can SIGSEGV during exit cleanup. Skipping the
+  // cleanup path keeps the download result authoritative either way.
   const script = [
-    'import os, sys, whisper',
+    'import os, sys, traceback, whisper',
     'model = sys.argv[1]',
     "root = os.path.join(os.getenv('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'whisper')",
-    "whisper._download(whisper._MODELS[model], root, False)",
-    "print('__DSH_EARS_DONE__', file=sys.stderr)"
-  ].join('; ')
+    'try:',
+    "    whisper._download(whisper._MODELS[model], root, False)",
+    "    sys.stderr.write('__DSH_EARS_DONE__\n')",
+    'except BaseException:',
+    "    traceback.print_exc(file=sys.stderr)",
+    '    sys.stderr.flush()',
+    '    os._exit(1)',
+    'sys.stderr.flush()',
+    'os._exit(0)'
+  ].join('\n')
   const child = spawn(python, ['-u', '-c', script, model], {
     stdio: ['ignore', 'ignore', 'pipe'],
     windowsHide: true
@@ -268,11 +279,19 @@ async function resolveWhisperPython(): Promise<string | undefined> {
  */
 async function resolveModelTable(python: string): Promise<ModelTable> {
   if (modelTable !== undefined) return modelTable
+  // Same os._exit teardown rationale as runDownload.
   const script = [
-    "import json, os, whisper",
-    "root = os.path.join(os.getenv('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'whisper')",
-    "print(json.dumps({'root': root, 'files': {str(k): os.path.basename(str(v)) for k, v in whisper._MODELS.items()}}))"
-  ].join('; ')
+    "import json, os, sys, traceback, whisper",
+    'try:',
+    "    root = os.path.join(os.getenv('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'whisper')",
+    "    print(json.dumps({'root': root, 'files': {str(k): os.path.basename(str(v)) for k, v in whisper._MODELS.items()}}))",
+    'except BaseException:',
+    "    traceback.print_exc(file=sys.stderr)",
+    '    sys.stderr.flush()',
+    '    os._exit(1)',
+    'sys.stdout.flush()',
+    'os._exit(0)'
+  ].join('\n')
   const output = await runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
   const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
   if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
@@ -290,7 +309,7 @@ async function resolveModelTable(python: string): Promise<ModelTable> {
 /** Spec-only check: resolves the whisper distribution without importing it. */
 async function hasWhisperSpec(python: string): Promise<boolean> {
   try {
-    const output = await runPythonCollect(python, ['-c', "import importlib.util; print(importlib.util.find_spec('whisper') is not None)"], PROBE_COMMAND_TIMEOUT_MS)
+    const output = await runPythonCollect(python, ['-c', "import importlib.util, sys; print(importlib.util.find_spec('whisper') is not None); sys.stdout.flush(); import os; os._exit(0)"], PROBE_COMMAND_TIMEOUT_MS)
     return output.trim() === 'True'
   } catch {
     return false
