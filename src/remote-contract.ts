@@ -5,6 +5,7 @@ import type { AsrBackendInfo } from './asr/types.js'
 
 const asrBackendSchema = z.enum(ASR_BACKEND_IDS)
 const whisperModelSchema = z.enum(WHISPER_MODEL_IDS)
+export const textSchema = z.string()
 
 export const earsSettingsSchema = z.object({
   asrBackend: z.string(),

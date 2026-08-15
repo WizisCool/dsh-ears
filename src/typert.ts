@@ -1,10 +1,4 @@
-import { z } from 'zod'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
-const polishTranscriptSchema = z.string()
-const polishProviderSchema = z.string()
-const polishModelSchema = z.string()
-const polishReasoningEffortSchema = z.string()
-const whisperModelNameSchema = z.string()
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -94,13 +88,13 @@ export const TYPERT = {
           name: 'provider',
           wire: 'provider',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: polishProviderSchema }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         },
         {
           name: 'model',
           wire: 'model',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: polishModelSchema }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         }
       ],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
@@ -115,7 +109,7 @@ export const TYPERT = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -129,7 +123,7 @@ export const TYPERT = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -143,7 +137,7 @@ export const TYPERT = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -157,7 +151,7 @@ export const TYPERT = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -175,7 +169,7 @@ export const TYPERT = {
           codec: {
             mode: 'strict',
             typeSymbol: 'string',
-            schema: polishTranscriptSchema
+            schema: textSchema
           }
         },
         {
@@ -185,7 +179,7 @@ export const TYPERT = {
           codec: {
             mode: 'strict',
             typeSymbol: 'string',
-            schema: polishProviderSchema
+            schema: textSchema
           }
         },
         {
@@ -195,7 +189,7 @@ export const TYPERT = {
           codec: {
             mode: 'strict',
             typeSymbol: 'string',
-            schema: polishModelSchema
+            schema: textSchema
           }
         },
         {
@@ -205,7 +199,7 @@ export const TYPERT = {
           codec: {
             mode: 'strict',
             typeSymbol: 'string',
-            schema: polishReasoningEffortSchema
+            schema: textSchema
           }
         }
       ],
@@ -213,7 +207,7 @@ export const TYPERT = {
       result: {
         mode: 'strict',
         typeSymbol: 'string',
-        schema: polishResultSchema
+        schema: textSchema
       }
     }
   ],

@@ -1,6 +1,6 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, reasoningEffortsViewSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
 import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
@@ -126,13 +126,13 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
           name: 'provider',
           wire: 'provider',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         },
         {
           name: 'model',
           wire: 'model',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         }
       ],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
@@ -147,7 +147,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -161,7 +161,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -175,7 +175,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -189,7 +189,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
@@ -204,32 +204,32 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
           name: 'transcript',
           wire: 'transcript',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         },
         {
           name: 'provider',
           wire: 'provider',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         },
         {
           name: 'model',
           wire: 'model',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         },
         {
           name: 'reasoningEffort',
           wire: 'reasoningEffort',
           source: 'json',
-          codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+          codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
         }
       ],
       cancellation: { parameter: 'signal' },
       result: {
         mode: 'strict',
         typeSymbol: 'string',
-        schema: { parse(value: unknown) { return String(value) } }
+        schema: textSchema
       }
     }
   ]

@@ -42,4 +42,18 @@ describe('settings Remote contract', () => {
     expect(clientIds).toEqual(hostIds)
     expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['polish', 'transcribe', 'updateSettings'])
   })
+
+  it('uses the same strict text codecs on both Remote faces', () => {
+    const host = TYPERT.invocations.find((invocation) => invocation.id.endsWith('/polish'))
+    const client = TYPERT_REMOTE.descriptors.find((descriptor) => descriptor.id.endsWith('/polish'))
+    if (host === undefined || client === undefined) throw new Error('Polish descriptor is missing')
+    const hostParameters = host.parameters as ReadonlyArray<{ codec: { schema: { parse(value: unknown): unknown } } }>
+    const clientParameters = client.parameters as ReadonlyArray<{ codec: { schema: { parse(value: unknown): unknown } } }>
+
+    expect(hostParameters.map((parameter) => parameter.codec.schema)).toEqual(clientParameters.map((parameter) => parameter.codec.schema))
+    expect(() => hostParameters[0].codec.schema.parse(123)).toThrow()
+    expect(() => clientParameters[0].codec.schema.parse(123)).toThrow()
+    expect(() => host.result.schema.parse(123)).toThrow()
+    expect(() => client.result.schema.parse(123)).toThrow()
+  })
 })
