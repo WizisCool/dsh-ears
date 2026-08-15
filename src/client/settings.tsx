@@ -14,11 +14,11 @@ import styles from './SettingsSection.module.css'
 export const LOCALE_NAMESPACE = 'settings.dshEars'
 
 export const localeZh = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHint: '实时 Web Speech 适合即时反馈；本地 Whisper 和云端后端会在停止录音后转录。', webSpeechBackend: 'Web Speech（实时）', localWhisperBackend: '本地 Whisper（隐私优先）', cloudBackend: 'OpenAI-compatible 云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '停止录音后，用已配置的 dsh 模型整理转写内容。', polishingOn: '启用', polishingOff: '关闭', provider: '润色模型提供方', providerHint: '选择 dsh 当前已接入的 provider。', model: '润色模型', modelHint: '选择该 provider 下的模型；插件不会保存凭据。', noModel: '不使用润色模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', saving: '保存中…', saved: '已保存', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
+  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHint: '实时 Web Speech 适合即时反馈；本地 Whisper 和云端后端会在停止录音后转录。', webSpeechBackend: 'Web Speech（实时）', localWhisperBackend: '本地 Whisper（隐私优先）', cloudBackend: 'OpenAI-compatible 云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '停止录音后，用已配置的 dsh 模型整理转写内容。', polishingOn: '启用', polishingOff: '关闭', provider: '润色模型提供方', providerHint: '选择 dsh 当前已接入的 provider。', model: '润色模型', modelHint: '选择该 provider 下的模型；插件不会保存凭据。', noModel: '不使用润色模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
 } as const
 
 export const localeEn = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHint: 'Web Speech gives live feedback; local Whisper and cloud backends transcribe after recording stops.', webSpeechBackend: 'Web Speech (live)', localWhisperBackend: 'Local Whisper (privacy-first)', cloudBackend: 'OpenAI-compatible cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'After recording stops, use a dsh-configured model to clean up the transcript.', polishingOn: 'Enabled', polishingOff: 'Disabled', provider: 'Polishing provider', providerHint: 'Choose a provider already connected to dsh.', model: 'Polishing model', modelHint: 'Choose a model under that provider; the plugin never stores credentials.', noModel: 'Do not polish', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', saving: 'Saving…', saved: 'Saved', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
+  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHint: 'Web Speech gives live feedback; local Whisper and cloud backends transcribe after recording stops.', webSpeechBackend: 'Web Speech (live)', localWhisperBackend: 'Local Whisper (privacy-first)', cloudBackend: 'OpenAI-compatible cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'After recording stops, use a dsh-configured model to clean up the transcript.', polishingOn: 'Enabled', polishingOff: 'Disabled', provider: 'Polishing provider', providerHint: 'Choose a provider already connected to dsh.', model: 'Polishing model', modelHint: 'Choose a model under that provider; the plugin never stores credentials.', noModel: 'Do not polish', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
 } as const
 
 type LocaleKey = keyof typeof localeEn
@@ -37,7 +37,6 @@ export interface EarsCardState {
   available: boolean
   writable: boolean
   saving: boolean
-  saved: boolean
   failed: boolean
   invalid: boolean
   asrBackend: FieldState
@@ -80,7 +79,6 @@ export class EarsSettingsController {
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private saving = false
-  private saved = false
   private failed = false
   private saveTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -148,7 +146,6 @@ export class EarsSettingsController {
   private edit(field: FieldName, text: string): void {
     this.drafts.set(field, text)
     this.failed = false
-    this.saved = false
     this.publishCard()
     this.scheduleSave()
   }
@@ -172,7 +169,6 @@ export class EarsSettingsController {
     if (Object.keys(patch).length === 0) return
     this.saving = true
     this.failed = false
-    this.saved = false
     this.publishCard()
     try {
       const result = await this.remote.updateSettings(patch)
@@ -180,7 +176,6 @@ export class EarsSettingsController {
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
       for (const field of Object.keys(patch)) this.drafts.delete(field as FieldName)
-      this.saved = true
       void this.refreshBackends()
     } catch {
       this.failed = true
@@ -212,7 +207,6 @@ export class EarsSettingsController {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
       saving: this.saving,
-      saved: this.saved,
       failed: this.failed,
       invalid: asrBackend.invalid || localWhisperModel.invalid || cloudConfigInvalid || language.invalid || maxRecordingSeconds.invalid || polishingEnabled.invalid || polishProvider.invalid || polishModel.invalid || routeInvalid,
       asrBackend,
@@ -308,10 +302,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         </div>
       )}
       <div className={styles.footer}>
-        {state.saving ? <p className={styles.footerStatus}>{t('saving')}</p> : null}
-        {!state.saving && state.failed ? <p className={styles.footerStatus} data-kind="error" role="alert">{t('saveFailed')}</p> : null}
-        {!state.saving && !state.failed && state.saved ? <p className={styles.footerStatus} data-kind="success">{t('saved')}</p> : null}
-        {!state.saving && !state.failed && state.invalid ? <p className={styles.footerStatus} data-kind="error">{t('invalid')}</p> : null}
+        {state.failed ? <p className={styles.footerStatus} data-kind="error" role="alert">{t('saveFailed')}</p> : null}
+        {!state.failed && state.invalid ? <p className={styles.footerStatus} data-kind="error">{t('invalid')}</p> : null}
       </div>
     </section>
   )

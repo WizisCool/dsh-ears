@@ -197,7 +197,3 @@
 .footerStatus[data-kind='error'] {
   color: var(--dsw-alias-state-error-primary);
 }
-
-.footerStatus[data-kind='success'] {
-  color: var(--dsw-alias-state-success-primary);
-}
