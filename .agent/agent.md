@@ -9,7 +9,7 @@
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
 - Latest docs commit: `3000339 docs: record dedicated settings page decision`.
-- Latest client commit: `e0117d8 feat(client): move configuration to a dedicated settings page`.
+- Latest client commit: `0421451 feat(client): split settings page into tab cards`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
 - Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
@@ -25,7 +25,7 @@
 - Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
 - Matched microphone default/hover/focus behavior and label-secondary color to the native model selector.
 - Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
-- Dedicated `settings.section` page (`dsh-ear`, order 16) for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route, styled like the shipped settings pages (D-017; supersedes the former Plugins-page card).
+- Dedicated `settings.section` page (`dsh-ear`, order 16) with Plugins-style tab cards (Recognition / Polishing) for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route (D-017; supersedes the former Plugins-page card).
 - Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
 - OpenAI-compatible cloud ASR adapter using bounded multipart input/response handling and per-operation dsh credential resolution.
 - MediaRecorder capture with constrained mono audio, idempotent stop, error cleanup, track release, and manual draft protection.
