@@ -206,11 +206,11 @@ The page keeps the same draft/save/discard flow and read-only fallback as the pr
 ### M3/M4 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 29 tests across 7 files.
+- `pnpm test`: passed; 35 tests across 9 files.
 - `pnpm build`: passed; Host RPC, Client bundle, CSS modules, and declarations generated.
-- Fresh dsh Web boot on a temporary port: passed; the microphone and native settings card loaded.
-- Native `Plugins → 插件配置`: passed; the `语音输入` card appeared and loaded dsh provider routes.
-- Settings persistence: passed; recording limit changed and was restored through the native card.
+- Fresh dsh Web boot on a temporary port: passed; the microphone and dedicated `dsh-ear` settings page loaded.
+- Native `Settings → dsh-ear`: passed; the page appeared and loaded dsh provider routes.
+- Settings persistence: passed; recording limit changed and was restored through the dedicated native settings page.
 - Cordis Remote regression: passed; no `remote.dshEars without inject` error appeared on the fresh boot or after hot reload.
 - Composer order: passed in light and dark themes; model selector → microphone → send button.
 - Theme tokens: passed in light and dark themes; the microphone computed color/background changed with dsh theme tokens and no Codex palette constants are used.
@@ -227,7 +227,7 @@ The page keeps the same draft/save/discard flow and read-only fallback as the pr
 ### M5 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 29 tests across 7 files.
+- `pnpm test`: passed; 35 tests across 9 files.
 - `pnpm build`: passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
 - Local Whisper smoke: passed with a generated AIFF file and the installed `whisper --model tiny` command.
 - dsh Host RPC smoke: passed with a real `dshEars/transcribe` request and transcript response.

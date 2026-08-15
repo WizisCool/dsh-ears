@@ -8,7 +8,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Implemented the end-to-end flow: Web Speech or final audio capture → transcript → optional dsh model polishing → editable draft → manual send.
 - Added local Whisper and OpenAI-compatible cloud ASR backends with native dsh settings, cancellation, cleanup, size limits, and credential references.
 - Adapted the microphone to dsh light/dark semantic tokens and the model → microphone → send composer hierarchy.
-- Kept configuration inside dsh's native Plugins page.
+- Kept configuration inside dsh's native settings window through a dedicated `settings.section` page.
 - Renamed the plugin configuration card title to `dsh-ear` and clarified the read-only hint in both locales.
 - Moved plugin configuration to a dedicated `settings.section` page (`dsh-ear`, beside General/Models/Plugins) styled with the shipped settings pages' tokens and card geometry.
 - Split the page into Plugins-style tab cards (Recognition / Polishing) with matching keyboard navigation.
@@ -19,11 +19,12 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Provider switches clear stale model/reasoning selections; the provider/model pair rule applies only while polishing is on (Host and client agree), and the reasoning picker offers the adapter's `off` effort as an explicit switch-off.
 - Polishing is disabled by default; its rows appear only after the toggle is enabled, the no-polish option is removed, an enabled polish requires a complete provider/model pair, and reasoning labels are adapter-native (untranslated `Default`, matching the model selector).
 - Whisper model availability is now visible: downloaded state, a download action with progress (delegated to the installed library, tqdm-derived), and honest errors across platforms/environments.
+- Whisper model state controls now surface Host/Remote failures while preserving the last known state, instead of silently looking like an unavailable or missing model.
 
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 29 tests across 7 files.
+- `pnpm test` passed: 35 tests across 9 files.
 - `pnpm build` passed.
 - `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.

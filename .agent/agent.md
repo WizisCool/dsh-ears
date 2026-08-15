@@ -7,7 +7,7 @@
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Local release-readiness audit: complete; the MIT license decision is recorded and the repository is released privately on GitHub; npm publishing remains gated by an explicit release decision.
 - Target: dsh `0.1.0-rc.6`.
-- Latest implementation commit: `7a71513 fix(client): align microphone with model selector`.
+- Latest implementation commit: `d66c270 fix(client): surface Whisper remote failures`.
 - Latest docs commit: `3000339 docs: record dedicated settings page decision`.
 - Latest client commit: `a1ef1c9 fix(asr): bypass python teardown crash with os._exit`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
@@ -38,7 +38,7 @@
 Commands currently passing:
 
 - `pnpm check`
-- `pnpm test` — 29 tests across 7 files
+- `pnpm test` — 35 tests across 9 files
 - `pnpm build`
 - `pnpm pack --dry-run` — passed; tarball contents reviewed
 - `git diff --check`
@@ -75,12 +75,12 @@ None. A non-empty live dsh polish completion still depends on a usable configure
 
 ## Latest task record
 
-- Completed: moved plugin configuration out of the Plugins page into a dedicated `settings.section` page (`dsh-ear`, nav order 16) styled after the shipped Models page — grouped Recognition/Polishing cards, same semantic tokens, same draft/save/discard flow and read-only fallback; superseded D-011 with D-017 and synced PLAN/context/PROGRESS/changelog.
-- Validation: `tsc --noEmit` passed; `vitest run` 29/29 passed; `tsdown` + declaration build passed; the served bundle (`/plugins/dsh-ears/client.js`) contains the `settings.section` registration and no `settings.plugin.item` reference.
+- Completed: surfaced Whisper model Host/Remote failures in the settings controller without discarding the last known model state; added a regression test for the `RemoteResult` failure branch.
+- Validation: `pnpm check` passed; `pnpm test` passed with 35/35 tests across 9 files; `pnpm build` passed; staged diff check passed.
 - Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the page does not stay read-only — deferred pending maintainer decision.
 - Blocked: none.
-- Next: browser verification of the new page after reload; push the unpushed local commits after maintainer authorization.
-- Commit: `e0117d8 feat(client): move configuration to a dedicated settings page`.
+- Next: continue the module-by-module code audit; push the unpushed local commits after maintainer authorization.
+- Commit: `d66c270 fix(client): surface Whisper remote failures`.
 
 ## Handoff template
 

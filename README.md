@@ -8,7 +8,7 @@ The interaction is deliberately close to Codex Desktop:
 microphone → transcription → optional dsh LLM polishing → editable draft → manual send
 ```
 
-The microphone control is registered in dsh's composer. Configuration lives in dsh's native `Plugins` settings page; dsh-ears does not add a separate settings tab.
+The microphone control is registered in dsh's composer. Configuration lives in a dedicated `dsh-ear` page in dsh's native settings window; dsh-ears does not add a second settings system.
 
 ## Compatibility
 
@@ -35,7 +35,7 @@ After transcription, dsh-ears can ask any provider/model route already configure
 
 ### Settings
 
-Open `Settings → Plugins → Plugin configuration` in dsh. The card provides:
+Open `Settings → dsh-ear` in dsh. The page provides:
 
 - recognition language and recording limit;
 - ASR backend and local Whisper model;
@@ -74,10 +74,10 @@ Web Speech may send audio to a browser-vendor recognition service. “No additio
 
 ## Verification
 
-The repository currently has 29 focused tests across 7 test files. The verified local dsh smoke path includes:
+The repository currently has 35 focused tests across 9 test files. The verified local dsh smoke path includes:
 
 - dsh Host and browser plugin loading;
-- native Plugins settings persistence;
+- native `dsh-ear` settings persistence;
 - light/dark composer layout and dsh semantic color tokens;
 - real local Whisper transcription through `dshEars/transcribe`;
 - Web Speech and MediaRecorder lifecycle failure paths.

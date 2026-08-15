@@ -19,7 +19,7 @@ The user must always remain in control of the final send action.
 ## Product boundaries
 
 - The microphone is a compact dsh toolbar control in the composer.
-- Configuration belongs to dsh's native Plugins settings page through `settings.plugin.item`.
+- Configuration belongs to a dedicated `settings.section` page in dsh's native settings window.
 - Polishing uses any provider/model route already configured in dsh. The plugin stores the route selection only.
 - The plugin never owns an LLM API key, base URL, provider, or model credential flow.
 - Emotion recognition and emotion UI are intentionally deferred.

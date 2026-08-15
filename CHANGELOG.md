@@ -8,7 +8,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 - Codex-like dsh composer microphone control with live Web Speech input.
 - Optional dsh-owned transcript polishing using any configured provider/model route.
-- Native dsh Plugins settings card.
+- Dedicated native dsh `settings.section` configuration page.
 - Host-side local Whisper and OpenAI-compatible cloud ASR backends.
 - dsh credential-reference support without plugin-owned secret storage.
 - Typed Typert Remote contracts, cancellation, bounded payloads, and draft-race protection.
@@ -21,6 +21,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
 - Bounded local Whisper files, cloud response bodies, and ASR payloads.
 - Whisper helper scripts exit via `os._exit`, avoiding the Homebrew python/torch/openblas OpenMP-teardown SIGSEGV (isolated to the child process; download results stay authoritative).
+- Whisper model state actions surface Host/Remote failures and retain the last known state instead of silently ignoring failed requests.
 
 ### Changed
 
