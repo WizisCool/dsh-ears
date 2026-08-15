@@ -47,6 +47,25 @@ describe('MediaRecorderSession', () => {
     expect(() => session.start()).toThrow('cannot be restarted')
   })
 
+  it('releases tracks when recorder start fails synchronously', async () => {
+    const stopTrack = vi.fn()
+    const stream = { getTracks: () => [{ stop: stopTrack }] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { throw new Error('recorder start failed') }
+      stop(): void { this.state = 'inactive' }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    const session = await MediaRecorderSession.create()
+    expect(() => session.start()).toThrow('recorder start failed')
+    expect(stopTrack).toHaveBeenCalledTimes(1)
+    expect(() => session.start()).toThrow('no longer active')
+  })
+
   it('shares one stop promise and does not duplicate recorder shutdown', async () => {
     const stream = { getTracks: () => [{ stop: vi.fn() }] }
     class FakeRecorder extends EventTarget {

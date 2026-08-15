@@ -165,8 +165,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
     const baseDraft = input.draft
     mediaStartCancelledRef.current = false
     setState('starting')
+    let session: MediaRecorderSession | undefined
     try {
-      const session = await MediaRecorderSession.create()
+      session = await MediaRecorderSession.create()
       if (!mountedRef.current || mediaStartCancelledRef.current) {
         session.abort()
         return
@@ -177,6 +178,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
       setState('recording')
       armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => void stopRecording())
     } catch {
+      session?.abort()
+      if (mediaSessionRef.current === session) mediaSessionRef.current = null
       if (mountedRef.current) setState(mediaStartCancelledRef.current ? 'idle' : 'error')
     }
   }
