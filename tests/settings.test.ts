@@ -134,6 +134,22 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('limits the initial settings retry to one attempt', async () => {
+    vi.useFakeTimers()
+    const failure = { ok: false as const, error: { code: 'HOST_FAILURE', message: 'unavailable', details: {} } }
+    const getSettings = vi.fn(async () => failure)
+    const controller = new EarsSettingsController(createRemote({ getSettings }))
+    try {
+      await controller.refreshSettings()
+      await vi.advanceTimersByTimeAsync(1500)
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(getSettings).toHaveBeenCalledTimes(2)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
   it('does not let an older reasoning-effort response replace a newer route', async () => {
     const first = deferred<EffortsResult>()
     const second = deferred<EffortsResult>()

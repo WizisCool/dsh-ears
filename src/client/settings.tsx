@@ -121,6 +121,7 @@ export class EarsSettingsController {
   private saving = false
   private loaded = false
   private failed = false
+  private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
   private saveTimer: ReturnType<typeof setTimeout> | undefined
   private whisperPollTimer: ReturnType<typeof setInterval> | undefined
@@ -184,6 +185,7 @@ export class EarsSettingsController {
         this.settingsView = result.value
         this.settingsStore.set(result.value.settings)
         this.loaded = true
+        this.retryAttempted = false
         if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
         this.retryTimer = undefined
         this.publishCard()
@@ -197,7 +199,8 @@ export class EarsSettingsController {
     if (this.disposed || request !== this.settingsRequest) return
     this.publishCard()
     void this.refreshReasoningEfforts()
-    if (!this.loaded && this.retryTimer === undefined) {
+    if (!this.loaded && !this.retryAttempted && this.retryTimer === undefined) {
+      this.retryAttempted = true
       this.retryTimer = setTimeout(() => {
         this.retryTimer = undefined
         void this.refreshSettings()
