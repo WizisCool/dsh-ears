@@ -241,6 +241,15 @@
   outline: none;
 }
 
+.linkButtonDanger {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.linkButtonDanger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+}
+
 .footer {
   display: flex;
   align-items: center;

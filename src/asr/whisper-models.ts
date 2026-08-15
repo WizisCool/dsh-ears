@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { access, readFile, stat } from 'node:fs/promises'
+import { access, readFile, rm, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
@@ -127,13 +127,56 @@ export async function downloadWhisperModel(model: WhisperModelId, cliAvailable: 
   return stateFromHandle(activeDownload, cliAvailable)
 }
 
-export function cancelWhisperModelDownload(model: WhisperModelId, cliAvailable: boolean): WhisperModelState {
+export async function cancelWhisperModelDownload(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
   const handle = activeDownload
   if (handle !== undefined && handle.model === model && !handle.finished) {
     handle.child?.kill('SIGTERM')
     handle.finished = true
+    // Best-effort cleanup of the partial file so it is not mistaken for a
+    // complete model by the next state query.
+    try {
+      const python = await resolveWhisperPython()
+      if (python !== undefined) {
+        const table = await resolveModelTable(python)
+        const file = table.files.get(model)
+        if (file !== undefined) await rm(join(table.root, file), { force: true })
+      }
+    } catch {
+      // The next state query will surface any leftover file honestly.
+    }
   }
   return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
+}
+
+export async function deleteWhisperModel(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
+  if (!(WHISPER_MODEL_IDS as readonly string[]).includes(model)) return { ...EMPTY_STATE, cliAvailable }
+  const handle = activeDownload
+  if (handle !== undefined && handle.model === model && !handle.finished) {
+    return { ...stateFromHandle(handle, cliAvailable), error: 'The model is still downloading.' }
+  }
+  const python = await resolveWhisperPython()
+  if (python === undefined) {
+    return { ...EMPTY_STATE, cliAvailable, error: 'Cannot delete models: no whisper-capable Python interpreter was found on the dsh Host.' }
+  }
+  try {
+    const table = await resolveModelTable(python)
+    const file = table.files.get(model)
+    if (file === undefined) {
+      return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The installed whisper does not know the model "${model}".` }
+    }
+    await rm(join(table.root, file), { force: true })
+    return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
+  } catch (error) {
+    return {
+      cliAvailable,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: error instanceof Error ? error.message : 'Whisper model deletion failed'
+    }
+  }
 }
 
 function stateFromHandle(handle: DownloadHandle, cliAvailable: boolean): WhisperModelState {
