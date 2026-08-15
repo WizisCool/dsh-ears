@@ -237,8 +237,19 @@ function normalizeBackend(value: string): AsrBackendId {
 function MicrophoneIcon() {
   return (
     <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 16 16" width="16">
-      <rect height="7" rx="2.5" stroke="currentColor" strokeWidth="1.25" width="4.5" x="5.75" y="2" />
-      <path d="M3.75 7.5a4.25 4.25 0 0 0 8.5 0M8 11.75V14M5.5 14h5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.25" />
+      <path
+        d="M8 1.75a2.25 2.25 0 0 0-2.25 2.25v3.5a2.25 2.25 0 0 0 4.5 0V4A2.25 2.25 0 0 0 8 1.75Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12.25V14M5.5 14h5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
     </svg>
   )
 }
