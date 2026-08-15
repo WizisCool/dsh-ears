@@ -3,7 +3,7 @@ import type { ChangeEvent, ReactNode } from 'react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Input, Menu, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
@@ -413,10 +413,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, t)} value={state.asrBackend.text} options={backendOptions} disabled={!state.writable} invalid={state.asrBackend.invalid} onChange={(value) => props.edit('asrBackend', value)} />
           {selectedBackend && !selectedBackend.available ? <p className={styles.statusError}>{t('backendUnavailable')}{backendUnavailableDetail(selectedBackend, t)}</p> : null}
-          {state.asrBackend.text === 'local-whisper' ? <>
-            <SelectRow label={t('localModel')} hint={t('localModelHint')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} onChange={(value) => props.edit('localWhisperModel', value)} />
-            {whisper.status === 'ready' ? <WhisperModelStatus state={whisper.state} t={t} writable={state.writable} onDownload={props.downloadModel} /> : null}
-          </> : null}
+          {state.asrBackend.text === 'local-whisper' ? (whisper.status === 'ready'
+            ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
+            : <SelectRow label={t('localModel')} hint={t('localModelHint')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} onChange={(value) => props.edit('localWhisperModel', value)} />
+          ) : null}
           {state.asrBackend.text === 'cloud-openai' ? <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
@@ -494,27 +494,59 @@ function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: {
   )
 }
 
-function WhisperModelStatus({ state: modelState, t, writable, onDownload }: { state: WhisperModelState; t: Translate; writable: boolean; onDownload: () => void }) {
+function WhisperModelRow({ label, value, options, disabled, invalid, modelState, writable, onDownload, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onChange: (value: string) => void; t: Translate }) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(([optionValue]) => optionValue === value)
+  const labelText = selected === undefined ? value : selected[1]
+  const status = whisperStatusContent(modelState, t, writable, onDownload)
+  return (
+    <div className={styles.row}>
+      <div className={styles.rowText}>
+        <div className={styles.rowTitle}>{label}</div>
+        <div className={`${styles.rowDesc} ${styles.rowDescInline} ${modelState.error !== null || invalid ? styles.invalid : ''}`} {...(modelState.error !== null ? { role: 'alert' } : {})}>
+          {status}
+        </div>
+      </div>
+      <Menu
+        open={open}
+        onClose={() => setOpen(false)}
+        items={options.map(([id, optionLabel]) => ({ id, label: optionLabel }))}
+        selectedId={value}
+        onSelect={(id) => {
+          setOpen(false)
+          if (id === value) return
+          onChange(id)
+        }}
+        align="end"
+        portal
+        anchor={
+          <button type="button" className={styles.selector} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
+            {labelText}
+            <IconChevronDownOutline14 className={styles.chevron} />
+          </button>
+        }
+      />
+    </div>
+  )
+}
+
+function whisperStatusContent(modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void): ReactNode {
   if (modelState.error !== null) {
-    return <p className={styles.modelStatus} data-kind="error" role="alert">{modelState.error}</p>
+    return <><StateDot state="error" size={8} /><span>{modelState.error}</span></>
   }
   if (modelState.downloading) {
     const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
-    return (
-      <div className={styles.modelStatus}>
-        <span className={styles.modelStatusText}>{t('whisperDownloading')}{percent === null ? '' : ` ${String(percent)}%`}</span>
-        {percent === null ? null : <span className={styles.progressTrack}><span className={styles.progressFill} style={{ width: `${percent}%` }} /></span>}
-      </div>
-    )
+    return <><StateDot state="ongoing" size={8} /><span>{t('whisperDownloading')}{percent === null ? '' : ` ${String(percent)}%`}</span></>
   }
   if (modelState.downloaded) {
-    return <p className={styles.modelStatus} data-kind="success">{t('whisperDownloaded')}</p>
+    return <><StateDot state="done" size={8} /><span>{t('whisperDownloaded')}</span></>
   }
   return (
-    <div className={styles.modelStatus}>
-      <span className={styles.modelStatusText}>{t('whisperNotDownloaded')}</span>
-      <Button className={styles.modelDownloadButton} variant="outline" size="sm" disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('download')}</Button>
-    </div>
+    <>
+      <StateDot state="warning" size={8} />
+      <span>{t('whisperNotDownloaded')}</span>
+      <button type="button" className={styles.linkButton} disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('download')}</button>
+    </>
   )
 }
 

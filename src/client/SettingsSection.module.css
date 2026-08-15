@@ -180,51 +180,42 @@
   line-height: 18px;
 }
 
-.modelStatus {
+.rowDescInline {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
-.modelStatus[data-kind='success'] {
-  margin: 0;
-  color: var(--dsw-alias-state-success-primary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.modelStatus[data-kind='error'] {
-  margin: 0;
-  color: var(--dsw-alias-state-error-primary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.modelStatusText {
+.linkButton {
+  box-sizing: border-box;
+  height: 28px;
   color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 14px;
+  align-items: center;
+  padding: 0 10px;
   font-size: 12px;
   line-height: 18px;
-}
-
-.modelDownloadButton {
+  display: inline-flex;
   flex: none;
 }
 
-.progressTrack {
-  background: var(--dsw-alias-border-l2);
-  border-radius: 999px;
-  height: 4px;
-  flex: 1;
-  max-width: 160px;
-  overflow: hidden;
+.linkButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
 }
 
-.progressFill {
-  background: var(--dsw-alias-state-business-primary);
-  border-radius: 999px;
-  height: 100%;
-  display: block;
-  transition: width 0.15s ease-in-out;
+.linkButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.linkButton:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
+  outline: none;
 }
 
 .footer {
