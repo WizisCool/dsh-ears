@@ -50,7 +50,9 @@ const PATH_DELIMITER = IS_WINDOWS ? ';' : ':'
 const PYTHON_CANDIDATES = IS_WINDOWS ? ['python', 'py'] : ['python3', 'python']
 
 let discoveredPython: string | undefined
+let discoveringPython: Promise<string | undefined> | undefined
 let modelTable: ModelTable | undefined
+let modelTablePromise: Promise<ModelTable> | undefined
 let activeDownload: DownloadHandle | undefined
 
 export async function getWhisperModelState(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
@@ -86,7 +88,10 @@ export async function getWhisperModelState(model: WhisperModelId, cliAvailable: 
       return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
     }
   } catch (error) {
-    if (isMissingExecutable(error)) discoveredPython = undefined
+    if (isMissingExecutable(error)) {
+      discoveredPython = undefined
+      modelTable = undefined
+    }
     return {
       cliAvailable,
       downloaded: false,
@@ -273,22 +278,27 @@ async function removeModelFile(python: string, model: WhisperModelId): Promise<v
  */
 async function resolveWhisperPython(): Promise<string | undefined> {
   if (discoveredPython !== undefined) return discoveredPython
-  const cliPath = await resolveExecutable(IS_WINDOWS ? 'whisper.exe' : 'whisper')
-  if (cliPath !== undefined) {
-    const interpreter = await readShebangInterpreter(cliPath)
-    if (interpreter !== undefined && await hasWhisperSpec(interpreter)) {
-      discoveredPython = interpreter
-      return interpreter
+  if (discoveringPython !== undefined) return discoveringPython
+  const promise = (async () => {
+    const cliPath = await resolveExecutable(IS_WINDOWS ? 'whisper.exe' : 'whisper')
+    if (cliPath !== undefined) {
+      const interpreter = await readShebangInterpreter(cliPath)
+      if (interpreter !== undefined && await hasWhisperSpec(interpreter)) return interpreter
     }
-  }
-  for (const candidate of PYTHON_CANDIDATES) {
-    const path = await resolveExecutable(candidate)
-    if (path !== undefined && await hasWhisperSpec(path)) {
-      discoveredPython = path
-      return path
+    for (const candidate of PYTHON_CANDIDATES) {
+      const path = await resolveExecutable(candidate)
+      if (path !== undefined && await hasWhisperSpec(path)) return path
     }
+    return undefined
+  })()
+  discoveringPython = promise
+  try {
+    const result = await promise
+    if (result !== undefined) discoveredPython = result
+    return result
+  } finally {
+    if (discoveringPython === promise) discoveringPython = undefined
   }
-  return undefined
 }
 
 /**
@@ -299,6 +309,7 @@ async function resolveWhisperPython(): Promise<string | undefined> {
  */
 async function resolveModelTable(python: string): Promise<ModelTable> {
   if (modelTable !== undefined) return modelTable
+  if (modelTablePromise !== undefined) return modelTablePromise
   // Same os._exit teardown rationale as runDownload.
   const script = [
     "import json, os, sys, traceback, whisper",
@@ -312,18 +323,27 @@ async function resolveModelTable(python: string): Promise<ModelTable> {
     'sys.stdout.flush()',
     'os._exit(0)'
   ].join('\n')
-  const output = await runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
-  const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
-  if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
-    throw new Error('Could not read the installed whisper model table')
+  const promise = (async () => {
+    const output = await runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
+    const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
+    if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
+      throw new Error('Could not read the installed whisper model table')
+    }
+    const files = new Map<string, string>()
+    for (const [name, file] of Object.entries(parsed.files as Record<string, unknown>)) {
+      if (typeof file === 'string') files.set(name, file)
+    }
+    if (files.size === 0) throw new Error('The installed whisper exposes no models')
+    return { root: parsed.root, files }
+  })()
+  modelTablePromise = promise
+  try {
+    const table = await promise
+    modelTable = table
+    return table
+  } finally {
+    if (modelTablePromise === promise) modelTablePromise = undefined
   }
-  const files = new Map<string, string>()
-  for (const [name, file] of Object.entries(parsed.files as Record<string, unknown>)) {
-    if (typeof file === 'string') files.set(name, file)
-  }
-  if (files.size === 0) throw new Error('The installed whisper exposes no models')
-  modelTable = { root: parsed.root, files }
-  return modelTable
 }
 
 /** Spec-only check: resolves the whisper distribution without importing it. */
