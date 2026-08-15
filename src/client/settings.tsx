@@ -4,7 +4,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, IconChevronDownOutline14, Input } from '@deepseek-ai/dsh-client-ui-primitives'
-import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS } from '../config.js'
+import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
@@ -169,6 +169,7 @@ export class EarsSettingsController {
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
       this.drafts.clear()
+      void this.refreshBackends()
     } catch {
       this.failed = true
     } finally {
@@ -301,17 +302,12 @@ function isInvalid(field: FieldName, text: string): boolean {
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrEndpoint') {
     if (text.trim() === '') return false
-    try {
-      const url = new URL(text.trim())
-      return url.protocol !== 'http:' && url.protocol !== 'https:'
-    } catch {
-      return true
-    }
+    return !isHttpEndpoint(text)
   }
   if (field === 'cloudAsrModel') return false
-  if (field === 'cloudAsrCredentialRef') return text.trim() !== '' && !/^[A-Z][A-Z0-9_]{0,127}$/.test(text.trim())
+  if (field === 'cloudAsrCredentialRef') return text.trim() !== '' && !isCredentialReference(text)
   if (field === 'polishProvider' || field === 'polishModel') return false
   if (field === 'polishingEnabled') return text !== 'on' && text !== 'off'
   const value = Number(text)
-  return !Number.isSafeInteger(value) || value < 1 || value > 600
+  return !isValidRecordingLimit(value)
 }

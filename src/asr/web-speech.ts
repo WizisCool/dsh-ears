@@ -65,6 +65,8 @@ export class WebSpeechSession {
   private active = false
   private stopping = false
   private finalText = ''
+  private ended = false
+  private silent = false
 
   constructor(options: WebSpeechSessionOptions) {
     const Recognition = getSpeechRecognitionConstructor()
@@ -85,7 +87,7 @@ export class WebSpeechSession {
   }
 
   start(): void {
-    if (this.active) return
+    if (this.active || this.ended || this.silent) return
     this.active = true
     this.stopping = false
 
@@ -97,19 +99,35 @@ export class WebSpeechSession {
   }
 
   stop(): void {
-    if (!this.active) return
+    if (!this.active || this.ended || this.silent) return
     this.stopping = true
     this.active = false
-    this.recognition.stop()
+    try {
+      this.recognition.stop()
+    } catch {
+      this.endOnce()
+    }
   }
 
   abort(): void {
+    if (this.ended || this.silent) return
+    this.silent = true
     this.stopping = true
     this.active = false
-    this.recognition.abort()
+    this.recognition.onstart = null
+    this.recognition.onresult = null
+    this.recognition.onerror = null
+    this.recognition.onend = null
+    try {
+      this.recognition.abort()
+    } catch {
+      // The browser may report an invalid state when the recognition already ended.
+    }
+    this.ended = true
   }
 
   private handleResult(event: SpeechRecognitionEventLike): void {
+    if (this.silent || this.ended) return
     let finalChunk = ''
     let interimChunk = ''
 
@@ -132,7 +150,7 @@ export class WebSpeechSession {
   }
 
   private handleError(event: SpeechRecognitionErrorEventLike): void {
-    if (this.stopping) return
+    if (this.stopping || this.silent || this.ended) return
 
     const code = event.error ?? 'unknown'
     const detail = event.message === undefined ? '' : `: ${event.message}`
@@ -140,6 +158,7 @@ export class WebSpeechSession {
   }
 
   private handleEnd(): void {
+    if (this.silent || this.ended) return
     if (this.active && !this.stopping) {
       try {
         this.recognition.start()
@@ -150,15 +169,25 @@ export class WebSpeechSession {
       }
     }
 
-    this.options.onEnd(this.finalText)
+    this.endOnce()
   }
 
   private fail(error: Error): void {
-    if (this.stopping) return
+    if (this.stopping || this.silent || this.ended) return
     this.active = false
     this.stopping = true
     this.options.onError(error)
-    this.recognition.abort()
+    try {
+      this.recognition.abort()
+    } catch {
+      // The error has already been surfaced; finish the session below.
+    }
+    this.endOnce()
+  }
+
+  private endOnce(): void {
+    if (this.ended || this.silent) return
+    this.ended = true
     this.options.onEnd(this.finalText)
   }
 }

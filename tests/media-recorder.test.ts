@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MediaRecorderSession, isMediaRecorderAvailable } from '../src/asr/media-recorder.js'
 
 const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
@@ -43,6 +43,64 @@ describe('MediaRecorderSession', () => {
 
     expect(result.mimeType).toBe('audio/webm;codecs=opus')
     expect(atob(result.base64)).toBe('\x01\x02\x03')
+    expect(trackStopped).toBe(true)
+  })
+
+  it('shares one stop promise and does not duplicate recorder shutdown', async () => {
+    const stream = { getTracks: () => [{ stop: vi.fn() }] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      stopCalls = 0
+      start(): void { this.state = 'recording' }
+      stop(): void {
+        this.stopCalls += 1
+        this.state = 'inactive'
+        queueMicrotask(() => {
+          this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([Uint8Array.from([4])], { type: 'audio/webm' }) }))
+          this.dispatchEvent(new Event('stop'))
+        })
+      }
+    }
+    let recorder: FakeRecorder | undefined
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: class extends FakeRecorder {
+      constructor(...args: ConstructorParameters<typeof MediaRecorder>) {
+        super()
+        void args
+        recorder = this
+      }
+    } })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    const first = session.stop()
+    const second = session.stop()
+    await expect(second).resolves.toEqual(await first)
+    expect(recorder?.stopCalls).toBe(1)
+  })
+
+  it('releases tracks when MediaRecorder reports an error', async () => {
+    let trackStopped = false
+    const track = { stop: () => { trackStopped = true } }
+    const stream = { getTracks: () => [track] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void {
+        this.state = 'inactive'
+        this.dispatchEvent(new Event('error'))
+      }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    await expect(session.stop()).rejects.toThrow('Media recording failed')
     expect(trackStopped).toBe(true)
   })
 })

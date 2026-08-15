@@ -25,7 +25,8 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   if (language !== 'auto') form.set('language', language)
 
   const headers: Record<string, string> = {}
-  if (options.credential?.trim() !== '') headers.Authorization = `Bearer ${options.credential!.trim()}`
+  const credential = options.credential?.trim()
+  if (credential) headers.Authorization = `Bearer ${credential}`
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
@@ -55,9 +56,37 @@ function validateEndpoint(value: string): string {
 async function readBoundedText(response: Response): Promise<string> {
   const contentLength = Number(response.headers.get('content-length') ?? '')
   if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
-  const body = await response.text()
-  if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
-  return body
+  if (response.body === null) {
+    const body = await response.text()
+    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
+    return body
+  }
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const next = await reader.read()
+      if (next.done) break
+      total += next.value.byteLength
+      if (total > MAX_RESPONSE_BYTES) {
+        await reader.cancel()
+        throw new Error('Cloud ASR response is too large')
+      }
+      chunks.push(next.value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
 }
 
 function fileName(mimeType: string): string {

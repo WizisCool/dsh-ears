@@ -7,6 +7,7 @@ import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-rec
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
+import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -19,7 +20,7 @@ type VoiceInputButtonProps = {
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
 }
 
-type ButtonState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error'
+type ButtonState = VoiceInputState
 
 export function MicrophoneButton({ input, inputActions, remote, useEarsSettings }: VoiceInputButtonProps) {
   const [state, setState] = useState<ButtonState>('idle')
@@ -174,7 +175,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
       setState('recording')
       armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => void stopRecording())
     } catch {
-      if (mountedRef.current) setState('error')
+      if (mountedRef.current) setState(mediaStartCancelledRef.current ? 'idle' : 'error')
     }
   }
 
@@ -218,96 +219,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
   )
 }
 
-interface CommitTranscriptOptions {
-  transcript: string
-  baseDraft: string
-  requireUnchanged: boolean
-  settings: EarsSettings
-  remote: EarsRemote
-  setState: (state: ButtonState) => void
-  latestDraftRef: { current: string }
-  actionsRef: { current: { setDraft(text: string): void } }
-  polishAbortRef: { current: AbortController | null }
-}
-
-function commitTranscript(options: CommitTranscriptOptions): void {
-  const transcript = options.transcript.trim()
-  if (transcript === '') {
-    options.setState('idle')
-    return
-  }
-  if (options.requireUnchanged && options.latestDraftRef.current !== options.baseDraft) {
-    options.setState('idle')
-    return
-  }
-
-  const draftAtStop = appendToDraft(options.baseDraft, transcript)
-  options.latestDraftRef.current = draftAtStop
-  options.actionsRef.current.setDraft(draftAtStop)
-  if (!options.settings.polishingEnabled || options.settings.polishProvider === '' || options.settings.polishModel === '') {
-    options.setState('idle')
-    return
-  }
-
-  void polishDraft({
-    transcript,
-    baseDraft: options.baseDraft,
-    draftAtStop,
-    provider: options.settings.polishProvider,
-    model: options.settings.polishModel,
-    remote: options.remote,
-    setState: options.setState,
-    latestDraftRef: options.latestDraftRef,
-    actionsRef: options.actionsRef,
-    polishAbortRef: options.polishAbortRef
-  })
-}
-
-interface PolishDraftOptions {
-  transcript: string
-  baseDraft: string
-  draftAtStop: string
-  provider: string
-  model: string
-  remote: EarsRemote
-  setState: (state: ButtonState) => void
-  latestDraftRef: { current: string }
-  actionsRef: { current: { setDraft(text: string): void } }
-  polishAbortRef: { current: AbortController | null }
-}
-
-async function polishDraft(options: PolishDraftOptions): Promise<void> {
-  const controller = new AbortController()
-  options.polishAbortRef.current = controller
-  options.setState('polishing')
-
-  try {
-    const result = await options.remote.polish(options.transcript, options.provider, options.model, controller.signal)
-    if (options.latestDraftRef.current !== options.draftAtStop) return
-
-    const text = result.ok && result.value.trim() !== '' ? result.value.trim() : options.transcript
-    const nextDraft = appendToDraft(options.baseDraft, text)
-    options.latestDraftRef.current = nextDraft
-    options.actionsRef.current.setDraft(nextDraft)
-  } catch {
-    // The raw transcript is already in the draft. A failed optional polish must not remove it.
-  } finally {
-    if (options.polishAbortRef.current === controller) options.polishAbortRef.current = null
-    options.setState('idle')
-  }
-}
-
-function updateDraft(
-  baseDraft: string,
-  transcript: string,
-  latestDraftRef: { current: string },
-  actionsRef: { current: { setDraft(text: string): void } }
-): void {
-  const nextDraft = appendToDraft(baseDraft, transcript)
-  latestDraftRef.current = nextDraft
-  actionsRef.current.setDraft(nextDraft)
-}
-
 function armRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }, seconds: number, stop: () => void): void {
   clearRecordingTimer(timerRef)
   timerRef.current = setTimeout(stop, Math.max(1, seconds) * 1000)
@@ -321,13 +232,6 @@ function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> 
 
 function normalizeBackend(value: string): AsrBackendId {
   return (ASR_BACKEND_IDS as readonly string[]).includes(value) ? value as AsrBackendId : 'web-speech'
-}
-
-export function appendToDraft(baseDraft: string, transcript: string): string {
-  if (transcript === '') return baseDraft
-  if (baseDraft === '') return transcript
-  if (/\s$/.test(baseDraft) || /^\s/.test(transcript)) return baseDraft + transcript
-  return `${baseDraft} ${transcript}`
 }
 
 function MicrophoneIcon() {

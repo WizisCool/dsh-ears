@@ -94,4 +94,46 @@ describe('WebSpeechSession', () => {
       onEnd: vi.fn()
     })).toThrow('unavailable')
   })
+
+  it('silently aborts during teardown without committing a transcript', () => {
+    class Recognition extends FakeRecognition {}
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError: vi.fn(),
+      onEnd
+    })
+
+    session.start()
+    session.abort()
+
+    expect(onEnd).not.toHaveBeenCalled()
+  })
+
+  it('reports a synchronous start failure and ends exactly once', () => {
+    class Recognition extends FakeRecognition {
+      constructor() {
+        super()
+        this.start = () => { throw new Error('start failed') }
+      }
+    }
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onError = vi.fn()
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError,
+      onEnd
+    })
+
+    session.start()
+
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+  })
 })

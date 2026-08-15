@@ -14,12 +14,14 @@ export class MediaRecorderSession {
   private readonly stream: MediaStream
   private readonly chunks: Blob[] = []
   private aborted = false
+  private closed = false
+  private stopPromise: Promise<RecordedAudio> | undefined
 
   private constructor(stream: MediaStream, recorder: MediaRecorder) {
     this.stream = stream
     this.recorder = recorder
     recorder.addEventListener('dataavailable', (event) => {
-      if (event.data.size > 0) this.chunks.push(event.data)
+      if (!this.closed && event.data.size > 0) this.chunks.push(event.data)
     })
   }
 
@@ -45,25 +47,63 @@ export class MediaRecorderSession {
 
   start(): void {
     if (this.aborted) throw new Error('Media recording session is no longer active')
+    if (this.recorder.state !== 'inactive') throw new Error('Media recording session has already started')
     this.recorder.start(1_000)
   }
 
   stop(): Promise<RecordedAudio> {
     if (this.aborted) return Promise.reject(abortError())
-    if (this.recorder.state === 'inactive') return this.finish()
-    return new Promise((resolve, reject) => {
-      this.recorder.addEventListener('stop', () => {
+    if (this.stopPromise !== undefined) return this.stopPromise
+    if (this.recorder.state === 'inactive') {
+      this.stopPromise = this.finish()
+      return this.stopPromise
+    }
+
+    this.stopPromise = new Promise((resolve, reject) => {
+      let settled = false
+      const cleanup = () => {
+        this.recorder.removeEventListener('stop', onStop)
+        this.recorder.removeEventListener('error', onError)
+      }
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        this.closed = true
+        this.chunks.length = 0
+        stopTracks(this.stream)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
+      const onStop = () => {
+        if (settled) return
+        settled = true
+        cleanup()
         void this.finish().then(resolve, reject)
-      }, { once: true })
-      this.recorder.addEventListener('error', () => reject(new Error('Media recording failed')), { once: true })
-      this.recorder.stop()
+      }
+      const onError = () => fail(new Error('Media recording failed'))
+
+      this.recorder.addEventListener('stop', onStop)
+      this.recorder.addEventListener('error', onError)
+      try {
+        this.recorder.stop()
+      } catch (error) {
+        fail(error)
+      }
     })
+    return this.stopPromise
   }
 
   abort(): void {
     if (this.aborted) return
     this.aborted = true
-    if (this.recorder.state !== 'inactive') this.recorder.stop()
+    this.closed = true
+    if (this.recorder.state !== 'inactive') {
+      try {
+        this.recorder.stop()
+      } catch {
+        // The tracks are released below even when the browser rejects stop().
+      }
+    }
     this.chunks.length = 0
     stopTracks(this.stream)
   }
@@ -72,11 +112,14 @@ export class MediaRecorderSession {
     try {
       if (this.aborted) throw abortError()
       const blob = new Blob(this.chunks, { type: this.recorder.mimeType || 'audio/webm' })
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      if (this.aborted) throw abortError()
       return {
-        base64: bytesToBase64(new Uint8Array(await blob.arrayBuffer())),
+        base64: bytesToBase64(bytes),
         mimeType: blob.type
       }
     } finally {
+      this.closed = true
       stopTracks(this.stream)
       this.chunks.length = 0
     }

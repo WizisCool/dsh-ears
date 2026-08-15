@@ -70,4 +70,27 @@ describe('OpenAI-compatible cloud ASR backend', () => {
       signal: new AbortController().signal
     })).rejects.toThrow('must not contain credentials')
   })
+
+  it('bounds a chunked response before parsing it', async () => {
+    const server = createServer((_request, response) => {
+      response.setHeader('content-type', 'application/json')
+      response.write(Buffer.alloc(1_048_577, 65))
+      response.end()
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('Test server did not expose an address')
+    try {
+      await expect(transcribeOpenAICompatible({
+        audio: Uint8Array.from([1]),
+        mimeType: 'audio/wav',
+        language: 'en-US',
+        endpoint: `http://127.0.0.1:${address.port}/audio/transcriptions`,
+        model: 'whisper-1',
+        signal: new AbortController().signal
+      })).rejects.toThrow('response is too large')
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    }
+  })
 })
