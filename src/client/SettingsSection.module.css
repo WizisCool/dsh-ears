@@ -9,16 +9,16 @@
 .title {
   margin: 0;
   color: var(--dsw-alias-label-primary);
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 600;
   line-height: 24px;
 }
 
 .intro {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .notice {
@@ -28,6 +28,55 @@
   line-height: 18px;
 }
 
+.tabs {
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  align-items: flex-end;
+  gap: 22px;
+  margin-top: 2px;
+  display: flex;
+}
+
+.tab {
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 7px 1px 9px;
+  font-size: 13px;
+  line-height: 20px;
+  position: relative;
+}
+
+.tab:hover,
+.tab[data-active='true'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+.tab[data-active='true']:after,
+.tab:focus-visible:after {
+  background: var(--dsw-alias-label-primary);
+  content: '';
+  border-radius: 2px 2px 0 0;
+  height: 2px;
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+  color: var(--dsw-alias-label-primary);
+  border-radius: 2px;
+}
+
+.panel {
+  min-width: 0;
+  padding-top: 2px;
+}
+
 .group {
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 12px;
@@ -35,14 +84,6 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.groupTitle {
-  margin: 0;
-  color: var(--dsw-alias-label-primary);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 22px;
 }
 
 .field {
