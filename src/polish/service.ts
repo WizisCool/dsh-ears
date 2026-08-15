@@ -8,7 +8,7 @@ import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { isWhisperAvailable, transcribeWithWhisper } from '../asr/local-whisper.js'
-import { downloadWhisperModel, getWhisperModelState } from '../asr/whisper-models.js'
+import { cancelWhisperModelDownload, downloadWhisperModel, getWhisperModelState } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import type { AsrBackendInfo } from '../asr/types.js'
@@ -135,6 +135,10 @@ export class PolishService extends TypertRemoteService {
 
   async downloadWhisperModel(model: string): Promise<WhisperModelState> {
     return downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+  }
+
+  cancelWhisperModelDownload(model: string): WhisperModelState {
+    return cancelWhisperModelDownload(whisperModel(model), true)
   }
 
   async listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView> {

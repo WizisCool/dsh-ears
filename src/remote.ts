@@ -14,6 +14,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
     getWhisperModelState: (model: string) => Promise<RemoteResult<WhisperModelState>>
     downloadWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
+    cancelWhisperModelDownload: (model: string) => Promise<RemoteResult<WhisperModelState>>
     transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
@@ -26,6 +27,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
     'dshEars/getWhisperModelState': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/downloadWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
+    'dshEars/cancelWhisperModelDownload': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
@@ -152,6 +154,20 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       service: 'dshEarsPolish',
       namespace: 'dshEars',
       method: 'downloadWhisperModel',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: { parse(value: unknown) { return String(value) } } }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/cancelWhisperModelDownload',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'cancelWhisperModelDownload',
       invocation: { kind: 'direct' },
       parameters: [{
         name: 'model',

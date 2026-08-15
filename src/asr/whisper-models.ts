@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process'
-import { access, readFile } from 'node:fs/promises'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { access, readFile, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
@@ -25,6 +25,12 @@ interface DownloadHandle {
   totalBytes: number | null
   error: string | null
   finished: boolean
+  child?: ChildProcess
+}
+
+interface ModelTable {
+  root: string
+  files: Map<string, string>
 }
 
 const EMPTY_STATE: WhisperModelState = Object.freeze({
@@ -42,6 +48,7 @@ const PATH_DELIMITER = IS_WINDOWS ? ';' : ':'
 const PYTHON_CANDIDATES = IS_WINDOWS ? ['python', 'py'] : ['python3', 'python']
 
 let discoveredPython: string | undefined
+let modelTable: ModelTable | undefined
 let activeDownload: DownloadHandle | undefined
 
 export async function getWhisperModelState(model: WhisperModelId, cliAvailable: boolean): Promise<WhisperModelState> {
@@ -71,15 +78,17 @@ export async function getWhisperModelState(model: WhisperModelId, cliAvailable: 
     }
   }
   try {
-    const cached = await queryCachedModel(python, model)
-    return {
-      cliAvailable,
-      downloaded: cached.exists,
-      downloading: false,
-      progress: null,
-      bytes: null,
-      totalBytes: cached.sizeBytes,
-      error: null
+    const table = await resolveModelTable(python)
+    const file = table.files.get(model)
+    if (file === undefined) {
+      return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The installed whisper does not know the model "${model}".` }
+    }
+    const filePath = join(table.root, file)
+    try {
+      const info = await stat(filePath)
+      return { cliAvailable, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: info.size, error: null }
+    } catch {
+      return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
     }
   } catch (error) {
     if (isMissingExecutable(error)) discoveredPython = undefined
@@ -118,6 +127,15 @@ export async function downloadWhisperModel(model: WhisperModelId, cliAvailable: 
   return stateFromHandle(activeDownload, cliAvailable)
 }
 
+export function cancelWhisperModelDownload(model: WhisperModelId, cliAvailable: boolean): WhisperModelState {
+  const handle = activeDownload
+  if (handle !== undefined && handle.model === model && !handle.finished) {
+    handle.child?.kill('SIGTERM')
+    handle.finished = true
+  }
+  return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
+}
+
 function stateFromHandle(handle: DownloadHandle, cliAvailable: boolean): WhisperModelState {
   return {
     cliAvailable,
@@ -144,6 +162,7 @@ async function runDownload(python: string, model: WhisperModelId): Promise<void>
     stdio: ['ignore', 'ignore', 'pipe'],
     windowsHide: true
   })
+  handle.child = child
   let stderrTail = ''
   child.stderr?.on('data', (chunk: Buffer | string) => {
     const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
@@ -173,28 +192,6 @@ async function runDownload(python: string, model: WhisperModelId): Promise<void>
   })
 }
 
-interface CachedModel {
-  exists: boolean
-  sizeBytes: number | null
-}
-
-async function queryCachedModel(python: string, model: WhisperModelId): Promise<CachedModel> {
-  const script = [
-    'import json, os, sys, whisper',
-    'model = sys.argv[1]',
-    "root = os.path.join(os.getenv('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'whisper')",
-    'url = whisper._MODELS[model]',
-    'path = os.path.join(root, os.path.basename(url))',
-    "print(json.dumps({'exists': os.path.isfile(path), 'size': os.path.getsize(path) if os.path.isfile(path) else None}))"
-  ].join('; ')
-  const output = await runPythonCollect(python, ['-c', script, model], STATE_COMMAND_TIMEOUT_MS)
-  const parsed = JSON.parse(output.trim()) as { exists?: unknown; size?: unknown }
-  return {
-    exists: parsed.exists === true,
-    sizeBytes: typeof parsed.size === 'number' ? parsed.size : null
-  }
-}
-
 /**
  * Resolve a whisper-capable Python interpreter without importing the heavy
  * module: read the whisper CLI wrapper's shebang first (Homebrew/pipx venvs),
@@ -218,6 +215,33 @@ async function resolveWhisperPython(): Promise<string | undefined> {
     }
   }
   return undefined
+}
+
+/**
+ * Load the installed whisper's model→cache-filename table and cache root
+ * through a real `import whisper` (the authoritative source), once per
+ * process: the slow torch import is paid a single time, and every later
+ * state query is a plain file stat against the library's own table.
+ */
+async function resolveModelTable(python: string): Promise<ModelTable> {
+  if (modelTable !== undefined) return modelTable
+  const script = [
+    "import json, os, whisper",
+    "root = os.path.join(os.getenv('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'), 'whisper')",
+    "print(json.dumps({'root': root, 'files': {str(k): os.path.basename(str(v)) for k, v in whisper._MODELS.items()}}))"
+  ].join('; ')
+  const output = await runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
+  const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
+  if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
+    throw new Error('Could not read the installed whisper model table')
+  }
+  const files = new Map<string, string>()
+  for (const [name, file] of Object.entries(parsed.files as Record<string, unknown>)) {
+    if (typeof file === 'string') files.set(name, file)
+  }
+  if (files.size === 0) throw new Error('The installed whisper exposes no models')
+  modelTable = { root: parsed.root, files }
+  return modelTable
 }
 
 /** Spec-only check: resolves the whisper distribution without importing it. */

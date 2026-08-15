@@ -134,6 +134,20 @@ export const TYPERT = {
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
     },
     {
+      id: 'dsh-ears#dshEars/cancelWhisperModelDownload',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'cancelWhisperModelDownload',
+      invocation: { kind: 'direct' },
+      parameters: [{
+        name: 'model',
+        wire: 'model',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'string', schema: whisperModelNameSchema }
+      }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
       id: 'dsh-ears#dshEars/polish',
       service: 'dshEarsPolish',
       namespace: 'dshEars',
@@ -233,6 +247,13 @@ export const TYPERT = {
             signature: 'downloadWhisperModel(model: string): Promise<WhisperModelState>',
             summary: 'Download one local Whisper model through the installed library.',
             jsDoc: '/** Download one local Whisper model through the installed library. */'
+          },
+          {
+            kind: 'method',
+            name: 'cancelWhisperModelDownload',
+            signature: 'cancelWhisperModelDownload(model: string): WhisperModelState',
+            summary: 'Cancel the running Whisper model download.',
+            jsDoc: '/** Cancel the running Whisper model download. */'
           },
           {
             kind: 'method',

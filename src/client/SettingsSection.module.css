@@ -186,6 +186,29 @@
   gap: 6px;
 }
 
+.spinner {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--dsw-alias-border-l2);
+  border-top-color: var(--dsw-alias-label-tertiary);
+  border-radius: 50%;
+  animation: dshEarsSpin 0.8s linear infinite;
+  flex: none;
+}
+
+@keyframes dshEarsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.6s;
+  }
+}
+
 .linkButton {
   box-sizing: border-box;
   height: 28px;
