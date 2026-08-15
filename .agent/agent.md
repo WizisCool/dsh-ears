@@ -25,7 +25,7 @@
 - Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
 - Matched microphone default/hover/focus behavior and label-secondary color to the native model selector.
 - Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
-- Dedicated `settings.section` page (`dsh-ear`, order 16) with Plugins-style tab cards (Recognition / Polishing), General/Permissions-style rows with pill `Menu` selectors, and debounced auto-save with a saving/saved/failed status line (D-017; supersedes the former Plugins-page card and the manual Save/Discard footer).
+- Dedicated `settings.section` page (`dsh-ear`, order 16) with Plugins-style tab cards (Recognition / Polishing), General/Permissions-style rows with pill `Menu` selectors, and debounced auto-save with native-style feedback — no success/saving text, only a failure line (D-017; supersedes the former Plugins-page card and the manual Save/Discard footer).
 - Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
 - OpenAI-compatible cloud ASR adapter using bounded multipart input/response handling and per-operation dsh credential resolution.
 - MediaRecorder capture with constrained mono audio, idempotent stop, error cleanup, track release, and manual draft protection.

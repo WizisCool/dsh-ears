@@ -27,6 +27,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Plugin configuration moved to a dedicated `settings.section` page beside General, Models, and Plugins, with grouped Recognition/Polishing cards styled like the shipped settings pages.
 - The settings page splits Recognition and Polishing into Plugins-style tab cards.
 - Settings fields use the General/Permissions row pattern with pill Menu selectors, and changes auto-save (debounced) instead of a manual Save/Discard footer.
+- Auto-save feedback follows the native pattern: no success/saving text, only a failure line (with row-level red hints for invalid values).
 
 ### Deferred
 
