@@ -5,7 +5,7 @@ import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, EarsSettingsSchema, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, EarsSettingsSchema, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type WhisperModelId } from '../config.js'
 import { isWhisperAvailable, transcribeWithWhisper } from '../asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import type { AsrBackendInfo } from '../asr/types.js'
@@ -202,7 +202,7 @@ export class PolishService extends TypertRemoteService {
   }
 
   private async cloudAsrIsAvailable(settings: EarsSettings): Promise<boolean> {
-    if (settings.cloudAsrEndpoint.trim() === '') return false
+    if (!isHttpEndpoint(settings.cloudAsrEndpoint)) return false
     if (settings.cloudAsrCredentialRef.trim() === '') return true
     if (this.describeCredential === undefined || !isCredentialReference(settings.cloudAsrCredentialRef)) return false
     try {

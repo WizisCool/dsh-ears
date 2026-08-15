@@ -3,6 +3,8 @@ export interface RecordedAudio {
   readonly mimeType: string
 }
 
+const MAX_AUDIO_BYTES = 24 * 1024 * 1024
+
 export function isMediaRecorderAvailable(): boolean {
   return typeof navigator !== 'undefined'
     && navigator.mediaDevices?.getUserMedia !== undefined
@@ -16,12 +18,24 @@ export class MediaRecorderSession {
   private aborted = false
   private closed = false
   private stopPromise: Promise<RecordedAudio> | undefined
+  private totalBytes = 0
+  private recordingError: Error | undefined
 
   private constructor(stream: MediaStream, recorder: MediaRecorder) {
     this.stream = stream
     this.recorder = recorder
     recorder.addEventListener('dataavailable', (event) => {
-      if (!this.closed && event.data.size > 0) this.chunks.push(event.data)
+      if (this.closed || event.data.size === 0) return
+      this.totalBytes += event.data.size
+      if (this.totalBytes > MAX_AUDIO_BYTES) {
+        this.recordingError ??= new Error('The recorded audio is too large')
+        this.closed = true
+        queueMicrotask(() => {
+          void this.stop().catch(() => undefined)
+        })
+        return
+      }
+      this.chunks.push(event.data)
     })
   }
 
@@ -71,6 +85,7 @@ export class MediaRecorderSession {
         cleanup()
         this.closed = true
         this.chunks.length = 0
+        this.totalBytes = 0
         stopTracks(this.stream)
         reject(error instanceof Error ? error : new Error(String(error)))
       }
@@ -105,12 +120,14 @@ export class MediaRecorderSession {
       }
     }
     this.chunks.length = 0
+    this.totalBytes = 0
     stopTracks(this.stream)
   }
 
   private async finish(): Promise<RecordedAudio> {
     try {
       if (this.aborted) throw abortError()
+      if (this.recordingError !== undefined) throw this.recordingError
       const blob = new Blob(this.chunks, { type: this.recorder.mimeType || 'audio/webm' })
       const bytes = new Uint8Array(await blob.arrayBuffer())
       if (this.aborted) throw abortError()
@@ -122,6 +139,7 @@ export class MediaRecorderSession {
       this.closed = true
       stopTracks(this.stream)
       this.chunks.length = 0
+      this.totalBytes = 0
     }
   }
 }

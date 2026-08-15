@@ -103,4 +103,27 @@ describe('MediaRecorderSession', () => {
     await expect(session.stop()).rejects.toThrow('Media recording failed')
     expect(trackStopped).toBe(true)
   })
+
+  it('stops and rejects when captured audio exceeds the memory limit', async () => {
+    let trackStopped = false
+    const stream = { getTracks: () => [{ stop: () => { trackStopped = true } }] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void {
+        this.state = 'inactive'
+        this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([new Uint8Array(24 * 1024 * 1024 + 1)], { type: 'audio/webm' }) }))
+        this.dispatchEvent(new Event('stop'))
+      }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    await expect(session.stop()).rejects.toThrow('audio is too large')
+    expect(trackStopped).toBe(true)
+  })
 })
