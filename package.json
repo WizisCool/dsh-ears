@@ -2,6 +2,7 @@
   "name": "dsh-ears",
   "version": "0.1.0",
   "description": "Voice input plugin for DeepSeek Harness",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
