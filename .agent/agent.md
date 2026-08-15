@@ -9,7 +9,7 @@
 - Target: dsh `0.1.0-rc.6`.
 - Latest implementation commit: `b6467e8 refactor(client): isolate Host settings schema`.
 - Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
-- Current HEAD: `25d0d45 docs: record final release audit`.
+- Current HEAD: `8473704 docs: close local release readiness`.
 - Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
 - Remote operations: no push or publish has been performed.
 - Repository language: English-first for source, docs, context, comments, and commits.
