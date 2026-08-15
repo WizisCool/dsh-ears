@@ -41,7 +41,7 @@ Browser (`exports["./client"]`)
   ├─ `conversation.input.right` microphone contribution
   ├─ Web Speech live recognition
   ├─ MediaRecorder capture for final ASR backends
-  ├─ native `settings.plugin.item` card
+  ├─ dedicated `settings.section` page (nav `dsh-ear`, order 16)
   └─ `inputActions.setDraft()` with stale-result protection
 ```
 
@@ -65,7 +65,7 @@ The Host sends multipart form data containing `file`, `model`, and optional lang
 
 ## Settings
 
-The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The native card (title `dsh-ear`) edits language, recording limit, backend, local Whisper model, cloud endpoint/model/credential reference, polishing toggle, and dsh provider/model route. An empty provider/model pair is the explicit no-polish state.
+The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser face registers a dedicated `settings.section` page (`dsh-ear`, nav order 16 — between Plugins and Agent presets) styled with the shipped pages' semantic tokens and card geometry; it groups fields into Recognition (backend, Whisper model, cloud endpoint/model/credential reference, language, recording limit) and Polishing (toggle plus dsh provider/model route). An empty provider/model pair is the explicit no-polish state. This page supersedes the former `settings.plugin.item` card (D-017 supersedes D-011).
 
 The card's editable state comes from the Host `getSettings()` view: `writable` mirrors the dsh settings provider (`settings.writable`; the shipped file provider is always writable). The client controller starts from a fallback view (`available: true, writable: false`) and replaces it after the first successful settings RPC; a failed first fetch therefore keeps the card read-only until the page reloads and retries the fetch.
 

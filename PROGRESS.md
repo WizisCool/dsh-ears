@@ -10,6 +10,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Adapted the microphone to dsh light/dark semantic tokens and the model → microphone → send composer hierarchy.
 - Kept configuration inside dsh's native Plugins page.
 - Renamed the plugin configuration card title to `dsh-ear` and clarified the read-only hint in both locales.
+- Moved plugin configuration to a dedicated `settings.section` page (`dsh-ear`, beside General/Models/Plugins) styled with the shipped settings pages' tokens and card geometry.
 
 ## Verified
 

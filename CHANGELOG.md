@@ -24,6 +24,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 - Plugin configuration card title renamed to `dsh-ear`.
 - The read-only settings hint now explains the settings-provider condition and the required fix (zh/en).
+- Plugin configuration moved to a dedicated `settings.section` page beside General, Models, and Plugins, with grouped Recognition/Polishing cards styled like the shipped settings pages.
 
 ### Deferred
 

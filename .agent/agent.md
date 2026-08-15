@@ -25,7 +25,7 @@
 - Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
 - Matched microphone default/hover/focus behavior and label-secondary color to the native model selector.
 - Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
-- Native `settings.plugin.item` card for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route.
+- Dedicated `settings.section` page (`dsh-ear`, order 16) for language, recording limit, backend, Whisper model, cloud endpoint/model/credential reference, and dsh polish route, styled like the shipped settings pages (D-017; supersedes the former Plugins-page card).
 - Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
 - OpenAI-compatible cloud ASR adapter using bounded multipart input/response handling and per-operation dsh credential resolution.
 - MediaRecorder capture with constrained mono audio, idempotent stop, error cleanup, track release, and manual draft protection.
@@ -75,11 +75,11 @@ None. A non-empty live dsh polish completion still depends on a usable configure
 
 ## Latest task record
 
-- Completed: renamed the plugin configuration card title to `dsh-ear` and expanded the read-only hint in both locales (zh/en parity); investigated the live read-only message with a temporary Host diagnostic plugin — the running settings service reports `writable: true` and dsh-ears `getSettings()` returns `writable: true`, so the message in the GUI was the client fallback view kept after a failed first settings RPC (stale served bundle / transient fetch failure).
-- Validation: `tsc --noEmit` passed; `vitest run` 29/29 passed; `tsdown` + declaration build passed; the served bundle (`/plugins/dsh-ears/client.js`) was verified to contain the new copy after rebuild; `git diff --cached --check` passed.
-- Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the card does not stay read-only — deferred pending maintainer decision.
+- Completed: moved plugin configuration out of the Plugins page into a dedicated `settings.section` page (`dsh-ear`, nav order 16) styled after the shipped Models page — grouped Recognition/Polishing cards, same semantic tokens, same draft/save/discard flow and read-only fallback; superseded D-011 with D-017 and synced PLAN/context/PROGRESS/changelog.
+- Validation: `tsc --noEmit` passed; `vitest run` 29/29 passed; `tsdown` + declaration build passed; the served bundle (`/plugins/dsh-ears/client.js`) contains the `settings.section` registration and no `settings.plugin.item` reference.
+- Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the page does not stay read-only — deferred pending maintainer decision.
 - Blocked: none.
-- Next: push the unpushed local commits after maintainer authorization.
+- Next: browser verification of the new page after reload; push the unpushed local commits after maintainer authorization.
 - Commit: `da4c2ed fix(client): update settings card title and read-only hint`.
 
 ## Handoff template

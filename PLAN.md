@@ -49,8 +49,9 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D9 | First release is validated only against dsh `0.1.0-rc.6`. | Accepted |
 | D10 | Web Speech failure preserves the current draft and asks the user to record again. | Accepted |
 | D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, microphone when idle, stop square while recording, live draft updates, and manual send only. | Accepted |
-| D12 | Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section. | Accepted |
+| D12 | ~~Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section.~~ Superseded by D-017. | Superseded |
 | D13 | The project is licensed MIT and released to the private GitHub repository `WizisCool/dsh-ears`; npm publishing and public visibility changes remain gated. | Accepted |
+| D14 | The plugin configuration is a dedicated `settings.section` page (`dsh-ear`) beside General, Models, and Plugins, styled with the shipped pages' semantic tokens and card geometry. | Accepted |
 
 ## Package shape
 
@@ -72,7 +73,7 @@ dsh-ears/
 │   │   ├── index.ts          # Client composition
 │   │   ├── MicrophoneButton.tsx # Composer control and backend dispatch
 │   │   ├── voice-flow.ts     # Draft, polish, and stale-result protection
-│   │   └── settings.tsx      # dsh-native settings UI
+│   │   └── settings.tsx      # Dedicated settings.section page
 │   ├── asr/
 │   │   ├── types.ts          # Final audio/backend metadata
 │   │   ├── media-recorder.ts # Browser capture for final backends
@@ -126,7 +127,7 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
 - Client Remote calls use a Cordis child scope that injects `remote.dshEars`; asynchronous controllers and React event callbacks receive the concrete namespace rather than retaining an unscoped `ctx.remote` object.
 - The final-audio RPC accepts one bounded base64 payload and MIME type, carries an AbortSignal, and returns a strict transcript string. Streaming/chunked audio is intentionally not part of the first final-backend contract.
-- Settings use the dsh-native Plugins page and its `settings.plugin.item` list slot after the rc.6 surface is verified. No standalone `settings.section` or `settings.general.item` entry is planned.
+- Settings use a dedicated `settings.section` page registered at the same level as General, Models, and Plugins (nav order 16, right after Plugins). The earlier `settings.plugin.item` card surface was replaced; see D-017.
 
 ## LLM polishing
 
@@ -165,16 +166,12 @@ Local Whisper is invoked on the dsh Host with argument arrays and private tempor
 
 ## Settings
 
-The native dsh Plugins page contains a `dsh-ears` plugin configuration card with:
+`dsh-ears` owns a dedicated settings page registered in `settings.section` (`dsh-ear`, nav order 16 — between Plugins and Agent presets), styled with the same semantic tokens, card geometry, and field patterns as the shipped Models page:
 
-- Language, default `zh-CN`.
-- Per-recording limit, default 120 seconds.
-- Polishing enabled/disabled.
-- A provider/model selector populated from dsh's configured routes. Empty selection is the explicit no-polish state.
+- Recognition group: ASR backend selection, local Whisper model, cloud endpoint/model/dsh credential reference, language (default `zh-CN`), and per-recording limit (default 120 seconds).
+- Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. Empty selection is the explicit no-polish state.
 
-ASR backend selection, local Whisper model selection, cloud endpoint/model, and dsh credential-reference fields are implemented in the same native card.
-
-The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the settings card stores only a dsh credential reference such as `OPENAI_API_KEY`.
+The page keeps the same draft/save/discard flow and read-only fallback as the previous card. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the page stores only a dsh credential reference such as `OPENAI_API_KEY`.
 
 ## Milestones
 
@@ -202,8 +199,8 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 
 ### M4 — Native settings — complete
 
-- Register the plugin configuration card in `settings.plugin.item`.
-- Keep configuration inside dsh's native Plugins page; do not add a separate Voice settings tab or section.
+- Register the plugin configuration page in `settings.section`, beside General, Models, and Plugins.
+- Match the shipped settings pages' semantic tokens, card geometry, and field patterns; do not add a second Voice settings surface.
 - Verify dsh-native appearance, persistence, selection, and fallback behavior.
 
 ### M3/M4 verification
