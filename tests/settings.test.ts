@@ -76,6 +76,29 @@ describe('EarsSettingsController Whisper state', () => {
     expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(2)
     controller.dispose()
   })
+
+  it('does not let an older Whisper refresh overwrite a cancellation result', async () => {
+    const refresh = deferred<RemoteResult<WhisperModelState>>()
+    const cancel = deferred<RemoteResult<WhisperModelState>>()
+    const getWhisperModelState = vi.fn(() => refresh.promise)
+    const cancelWhisperModelDownload = vi.fn(() => cancel.promise)
+    const controller = new EarsSettingsController(createRemote({ getWhisperModelState, cancelWhisperModelDownload }))
+
+    const refreshRequest = controller.refreshWhisperState()
+    controller.actions().cancelModel()
+    await vi.waitFor(() => expect(cancelWhisperModelDownload).toHaveBeenCalledTimes(1))
+
+    cancel.resolve({ ok: true, value: { ...INITIAL_WHISPER_STATE, bytes: 0, totalBytes: 0 } })
+    await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(0))
+
+    refresh.resolve({ ok: true, value: { ...INITIAL_WHISPER_STATE, downloading: true, bytes: 99, totalBytes: 100 } })
+    await refreshRequest
+    await Promise.resolve()
+
+    expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(0)
+    expect(controller.getWhisperStore().getSnapshot().state.downloading).toBe(false)
+    controller.dispose()
+  })
 })
 
 describe('EarsSettingsController settings lifecycle', () => {

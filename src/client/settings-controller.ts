@@ -97,6 +97,7 @@ export class EarsSettingsController {
   private whisperRequest = 0
   private whisperRefreshInFlight = false
   private whisperRefreshQueued = false
+  private whisperMutationInFlight = false
 
   constructor(remote: EarsRemote) {
     this.remote = remote
@@ -227,6 +228,10 @@ export class EarsSettingsController {
 
   async refreshWhisperState(): Promise<void> {
     if (this.disposed) return
+    if (this.whisperMutationInFlight) {
+      this.whisperRefreshQueued = true
+      return
+    }
     this.whisperRequest += 1
     if (this.whisperRefreshInFlight) {
       this.whisperRefreshQueued = true
@@ -266,56 +271,90 @@ export class EarsSettingsController {
 
   private async downloadModel(): Promise<void> {
     if (this.disposed) return
-    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+    const model = this.currentWhisperModel()
+    const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.downloadWhisperModel(model)
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download.')
       this.whisperStore.set(this.whisperView)
-      if (result.ok && result.value.downloading) this.startWhisperPolling()
     } catch {
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model download failed')
       this.whisperStore.set(this.whisperView)
+    } finally {
+      this.finishWhisperMutation(request)
     }
   }
 
   private async cancelModel(): Promise<void> {
     if (this.disposed) return
-    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+    const model = this.currentWhisperModel()
+    const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.cancelWhisperModelDownload(model)
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download.')
       this.whisperStore.set(this.whisperView)
-      if (result.ok) this.stopWhisperPolling()
     } catch {
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model cancellation failed')
       this.whisperStore.set(this.whisperView)
+    } finally {
+      this.finishWhisperMutation(request)
     }
   }
 
   private async deleteModel(): Promise<void> {
     if (this.disposed) return
-    const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+    const model = this.currentWhisperModel()
+    const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.deleteWhisperModel(model)
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model.')
       this.whisperStore.set(this.whisperView)
-      if (result.ok) this.stopWhisperPolling()
     } catch {
-      if (this.disposed) return
+      if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model deletion failed')
       this.whisperStore.set(this.whisperView)
+    } finally {
+      this.finishWhisperMutation(request)
     }
+  }
+
+  private currentWhisperModel(): string {
+    return (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+  }
+
+  private beginWhisperMutation(): number {
+    this.whisperRequest += 1
+    this.whisperMutationInFlight = true
+    this.stopWhisperPolling()
+    return this.whisperRequest
+  }
+
+  private isCurrentWhisperMutation(request: number, model: string): boolean {
+    return !this.disposed && request === this.whisperRequest && model === this.currentWhisperModel()
+  }
+
+  private finishWhisperMutation(request: number): void {
+    if (request !== this.whisperRequest) return
+    this.whisperMutationInFlight = false
+    if (this.disposed) return
+    if (this.whisperRefreshQueued) {
+      this.whisperRefreshQueued = false
+      void this.refreshWhisperState()
+      return
+    }
+    if (this.whisperView.state.downloading) this.startWhisperPolling()
+    else this.stopWhisperPolling()
   }
 
   private startWhisperPolling(): void {
