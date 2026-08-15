@@ -1,6 +1,6 @@
 # dsh-ears Progress
 
-Status: local release-readiness checkpoint complete; no remote push or npm publish has been performed.
+Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2026-08-15); npm publish still requires maintainer approval.
 
 ## Done
 
@@ -26,4 +26,4 @@ Status: local release-readiness checkpoint complete; no remote push or npm publi
 - Only dsh `0.1.0-rc.6` is currently supported.
 - A non-empty live polish completion depends on a usable model route configured in the local dsh environment; route discovery and failure fallback are covered.
 - Browser microphone permission and platform-specific Web Speech behavior need broader manual coverage.
-- A legal license and any public release/publish decision require explicit maintainer approval.
+- npm publish and any public visibility change require explicit maintainer approval.
