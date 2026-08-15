@@ -3,7 +3,7 @@ import type { ChangeEvent, ReactNode } from 'react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
@@ -14,11 +14,11 @@ import styles from './SettingsSection.module.css'
 export const LOCALE_NAMESPACE = 'settings.dshEars'
 
 export const localeZh = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHint: '实时 Web Speech 适合即时反馈；本地 Whisper 和云端后端会在停止录音后转录。', webSpeechBackend: 'Web Speech（实时）', localWhisperBackend: '本地 Whisper（隐私优先）', cloudBackend: 'OpenAI-compatible 云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '停止录音后，用已配置的 dsh 模型整理转写内容。', polishingOn: '启用', polishingOff: '关闭', provider: '润色模型提供方', providerHint: '选择 dsh 当前已接入的 provider。', model: '润色模型', modelHint: '选择该 provider 下的模型；插件不会保存凭据。', noModel: '不使用润色模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', save: '保存', saving: '保存中…', discard: '放弃修改', saveFailed: '保存失败，请重试。', invalid: '请检查设置值。'
+  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHint: '实时 Web Speech 适合即时反馈；本地 Whisper 和云端后端会在停止录音后转录。', webSpeechBackend: 'Web Speech（实时）', localWhisperBackend: '本地 Whisper（隐私优先）', cloudBackend: 'OpenAI-compatible 云端 ASR', localModel: 'Whisper 模型', localModelHint: '由 dsh Host 上的 whisper 命令运行；首次使用可能需要下载模型。', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudCredentialRef: 'dsh 凭据引用', cloudCredentialRefHint: '只填写环境变量形状的引用，例如 OPENAI_API_KEY；插件不保存密钥。', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请配置转录端点和可选的 dsh 凭据引用。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '停止录音后，用已配置的 dsh 模型整理转写内容。', polishingOn: '启用', polishingOff: '关闭', provider: '润色模型提供方', providerHint: '选择 dsh 当前已接入的 provider。', model: '润色模型', modelHint: '选择该 provider 下的模型；插件不会保存凭据。', noModel: '不使用润色模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', saving: '保存中…', saved: '已保存', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
 } as const
 
 export const localeEn = {
-  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHint: 'Web Speech gives live feedback; local Whisper and cloud backends transcribe after recording stops.', webSpeechBackend: 'Web Speech (live)', localWhisperBackend: 'Local Whisper (privacy-first)', cloudBackend: 'OpenAI-compatible cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'After recording stops, use a dsh-configured model to clean up the transcript.', polishingOn: 'Enabled', polishingOff: 'Disabled', provider: 'Polishing provider', providerHint: 'Choose a provider already connected to dsh.', model: 'Polishing model', modelHint: 'Choose a model under that provider; the plugin never stores credentials.', noModel: 'Do not polish', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', save: 'Save', saving: 'Saving…', discard: 'Discard', saveFailed: 'Save failed. Try again.', invalid: 'Check the setting values.'
+  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHint: 'Web Speech gives live feedback; local Whisper and cloud backends transcribe after recording stops.', webSpeechBackend: 'Web Speech (live)', localWhisperBackend: 'Local Whisper (privacy-first)', cloudBackend: 'OpenAI-compatible cloud ASR', localModel: 'Whisper model', localModelHint: 'Runs the whisper command on the dsh Host; the first use may download a model.', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudCredentialRef: 'dsh credential reference', cloudCredentialRefHint: 'Use an environment-shaped reference such as OPENAI_API_KEY; the plugin never stores the key.', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Configure a transcription endpoint and an optional dsh credential reference.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'After recording stops, use a dsh-configured model to clean up the transcript.', polishingOn: 'Enabled', polishingOff: 'Disabled', provider: 'Polishing provider', providerHint: 'Choose a provider already connected to dsh.', model: 'Polishing model', modelHint: 'Choose a model under that provider; the plugin never stores credentials.', noModel: 'Do not polish', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', saving: 'Saving…', saved: 'Saved', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
 } as const
 
 type LocaleKey = keyof typeof localeEn
@@ -36,10 +36,10 @@ interface FieldState { text: string; overridden: boolean; invalid: boolean }
 export interface EarsCardState {
   available: boolean
   writable: boolean
-  dirty: boolean
-  invalid: boolean
   saving: boolean
+  saved: boolean
   failed: boolean
+  invalid: boolean
   asrBackend: FieldState
   localWhisperModel: FieldState
   cloudAsrEndpoint: FieldState
@@ -65,9 +65,9 @@ interface EarsSettingsSectionProps {
   readonly useEarsBackends: BackendHook
   readonly earsT: Translate
   readonly edit: (field: FieldName, text: string) => void
-  readonly save: () => void
-  readonly discard: () => void
 }
+
+const AUTO_SAVE_DELAY_MS = 400
 
 export class EarsSettingsController {
   private readonly remote: EarsRemote
@@ -80,7 +80,9 @@ export class EarsSettingsController {
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private saving = false
+  private saved = false
   private failed = false
+  private saveTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(remote: EarsRemote) {
     this.remote = remote
@@ -97,10 +99,13 @@ export class EarsSettingsController {
 
   actions() {
     return {
-      edit: (field: FieldName, text: string) => this.edit(field, text),
-      save: () => void this.save(),
-      discard: () => this.discard()
+      edit: (field: FieldName, text: string) => this.edit(field, text)
     }
+  }
+
+  dispose(): void {
+    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
+    this.saveTimer = undefined
   }
 
   async refreshSettings(): Promise<void> {
@@ -143,38 +148,46 @@ export class EarsSettingsController {
   private edit(field: FieldName, text: string): void {
     this.drafts.set(field, text)
     this.failed = false
+    this.saved = false
     this.publishCard()
+    this.scheduleSave()
   }
 
-  private discard(): void {
-    this.drafts.clear()
-    this.failed = false
-    this.publishCard()
+  private scheduleSave(): void {
+    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined
+      void this.save()
+    }, AUTO_SAVE_DELAY_MS)
   }
 
   private async save(): Promise<void> {
     const state = this.snapshot()
-    if (!state.dirty || state.invalid || !state.writable || this.saving) return
+    if (this.saving || !state.writable || state.invalid) return
     const patch: EarsSettingsPatch = {}
     for (const [field, text] of this.drafts) {
       const value = parseField(field, text)
       if (value !== undefined) (patch as Record<string, unknown>)[field] = value
     }
+    if (Object.keys(patch).length === 0) return
     this.saving = true
     this.failed = false
+    this.saved = false
     this.publishCard()
     try {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
-      this.drafts.clear()
+      for (const field of Object.keys(patch)) this.drafts.delete(field as FieldName)
+      this.saved = true
       void this.refreshBackends()
     } catch {
       this.failed = true
     } finally {
       this.saving = false
       this.publishCard()
+      if (this.drafts.size > 0 && !this.failed) this.scheduleSave()
     }
   }
 
@@ -198,10 +211,10 @@ export class EarsSettingsController {
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
-      dirty: this.drafts.size > 0,
-      invalid: asrBackend.invalid || localWhisperModel.invalid || cloudConfigInvalid || language.invalid || maxRecordingSeconds.invalid || polishingEnabled.invalid || polishProvider.invalid || polishModel.invalid || routeInvalid,
       saving: this.saving,
+      saved: this.saved,
       failed: this.failed,
+      invalid: asrBackend.invalid || localWhisperModel.invalid || cloudConfigInvalid || language.invalid || maxRecordingSeconds.invalid || polishingEnabled.invalid || polishProvider.invalid || polishModel.invalid || routeInvalid,
       asrBackend,
       localWhisperModel,
       cloudAsrEndpoint: { ...cloudAsrEndpoint, invalid: cloudAsrEndpoint.invalid || cloudConfigInvalid },
@@ -276,40 +289,81 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       </div>
       {activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
-          <div className={styles.group}>
-            <SelectField label={t('backend')} hint={t('backendHint')} state={state.asrBackend} disabled={!state.writable} value={state.asrBackend.text} onChange={(event) => props.edit('asrBackend', event.target.value)} options={backendOptions} />
-            {selectedBackend && !selectedBackend.available ? <p className={styles.statusError}>{t('backendUnavailable')}{backendUnavailableDetail(selectedBackend, t)}</p> : null}
-            {state.asrBackend.text === 'local-whisper' ? <SelectField label={t('localModel')} hint={t('localModelHint')} state={state.localWhisperModel} disabled={!state.writable} value={state.localWhisperModel.text} onChange={(event) => props.edit('localWhisperModel', event.target.value)} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} /> : null}
-            {state.asrBackend.text === 'cloud-openai' ? <>
-              <TextField label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} state={state.cloudAsrEndpoint} disabled={!state.writable} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
-              <TextField label={t('cloudModel')} hint={t('cloudModelHint')} state={state.cloudAsrModel} disabled={!state.writable} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
-              <TextField label={t('cloudCredentialRef')} hint={t('cloudCredentialRefHint')} state={state.cloudAsrCredentialRef} disabled={!state.writable} onChange={(event) => props.edit('cloudAsrCredentialRef', event.target.value)} />
-            </> : null}
-            <TextField label={t('language')} hint={t('languageHint')} state={state.language} disabled={!state.writable} onChange={(event) => props.edit('language', event.target.value)} />
-            <TextField label={t('recordingLimit')} hint={t('recordingLimitHint')} state={state.maxRecordingSeconds} disabled={!state.writable} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} />
-          </div>
+          <SelectRow label={t('backend')} hint={t('backendHint')} value={state.asrBackend.text} options={backendOptions} disabled={!state.writable} invalid={state.asrBackend.invalid} onChange={(value) => props.edit('asrBackend', value)} />
+          {selectedBackend && !selectedBackend.available ? <p className={styles.statusError}>{t('backendUnavailable')}{backendUnavailableDetail(selectedBackend, t)}</p> : null}
+          {state.asrBackend.text === 'local-whisper' ? <SelectRow label={t('localModel')} hint={t('localModelHint')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} onChange={(value) => props.edit('localWhisperModel', value)} /> : null}
+          {state.asrBackend.text === 'cloud-openai' ? <>
+            <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
+            <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
+            <TextRow label={t('cloudCredentialRef')} hint={t('cloudCredentialRefHint')} value={state.cloudAsrCredentialRef.text} disabled={!state.writable} invalid={state.cloudAsrCredentialRef.invalid} onChange={(event) => props.edit('cloudAsrCredentialRef', event.target.value)} />
+          </> : null}
+          <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} />
+          <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} />
         </div>
       ) : (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
-          <div className={styles.group}>
-            <SelectField label={t('polishing')} hint={t('polishingHint')} state={state.polishingEnabled} disabled={!state.writable} value={state.polishingEnabled.text} onChange={(event) => props.edit('polishingEnabled', event.target.value)} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} />
-            <SelectField label={t('provider')} hint={t('providerHint')} state={state.polishProvider} disabled={!state.writable || routes.status === 'loading'} value={state.polishProvider.text} onChange={(event) => props.edit('polishProvider', event.target.value)} options={[['', t('noModel')], ...providerOptions.map((provider) => [provider.provider, `${provider.providerName} (${provider.provider})`] as [string, string])]} />
-            <SelectField label={t('model')} hint={routes.status === 'loading' ? t('loadingModels') : modelOptions.length === 0 ? t('noModels') : t('modelHint')} state={state.polishModel} disabled={!state.writable || state.polishProvider.text === '' || routes.status === 'loading'} value={modelValueIsKnown ? state.polishModel.text : ''} onChange={(event) => props.edit('polishModel', event.target.value)} options={[['', t('noModel')], ...(modelValueIsKnown ? [] : state.polishModel.text === '' ? [] : [['', state.polishModel.text] as [string, string]]), ...modelOptions.map((model) => [model.model, `${model.modelName} (${model.model})`] as [string, string])]} />
-          </div>
+          <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
+          <SelectRow label={t('provider')} hint={t('providerHint')} value={state.polishProvider.text} options={[['', t('noModel')], ...providerOptions.map((provider) => [provider.provider, `${provider.providerName} (${provider.provider})`] as [string, string])]} disabled={!state.writable || routes.status === 'loading'} invalid={state.polishProvider.invalid} onChange={(value) => props.edit('polishProvider', value)} />
+          <SelectRow label={t('model')} hint={routes.status === 'loading' ? t('loadingModels') : modelOptions.length === 0 ? t('noModels') : t('modelHint')} value={modelValueIsKnown ? state.polishModel.text : ''} options={[['', t('noModel')], ...(modelValueIsKnown ? [] : state.polishModel.text === '' ? [] : [['', state.polishModel.text] as [string, string]]), ...modelOptions.map((model) => [model.model, `${model.modelName} (${model.model})`] as [string, string])]} disabled={!state.writable || state.polishProvider.text === '' || routes.status === 'loading'} invalid={state.polishModel.invalid} onChange={(value) => props.edit('polishModel', value)} />
         </div>
       )}
-      {state.invalid ? <p className={styles.statusError}>{t('invalid')}</p> : null}
-      <div className={styles.footer}>{state.failed ? <p className={styles.footerMessage}>{t('saveFailed')}</p> : null}<Button className={styles.footerButton} variant="outline" size="sm" disabled={!state.dirty || state.saving} onClick={props.discard}>{t('discard')}</Button><Button className={styles.footerButton} variant="primary" size="sm" disabled={!state.dirty || state.invalid || state.saving || !state.writable} onClick={props.save}>{t(state.saving ? 'saving' : 'save')}</Button></div>
+      <div className={styles.footer}>
+        {state.saving ? <p className={styles.footerStatus}>{t('saving')}</p> : null}
+        {!state.saving && state.failed ? <p className={styles.footerStatus} data-kind="error" role="alert">{t('saveFailed')}</p> : null}
+        {!state.saving && !state.failed && state.saved ? <p className={styles.footerStatus} data-kind="success">{t('saved')}</p> : null}
+        {!state.saving && !state.failed && state.invalid ? <p className={styles.footerStatus} data-kind="error">{t('invalid')}</p> : null}
+      </div>
     </section>
   )
 }
 
-function TextField({ label, hint, state, disabled, numeric, onChange }: { label: string; hint: string; state: FieldState; disabled: boolean; numeric?: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void }) {
-  return <label className={styles.field}><span className={styles.fieldLabel}>{label}</span><Input className={styles.control} type={numeric ? 'number' : 'text'} value={state.text} disabled={disabled} aria-invalid={state.invalid} onChange={onChange} /><span className={`${styles.hint} ${state.invalid ? styles.invalid : ''}`}>{hint}</span></label>
+function RowField({ label, hint, invalid, children }: { label: string; hint: string; invalid: boolean; children: ReactNode }) {
+  return (
+    <div className={styles.row}>
+      <div className={styles.rowText}>
+        <div className={styles.rowTitle}>{label}</div>
+        <div className={`${styles.rowDesc} ${invalid ? styles.invalid : ''}`}>{hint}</div>
+      </div>
+      {children}
+    </div>
+  )
 }
 
-function SelectField({ label, hint, state, disabled, value, options, onChange }: { label: string; hint: string; state: FieldState; disabled: boolean; value: string; options: [string, string][]; onChange: (event: ChangeEvent<HTMLSelectElement>) => void }) {
-  return <label className={styles.field}><span className={styles.fieldLabel}>{label}</span><select className={styles.control} value={value} disabled={disabled} aria-invalid={state.invalid} onChange={onChange}>{options.map(([optionValue, optionLabel]) => <option key={`${optionValue}:${optionLabel}`} value={optionValue}>{optionLabel}</option>)}</select><span className={`${styles.hint} ${state.invalid ? styles.invalid : ''}`}>{hint}</span></label>
+function SelectRow({ label, hint, value, options, disabled, invalid, onChange }: { label: string; hint: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(([optionValue]) => optionValue === value)
+  const labelText = selected === undefined ? value : selected[1]
+  return (
+    <RowField label={label} hint={hint} invalid={invalid}>
+      <Menu
+        open={open}
+        onClose={() => setOpen(false)}
+        items={options.map(([id, optionLabel]) => ({ id, label: optionLabel }))}
+        selectedId={value}
+        onSelect={(id) => {
+          setOpen(false)
+          if (id === value) return
+          onChange(id)
+        }}
+        align="end"
+        portal
+        anchor={
+          <button type="button" className={styles.selector} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
+            {labelText}
+            <IconChevronDownOutline14 className={styles.chevron} />
+          </button>
+        }
+      />
+    </RowField>
+  )
+}
+
+function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; numeric?: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void }) {
+  return (
+    <RowField label={label} hint={hint} invalid={invalid}>
+      <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-invalid={invalid} onChange={onChange} />
+    </RowField>
+  )
 }
 
 function uniqueProviders(routes: readonly PolishRoute[]): PolishRoute[] {

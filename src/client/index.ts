@@ -26,6 +26,10 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       }
     }, 'dsh-ears locale')
 
+    remoteCtx.effect(() => () => {
+      settingsController.dispose()
+    }, 'dsh-ears settings controller lifecycle')
+
     void settingsController.refreshSettings()
     void settingsController.refreshRoutes()
     void settingsController.refreshBackends()
