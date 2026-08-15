@@ -18,6 +18,8 @@ export class MediaRecorderSession {
   private aborted = false
   private closed = false
   private stopPromise: Promise<RecordedAudio> | undefined
+  private stopReject: ((reason: unknown) => void) | undefined
+  private stopCleanup: (() => void) | undefined
   private totalBytes = 0
   private recordingError: Error | undefined
 
@@ -78,11 +80,13 @@ export class MediaRecorderSession {
       const cleanup = () => {
         this.recorder.removeEventListener('stop', onStop)
         this.recorder.removeEventListener('error', onError)
+        if (this.stopCleanup === cleanup) this.stopCleanup = undefined
       }
       const fail = (error: unknown) => {
         if (settled) return
         settled = true
         cleanup()
+        this.stopReject = undefined
         this.closed = true
         this.chunks.length = 0
         this.totalBytes = 0
@@ -93,10 +97,13 @@ export class MediaRecorderSession {
         if (settled) return
         settled = true
         cleanup()
+        this.stopReject = undefined
         void this.finish().then(resolve, reject)
       }
       const onError = () => fail(new Error('Media recording failed'))
 
+      this.stopReject = (reason) => fail(reason)
+      this.stopCleanup = cleanup
       this.recorder.addEventListener('stop', onStop)
       this.recorder.addEventListener('error', onError)
       try {
@@ -112,6 +119,10 @@ export class MediaRecorderSession {
     if (this.aborted) return
     this.aborted = true
     this.closed = true
+    this.stopCleanup?.()
+    this.stopCleanup = undefined
+    this.stopReject?.(abortError())
+    this.stopReject = undefined
     if (this.recorder.state !== 'inactive') {
       try {
         this.recorder.stop()

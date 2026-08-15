@@ -104,6 +104,28 @@ describe('MediaRecorderSession', () => {
     expect(trackStopped).toBe(true)
   })
 
+  it('rejects a pending stop when abort receives no recorder event', async () => {
+    const stopTrack = vi.fn()
+    const stream = { getTracks: () => [{ stop: stopTrack }] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void { this.state = 'inactive' }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    const pending = session.stop()
+    session.abort()
+
+    await expect(pending).rejects.toThrow('aborted')
+    expect(stopTrack).toHaveBeenCalled()
+  })
+
   it('stops and rejects when captured audio exceeds the memory limit', async () => {
     let trackStopped = false
     const stream = { getTracks: () => [{ stop: () => { trackStopped = true } }] }
