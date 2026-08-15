@@ -1,10 +1,10 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSlotProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
-import { EarsSettingsCard, EarsSettingsController, LOCALE_NAMESPACE, createSettingsHook, localeEn, localeZh } from './settings.js'
+import { EarsSettingsController, EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, localeEn, localeZh } from './settings.js'
 
 /** Required Client service: the slot registry owns the UI contribution lifecycle. */
 export const inject = ['slots', 'remote', 'locale']
@@ -46,13 +46,13 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       )
     )
 
-    remoteCtx.slots.inject('settings.plugin.item', () =>
+    remoteCtx.slots.inject('settings.section', () =>
       remoteCtx.slots.register(
         {
-          name: 'settings.plugin.item',
+          name: 'settings.section',
           id: 'dsh-ears',
-          order: 30,
-          locale: LOCALE_NAMESPACE,
+          order: 16,
+          label: () => earsT('nav'),
           inject: () => ({
             hooks: {
               earsCard: settingsController.getCardStore(),
@@ -63,7 +63,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
             ...settingsController.actions()
           })
         },
-        EarsSettingsCard
+        EarsSettingsSection
       )
     )
   })
