@@ -13,7 +13,7 @@ This is the repository-level entry point for coding agents. Read it before chang
 ## Current baseline
 
 - dsh target: `0.1.0-rc.6`; the first release does not promise other rc versions.
-- Current stage: documentation, collaboration baseline, M1 package scaffold, M2 microphone, M3 polishing, and M4 native settings complete; M5 is next.
+- Current stage: documentation, collaboration baseline, M1 package scaffold, M2 microphone, M3 polishing, M4 native settings, and M5 final ASR backends/hardening complete; M6 release readiness is in progress.
 - The current checkout is local-only. Do not push, publish, create a remote repository, or change external state without explicit user authorization.
 - The main project language is English. Use English for source code, code comments, public documentation, context documents, issue-ready text, and commit messages. Runtime product prompts may use Chinese when the product behavior requires Chinese output.
 
@@ -23,7 +23,7 @@ This is the repository-level entry point for coding agents. Read it before chang
 - Prefer the smallest change that completes one independently verifiable task.
 - Verify dsh APIs against current documentation and the installed rc.6 packages; do not guess an API from memory.
 - Keep Host and browser Client responsibilities explicit. Do not introduce a browser-side credential path for Host-owned services.
-- Do not implement deferred Whisper, cloud ASR, emotion UI, or custom LLM provider support while working on M5 without an explicit contract and scope decision.
+- Do not implement emotion UI or custom LLM provider support without an explicit contract and scope decision. Local Whisper and cloud ASR are implemented; future providers still require an independent protocol and smoke test.
 
 ## Git rules
 

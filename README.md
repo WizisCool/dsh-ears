@@ -1,58 +1,95 @@
 # dsh-ears
 
-An open-source voice input plugin for DeepSeek Harness: give the text-only DeepSeek a pair of ears.
+An open-source voice-input plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): give the text-only DeepSeek a pair of ears.
 
-The intended interaction is close to Codex Desktop: click the microphone, speak, watch the transcript arrive in an editable draft, stop recording, optionally polish the text with any model already configured in dsh, and send it manually.
+The interaction is deliberately close to Codex Desktop:
 
-The repository has completed its documentation baseline, M1 package scaffold, M2 microphone pipeline, M3 dsh-owned polishing, and M4 native settings integration. The authoritative scope is [PLAN.md](./PLAN.md).
+```text
+microphone → transcription → optional dsh LLM polishing → editable draft → manual send
+```
 
-## Project goals
+The microphone control is registered in dsh's composer. Configuration lives in dsh's native `Plugins` settings page; dsh-ears does not add a separate settings tab.
 
-- Follow the packaging, naming, documentation, and lifecycle conventions of the official DeepSeek Harness repository.
-- Keep the first release small, testable, and compatible with dsh `0.1.0-rc.6`.
-- Let users choose any provider/model route already configured in dsh for LLM polishing.
-- Keep provider credentials in dsh Host configuration; the plugin does not add its own LLM API-key flow.
-- Build a public, reviewable foundation suitable for a long-lived community project.
+## Compatibility
 
-## Current boundaries
+- dsh: `0.1.0-rc.6`
+- Node.js: `^22.19.0 || >=24.0.0`
+- Package manager: pnpm
+- First browser target: a Chromium browser with the required speech or microphone APIs
 
-- M2 starts with the browser Web Speech API only.
-- Web Speech API may send audio to a browser vendor service; zero additional cost does not mean local-only recognition.
-- If Web Speech fails, the current draft is preserved and the user is asked to record again. The first release does not switch backends invisibly during one session.
-- Polishing uses dsh's existing LLM routes and credentials; the plugin stores only the selected provider/model pair.
-- Local Whisper, cloud ASR, and emotion labels are deferred.
+The compatibility promise is intentionally narrow until another dsh release is tested.
 
-## Development
+## Capabilities
+
+### Speech recognition
+
+- Web Speech: live interim/final transcript updates in the browser.
+- Local Whisper: Host-side `whisper` CLI execution after recording stops.
+- OpenAI-compatible cloud ASR: Host-side multipart request with `file`, `model`, and optional language.
+
+The final-result backends use the browser `MediaRecorder` and a bounded one-shot audio RPC. They do not switch backends invisibly during one recording.
+
+### Polishing
+
+After transcription, dsh-ears can ask any provider/model route already configured in dsh to clean up the transcript. The plugin stores only `{ provider, model }`; it does not add a provider, API key, base URL, or browser-side LLM request. A failed or cancelled polish leaves the raw transcript usable in the draft.
+
+### Settings
+
+Open `Settings → Plugins → Plugin configuration` in dsh. The card provides:
+
+- recognition language and recording limit;
+- ASR backend and local Whisper model;
+- cloud endpoint, model, and dsh credential reference;
+- polishing toggle and dsh provider/model route.
+
+Credential fields accept references such as `OPENAI_API_KEY`, not secret values. The secret is resolved by dsh Host credentials for one operation and is never returned to the browser.
+
+## Local development
 
 ```sh
 pnpm install
 dsh plugin --profile web add "$PWD"
 pnpm check
+pnpm test
+pnpm build
 pnpm dev:config
 pnpm dev:web
 ```
 
-Run the compiler watcher in another terminal when iterating on source files:
+For source iteration, run the compiler watcher in another terminal:
 
 ```sh
 pnpm dev:watch
 ```
 
-Install the checkout into the local `web` profile once before the first browser run. The local development patch then enables Cordis HMR and watches the project `lib/` output; it does not insert a second `dsh-ears` loader entry. `dev:config` builds the package, writes a machine-local HMR-only patch under `.dsh/`, and verifies the composed profile with `dsh --profile web --dump-config`. `dev:web` boots the profile without modifying its tracked configuration.
+`pnpm dev:config` creates the ignored `.dsh/cordis.patch.yml` HMR overlay. It watches the generated `lib/` output and does not add a duplicate plugin loader entry. `cordis.patch.yml` is the small publish-time bundle patch.
 
-With dsh `rc.6`, use the explicit `dsh --profile web` form when passing a patch. The development scripts encode this verified CLI behavior.
+## Backend notes
 
-## Repository map
+Local Whisper must be installed on the dsh Host and available as `whisper` on `PATH`. Model weights belong to that installation; dsh-ears does not bundle or upload them. Temporary audio files are created in a private temporary directory and removed after each operation.
 
-- [PLAN.md](./PLAN.md): public-safe implementation plan and acceptance criteria.
-- [AGENTS.md](./AGENTS.md): repository instructions for coding agents.
-- [.agent/agent.md](./.agent/agent.md): active handoff and current work state.
-- [.agent/context.md](./.agent/context.md): stable architecture and product context.
-- [.agent/decisions.md](./.agent/decisions.md): append-only decision records.
-- [.agent/workflow.md](./.agent/workflow.md): multi-agent, validation, commit, and security workflow.
-- [CONTRIBUTING.md](./CONTRIBUTING.md): contribution and review expectations.
-- [SECURITY.md](./SECURITY.md): security and release rules.
+Cloud ASR sends audio to the endpoint configured by the user. Use HTTPS for remote services, do not embed credentials in the URL, and consider the privacy and retention policy of the chosen provider. Localhost/private endpoints are allowed because endpoint configuration is an explicit Host-side administrator action; the plugin does not discover or probe arbitrary endpoints.
 
-## Security
+Web Speech may send audio to a browser-vendor recognition service. “No additional plugin cost” does not mean local-only recognition.
 
-Never commit API keys, tokens, cookies, private endpoints, user audio, credentials, `.env` files, or personal machine paths. This checkout is local-only until an explicit release decision is made; agents must not push or publish by default.
+## Verification
+
+The repository currently has 28 focused tests across 7 test files. The verified local dsh smoke path includes:
+
+- dsh Host and browser plugin loading;
+- native Plugins settings persistence;
+- light/dark composer layout and dsh semantic color tokens;
+- real local Whisper transcription through `dshEars/transcribe`;
+- Web Speech and MediaRecorder lifecycle failure paths.
+
+See [PLAN.md](./PLAN.md) for the full implementation plan, [SECURITY.md](./SECURITY.md) for the threat and data-handling boundary, and [PROGRESS.md](./PROGRESS.md) for the current delivery record.
+
+## Project documents
+
+- [AGENTS.md](./AGENTS.md) — repository instructions for coding agents.
+- [.agent/agent.md](./.agent/agent.md) — current handoff and verification state.
+- [.agent/context.md](./.agent/context.md) — durable architecture context.
+- [.agent/decisions.md](./.agent/decisions.md) — append-only architecture decisions.
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — contribution and review expectations.
+
+The checkout is local-only by default. Do not push, publish to npm, or add a legal license without an explicit release decision.

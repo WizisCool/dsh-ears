@@ -10,7 +10,7 @@ Give the dsh Web UI a native-feeling voice input flow:
 microphone → live transcript → optional dsh LLM polish → editable draft → manual send
 ```
 
-The first implementation uses the browser Web Speech API. Local Whisper and cloud ASR are later backends. Web Speech API may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
+The implementation supports browser Web Speech, Host-side local Whisper, and an OpenAI-compatible cloud ASR backend. Web Speech API may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
 
 ## Status
 
@@ -19,16 +19,18 @@ The first implementation uses the browser Web Speech API. Local Whisper and clou
 - M2: microphone button, Web Speech pipeline, dsh theme adaptation, and composer ordering fix are complete.
 - M3: dsh-owned text polishing and route discovery are implemented.
 - M4: native Plugins settings card and persistence are implemented.
+- M5: local/cloud ASR backends and lifecycle hardening are implemented.
+- M6: release-readiness review is in progress.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
 
 The package has two faces:
 
-- Host face: Cordis lifecycle, Host RPC, dsh settings integration, and later `ctx.llm` access.
-- Browser face: the microphone UI, Web Speech session, and `inputActions.setDraft()` updates.
+- Host face: Cordis lifecycle, Host RPC, dsh settings integration, local/cloud ASR, and dsh `ctx.llm` access.
+- Browser face: the microphone UI, Web Speech session, MediaRecorder capture for final ASR, and `inputActions.setDraft()` updates.
 
-M2 Web Speech runs in the browser and is not a PCM recorder. It does not provide an audio stream that can be handed to Whisper after a failure. Later audio backends therefore need their own audio source, session, chunking, cancellation, timeout, and error contracts. The first release does not promise invisible backend switching during one recording.
+Web Speech runs in the browser and is not a PCM recorder. Local Whisper and cloud ASR use a separate MediaRecorder source and final-result Host RPC; the first release does not promise invisible backend switching during one recording.
 
 After recording stops, polishing runs on the Host through dsh's existing LLM runtime and credentials. The plugin stores a selected `{ provider, model }` route, not a second provider configuration.
 
@@ -40,7 +42,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D2 | Click to start, live transcript into an editable draft, stop, then manual send. | Accepted |
 | D3 | Polishing is enabled by default and integrated into dsh settings. | Accepted |
 | D4 | Users may select any provider/model route already configured in dsh. The plugin does not provide `base_url`, `api_key`, custom provider, or custom model fields for polishing. | Accepted |
-| D5 | M2 uses Web Speech API. Later ASR candidates are local Whisper and cloud adapters; same-session automatic switching is not promised. | Accepted |
+| D5 | M2 starts with Web Speech API; final local Whisper and cloud adapters use a separate MediaRecorder path. Same-session automatic switching is not promised. | Accepted |
 | D6 | Cloud ASR adapters are optional and separate from the dsh LLM polishing route. | Accepted |
 | D7 | Emotion output is deferred. A result field may be reserved, but the first release has no emotion UI or setting. | Accepted |
 | D8 | Development starts private; public release and package publishing require a later release decision. | Accepted |
@@ -67,19 +69,20 @@ dsh-ears/
 │   ├── client.ts             # Client package entry
 │   ├── client/
 │   │   ├── index.ts          # Client composition
-│   │   ├── recorder.ts       # Later audio capture; not part of M2
+│   │   ├── MicrophoneButton.tsx # Composer control and backend dispatch
+│   │   ├── voice-flow.ts     # Draft, polish, and stale-result protection
 │   │   └── settings.tsx      # dsh-native settings UI
 │   ├── asr/
-│   │   ├── base.ts           # Live and final-transcription contracts
-│   │   ├── web-speech.ts     # M2 browser backend
-│   │   ├── whisper-local.ts  # Later transformers.js backend
-│   │   ├── openai-compat.ts  # Later cloud adapter
-│   │   └── dashscope.ts      # Later provider-specific adapter
+│   │   ├── types.ts          # Final audio/backend metadata
+│   │   ├── media-recorder.ts # Browser capture for final backends
+│   │   ├── web-speech.ts     # Browser live backend
+│   │   ├── local-whisper.ts  # Host Whisper CLI adapter
+│   │   └── openai-compatible.ts # Host cloud adapter
 │   ├── polish/
-│   │   ├── polish.ts         # Host-side dsh LLM orchestration
+│   │   ├── service.ts        # Host-side ASR/settings/polish orchestration
 │   │   └── prompts.ts        # Product prompt text
 │   ├── config.ts             # Runtime settings; no credentials
-│   └── emotion.ts            # Reserved result mapping; no first-release UI
+│   └── remote-contract.ts     # Strict Host/Client wire schemas
 └── tests/
 ```
 
@@ -115,10 +118,12 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 - `dsh.client` declares the browser package and its injected runtime dependencies.
 - M2 uses `conversation.input.right` and `inputActions.setDraft()` in the browser face.
 - M2 uses dsh public `data-slot` topology plus semantic CSS tokens to adapt the control to rc.6 ordering and light/dark themes.
-- M2 does not use RPC, MediaRecorder, AudioWorklet, PCM, or Whisper.
+- Web Speech remains a browser live backend, but its recognition service may be provided by the browser vendor.
+- Local Whisper and cloud ASR use MediaRecorder audio and a final-result Host RPC; they do not attempt invisible backend switching during one recording.
+- The Host rejects oversized audio, uses bounded temporary files and response bodies, and removes local Whisper temporary directories in `finally` blocks.
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
 - Client Remote calls use a Cordis child scope that injects `remote.dshEars`; asynchronous controllers and React event callbacks receive the concrete namespace rather than retaining an unscoped `ctx.remote` object.
-- Later audio RPC must define a channel, endpoint, payload/chunk size, cancellation, timeout, and error schema before implementation.
+- The final-audio RPC accepts one bounded base64 payload and MIME type, carries an AbortSignal, and returns a strict transcript string. Streaming/chunked audio is intentionally not part of the first final-backend contract.
 - Settings use the dsh-native Plugins page and its `settings.plugin.item` list slot after the rc.6 surface is verified. No standalone `settings.section` or `settings.general.item` entry is planned.
 
 ## LLM polishing
@@ -137,42 +142,24 @@ The polishing prompt removes filler words, repairs likely ASR errors, restores p
 
 ## ASR contracts
 
-The design separates live sessions from final transcription:
+The first release has one live browser backend and two final-result backends:
 
 ```ts
-type ASRResult = {
-  text: string
-  emotion?: string
+type FinalAudioRequest = {
+  audioBase64: string
+  mimeType: string
 }
 
-type AudioStream = {
-  format: 'pcm_s16le' | 'encoded'
-  sampleRate?: number
-  channels?: number
-  chunks: AsyncIterable<Uint8Array>
-}
-
-interface LiveASRSession {
-  onInterim(callback: (text: string) => void): () => void
-  onFinal(callback: (text: string) => void): () => void
-  onError(callback: (error: Error) => void): () => void
-  stop(): Promise<ASRResult>
-  abort(): void
-}
-
-interface ASRBackend {
-  id: string
-  displayName: string
-  mode: 'live' | 'final'
-  isAvailable(): Promise<boolean>
-  startLive?(options: { language: string; signal: AbortSignal }): Promise<LiveASRSession>
-  transcribeFinal?(stream: AudioStream, options: { language: string; signal: AbortSignal }): Promise<ASRResult>
+type ASRBackendInfo = {
+  id: 'web-speech' | 'local-whisper' | 'cloud-openai'
+  available: boolean
+  detail: string
 }
 ```
 
-M2 backend: `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording.
+The browser backend uses `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The final backends use `MediaRecorder` with mono, echo-cancellation, noise-suppression, and automatic-gain-control constraints. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording. Teardown aborts are silent and never write into an unmounted draft.
 
-Later backends must verify their actual endpoint, multipart fields, response format, streaming support, limits, and cancellation behavior individually. “OpenAI compatible” is not a sufficient proof of identical ASR behavior.
+Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. The cloud adapter sends `file`, `model`, and optional language fields to an explicit HTTP(S) endpoint. Cloud credentials are resolved per operation from dsh credential references. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
 
 ## Settings
 
@@ -183,9 +170,9 @@ The native dsh Plugins page contains a `dsh-ears` plugin configuration card with
 - Polishing enabled/disabled.
 - A provider/model selector populated from dsh's configured routes. Empty selection is the explicit no-polish state.
 
-ASR backend selection and availability UI remain part of the later audio-backend milestone.
+ASR backend selection, local Whisper model selection, cloud endpoint/model, and dsh credential-reference fields are implemented in the same native card.
 
-The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials, when implemented, remain Host-side and separate from polishing.
+The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the settings card stores only a dsh credential reference such as `OPENAI_API_KEY`.
 
 ## Milestones
 
@@ -220,7 +207,7 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 ### M3/M4 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 9 tests passed.
+- `pnpm test`: passed; 28 tests across 7 files.
 - `pnpm build`: passed; Host RPC, Client bundle, CSS modules, and declarations generated.
 - Fresh dsh Web boot on a temporary port: passed; the microphone and native settings card loaded.
 - Native `Plugins → 插件配置`: passed; the `语音输入` card appeared and loaded dsh provider routes.
@@ -229,13 +216,27 @@ The first release has no emotion toggle and no plugin-owned LLM credential field
 - Composer order: passed in light and dark themes; model selector → microphone → send button.
 - Theme tokens: passed in light and dark themes; the microphone computed color/background changed with dsh theme tokens and no Codex palette constants are used.
 
-### M5 — Later ASR backends and hardening — next
+### M5 — Final ASR backends and hardening — complete
 
-- Design and verify audio capture, chunking, cancellation, and memory limits.
-- Add local Whisper and provider-specific cloud adapters only after real smoke tests.
-- Add privacy documentation and broaden tests. Emotion UI remains separately gated.
+- Design and verify one-shot audio capture, cancellation, cleanup, and memory limits.
+- Add the Host-side local Whisper CLI adapter and OpenAI-compatible cloud adapter.
+- Resolve cloud credentials through dsh references without storing secret values.
+- Protect manual draft edits from late ASR/polish results and preserve raw transcript fallback.
+- Verify local Whisper with a real generated audio file and a real dsh Host RPC.
+- Keep emotion UI separately gated and intentionally unimplemented.
 
-### M6 — Release readiness
+### M5 verification
+
+- `pnpm check`: passed.
+- `pnpm test`: passed; 28 tests across 7 files.
+- `pnpm build`: passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
+- Local Whisper smoke: passed with a generated AIFF file and the installed `whisper --model tiny` command.
+- dsh Host RPC smoke: passed with a real `dshEars/transcribe` request and transcript response.
+- Cloud adapter tests: passed for multipart payloads, anonymous endpoints, credential headers, URL credential rejection, and bounded chunked responses.
+- Browser lifecycle tests: passed for MediaRecorder cleanup/idempotence, Web Speech silent abort, and synchronous-start failure.
+- Draft-flow tests: passed for stale manual edits and late polish results.
+
+### M6 — Release readiness — in progress
 
 - Review license choice, public repository readiness, package contents, changelog/release notes, dependency policy, and security scan.
 - Public release, npm publishing, tags, and directory submissions require explicit release approval.
@@ -255,9 +256,9 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 
 - dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6.
 - Web Speech availability and privacy behavior vary by browser and platform.
-- The exact rc.6 `ctx.llm` discovery, route selection, and completion call shape must be verified before M3.
-- Whisper model size, cache policy, chunk duration, and interim-result strategy remain open before M5.
-- Every cloud ASR provider needs an independent protocol adapter and smoke test.
+- The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
+- Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights.
+- OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
 - A license has not been selected yet; do not add legal licensing terms without an explicit decision.
 
 ## References
