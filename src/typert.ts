@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { earsSettingsPatchSchema, earsSettingsViewSchema, listRoutesResultSchema, polishResultSchema } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, transcribeResultSchema } from './remote-contract.js'
 const polishTranscriptSchema = z.string()
 const polishProviderSchema = z.string()
 const polishModelSchema = z.string()
@@ -9,6 +9,19 @@ export const TYPERT = {
   face: 'host',
   schemas: [],
   invocations: [
+    {
+      id: 'dsh-ears#dshEars/listAsrBackends',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listAsrBackends',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-ears#AsrBackendInfo[]',
+        schema: listAsrBackendsResultSchema
+      }
+    },
     {
       id: 'dsh-ears#dshEars/getSettings',
       service: 'dshEarsPolish',
@@ -44,6 +57,29 @@ export const TYPERT = {
         typeSymbol: 'dsh-ears#PolishRoute[]',
         schema: listRoutesResultSchema
       }
+    },
+    {
+      id: 'dsh-ears#dshEars/transcribe',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'transcribe',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'audioBase64',
+          wire: 'audioBase64',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema }
+        },
+        {
+          name: 'mimeType',
+          wire: 'mimeType',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: audioMimeTypeSchema }
+        }
+      ],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
     },
     {
       id: 'dsh-ears#dshEars/polish',
@@ -103,10 +139,24 @@ export const TYPERT = {
         members: [
           {
             kind: 'method',
+            name: 'listAsrBackends',
+            signature: 'listAsrBackends(): Promise<AsrBackendInfo[]>',
+            summary: 'List configured and locally available ASR backends.',
+            jsDoc: '/** List configured and locally available ASR backends. */'
+          },
+          {
+            kind: 'method',
             name: 'listRoutes',
             signature: 'listRoutes(): Promise<PolishRoute[]>',
             summary: 'List models already registered in dsh.',
             jsDoc: '/** List models already registered in dsh. */'
+          },
+          {
+            kind: 'method',
+            name: 'transcribe',
+            signature: 'transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string>',
+            summary: 'Transcribe one recorded audio payload through the selected ASR backend.',
+            jsDoc: '/** Transcribe one recorded audio payload through the selected ASR backend. */'
           },
           {
             kind: 'method',
@@ -124,6 +174,10 @@ export const TYPERT = {
           {
             name: 'EarsSettingsPatch',
             declaration: 'export type EarsSettingsPatch = Partial<EarsSettings>'
+          },
+          {
+            name: 'AsrBackendInfo',
+            declaration: 'export interface AsrBackendInfo { id: AsrBackendId; name: string; available: boolean; detail: string }'
           },
           {
             name: 'PolishRoute',

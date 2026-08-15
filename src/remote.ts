@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { earsSettingsPatchSchema, earsSettingsViewSchema, listRoutesResultSchema, polishResultSchema } from './remote-contract.js'
-import type { EarsSettingsPatch, EarsSettingsView, PolishRoute } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, polishResultSchema, transcribeResultSchema } from './remote-contract.js'
+import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -10,6 +10,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     getSettings: () => Promise<RemoteResult<EarsSettingsView>>
     updateSettings: (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
+    listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
+    transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     polish: (transcript: string, provider: string, model: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
 
@@ -17,6 +19,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/getSettings': () => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/updateSettings': (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
+    'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
+    'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     'dshEars/polish': (transcript: string, provider: string, model: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
   }
 
@@ -42,6 +46,19 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       }
     },
     {
+      id: 'dsh-ears#dshEars/listAsrBackends',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listAsrBackends',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: {
+        mode: 'strict',
+        typeSymbol: 'dsh-ears#AsrBackendInfo[]',
+        schema: listAsrBackendsResultSchema
+      }
+    },
+    {
       id: 'dsh-ears#dshEars/getSettings',
       service: 'dshEarsPolish',
       namespace: 'dshEars',
@@ -64,6 +81,29 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       }],
       cancellation: { parameter: 'signal' },
       result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/transcribe',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'transcribe',
+      invocation: { kind: 'direct' },
+      parameters: [
+        {
+          name: 'audioBase64',
+          wire: 'audioBase64',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema }
+        },
+        {
+          name: 'mimeType',
+          wire: 'mimeType',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: audioMimeTypeSchema }
+        }
+      ],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
     },
     {
       id: 'dsh-ears#dshEars/polish',

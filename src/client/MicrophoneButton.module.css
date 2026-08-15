@@ -16,6 +16,7 @@
 
 .button[data-state='starting'],
 .button[data-state='recording'],
+.button[data-state='transcribing'],
 .button[data-state='polishing'] {
   background: var(--dsw-alias-button-info-fill);
   color: var(--dsw-alias-label-primary-foreground);
@@ -23,6 +24,7 @@
 
 .button[data-state='starting']:hover:not(:disabled),
 .button[data-state='recording']:hover:not(:disabled),
+.button[data-state='transcribing']:hover:not(:disabled),
 .button[data-state='polishing']:hover:not(:disabled) {
   background: var(--dsw-alias-button-info-hover);
 }

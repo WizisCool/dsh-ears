@@ -28,6 +28,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
 
     void settingsController.refreshSettings()
     void settingsController.refreshRoutes()
+    void settingsController.refreshBackends()
 
     void ({} as ConversationSlotProps)
     remoteCtx.slots.inject('conversation.input.right', () =>
@@ -55,7 +56,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           inject: () => ({
             hooks: {
               earsCard: settingsController.getCardStore(),
-              earsRoutes: settingsController.getRouteStore()
+              earsRoutes: settingsController.getRouteStore(),
+              earsBackends: settingsController.getBackendStore()
             },
             earsT,
             ...settingsController.actions()

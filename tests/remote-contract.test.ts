@@ -18,6 +18,11 @@ describe('settings Remote contract', () => {
       available: true,
       writable: true,
       settings: {
+        asrBackend: 'web-speech',
+        localWhisperModel: 'tiny',
+        cloudAsrEndpoint: '',
+        cloudAsrModel: 'whisper-1',
+        cloudAsrCredentialRef: '',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
         polishingEnabled: true,

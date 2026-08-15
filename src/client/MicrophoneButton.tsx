@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, IconStopFill16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ASR_BACKEND_IDS } from '../config.js'
+import type { AsrBackendId, EarsSettings } from '../config.js'
+import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
-import type { EarsSettings } from '../config.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
 
@@ -17,17 +19,22 @@ type VoiceInputButtonProps = {
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
 }
 
-type ButtonState = 'idle' | 'starting' | 'recording' | 'polishing' | 'error'
+type ButtonState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error'
 
 export function MicrophoneButton({ input, inputActions, remote, useEarsSettings }: VoiceInputButtonProps) {
   const [state, setState] = useState<ButtonState>('idle')
-  const sessionRef = useRef<WebSpeechSession | null>(null)
+  const speechSessionRef = useRef<WebSpeechSession | null>(null)
+  const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
+  const mediaBaseDraftRef = useRef('')
+  const mediaStartCancelledRef = useRef(false)
+  const transcribeAbortRef = useRef<AbortController | null>(null)
   const polishAbortRef = useRef<AbortController | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const actionsRef = useRef(inputActions)
   const latestDraftRef = useRef(input.draft)
   const settings = useEarsSettings((value) => value)
   const settingsRef = useRef(settings)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
     actionsRef.current = inputActions
@@ -42,19 +49,24 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
   }, [settings])
 
   useEffect(() => () => {
-    sessionRef.current?.abort()
+    mountedRef.current = false
+    speechSessionRef.current?.abort()
+    mediaSessionRef.current?.abort()
+    transcribeAbortRef.current?.abort()
     polishAbortRef.current?.abort()
     clearRecordingTimer(recordingTimerRef)
   }, [])
 
-  if (!isWebSpeechAvailable()) {
+  const backend = normalizeBackend(settings.asrBackend)
+  const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : isMediaRecorderAvailable()
+  if (!backendAvailable) {
     return (
       <Button
         aria-label="Voice input unavailable"
         disabled
         className={styles.button}
         size="sm"
-        title="Voice input is unavailable in this browser"
+        title={backend === 'web-speech' ? 'Voice input is unavailable in this browser' : 'This browser cannot record audio for the selected ASR backend'}
         variant="toolbar"
         icon={<MicrophoneIcon />}
       />
@@ -62,23 +74,16 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
   }
 
   const active = state === 'starting' || state === 'recording'
+  const busy = state === 'transcribing' || state === 'polishing'
 
-  const toggle = () => {
-    if (active) {
-      sessionRef.current?.stop()
-      return
-    }
-
-    if (state === 'polishing') return
-
+  const startWebSpeech = () => {
     const baseDraft = input.draft
     let failed = false
     const session = new WebSpeechSession({
       language: settingsRef.current.language,
       onStart: () => {
         setState('recording')
-        clearRecordingTimer(recordingTimerRef)
-        recordingTimerRef.current = setTimeout(() => session.stop(), settingsRef.current.maxRecordingSeconds * 1000)
+        armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
       },
       onInterim: (text) => updateDraft(baseDraft, text, latestDraftRef, actionsRef),
       onFinal: (text) => updateDraft(baseDraft, text, latestDraftRef, actionsRef),
@@ -88,25 +93,16 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
       },
       onEnd: (text) => {
         clearRecordingTimer(recordingTimerRef)
-        sessionRef.current = null
+        speechSessionRef.current = null
         if (failed || text === '') {
           if (!failed) setState('idle')
           return
         }
-
-        const draftAtStop = appendToDraft(baseDraft, text)
-        const currentSettings = settingsRef.current
-        if (!currentSettings.polishingEnabled || currentSettings.polishProvider === '' || currentSettings.polishModel === '') {
-          setState('idle')
-          return
-        }
-
-        void polishDraft({
+        commitTranscript({
           transcript: text,
           baseDraft,
-          draftAtStop,
-          provider: currentSettings.polishProvider,
-          model: currentSettings.polishModel,
+          requireUnchanged: false,
+          settings: settingsRef.current,
           remote,
           setState,
           latestDraftRef,
@@ -116,33 +112,155 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
       }
     })
 
-    sessionRef.current = session
+    speechSessionRef.current = session
     setState('starting')
     session.start()
   }
 
+  const stopRecording = async () => {
+    clearRecordingTimer(recordingTimerRef)
+    if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null) {
+      mediaStartCancelledRef.current = true
+      setState('idle')
+      return
+    }
+    if (speechSessionRef.current !== null) {
+      speechSessionRef.current.stop()
+      return
+    }
+    const session = mediaSessionRef.current
+    if (session === null) return
+    mediaSessionRef.current = null
+    const baseDraft = mediaBaseDraftRef.current
+    setState('transcribing')
+    const controller = new AbortController()
+    transcribeAbortRef.current = controller
+    try {
+      const audio = await session.stop()
+      const result = await remote.transcribe(audio.base64, audio.mimeType, controller.signal)
+      if (!result.ok || result.value.trim() === '') throw new Error('ASR returned no transcript')
+      if (!mountedRef.current) return
+      commitTranscript({
+        transcript: result.value,
+        baseDraft,
+        requireUnchanged: true,
+        settings: settingsRef.current,
+        remote,
+        setState,
+        latestDraftRef,
+        actionsRef,
+        polishAbortRef
+      })
+    } catch {
+      if (mountedRef.current) setState('error')
+    } finally {
+      if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
+    }
+  }
+
+  const startMediaRecording = async () => {
+    const baseDraft = input.draft
+    mediaStartCancelledRef.current = false
+    setState('starting')
+    try {
+      const session = await MediaRecorderSession.create()
+      if (!mountedRef.current || mediaStartCancelledRef.current) {
+        session.abort()
+        return
+      }
+      mediaSessionRef.current = session
+      mediaBaseDraftRef.current = baseDraft
+      session.start()
+      setState('recording')
+      armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => void stopRecording())
+    } catch {
+      if (mountedRef.current) setState('error')
+    }
+  }
+
+  const toggle = () => {
+    if (active) {
+      void stopRecording()
+      return
+    }
+    if (busy) return
+
+    if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') {
+      startWebSpeech()
+    } else {
+      void startMediaRecording()
+    }
+  }
+
   return (
     <Button
-      aria-label={state === 'polishing' ? 'Polishing voice input' : active ? 'Stop voice input' : 'Start voice input'}
+      aria-label={state === 'transcribing' ? 'Transcribing voice input' : state === 'polishing' ? 'Polishing voice input' : active ? 'Stop voice input' : 'Start voice input'}
       aria-pressed={active}
       className={styles.button}
       data-state={state}
-      disabled={state === 'polishing'}
+      disabled={busy}
       onClick={toggle}
       size="sm"
       title={
         state === 'error'
           ? 'Voice input failed; click to record again'
-          : state === 'polishing'
-            ? 'Polishing voice input'
-          : active
-            ? 'Stop voice input'
-            : 'Start voice input'
+          : state === 'transcribing'
+            ? 'Transcribing voice input'
+            : state === 'polishing'
+              ? 'Polishing voice input'
+              : active
+                ? 'Stop voice input'
+                : 'Start voice input'
       }
       variant="toolbar"
       icon={active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
     />
   )
+}
+
+interface CommitTranscriptOptions {
+  transcript: string
+  baseDraft: string
+  requireUnchanged: boolean
+  settings: EarsSettings
+  remote: EarsRemote
+  setState: (state: ButtonState) => void
+  latestDraftRef: { current: string }
+  actionsRef: { current: { setDraft(text: string): void } }
+  polishAbortRef: { current: AbortController | null }
+}
+
+function commitTranscript(options: CommitTranscriptOptions): void {
+  const transcript = options.transcript.trim()
+  if (transcript === '') {
+    options.setState('idle')
+    return
+  }
+  if (options.requireUnchanged && options.latestDraftRef.current !== options.baseDraft) {
+    options.setState('idle')
+    return
+  }
+
+  const draftAtStop = appendToDraft(options.baseDraft, transcript)
+  options.latestDraftRef.current = draftAtStop
+  options.actionsRef.current.setDraft(draftAtStop)
+  if (!options.settings.polishingEnabled || options.settings.polishProvider === '' || options.settings.polishModel === '') {
+    options.setState('idle')
+    return
+  }
+
+  void polishDraft({
+    transcript,
+    baseDraft: options.baseDraft,
+    draftAtStop,
+    provider: options.settings.polishProvider,
+    model: options.settings.polishModel,
+    remote: options.remote,
+    setState: options.setState,
+    latestDraftRef: options.latestDraftRef,
+    actionsRef: options.actionsRef,
+    polishAbortRef: options.polishAbortRef
+  })
 }
 
 interface PolishDraftOptions {
@@ -190,13 +308,22 @@ function updateDraft(
   actionsRef.current.setDraft(nextDraft)
 }
 
+function armRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }, seconds: number, stop: () => void): void {
+  clearRecordingTimer(timerRef)
+  timerRef.current = setTimeout(stop, Math.max(1, seconds) * 1000)
+}
+
 function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }): void {
   if (timerRef.current === null) return
   clearTimeout(timerRef.current)
   timerRef.current = null
 }
 
-function appendToDraft(baseDraft: string, transcript: string): string {
+function normalizeBackend(value: string): AsrBackendId {
+  return (ASR_BACKEND_IDS as readonly string[]).includes(value) ? value as AsrBackendId : 'web-speech'
+}
+
+export function appendToDraft(baseDraft: string, transcript: string): string {
   if (transcript === '') return baseDraft
   if (baseDraft === '') return transcript
   if (/\s$/.test(baseDraft) || /^\s/.test(transcript)) return baseDraft + transcript
