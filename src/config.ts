@@ -84,5 +84,5 @@ export function validateEarsSettings(settings: EarsSettings): void {
     if (!isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
     if (settings.cloudAsrModel.trim() === '') throw new Error('Cloud ASR model is required')
   }
-  if ((settings.polishProvider.trim() === '') !== (settings.polishModel.trim() === '')) throw new Error('Polishing provider and model must be selected together')
+  if (settings.polishingEnabled && (settings.polishProvider.trim() === '') !== (settings.polishModel.trim() === '')) throw new Error('Polishing provider and model must be selected together')
 }
