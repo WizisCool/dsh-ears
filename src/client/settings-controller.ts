@@ -26,6 +26,7 @@ export interface EarsCardState {
   cloudAsrProvider: FieldState
   cloudAsrApiKey: FieldState
   cloudAsrApiKeyConfigured: boolean
+  cloudAsrApiKeyClearPending: boolean
   cloudAsrEndpoint: FieldState
   cloudAsrModel: FieldState
   language: FieldState
@@ -137,6 +138,7 @@ export class EarsSettingsController {
       edit: (field: FieldName, text: string) => this.edit(field, text),
       setApiKey: (text: string) => this.edit('cloudAsrApiKey', text),
       clearApiKey: () => this.clearApiKey(),
+      undoClearApiKey: () => this.undoClearApiKey(),
       save: () => void this.save(),
       discard: () => this.discard(),
       retryCloudModels: () => void this.refreshCloudModels(),
@@ -450,6 +452,14 @@ export class EarsSettingsController {
     this.publishCard()
   }
 
+  /** Undo the staged clear without saving. */
+  private undoClearApiKey(): void {
+    if (this.disposed) return
+    this.clearKeyPending = false
+    this.failed = false
+    this.publishCard()
+  }
+
   /** Drop every staged draft and pending clear, back to the last saved state. */
   private discard(): void {
     if (this.disposed) return
@@ -535,6 +545,7 @@ export class EarsSettingsController {
       cloudAsrProvider,
       cloudAsrApiKey,
       cloudAsrApiKeyConfigured: this.settingsView.cloudAsrApiKeyConfigured,
+      cloudAsrApiKeyClearPending: this.clearKeyPending,
       cloudAsrEndpoint,
       cloudAsrModel,
       language,

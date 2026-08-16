@@ -448,7 +448,14 @@ describe('EarsSettingsController settings lifecycle', () => {
       await controller.refreshSettings()
       controller.actions().clearApiKey()
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(true)
       expect(updateSettings).not.toHaveBeenCalled()
+
+      controller.actions().undoClearApiKey()
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(false)
+      controller.actions().clearApiKey()
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(true)
 
       controller.actions().setApiKey('gsk_new')
       controller.actions().save()
