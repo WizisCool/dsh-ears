@@ -42,9 +42,11 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           name: 'conversation.input.right',
           id: 'dsh-ears-voice',
           order: 30,
+          locale: LOCALE_NAMESPACE,
           inject: () => ({
             remote: earsRemote,
-            useEarsSettings: settingsHook
+            useEarsSettings: settingsHook,
+            earsT
           })
         },
         MicrophoneButton

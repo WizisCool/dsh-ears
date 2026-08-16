@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { EarsSettingsController } from '../src/client/settings-controller.js'
+import { localeEn, localeZh } from '../src/client/settings.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
 
@@ -26,7 +27,8 @@ vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   IconChevronDownOutline14: () => null,
   Input: () => null,
-  Menu: () => null
+  Menu: () => null,
+  Tooltip: ({ children }: { children: unknown }) => children
 }))
 
 const INITIAL_WHISPER_STATE: WhisperModelState = {
@@ -244,6 +246,34 @@ describe('EarsSettingsController settings lifecycle', () => {
     } finally {
       controller.dispose()
       vi.useRealTimers()
+    }
+  })
+})
+
+describe('Locale parity', () => {
+  it('contains identical keys for Chinese and English dictionaries', () => {
+    const zhKeys = Object.keys(localeZh).sort()
+    const enKeys = Object.keys(localeEn).sort()
+    expect(zhKeys).toEqual(enKeys)
+  })
+
+  it('provides non-empty translations for voice button states', () => {
+    const buttonKeys = [
+      'voiceStart',
+      'voiceStop',
+      'voiceTranscribing',
+      'voicePolishing',
+      'voiceError',
+      'voiceUnavailable',
+      'voiceUnavailableWebSpeech',
+      'voiceUnavailableRecorder'
+    ] as const
+
+    for (const key of buttonKeys) {
+      expect(localeZh[key]).toBeTruthy()
+      expect(localeEn[key]).toBeTruthy()
+      expect(typeof localeZh[key]).toBe('string')
+      expect(typeof localeEn[key]).toBe('string')
     }
   })
 })

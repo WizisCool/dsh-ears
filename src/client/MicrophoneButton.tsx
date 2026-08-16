@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconStopFill16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
 import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
@@ -8,6 +8,8 @@ import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
 import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
+import type { Translate } from './settings.js'
+import { localeEn } from './settings.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -18,11 +20,14 @@ type VoiceInputButtonProps = {
   }
   readonly remote: EarsRemote
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
+  readonly t?: Translate
+  readonly earsT?: Translate
 }
 
 type ButtonState = VoiceInputState
 
-export function MicrophoneButton({ input, inputActions, remote, useEarsSettings }: VoiceInputButtonProps) {
+export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, t: slotT, earsT }: VoiceInputButtonProps) {
+  const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
   const [state, setState] = useState<ButtonState>('idle')
   const speechSessionRef = useRef<WebSpeechSession | null>(null)
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
@@ -61,16 +66,18 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
   const backend = normalizeBackend(settings.asrBackend)
   const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : isMediaRecorderAvailable()
   if (!backendAvailable) {
+    const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
-      <Button
-        aria-label="Voice input unavailable"
-        disabled
-        className={styles.button}
-        size="sm"
-        title={backend === 'web-speech' ? 'Voice input is unavailable in this browser' : 'This browser cannot record audio for the selected ASR backend'}
-        variant="ghost"
-        icon={<MicrophoneIcon />}
-      />
+      <Tooltip label={unavailableLabel} side="top" delayMs={500}>
+        <Button
+          aria-label={t('voiceUnavailable')}
+          disabled
+          className={styles.button}
+          size="sm"
+          variant="ghost"
+          icon={<MicrophoneIcon />}
+        />
+      </Tooltip>
     )
   }
 
@@ -198,29 +205,40 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings 
     }
   }
 
+  const tooltipLabel =
+    state === 'error'
+      ? t('voiceError')
+      : state === 'transcribing'
+        ? t('voiceTranscribing')
+        : state === 'polishing'
+          ? t('voicePolishing')
+          : active
+            ? t('voiceStop')
+            : t('voiceStart')
+
+  const ariaLabel =
+    state === 'transcribing'
+      ? t('voiceTranscribing')
+      : state === 'polishing'
+        ? t('voicePolishing')
+        : active
+          ? t('voiceStop')
+          : t('voiceStart')
+
   return (
-    <Button
-      aria-label={state === 'transcribing' ? 'Transcribing voice input' : state === 'polishing' ? 'Polishing voice input' : active ? 'Stop voice input' : 'Start voice input'}
-      aria-pressed={active}
-      className={styles.button}
-      data-state={state}
-      disabled={busy}
-      onClick={toggle}
-      size="sm"
-      title={
-        state === 'error'
-          ? 'Voice input failed; click to record again'
-          : state === 'transcribing'
-            ? 'Transcribing voice input'
-            : state === 'polishing'
-              ? 'Polishing voice input'
-              : active
-                ? 'Stop voice input'
-                : 'Start voice input'
-      }
-      variant="ghost"
-      icon={active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
-    />
+    <Tooltip label={tooltipLabel} side="top" delayMs={500}>
+      <Button
+        aria-label={ariaLabel}
+        aria-pressed={active}
+        className={styles.button}
+        data-state={state}
+        disabled={busy}
+        onClick={toggle}
+        size="sm"
+        variant="ghost"
+        icon={active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
+      />
+    </Tooltip>
   )
 }
 
