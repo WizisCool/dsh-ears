@@ -6,10 +6,12 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: global code-audit hardening, documentation, verification, and private remote delivery are complete.
+- Follow-up UI fix: added the `dsh-ear.svg` project asset and corrected the rc.6 composer order to model → ContextMeter → microphone → send. The rc.6 settings-section contract does not expose a custom nav-icon field, so the left settings rail keeps dsh's native fallback icon without a dsh-core change.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`, synchronized with `origin/master` after the audit push.
-- Latest code commit: `ef27118 fix(protocol): align settings cancellation metadata`.
-- Latest audit docs commit: `dd3d473 docs: record audit hardening and open boundaries`.
+- Latest code commit: `cd24b09 feat(assets): add project icon and update package metadata`.
+- Latest fix commit: `a06da1e fix(client): adjust composer order for rc.6 trailing controls`.
+- Latest audit docs commit: `3a85199 docs: record remote delivery`.
 - Handoff baseline: `2963378 docs: finalize audit handoff`; this file records the subsequent remote-delivery update.
 - Remote delivery: pushed `master` to private `origin` and verified the remote tip matches local `HEAD`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
@@ -44,6 +46,14 @@ Final real rc.6 smoke evidence on the latest build:
 - Browser warning/error logs were empty.
 - Shutdown printed `Invalid revision range c964...HEAD`; this was reproduced as an HMR/environment diagnostic after the plugin had loaded, not attributed to business code.
 
+## Follow-up UI verification
+
+- `./node_modules/.bin/tsc --noEmit -p tsconfig.json` — passed.
+- `./node_modules/.bin/vitest run` — passed; 61 tests across 9 files.
+- `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` — passed; final Host/Client artifacts generated.
+- Impeccable detector — clean on the changed UI targets.
+- Existing `dsh web` on `127.0.0.1:3080` served the rebuilt Client bundle with HTTP 200 and the final composer-order selectors. No `dev:watch` process is running, so the browser needs a refresh to consume the rebuilt bundle.
+
 ## Current boundaries and open decisions
 
 - Web Speech may use a browser-vendor recognition service; it is not claimed to be local-only.
@@ -61,11 +71,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 ## Final task record
 
-- Completed: global module audit, deterministic hardening, low-risk controller/Remote contract refinement, documentation sync, final rc.6 smoke, and private remote push.
-- Validation: `pnpm check`, `pnpm test` (61/61 across 9 files), `pnpm build`, `pnpm pack --dry-run`, secret scan, and browser smoke all passed.
+- Completed: composer ordering adjustment for rc.6 trailing controls, `dsh-ear.svg` asset addition, package metadata integration, full verification, and handoff synchronization.
+- Validation: `tsc` typecheck, `vitest` (61/61 tests across 9 files), `tsdown` & `tsc` builds, and `git diff --check` all passed.
 - Unfinished: two documented protocol decisions (recording settings snapshot and Whisper crash-residue integrity).
 - Blocked: none.
-- Commit: `2963378 docs: finalize audit handoff` (remote tip verified).
+- Commit: `cd24b09 feat(assets): add project icon and update package metadata`.
 
 ## Handoff template
 
