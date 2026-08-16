@@ -29,9 +29,9 @@ describe('dsh-ears settings validation', () => {
     })).not.toThrow()
   })
 
-  it('rejects incomplete polishing configuration', () => {
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider' })).toThrow('selected together')
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true })).toThrow('selected together')
+  it('allows an incomplete provider/model pair while polishing is enabled', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true })).not.toThrow()
   })
 
   it('allows an incomplete provider/model pair while polishing is disabled', () => {

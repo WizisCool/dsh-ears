@@ -82,5 +82,4 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (settings.cloudAsrEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
   if (settings.asrBackend === 'cloud-openai' && settings.cloudAsrProvider === 'custom' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
-  if (settings.polishingEnabled && (settings.polishProvider.trim() === '' || settings.polishModel.trim() === '')) throw new Error('Polishing provider and model must be selected together')
 }
