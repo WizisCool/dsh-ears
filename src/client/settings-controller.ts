@@ -19,7 +19,8 @@ export interface EarsCardState {
   loadFailed: boolean
   saving: boolean
   failed: boolean
-  lastSaved: { revision: number; fields: readonly FieldName[] }
+  dirty: boolean
+  invalid: boolean
   asrBackend: FieldState
   localWhisperModel: FieldState
   cloudAsrProvider: FieldState
@@ -77,8 +78,6 @@ function whisperErrorView(view: WhisperModelView, message: string, fallback: str
   }
 }
 
-const AUTO_SAVE_DELAY_MS = 400
-
 export class EarsSettingsController {
   private readonly remote: EarsRemote
   private readonly settingsStore: SnapshotStore<EarsSettings>
@@ -99,12 +98,9 @@ export class EarsSettingsController {
   private loaded = false
   private loadFailed = false
   private failed = false
-  private invalidFlags = new Map<FieldName, boolean>()
-  private lastSaved: { revision: number; fields: readonly FieldName[] } = { revision: 0, fields: [] }
   private clearKeyPending = false
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
-  private saveTimer: ReturnType<typeof setTimeout> | undefined
   private whisperPollTimer: ReturnType<typeof setInterval> | undefined
   private disposed = false
   private settingsRequest = 0
@@ -140,22 +136,14 @@ export class EarsSettingsController {
     return {
       edit: (field: FieldName, text: string) => this.edit(field, text),
       setApiKey: (text: string) => this.edit('cloudAsrApiKey', text),
-      clearApiKey: () => void this.clearApiKey(),
-      saveNow: () => this.flushSave(),
+      clearApiKey: () => this.clearApiKey(),
+      save: () => void this.save(),
+      discard: () => this.discard(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
       deleteModel: () => void this.deleteModel()
     }
-  }
-
-  /** Flush a pending debounced save immediately (Enter-to-save affordance). */
-  flushSave(): void {
-    if (this.saveTimer !== undefined) {
-      clearTimeout(this.saveTimer)
-      this.saveTimer = undefined
-    }
-    void this.save()
   }
 
   dispose(): void {
@@ -167,8 +155,6 @@ export class EarsSettingsController {
     this.whisperRequest += 1
     this.cloudModelsRequest += 1
     this.whisperRefreshQueued = false
-    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
-    this.saveTimer = undefined
     if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
     this.retryTimer = undefined
     this.stopWhisperPolling()
@@ -442,49 +428,48 @@ export class EarsSettingsController {
     } else if (field === 'cloudAsrApiKey') {
       if (text.trim() === '') {
         this.drafts.delete('cloudAsrApiKey')
-        this.invalidFlags.delete('cloudAsrApiKey')
         this.publishCard()
         return
       }
+      this.clearKeyPending = false
     }
     this.drafts.set(field, text)
-    this.invalidFlags.delete(field)
     this.failed = false
     this.publishCard()
-    this.scheduleSave()
     if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
     if (field === 'cloudAsrProvider' || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
   }
 
-  private async clearApiKey(): Promise<void> {
+  /** Stage the write-only key for clearing; the save action commits it. */
+  private clearApiKey(): void {
     if (this.disposed) return
     this.clearKeyPending = true
     this.drafts.delete('cloudAsrApiKey')
-    this.invalidFlags.delete('cloudAsrApiKey')
     this.failed = false
     this.publishCard()
-    await this.save()
   }
 
-  private scheduleSave(): void {
-    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
-    this.saveTimer = setTimeout(() => {
-      this.saveTimer = undefined
-      void this.save()
-    }, AUTO_SAVE_DELAY_MS)
+  /** Drop every staged draft and pending clear, back to the last saved state. */
+  private discard(): void {
+    if (this.disposed) return
+    this.drafts.clear()
+    this.clearKeyPending = false
+    this.failed = false
+    this.publishCard()
   }
 
   private async save(): Promise<void> {
     if (this.disposed || this.saving || !this.settingsView.writable) return
+    const drafts = [...this.drafts.entries()]
+    if (drafts.length === 0 && !this.clearKeyPending) return
+    if (drafts.some(([field, text]) => isInvalid(field, text))) return
     const patch: EarsSettingsPatch = {}
     const submittedDrafts = new Map<FieldName, string>()
-    for (const [field, text] of this.drafts) {
-      const invalid = isInvalid(field, text)
-      this.invalidFlags.set(field, invalid)
-      if (invalid) continue
-      if (text.trim() === '' && field !== 'polishModel' && field !== 'polishReasoningEffort') continue
-      const value = parseField(field, text)
+    for (const [field, text] of drafts) {
+      const value = field === 'maxRecordingSeconds' && text.trim() === ''
+        ? DEFAULT_EARS_SETTINGS.maxRecordingSeconds
+        : parseField(field, text)
       if (value !== undefined) {
         (patch as Record<string, unknown>)[field] = value
         submittedDrafts.set(field, text)
@@ -492,10 +477,6 @@ export class EarsSettingsController {
     }
     if (this.clearKeyPending) {
       (patch as Record<string, unknown>).cloudAsrApiKey = ''
-    }
-    if (Object.keys(patch).length === 0) {
-      this.publishCard()
-      return
     }
     this.saving = true
     this.failed = false
@@ -509,11 +490,7 @@ export class EarsSettingsController {
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
-        this.invalidFlags.delete(field)
       }
-      const savedFields: FieldName[] = [...submittedDrafts.keys()]
-      if (this.clearKeyPending) savedFields.push('cloudAsrApiKey')
-      this.lastSaved = { revision: this.lastSaved.revision + 1, fields: savedFields }
       if (this.clearKeyPending) this.clearKeyPending = false
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
@@ -523,7 +500,6 @@ export class EarsSettingsController {
       this.saving = false
       if (this.disposed) return
       this.publishCard()
-      if (this.drafts.size > 0 && !this.failed) this.scheduleSave()
     }
   }
 
@@ -531,7 +507,7 @@ export class EarsSettingsController {
 
   private snapshot(): EarsCardState {
     const current = this.settingsView.settings
-    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.invalidFlags.get(name) === true })
+    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.drafts.has(name) && isInvalid(name, text) })
     const asrBackend = field('asrBackend', this.drafts.get('asrBackend') ?? current.asrBackend)
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
@@ -544,6 +520,7 @@ export class EarsSettingsController {
     const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? current.polishProvider)
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
+    const stagedFields = [asrBackend, localWhisperModel, cloudAsrProvider, cloudAsrApiKey, cloudAsrEndpoint, cloudAsrModel, language, maxRecordingSeconds, polishingEnabled, polishProvider, polishModel, polishReasoningEffort]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -551,7 +528,8 @@ export class EarsSettingsController {
       loadFailed: this.loadFailed,
       saving: this.saving,
       failed: this.failed,
-      lastSaved: this.lastSaved,
+      dirty: this.drafts.size > 0 || this.clearKeyPending,
+      invalid: stagedFields.some((candidate) => candidate.invalid),
       asrBackend,
       localWhisperModel,
       cloudAsrProvider,
@@ -588,6 +566,7 @@ function isInvalid(field: FieldName, text: string): boolean {
   if (field === 'cloudAsrModel') return false
   if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort') return false
   if (field === 'polishingEnabled') return text !== 'on' && text !== 'off'
+  if (text.trim() === '') return false
   const value = Number(text)
   return !isValidRecordingLimit(value)
 }

@@ -115,7 +115,6 @@ describe('EarsSettingsController settings lifecycle', () => {
   })
 
   it('keeps a draft edited while its save request is in flight', async () => {
-    vi.useFakeTimers()
     const update = deferred<RemoteResult<EarsSettingsView>>()
     const savedView: EarsSettingsView = {
       available: true,
@@ -129,17 +128,16 @@ describe('EarsSettingsController settings lifecycle', () => {
     try {
       await controller.refreshSettings()
       controller.actions().edit('language', 'en-US')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().save()
       expect(updateSettings).toHaveBeenCalledTimes(1)
 
       controller.actions().edit('language', 'ja-JP')
       update.resolve({ ok: true, value: savedView })
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP'))
 
-      expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP')
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
@@ -198,40 +196,48 @@ describe('EarsSettingsController settings lifecycle', () => {
     controller.dispose()
   })
 
-  it('saves the polishing toggle immediately without a route pair', async () => {
-    vi.useFakeTimers()
+  it('stages edits without writing until save is called', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('polishingEnabled', 'on')
+      expect(updateSettings).not.toHaveBeenCalled()
+      const snapshot = controller.getCardStore().getSnapshot()
+      expect(snapshot.dirty).toBe(true)
+      expect(snapshot.invalid).toBe(false)
+      expect(snapshot.failed).toBe(false)
+
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledWith({ polishingEnabled: true })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('saves the polishing toggle and its pair together', async () => {
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(true) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
       controller.actions().edit('polishingEnabled', 'on')
-      await vi.advanceTimersByTimeAsync(400)
-
-      expect(updateSettings).toHaveBeenCalledWith({
-        polishingEnabled: true
-      })
-      const snapshot = controller.getCardStore().getSnapshot()
-      expect(snapshot.polishingEnabled.invalid).toBe(false)
-      expect(snapshot.polishProvider.invalid).toBe(false)
-      expect(snapshot.polishModel.invalid).toBe(false)
-
       controller.actions().edit('polishProvider', 'provider')
       controller.actions().edit('polishModel', 'model')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().save()
 
       expect(updateSettings).toHaveBeenCalledWith({
+        polishingEnabled: true,
         polishProvider: 'provider',
         polishModel: 'model',
         polishReasoningEffort: ''
       })
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
-  it('saves a Groq backend switch immediately with no error for the untouched model field', async () => {
-    vi.useFakeTimers()
+  it('saves a Groq backend switch with its model when save is clicked', async () => {
     const saved = { ...DEFAULT_EARS_SETTINGS }
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
       Object.assign(saved, patch)
@@ -241,29 +247,22 @@ describe('EarsSettingsController settings lifecycle', () => {
     try {
       await controller.refreshSettings()
       controller.actions().edit('asrBackend', 'cloud-openai')
-      await vi.advanceTimersByTimeAsync(400)
-
-      expect(updateSettings).toHaveBeenCalledWith({
-        asrBackend: 'cloud-openai'
-      })
-      const snapshot = controller.getCardStore().getSnapshot()
-      expect(snapshot.cloudAsrModel.invalid).toBe(false)
+      expect(updateSettings).not.toHaveBeenCalled()
 
       controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().save()
 
       expect(updateSettings).toHaveBeenCalledWith({
+        asrBackend: 'cloud-openai',
         cloudAsrModel: 'whisper-large-v3-turbo'
       })
       expect(controller.getCardStore().getSnapshot().cloudAsrModel.invalid).toBe(false)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
   it('does not refetch the cloud model list when only the selected model changes', async () => {
-    vi.useFakeTimers()
     const saved = { ...DEFAULT_EARS_SETTINGS }
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
       Object.assign(saved, patch)
@@ -276,23 +275,21 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(listCloudProviderModels).toHaveBeenCalledTimes(1)
 
       controller.actions().edit('asrBackend', 'cloud-openai')
-      await vi.advanceTimersByTimeAsync(400)
-      expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(2))
+      controller.actions().save()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
       controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
-      await vi.advanceTimersByTimeAsync(400)
-      expect(updateSettings).toHaveBeenCalledWith({
-        cloudAsrModel: 'whisper-large-v3-turbo'
-      })
+      controller.actions().save()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+
       expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
-  it('saves a custom cloud switch with its defaulted model and skips the empty endpoint', async () => {
-    vi.useFakeTimers()
+  it('saves a custom cloud switch with its defaulted model and clears the empty endpoint', async () => {
     const saved = { ...DEFAULT_EARS_SETTINGS }
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
       Object.assign(saved, patch)
@@ -303,27 +300,28 @@ describe('EarsSettingsController settings lifecycle', () => {
       await controller.refreshSettings()
       controller.actions().edit('asrBackend', 'cloud-openai')
       controller.actions().edit('cloudAsrProvider', 'custom')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().edit('cloudAsrEndpoint', '')
+      controller.actions().save()
 
       expect(updateSettings).toHaveBeenCalledTimes(1)
       expect(updateSettings).toHaveBeenCalledWith({
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'custom',
-        cloudAsrModel: 'whisper-1'
+        cloudAsrModel: 'whisper-1',
+        cloudAsrEndpoint: ''
       })
       expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
       controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().save()
 
-      expect(updateSettings).toHaveBeenCalledTimes(2)
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
       expect(updateSettings).toHaveBeenCalledWith({
         cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions'
       })
-      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
@@ -351,28 +349,29 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
-  it('marks typed-invalid values red only when the save debounce settles', async () => {
-    vi.useFakeTimers()
+  it('marks typed-invalid values red immediately and refuses the save', async () => {
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
       controller.actions().edit('language', '')
-      expect(controller.getCardStore().getSnapshot().language.invalid).toBe(false)
-      await vi.advanceTimersByTimeAsync(400)
+      const first = controller.getCardStore().getSnapshot()
+      expect(first.language.invalid).toBe(true)
+      expect(first.invalid).toBe(true)
+      expect(first.dirty).toBe(true)
 
+      controller.actions().save()
       expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().language.invalid).toBe(true)
 
       controller.actions().edit('cloudAsrEndpoint', 'not-a-url')
-      await vi.advanceTimersByTimeAsync(400)
-
+      controller.actions().save()
       expect(updateSettings).not.toHaveBeenCalled()
       expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
 
+      controller.actions().edit('language', 'zh-CN')
+      controller.actions().edit('cloudAsrEndpoint', '')
       controller.actions().setApiKey('x'.repeat(513))
-      await vi.advanceTimersByTimeAsync(400)
-
+      controller.actions().save()
       expect(updateSettings).not.toHaveBeenCalled()
       expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(true)
 
@@ -380,7 +379,6 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(false)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
@@ -396,84 +394,93 @@ describe('EarsSettingsController settings lifecycle', () => {
     controller.dispose()
   })
 
-  it('skips an empty endpoint draft without marking it invalid', async () => {
-    vi.useFakeTimers()
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+  it('resets an emptied recording limit to the default on save', async () => {
+    const saved = { ...DEFAULT_EARS_SETTINGS }
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom(saved) }
+    })
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().edit('cloudAsrEndpoint', '')
-      await vi.advanceTimersByTimeAsync(400)
+      controller.actions().edit('maxRecordingSeconds', '')
+      const snapshot = controller.getCardStore().getSnapshot()
+      expect(snapshot.maxRecordingSeconds.invalid).toBe(false)
+      expect(snapshot.invalid).toBe(false)
 
-      expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledWith({ maxRecordingSeconds: 120 })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
-  it('saves a non-blank API key once and ignores blank drafts', async () => {
-    vi.useFakeTimers()
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+  it('stages a non-blank API key and commits it on save', async () => {
+    const saved = { ...DEFAULT_EARS_SETTINGS }
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom(saved) }
+    })
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
       controller.actions().setApiKey('gsk_test')
-      await vi.advanceTimersByTimeAsync(400)
-      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' })
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.text).toBe('gsk_test')
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+
+      controller.actions().save()
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' }))
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
 
       controller.actions().setApiKey('')
-      await vi.advanceTimersByTimeAsync(400)
-      expect(updateSettings).toHaveBeenCalledTimes(1)
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
-  it('clears the API key through the explicit clear action', async () => {
-    vi.useFakeTimers()
+  it('stages the clear action and typing a new key cancels the pending clear', async () => {
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      await controller.actions().clearApiKey()
+      controller.actions().clearApiKey()
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+      expect(updateSettings).not.toHaveBeenCalled()
+
+      controller.actions().setApiKey('gsk_new')
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_new' })
+
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+      controller.actions().clearApiKey()
+      controller.actions().save()
       expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: '' })
     } finally {
       controller.dispose()
-      vi.useRealTimers()
     }
   })
 
-  it('flushes a pending API key save immediately when saveNow is called', async () => {
-    vi.useFakeTimers()
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+  it('keeps staged drafts after a rejected save and discards them on demand', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().setApiKey('gsk_test')
-      expect(updateSettings).not.toHaveBeenCalled()
-      controller.actions().saveNow()
-      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' })
-    } finally {
-      controller.dispose()
-      vi.useRealTimers()
-    }
-  })
+      controller.actions().edit('language', 'en-US')
+      controller.actions().save()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().failed).toBe(true))
 
-  it('reports a successful key save through lastSaved with an increasing revision', async () => {
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
-    const controller = new EarsSettingsController(createRemote({ updateSettings }))
-    try {
-      await controller.refreshSettings()
-      expect(controller.getCardStore().getSnapshot().lastSaved).toEqual({ revision: 0, fields: [] })
+      const snapshot = controller.getCardStore().getSnapshot()
+      expect(snapshot.dirty).toBe(true)
+      expect(snapshot.language.text).toBe('en-US')
 
-      controller.actions().setApiKey('gsk_test')
-      controller.actions().saveNow()
-      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().lastSaved.revision).toBe(1))
-
-      expect(controller.getCardStore().getSnapshot().lastSaved.fields).toEqual(['cloudAsrApiKey'])
+      controller.actions().discard()
+      const after = controller.getCardStore().getSnapshot()
+      expect(after.dirty).toBe(false)
+      expect(after.failed).toBe(false)
+      expect(after.language.text).toBe('zh-CN')
     } finally {
       controller.dispose()
     }
