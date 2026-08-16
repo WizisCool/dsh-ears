@@ -17,6 +17,10 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Whisper download completion markers: a model file only counts as downloaded when its `.dsh-ears-done` sidecar exists; marker-less files are reported as not downloaded and orphaned markers are removed (closes the crash-residue decision D-019).
 - Local Whisper transcription pre-flight: recording is rejected with a settings-page hint when the CLI or a downloaded, marked model is missing, instead of the CLI auto-downloading weights inside the transcription timeout.
 - Composer microphone availability gating: the button grays out with a bilingual tooltip when the selected backend is reported unavailable, the Whisper model is downloading, or the model file with its marker is missing (positive signals only; active flow states are never gated).
+- Cloud ASR provider presets (D-023): a Host-side provider registry with the Groq preset (pinned endpoint, live model listing, inline `role('secret')` API key) and the Custom OpenAI-compatible provider (free endpoint/model, `whisper-1` default). Future providers plug in as registry entries.
+- `dshEars/listCloudProviderModels` RPC: replicates the dsh-llm-pi-ai catalog pattern (`GET {baseUrl}/models`, bearer header, bounded parse, registry filter) with a 15-second timeout and a 30-second failure negative cache.
+- Grouped recognition selector: 本地/云提供商 groups with a separator and the Custom OpenAI-compatible entry, rendered through the primitives `MenuLabel`/`MenuSeparator`; menu entries map onto the existing `asrBackend` + `cloudAsrProvider` fields.
+- Cloud-readiness microphone gating: the cloud backend reports unavailable until a provider's key and model are configured.
 
 ### Hardened
 
@@ -51,6 +55,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - The provider/model pair rule now applies only while polishing is enabled; the reasoning picker labels the adapter's `off` effort as an explicit switch-off option.
 - Polishing is now disabled by default, its configuration rows appear only after the toggle is enabled (progressive disclosure), the meaningless no-polish picker option is gone, an enabled polish requires a complete provider/model pair, and reasoning-effort labels use the adapter's native names with an untranslated `Default` entry (matching the composer model selector).
 - The not-downloaded hint no longer promises automatic first-use downloads; the Local Whisper hint documents that `medium` and larger models need a GPU or a faster local runtime within the 120-second limit.
+- Cloud ASR credentials moved from dsh credential references to a plugin-owned `role('secret')` inline API key (write-only across the plugin wire, redacted `getSettings`, absent=keep/set/clear patch semantics), reversing D-014 for the cloud ASR surface; the `cloudAsrCredentialRef` field is removed (package unreleased, no migration).
+- The Recognition backend selector became a single grouped menu with bilingual group labels and per-provider hint text; the Groq endpoint row is pinned read-only, and the Groq model row shows live-fetched models (empty until a key is configured, inline warning plus retry on fetch failure, stale-model notice when the saved model leaves the live list).
 
 ### Deferred
 

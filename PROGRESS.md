@@ -28,11 +28,15 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Documented the 120-second scale boundary: `medium` and larger models need a GPU or a faster runtime (settings hint + README).
 - Covered the full model lifecycle with fake-python integration tests: download/cancel/delete, progress parsing, completion markers, dispose cleanup, and negative caches.
 - Grayed the composer microphone (D-021) on positive unavailability signals: backend reported unavailable, Whisper model downloading, or model file with marker missing — with bilingual tooltips and pure-function unit coverage; loading/unknown and active flow states never gray.
+- Added cloud ASR provider presets (D-023): a Host-side registry (`src/asr/providers.ts`) with the Groq preset (pinned endpoint, `whisper-*` model filter, required inline key) and the Custom OpenAI-compatible provider (`whisper-1` default); `cloudAsrCredentialRef` was replaced by the write-only `role('secret')` `cloudAsrApiKey` (redacted reads, absent=keep/set/clear patch semantics).
+- Added the `dshEars/listCloudProviderModels` RPC replicating the dsh-llm-pi-ai catalog pattern: `GET {baseUrl}/models` with bearer auth, 4 MiB bounded parse, registry filter, 15-second timeout, 30-second failure negative cache, no-key/unsupported/error statuses.
+- Reworked the Recognition selector into one grouped menu (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible) with `MenuLabel`/`MenuSeparator` groups, per-provider hint text, a pinned read-only Groq endpoint row, a write-only API key row (configured state + clear action), and a live-model row for Groq (empty until key, retry on failure, stale-model notice).
+- Folded cloud readiness into `listAsrBackends`: the cloud backend reports unavailable until the selected provider's key and model are configured, extending the D-021 positive-signal gating to cloud readiness.
 
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 87 tests across 10 files.
+- `pnpm test` passed: 111 tests across 12 files.
 - `pnpm build` passed.
 - `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.
@@ -48,5 +52,6 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Browser microphone permission and platform-specific Web Speech behavior need broader manual coverage.
 - A Host restart during Whisper download no longer fakes a downloaded model: state checks require the `.dsh-ears-done` completion marker, so a partial file is reported as not downloaded (D-020; the earlier checksum-or-marker question is closed).
 - A recording currently reads backend/model/language settings when the Host transcribe RPC begins; locking or snapshotting those settings during an active recording remains a protocol decision.
+- The Groq preset needs a real rc.6 Web smoke (Host-side changes require a `dsh web` restart plus a browser refresh) and a live `zh` transcription smoke with a real Groq key; Groq's docs do not explicitly list Chinese.
 - Temporary HMR shutdown can log an `Invalid revision range .....HEAD` diagnostic; it needs confirmation against dsh rather than a plugin-side workaround.
 - npm publish and any public visibility change require explicit maintainer approval.

@@ -82,12 +82,13 @@ Final real rc.6 smoke evidence on the latest build:
 ## Current boundaries and open decisions
 
 - Web Speech may use a browser-vendor recognition service; it is not claimed to be local-only.
-- Cloud ASR is limited to the documented OpenAI-compatible multipart `{ file, model, language? }` and JSON `{ text }` contract.
+- Cloud ASR is limited to the documented OpenAI-compatible multipart `{ file, model, language? }` and JSON `{ text }` contract; provider presets follow the D-023 registry rules (protocol, base URL, filter, key requirement).
 - Emotion recognition/output and emotion UI remain intentionally deferred.
 - The plugin does not bundle Whisper model weights.
 - `transcribe()` reads backend/model/language when the Host RPC begins. Option A is a recording-start settings snapshot; Option B is locking recognition settings during capture/transcription. This requires a protocol decision.
 - Whisper crash-residue integrity is closed by the `.dsh-ears-done` completion marker (D-020): marker-less files are reported as not downloaded.
-- The composer microphone grays out on positive unavailability signals only (D-021); loading/unknown states and active flow states never gray.
+- The composer microphone grays out on positive unavailability signals only (D-021); cloud readiness (key + model configured) is folded into the cloud backend's availability signal per D-023.
+- Cloud ASR API keys are plugin-owned `role('secret')` settings fields (D-023 reverses D-014 for the cloud ASR surface): write-only across the plugin wire, redacted reads, absent=keep/set/clear patch semantics. The key value itself never enters Git or the browser.
 - Windows launcher probing is implemented but not yet smoke-tested on Windows; `medium` and larger models are documented as impractical on the CPU + 120-second path.
 - No API keys, credentials, user audio, personal paths, private endpoints, or user data belong in Git.
 
@@ -98,12 +99,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 ## Final task record
 
-- Completed: composer microphone availability gating (D-021) — the microphone grays out with a bilingual tooltip when the Host reports the selected backend unavailable, the Whisper model is downloading, or the model file with its completion marker is missing; gating is positive-signal-only and never applies to active flow states. Added the pure `mic-availability.ts` helper, wrapped backend/whisper store hooks for the slot, and unit coverage.
-- Rejected: click-through from the grayed microphone to the `dsh-ear` settings section (D-022) — rc.6 has no public endpoint for opening the settings panel at a section; the shell owns the open state privately. No code was written for it.
-- Validation: `tsc` typecheck, `vitest` (87/87 tests across 10 files), `tsdown` & `tsc` builds, and `git diff --cached --check` all passed.
-- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the gray-mic behavior and the earlier Host-side gate still need a real rc.6 Web smoke (Host-side changes require a `dsh web` restart, and the client bundle needs a browser refresh).
+- Completed: cloud ASR provider presets (D-023) — Host-side registry with the Groq preset (pinned endpoint, `whisper-*` filter, required inline key) and the Custom OpenAI-compatible provider (`whisper-1` default); `cloudAsrCredentialRef` replaced by the write-only `role('secret')` `cloudAsrApiKey` (redacted `getSettings` + configured boolean, absent=keep/set/clear patch semantics); `dshEars/listCloudProviderModels` RPC replicating the dsh-llm-pi-ai catalog pattern (15 s timeout, 4 MiB bounded parse, 30 s failure negative cache); grouped recognition selector (Local / Cloud providers with `MenuLabel`/`MenuSeparator`) with a pinned Groq endpoint row, a write-only key row (configured state + clear action), and a live Groq model row (empty until key, retry on failure, stale-model notice); cloud readiness folded into `listAsrBackends` for the D-021 gate.
+- Validation: `tsc` typecheck passed; `vitest` passed (111/111 tests across 12 files, including new provider registry, listing-fetch, key-semantics, staging, and parity coverage); `tsdown` & `tsc` builds passed; `git diff --cached --check` passed after each commit.
+- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Groq preset needs a real rc.6 Web smoke (Host-side changes require a `dsh web` restart, and the client bundle needs a browser refresh — this agent session runs on the current `dsh web`, so the restart must happen outside it) and a live Groq `zh` transcription smoke with a real key (Groq docs do not explicitly list Chinese); Windows smoke remains pending.
 - Blocked: none.
-- Commit: `defa4cd feat(client): gray the microphone when the backend cannot transcribe`.
+- Commits: `5d20866 docs: record Groq provider preset decision and announce file ownership`, `9ae277a feat(host): add cloud ASR provider registry with inline API keys`, `e4827f8 feat(host): list cloud provider models from the live catalog`, `f735a5c feat(client): add grouped provider selector and live cloud model rows`.
 
 ## Handoff template
 

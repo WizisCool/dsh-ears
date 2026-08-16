@@ -17,9 +17,9 @@ Users should review the retention, processing, and jurisdiction policy of any cl
 
 ## Credentials
 
-Never put a secret in plugin settings, source code, tests, screenshots, logs, or commits. The cloud ASR setting stores only a dsh credential reference such as `OPENAI_API_KEY`; dsh resolves the value for one Host operation. API keys are never sent to the browser and are never included in the repository.
+Never put a secret in source code, tests, screenshots, logs, or commits. Cloud ASR API keys are stored on the dsh Host through a schemastery `role('secret')` settings field (`cloudAsrApiKey`), following the shipped `dsh-web-search-deepseek` pattern: the value is write-only across the plugin wire — `getSettings` redacts it and reports only a configured boolean, and `updateSettings` uses absent=keep / set / empty=clear semantics. Browser code never receives the key, and the key is never included in the repository.
 
-Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. HTTPS is recommended for any non-local endpoint.
+Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. HTTPS is recommended for any non-local endpoint. Preset providers (Groq) pin their endpoint on the Host side; only the Custom OpenAI-compatible provider accepts a user-supplied endpoint.
 
 ## Host safety
 

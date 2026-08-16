@@ -27,7 +27,7 @@ The compatibility promise is intentionally narrow until another dsh release is t
 
 - Web Speech: live interim/final transcript updates in the browser.
 - Local Whisper: Host-side `whisper` CLI execution after recording stops.
-- OpenAI-compatible cloud ASR: Host-side multipart request with `file`, `model`, and optional language, bounded by a 120-second request timeout.
+- Cloud ASR provider presets: Groq transcription with an inline API key and a live model list, plus a Custom OpenAI-compatible option for arbitrary endpoints. Requests are multipart `file`, `model`, and optional language, bounded by a 120-second request timeout.
 
 The final-result backends use the browser `MediaRecorder` and a bounded one-shot audio RPC. They do not switch backends invisibly during one recording. When the selected backend or Whisper model provably cannot transcribe, the composer microphone grays out with an explanatory tooltip.
 
@@ -40,11 +40,12 @@ After transcription, dsh-ears can ask any provider/model route already configure
 Open `Settings → dsh-ear` in dsh. The page provides:
 
 - recognition language and recording limit;
-- ASR backend and local Whisper model;
-- cloud endpoint, model, and dsh credential reference;
+- a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible);
+- local Whisper model management;
+- cloud provider API key, endpoint, and model (Groq's model list is fetched live from the provider);
 - polishing toggle and dsh provider/model route.
 
-Credential fields accept references such as `OPENAI_API_KEY`, not secret values. The secret is resolved by dsh Host credentials for one operation and is never returned to the browser.
+The API key field is write-only: the value is stored on the dsh Host with a `role('secret')` field (the same mechanism as the shipped web-search plugin), never returned to the browser, and only a configured/unconfigured state is shown. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.
 
 ## Local development
 
@@ -70,13 +71,13 @@ pnpm dev:watch
 
 Local Whisper must be installed on the dsh Host and available as `whisper` on `PATH`. Model weights belong to that installation; dsh-ears does not bundle or upload them. Download a model from the `Settings → dsh-ear` page before recording: transcription is rejected while the selected model is missing or incomplete instead of silently downloading it mid-recording. `medium` and larger models need a GPU or a faster local runtime to finish within the 120-second transcription limit. Model discovery follows the installed library's own paths (pip, Homebrew, pipx, conda); Windows launcher probing is implemented but has not been smoke-tested on Windows yet. Temporary audio files are created in a private temporary directory and removed after each operation.
 
-Cloud ASR sends audio to the endpoint configured by the user. Use HTTPS for remote services, do not embed credentials in the URL, and consider the privacy and retention policy of the chosen provider. Localhost/private endpoints are allowed because endpoint configuration is an explicit Host-side administrator action; the plugin does not discover or probe arbitrary endpoints.
+Cloud ASR preset providers (Groq) pin their endpoint in a Host-side registry and fetch their transcription model list from the provider's catalog with the stored key; the Custom OpenAI-compatible provider sends audio to the endpoint configured by the user. Use HTTPS for remote services, do not embed credentials in the URL, and consider the privacy and retention policy of the chosen provider. Localhost/private endpoints are allowed because endpoint configuration is an explicit Host-side administrator action; the plugin does not discover or probe arbitrary endpoints. Groq Chinese (`zh`) recognition is expected through the multilingual Whisper models but is not explicitly listed in Groq's own documentation — verify with a live call.
 
 Web Speech may send audio to a browser-vendor recognition service. “No additional plugin cost” does not mean local-only recognition.
 
 ## Verification
 
-The repository currently has 87 focused tests across 10 test files. The verified local dsh smoke path includes:
+The repository currently has 111 focused tests across 12 test files. The verified local dsh smoke path includes:
 
 - dsh Host and browser plugin loading;
 - native `dsh-ear` settings persistence;
