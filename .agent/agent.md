@@ -118,7 +118,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Validation: `tsc` typecheck passed; `vitest` passed (115/115 tests across 12 files); `tsdown` & `tsc` builds passed; `git diff --cached --check` passed.
 - Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Groq preset still needs a real rc.6 Web smoke (Host-side changes require a `dsh web` restart outside this session) and a live Groq `zh` transcription smoke with a real key; Windows smoke remains pending. Live verification of this client-side change also needs the pending `dsh web` restart plus a browser refresh.
 - Blocked: none.
-- Commits: `4d110b6 feat(client): validate each settings field on edit instead of a unified sweep` (+ docs batch recording D-024/D-025 and the research files).
+- Commits: `4d110b6 feat(client): validate each settings field on edit instead of a unified sweep`, `de7dbe7 fix(host): stop rejecting a dormant polishing pair at transcription time` (+ docs batch recording D-024/D-025 and the research files).
 
 ## Earlier task record
 
