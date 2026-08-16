@@ -23,6 +23,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - M6: local release-readiness audit and the current hardening pass are complete; the MIT license decision is recorded, and the repository is released privately on GitHub. npm publishing remains gated.
 - Post-M6 Whisper robustness hardening (D-020) is complete: downloadable model state is marker-verified, transcription is pre-flighted, discovery failures are negative-cached, the model manager is disposed with the plugin scope, transcription errors carry stderr tails, Windows launcher probing is implemented, and the lifecycle has fake-python integration coverage. D-019 is closed; D-018 remains open.
 - Cloud ASR provider presets (D-023) are implemented: a Host-side provider registry with the Groq preset (pinned endpoint, live model listing, write-only inline `role('secret')` API key) and the Custom OpenAI-compatible provider; the recognition selector is a grouped menu (本地 / 云提供商), and cloud readiness gates the microphone. The live rc.6 Web smoke and a live Groq `zh` transcription smoke remain pending.
+- Unconfigured-state presentation and the per-field validation model (D-024, D-025) are implemented: the settings page validates only the edited field on the auto-save cadence, red appears only for invalid user input and real failures, backend/provider switches save immediately, an incomplete polishing pair leaves polishing dormant, guidance prompts for "not yet configured" states are removed, the first-load alert only appears after the automatic retry fails, and no third-party form library is adopted.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -42,7 +43,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 |---|---|---|
 | D1 | Project name is `dsh-ears`. | Accepted |
 | D2 | Click to start, live transcript into an editable draft, stop, then manual send. | Accepted |
-| D3 | Polishing is disabled by default; its configuration rows appear only after it is enabled, and an enabled polish requires a provider/model pair. | Accepted |
+| D3 | Polishing is disabled by default; its configuration rows appear only after it is enabled, and an enabled polish requires a provider/model pair. Revised by D-024: an incomplete pair leaves polishing dormant instead of blocking the toggle. | Accepted, revised |
 | D4 | Users may select any provider/model route already configured in dsh. The plugin does not provide `base_url`, `api_key`, custom provider, or custom model fields for polishing. | Accepted |
 | D5 | M2 starts with Web Speech API; final local Whisper and cloud adapters use a separate MediaRecorder path. Same-session automatic switching is not promised. | Accepted |
 | D6 | Cloud ASR adapters are optional and separate from the dsh LLM polishing route. | Accepted |
@@ -145,7 +146,7 @@ Polishing is owned by dsh:
 - Do not hardcode `deepseek-v4-flash`, `gemini-3.7-flash-high`, or any other model name as a plugin preset.
 - Do not force DeepSeek-specific `thinking` fields. Reasoning mode, endpoint, and credentials belong to the selected dsh route.
 - If the selected route is missing, unavailable, times out, or fails, return the original transcript and never block the draft.
-- When polishing is enabled, a provider/model pair is required (an empty pair is invalid, not a no-polish state); when polishing is disabled, the pair is dormant and not validated.
+- When polishing is enabled, a complete provider/model pair activates it; an incomplete pair leaves polishing dormant (revised by D-024) and the runtime call still falls back to the raw transcript. When polishing is disabled, the pair is dormant and not validated.
 
 The polishing prompt removes filler words, repairs likely ASR errors, restores punctuation, preserves meaning, formats explicit enumerations as lists, and treats transcript text as data rather than instructions. The Host bounds both input and streamed output; any timeout, cancellation, route failure, or oversized result falls back to the raw transcript. The runtime prompt may be Chinese; its implementation and tests remain English-documented.
 
@@ -175,9 +176,9 @@ Local Whisper is invoked on the dsh Host with argument arrays and private tempor
 `dsh-ears` owns a dedicated settings page registered in `settings.section` (`dsh-ear`, nav order 16 — between Plugins and Agent presets), styled with the same semantic tokens, card geometry, and field patterns as the shipped Models page:
 
 - Recognition group: a grouped backend/provider selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible), local Whisper model, cloud provider API key (write-only, never returned), endpoint (hidden for presets, editable for custom), model (live-fetched for presets, free text for custom), language (default `zh-CN`), and per-recording limit (default 120 seconds).
-- Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. The group's rows appear only after polishing is enabled; an enabled polish requires a complete provider/model pair.
+- Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. The group's rows appear only after polishing is enabled; a complete provider/model pair activates polishing, and an incomplete pair leaves it dormant (D-024).
 
-The page keeps the same draft and read-only fallback as the previous card, with 400 ms auto-save. Incomplete cross-field Cloud ASR or polishing edits remain local drafts until their required fields are complete; stale Whisper action responses cannot replace a newer selection, and failed model operations retain a retry action. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR keys remain Host-side and separate from polishing; the plugin stores the key in a `role('secret')` settings field whose value never crosses the wire back to the browser.
+The page keeps the same draft and read-only fallback as the previous card, with 400 ms auto-save. Validation is per-field and edit-scoped (D-024): each valid field value saves independently and immediately, an invalid draft skips only its own write and shows a red hint on its own row, and untouched or not-yet-configured fields render quietly. Enabling polishing saves at once; an incomplete provider/model pair leaves polishing dormant until completed (revised D3). Stale Whisper action responses cannot replace a newer selection, and failed model operations retain a retry action. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR keys remain Host-side and separate from polishing; the plugin stores the key in a `role('secret')` settings field whose value never crosses the wire back to the browser.
 
 ## Milestones
 

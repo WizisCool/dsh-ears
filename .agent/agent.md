@@ -5,12 +5,11 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: post-M6 Whisper robustness hardening (D-020) and composer microphone availability gating (D-021) are complete. The microphone now grays out on positive unavailability signals (backend reported unavailable, Whisper model downloading, or model file with marker missing). D-019 is closed; D-018 remains open.
-- New work (announced 2026-08-16): Groq cloud ASR provider preset per D-023 — inline `role('secret')` API key replacing `cloudAsrCredentialRef`, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider settings selector, and cloud-readiness microphone gating. **File ownership (this worker)**: `src/config.ts`, `src/config-schema.ts`, `src/asr/providers.ts` (new), `src/asr/cloud-provider-models.ts` (new), `src/polish/service.ts`, `src/remote-contract.ts`, `src/typert.ts`, `src/remote.ts`, `src/client/settings-controller.ts`, `src/client/settings.tsx`, `src/client/index.ts`, `src/client/SettingsSection.module.css`, `tests/config.test.ts`, `tests/settings.test.ts`, `tests/remote-contract.test.ts`, `tests/providers.test.ts` (new), plus the release docs. Parallel workers must not touch these files without checking this record first.
-- Follow-up UI fix: added the `dsh-ear.svg` project asset and corrected the rc.6 composer order to model → ContextMeter → microphone → send. The rc.6 settings-section contract does not expose a custom nav-icon field, so the left settings rail keeps dsh's native fallback icon without a dsh-core change.
+- Current work: the settings page now follows a per-field validate-on-edit model (D-024): validation recomputes on the 400 ms auto-save cadence for the edited field only, untouched fields never turn red, red appears only for invalid user input and real failures, guidance prompts for "not yet configured" states are removed, backend/provider switches save immediately, an incomplete polishing pair leaves polishing dormant (revises PLAN D3), the first-load alert appears only after the single automatic retry fails, and the API key row surfaces its own over-length error. No third-party form library is adopted (D-025); industry and dsh-platform research lives in `.agent/research/validation-timing-patterns.md` and `.agent/research/form-library-evaluation.md`. D-019 is closed; D-018 remains open.
+- Latest code commit: `4d110b6 feat(client): validate each settings field on edit instead of a unified sweep`.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`; the post-audit UI fixes, the Whisper hardening commits, and the microphone gating commit are local-only until the maintainer authorizes another push.
-- Latest code commit: `defa4cd feat(client): gray the microphone when the backend cannot transcribe`.
+- Branch: `master`; all post-audit work (UI fixes, Whisper hardening, microphone gating, cloud provider presets, per-field settings model) is local-only until the maintainer authorizes another push.
+- Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
 - Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
@@ -19,7 +18,7 @@
 ## Completed audit and hardening
 
 - Split the settings view from its asynchronous controller and added request generations for settings, routes, reasoning efforts, and Whisper state.
-- Staged incomplete cross-field settings edits: enabling polishing or switching to Cloud ASR waits for required fields instead of submitting a Host-invalid partial patch; valid fields still save independently.
+- Replaced the cross-field settings staging with a per-field validate-on-edit model (D-024): only the edited field is validated, on the auto-save cadence; invalid drafts skip only their own write and every valid value saves independently. The earlier "enabling polishing or switching to Cloud ASR waits for required fields" behavior is superseded — a backend/provider switch persists immediately, and an incomplete polishing pair leaves polishing dormant (revised D3).
 - Made Whisper download/cancel/delete/poll responses latest-wins, kept cancellation authoritative during cleanup, and preserved retry actions after failures.
 - Made MediaRecorder start failures terminal and track-safe; late polish results are ignored after abort/unmount even when a Remote implementation ignores cancellation.
 - Added Cloud ASR request timeout (120 seconds), early cancellation checks, bounded streamed polish output, and strict rejection of unknown backend/model identifiers.
@@ -43,7 +42,22 @@
 - Gating is positive-signal-only: loading, failed, and unknown states keep the button enabled, and `starting`/`recording`/`transcribing`/`polishing` states are never gated so the stop affordance stays reachable.
 - The decision logic lives in the pure `mic-availability.ts` helper with unit coverage; the slot now injects wrapped backend/whisper store hooks built from a shared `createSnapshotHook` wrapper.
 
+## Completed per-field settings validation model (D-024, D-025)
+
+- Switched the settings page from a unified cross-field validity sweep to per-field validate-on-edit: validation recomputes on the same 400 ms cadence as the auto-save, for the edited field only (touched gating — untouched fields are never marked invalid, persisted values are never re-flagged).
+- Red is reserved for genuinely invalid user input (illegal endpoint URL, over-long API key, empty language, out-of-range recording limit) and real failures (save failure, model-list fetch failure, Whisper operation failures, stale cloud model); all "not yet configured" guidance prompts (backend-unavailable line, no-key model hint, amber incomplete tier) are removed, so a fresh unconfigured page shows no prompts at all. The composer microphone's D-021 gray-out with tooltip remains the readiness signal.
+- Save semantics: every valid field value saves immediately and independently, including backend/provider switches (the old no-key → no-model-list → never-persists deadlock is gone); an invalid draft skips only its own write; empty drafts mean "no write" except `polishModel`/`polishReasoningEffort`, which persist as explicit clears from the provider/model cascades. Enabling polishing saves at once; an incomplete provider/model pair leaves polishing dormant (revises PLAN D3; the Host polish call already falls back to the raw transcript).
+- The first-load alert is split from loading: nothing shows while the initial fetch is in flight, and only after the single automatic retry also fails does an amber notice appear with neutral wording. The page-level footer now carries only the real save-failure line.
+- No third-party form library is adopted (D-025); the timing/touched semantics follow Ant/Arco, GOV.UK, Fluent, VS Code, and the shipped dsh plugin card-form, per the research in `.agent/research/validation-timing-patterns.md` and `.agent/research/form-library-evaluation.md`.
+
 ## Verification evidence
+
+Current local checks after the per-field settings model (D-024):
+
+- `./node_modules/.bin/tsc --noEmit -p tsconfig.json` — passed.
+- `./node_modules/.bin/vitest run` — passed; 115 tests across 12 files (settings suite covers the new per-field cadence, touched gating, dormant polish pair, immediate backend switch, empty-draft skip, and over-long key).
+- `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` — passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
+- `git diff --cached --check` — passed after each commit.
 
 Current local checks after the Whisper hardening commits:
 
@@ -86,6 +100,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Emotion recognition/output and emotion UI remain intentionally deferred.
 - The plugin does not bundle Whisper model weights.
 - `transcribe()` reads backend/model/language when the Host RPC begins. Option A is a recording-start settings snapshot; Option B is locking recognition settings during capture/transcription. This requires a protocol decision.
+- Settings validation is per-field and edit-scoped (D-024): only the edited field is validated, on the auto-save cadence; unconfigured-but-valid states show no prompts; the microphone's D-021 gray-out with tooltip is the readiness signal. An incomplete polishing pair leaves polishing dormant (revised D3); no third-party form library is adopted (D-025).
 - Whisper crash-residue integrity is closed by the `.dsh-ears-done` completion marker (D-020): marker-less files are reported as not downloaded.
 - The composer microphone grays out on positive unavailability signals only (D-021); cloud readiness (key + model configured) is folded into the cloud backend's availability signal per D-023.
 - Cloud ASR API keys are plugin-owned `role('secret')` settings fields (D-023 reverses D-014 for the cloud ASR surface): write-only across the plugin wire, redacted reads, absent=keep/set/clear patch semantics. The key value itself never enters Git or the browser.
@@ -98,6 +113,14 @@ Final real rc.6 smoke evidence on the latest build:
 2. npm publishing, release tags, and any public visibility change still require an explicit maintainer release decision.
 
 ## Final task record
+
+- Completed: per-field validate-on-edit settings model (D-024) and the no-form-library decision (D-025) — validation recomputes on the auto-save cadence for the edited field only (touched gating), red only for invalid input and real failures, all "not yet configured" guidance prompts removed (fresh unconfigured page shows no prompts), backend/provider switches save immediately, an incomplete polishing pair leaves polishing dormant (revises PLAN D3), the first-load alert appears only after the single automatic retry fails with neutral wording, and the API key row surfaces its own over-length error. Research delivered in `.agent/research/validation-timing-patterns.md` (Ant/Arco/GOV.UK/Material/Fluent/VS Code + dsh platform card-form) and `.agent/research/form-library-evaluation.md` (RHF/TanStack/Formik/rc-field-form → do not adopt).
+- Validation: `tsc` typecheck passed; `vitest` passed (115/115 tests across 12 files); `tsdown` & `tsc` builds passed; `git diff --cached --check` passed.
+- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Groq preset still needs a real rc.6 Web smoke (Host-side changes require a `dsh web` restart outside this session) and a live Groq `zh` transcription smoke with a real key; Windows smoke remains pending. Live verification of this client-side change also needs the pending `dsh web` restart plus a browser refresh.
+- Blocked: none.
+- Commits: `4d110b6 feat(client): validate each settings field on edit instead of a unified sweep` (+ docs batch recording D-024/D-025 and the research files).
+
+## Earlier task record
 
 - Completed: cloud ASR provider presets (D-023) — Host-side registry with the Groq preset (pinned endpoint, `whisper-*` filter, required inline key) and the Custom OpenAI-compatible provider (`whisper-1` default); `cloudAsrCredentialRef` replaced by the write-only `role('secret')` `cloudAsrApiKey` (redacted `getSettings` + configured boolean, absent=keep/set/clear patch semantics); `dshEars/listCloudProviderModels` RPC replicating the dsh-llm-pi-ai catalog pattern (15 s timeout, 4 MiB bounded parse, 30 s failure negative cache); grouped recognition selector (Local / Cloud providers with `MenuLabel`/`MenuSeparator`) , a write-only key row styled after the shipped SecretField (state rendered as the input placeholder, clear action kept), and a live Groq model row (empty until key, retry on failure, stale-model notice); preset endpoints stay pinned in the registry and are not displayed (the temporary read-only endpoint row and the `cloudAsrEndpointEffective` view field were removed as dead weight); cloud readiness folded into `listAsrBackends` for the D-021 gate.
 - Validation: `tsc` typecheck passed; `vitest` passed (111/111 tests across 12 files, including new provider registry, listing-fetch, key-semantics, staging, and parity coverage); `tsdown` & `tsc` builds passed; `git diff --cached --check` passed after each commit.
