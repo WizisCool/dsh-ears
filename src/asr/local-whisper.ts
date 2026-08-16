@@ -19,6 +19,7 @@ export interface LocalWhisperOptions {
 }
 
 export async function isWhisperAvailable(command = 'whisper', signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) return false
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), COMMAND_TIMEOUT_MS)
   const forwardAbort = () => timeout.abort(signal?.reason)

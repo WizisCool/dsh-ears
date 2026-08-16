@@ -16,6 +16,12 @@ describe('local Whisper backend', () => {
     await expect(isWhisperAvailable(process.execPath)).resolves.toBe(true)
   })
 
+  it('does not probe an already-cancelled availability request', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(isWhisperAvailable(process.execPath, controller.signal)).resolves.toBe(false)
+  })
+
   it('writes a private temporary audio file and reads the Whisper JSON result', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
     const command = join(directory, 'fake-whisper.mjs')
