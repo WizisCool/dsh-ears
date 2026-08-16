@@ -5,11 +5,13 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: global code-audit hardening, documentation, and verification are complete locally; remote push is the remaining delivery action.
+- Current work: global code-audit hardening, documentation, verification, and private remote delivery are complete.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`, currently 66 commits ahead of `origin/master`; no push has been performed for this audit yet.
+- Branch: `master`, synchronized with `origin/master` after the audit push.
 - Latest code commit: `ef27118 fix(protocol): align settings cancellation metadata`.
 - Latest audit docs commit: `dd3d473 docs: record audit hardening and open boundaries`.
+- Handoff baseline: `2963378 docs: finalize audit handoff`; this file records the subsequent remote-delivery update.
+- Remote delivery: pushed `master` to private `origin` and verified the remote tip matches local `HEAD`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
 
@@ -25,7 +27,7 @@
 
 ## Verification evidence
 
-Current local checks after the latest audit docs commit:
+Current local checks after the final handoff commit:
 
 - `pnpm check` — passed.
 - `pnpm test` — passed; 61 tests across 9 files.
@@ -52,10 +54,18 @@ Final real rc.6 smoke evidence on the latest build:
 - After a Host crash during Whisper download, a partial cache file may pass the stat-only startup check. Option A is SHA-256 verification with metadata caching; Option B is a completion sidecar/marker. This requires a performance and compatibility decision.
 - No API keys, credentials, user audio, personal paths, private endpoints, or user data belong in Git.
 
-## Remaining delivery work
+## Remaining release gates
 
-1. Push the complete `master` history to the private `origin` repository; do not publish npm or change visibility.
-2. Verify the remote branch tip after pushing and record the push result.
+1. Keep the compatibility matrix current when dsh releases change.
+2. npm publishing, release tags, and any public visibility change still require an explicit maintainer release decision.
+
+## Final task record
+
+- Completed: global module audit, deterministic hardening, low-risk controller/Remote contract refinement, documentation sync, final rc.6 smoke, and private remote push.
+- Validation: `pnpm check`, `pnpm test` (61/61 across 9 files), `pnpm build`, `pnpm pack --dry-run`, secret scan, and browser smoke all passed.
+- Unfinished: two documented protocol decisions (recording settings snapshot and Whisper crash-residue integrity).
+- Blocked: none.
+- Commit: `2963378 docs: finalize audit handoff` (remote tip verified).
 
 ## Handoff template
 
