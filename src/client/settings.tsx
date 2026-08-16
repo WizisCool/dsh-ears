@@ -86,8 +86,13 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const cloudModels = props.useEarsCloudModels((snapshot) => snapshot)
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const discardRef = useRef(props.discard)
+  discardRef.current = props.discard
   const [activeTab, setActiveTab] = useState<'recognition' | 'polishing'>('recognition')
   const t = props.earsT
+  useEffect(() => () => {
+    discardRef.current()
+  }, [])
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
   const modelOptions = routes.routes.filter((route) => route.provider === state.polishProvider.text)
