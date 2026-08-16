@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import type { EarsSettings } from '../src/config.js'
 import { EarsSettingsController } from '../src/client/settings-controller.js'
 import { localeEn, localeZh } from '../src/client/settings.js'
 import type { EarsRemote } from '../src/remote.js'
@@ -120,6 +121,8 @@ describe('EarsSettingsController settings lifecycle', () => {
       available: true,
       writable: true,
       settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
+      cloudAsrApiKeyConfigured: false,
+      cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
       overridden: []
     }
     const updateSettings = vi.fn(() => update.promise)
@@ -224,7 +227,7 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
-  it('holds a cloud backend switch until its required endpoint is valid', async () => {
+  it('holds a cloud backend switch until the Groq model is selected', async () => {
     vi.useFakeTimers()
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
@@ -234,15 +237,82 @@ describe('EarsSettingsController settings lifecycle', () => {
       await vi.advanceTimersByTimeAsync(400)
 
       expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrModel.invalid).toBe(true)
 
-      controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
+      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
       await vi.advanceTimersByTimeAsync(400)
 
       expect(updateSettings).toHaveBeenCalledWith({
         asrBackend: 'cloud-openai',
+        cloudAsrModel: 'whisper-large-v3-turbo'
+      })
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('holds a custom cloud switch until the endpoint is valid and defaults its model', async () => {
+    vi.useFakeTimers()
+    const saved = { ...DEFAULT_EARS_SETTINGS }
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom(saved) }
+    })
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('asrBackend', 'cloud-openai')
+      controller.actions().edit('cloudAsrProvider', 'custom')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+      expect(updateSettings).toHaveBeenCalledWith({
+        cloudAsrProvider: 'custom',
+        cloudAsrModel: 'whisper-1'
+      })
+
+      controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).toHaveBeenCalledTimes(2)
+      expect(updateSettings).toHaveBeenCalledWith({
+        asrBackend: 'cloud-openai',
         cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions'
       })
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('saves a non-blank API key once and ignores blank drafts', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().setApiKey('gsk_test')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' })
+
+      controller.actions().setApiKey('')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears the API key through the explicit clear action', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      await controller.actions().clearApiKey()
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: '' })
     } finally {
       controller.dispose()
       vi.useRealTimers()
@@ -283,6 +353,8 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     available: true,
     writable: true,
     settings: DEFAULT_EARS_SETTINGS,
+    cloudAsrApiKeyConfigured: false,
+    cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
     overridden: []
   }
   return {
@@ -306,10 +378,16 @@ function whisperState(bytes: number): WhisperModelState {
 }
 
 function settingsView(polishingEnabled: boolean): EarsSettingsView {
+  return settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, polishingEnabled })
+}
+
+function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
   return {
     available: true,
     writable: true,
-    settings: { ...DEFAULT_EARS_SETTINGS, polishingEnabled },
+    settings,
+    cloudAsrApiKeyConfigured: settings.cloudAsrApiKey.trim() !== '',
+    cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
     overridden: []
   }
 }

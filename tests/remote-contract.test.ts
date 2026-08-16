@@ -11,6 +11,15 @@ describe('settings Remote contract', () => {
     })
   })
 
+  it('accepts cloud provider and write-only key patch fields', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'groq', cloudAsrApiKey: 'gsk_test' })).toEqual({
+      cloudAsrProvider: 'groq',
+      cloudAsrApiKey: 'gsk_test'
+    })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrApiKey: '' })).toEqual({ cloudAsrApiKey: '' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
+  })
+
   it('rejects settings patches with the wrong wire types', () => {
     expect(() => earsSettingsPatchSchema.parse({ maxRecordingSeconds: '120' })).toThrow()
   })
@@ -22,9 +31,10 @@ describe('settings Remote contract', () => {
       settings: {
         asrBackend: 'web-speech',
         localWhisperModel: 'tiny',
+        cloudAsrProvider: 'groq',
+        cloudAsrApiKey: '',
         cloudAsrEndpoint: '',
-        cloudAsrModel: 'whisper-1',
-        cloudAsrCredentialRef: '',
+        cloudAsrModel: '',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
         polishingEnabled: true,
@@ -32,6 +42,8 @@ describe('settings Remote contract', () => {
         polishModel: '',
         polishReasoningEffort: ''
       },
+      cloudAsrApiKeyConfigured: false,
+      cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
   })

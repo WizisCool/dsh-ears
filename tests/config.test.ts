@@ -1,23 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, isCredentialReference, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
-  it('accepts the dsh credential reference shape without exposing a secret', () => {
-    expect(isCredentialReference('OPENAI_API_KEY')).toBe(true)
-    expect(isCredentialReference('_local_token2')).toBe(true)
-    expect(isCredentialReference('not a reference')).toBe(false)
-  })
-
   it('accepts HTTP(S) endpoints without embedded credentials', () => {
     expect(isHttpEndpoint('https://asr.example.test/audio/transcriptions')).toBe(true)
     expect(isHttpEndpoint('http://user:pass@asr.example.test/audio/transcriptions')).toBe(false)
     expect(isHttpEndpoint('file:///tmp/audio')).toBe(false)
   })
 
-  it('rejects incomplete polishing and cloud configuration', () => {
+  it('rejects unknown backends and cloud ASR providers', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'unknown-backend' })).toThrow('ASR backend')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrProvider: 'unknown-provider' })).toThrow('cloud ASR provider')
+  })
+
+  it('bounds the inline cloud ASR API key length', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+  })
+
+  it('requires a valid endpoint for the custom provider when cloud ASR is active', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'cloud-openai', cloudAsrProvider: 'custom' })).toThrow('Cloud ASR endpoint')
+    expect(() => validateEarsSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'custom',
+      cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions',
+      cloudAsrModel: 'whisper-1'
+    })).not.toThrow()
+  })
+
+  it('rejects incomplete polishing configuration', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider' })).toThrow('selected together')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: true })).toThrow('selected together')
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'cloud-openai' })).toThrow('Cloud ASR endpoint')
   })
 
   it('allows an incomplete provider/model pair while polishing is disabled', () => {
@@ -28,7 +42,6 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'local-whisper',
-      cloudAsrCredentialRef: 'openai_api_key',
       polishProvider: 'provider',
       polishModel: 'model'
     })).not.toThrow()

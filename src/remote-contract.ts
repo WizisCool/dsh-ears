@@ -1,18 +1,20 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
 import type { AsrBackendInfo } from './asr/types.js'
 
 const asrBackendSchema = z.enum(ASR_BACKEND_IDS)
 const whisperModelSchema = z.enum(WHISPER_MODEL_IDS)
+const cloudAsrProviderSchema = z.enum(CLOUD_ASR_PROVIDER_IDS)
 export const textSchema = z.string()
 
 export const earsSettingsSchema = z.object({
   asrBackend: z.string(),
   localWhisperModel: z.string(),
+  cloudAsrProvider: z.string(),
+  cloudAsrApiKey: z.string(),
   cloudAsrEndpoint: z.string(),
   cloudAsrModel: z.string(),
-  cloudAsrCredentialRef: z.string(),
   language: z.string(),
   maxRecordingSeconds: z.number(),
   polishingEnabled: z.boolean(),
@@ -24,9 +26,10 @@ export const earsSettingsSchema = z.object({
 export const earsSettingsPatchSchema = z.object({
   asrBackend: asrBackendSchema.optional(),
   localWhisperModel: whisperModelSchema.optional(),
+  cloudAsrProvider: cloudAsrProviderSchema.optional(),
+  cloudAsrApiKey: z.string().max(1024).optional(),
   cloudAsrEndpoint: z.string().optional(),
   cloudAsrModel: z.string().optional(),
-  cloudAsrCredentialRef: z.string().optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   polishingEnabled: z.boolean().optional(),
@@ -39,6 +42,8 @@ export const earsSettingsViewSchema = z.object({
   available: z.boolean(),
   writable: z.boolean(),
   settings: earsSettingsSchema,
+  cloudAsrApiKeyConfigured: z.boolean(),
+  cloudAsrEndpointEffective: z.string(),
   overridden: z.array(z.string())
 })
 
@@ -85,6 +90,8 @@ export type EarsSettingsView = {
   available: boolean
   writable: boolean
   settings: EarsSettings
+  cloudAsrApiKeyConfigured: boolean
+  cloudAsrEndpointEffective: string
   overridden: string[]
 }
 export type { PolishRoute }

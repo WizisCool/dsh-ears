@@ -133,7 +133,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
           {state.asrBackend.text === 'cloud-openai' ? <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
-            <TextRow label={t('cloudCredentialRef')} hint={t('cloudCredentialRefHint')} value={state.cloudAsrCredentialRef.text} disabled={!state.writable} invalid={state.cloudAsrCredentialRef.invalid} onChange={(event) => props.edit('cloudAsrCredentialRef', event.target.value)} />
           </> : null}
           <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} />
           <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} />

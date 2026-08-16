@@ -1,16 +1,16 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Context } from '@deepseek-ai/cordis'
-import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
+import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudConfigurationValid } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import type { EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from './prompts.js'
@@ -22,8 +22,6 @@ const POLISH_TIMEOUT_MS = 20_000
 export class PolishService extends TypertRemoteService {
   static inject = ['llm']
   private settings: SettingsScope<import('../config.js').EarsSettings> | undefined
-  private resolveCredential: ((reference: string) => Promise<string | undefined>) | undefined
-  private describeCredential: ((reference: string) => Promise<boolean>) | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
   private readonly whisperModels = new WhisperModels()
 
@@ -40,20 +38,6 @@ export class PolishService extends TypertRemoteService {
         this.settings = undefined
       }, 'dsh-ears settings lifecycle')
     })
-    ctx.inject(['credentials'], (credentialsCtx) => {
-      this.resolveCredential = async (reference) => {
-        const hit = await credentialsCtx.credentials.resolve(credentialRef(reference))
-        return hit?.value
-      }
-      this.describeCredential = async (reference) => {
-        const description = await credentialsCtx.credentials.describe(credentialRef(reference))
-        return description.configured
-      }
-      credentialsCtx.effect(() => () => {
-        this.resolveCredential = undefined
-        this.describeCredential = undefined
-      }, 'dsh-ears credentials lifecycle')
-    })
   }
 
   getSettings(): EarsSettingsView {
@@ -62,6 +46,8 @@ export class PolishService extends TypertRemoteService {
         available: false,
         writable: false,
         settings: DEFAULT_EARS_SETTINGS,
+        cloudAsrApiKeyConfigured: false,
+        cloudAsrEndpointEffective: '',
         overridden: []
       }
     }
@@ -73,7 +59,9 @@ export class PolishService extends TypertRemoteService {
     return {
       available: true,
       writable: provider?.writable ?? false,
-      settings: snapshot,
+      settings: { ...snapshot, cloudAsrApiKey: '' },
+      cloudAsrApiKeyConfigured: snapshot.cloudAsrApiKey.trim() !== '',
+      cloudAsrEndpointEffective: cloudAsrEndpointFor(snapshot),
       overridden: isRecord(user) ? Object.keys(user) : []
     }
   }
@@ -130,7 +118,7 @@ export class PolishService extends TypertRemoteService {
         id: 'cloud-openai',
         name: 'Cloud ASR',
         available: cloudAvailable,
-        detail: cloudAvailable ? 'Configured transcription endpoint and credential reference.' : 'Configure an endpoint and an optional dsh credential reference.'
+        detail: cloudAvailable ? 'Cloud transcription is configured.' : 'Choose a cloud model and configure the API key.'
       }
     ]
   }
@@ -190,14 +178,20 @@ export class PolishService extends TypertRemoteService {
       })
     }
 
-    const credential = await this.resolveCloudCredential(settings)
+    const endpoint = cloudAsrEndpointFor(settings)
+    const model = cloudAsrModelFor(settings)
+    if (model === '') throw new Error('The cloud ASR model is not configured')
+    const providerEntry = cloudProviderEntry(settings.cloudAsrProvider)
+    if (providerEntry === undefined) throw new Error(`Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`)
+    const credential = settings.cloudAsrApiKey.trim()
+    if (providerEntry.apiKeyRequired && credential === '') throw new Error('The cloud ASR API key is not configured')
     return transcribeOpenAICompatible({
       audio,
       mimeType,
       language: settings.language,
-      endpoint: settings.cloudAsrEndpoint,
-      model: settings.cloudAsrModel,
-      credential,
+      endpoint,
+      model,
+      credential: credential === '' ? undefined : credential,
       signal
     })
   }
@@ -266,24 +260,7 @@ export class PolishService extends TypertRemoteService {
   }
 
   private async cloudAsrIsAvailable(settings: EarsSettings): Promise<boolean> {
-    if (!isHttpEndpoint(settings.cloudAsrEndpoint)) return false
-    if (settings.cloudAsrModel.trim() === '') return false
-    if (settings.cloudAsrCredentialRef.trim() === '') return true
-    if (this.describeCredential === undefined || !isCredentialReference(settings.cloudAsrCredentialRef)) return false
-    try {
-      return await this.describeCredential(settings.cloudAsrCredentialRef)
-    } catch {
-      return false
-    }
-  }
-
-  private async resolveCloudCredential(settings: EarsSettings): Promise<string | undefined> {
-    const reference = settings.cloudAsrCredentialRef.trim()
-    if (reference === '') return undefined
-    if (!isCredentialReference(reference) || this.resolveCredential === undefined) throw new Error('The dsh credential reference is unavailable')
-    const value = await this.resolveCredential(reference)
-    if (value === undefined) throw new Error('The dsh credential reference is not configured')
-    return value
+    return isCloudAsrReady(settings)
   }
 }
 
@@ -299,6 +276,7 @@ function whisperModel(value: string): WhisperModelId {
 
 function validateSettings(settings: EarsSettings): void {
   validateEarsSettings(settings)
+  if (!isCloudConfigurationValid(settings)) throw new Error('Cloud ASR configuration is incomplete')
 }
 
 function decodeAudio(value: string): Uint8Array {

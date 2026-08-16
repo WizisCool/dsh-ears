@@ -5,9 +5,10 @@ import { DEFAULT_EARS_SETTINGS } from './config.js'
 export const EarsSettingsSchema = s.object({
   asrBackend: s.string().default(DEFAULT_EARS_SETTINGS.asrBackend),
   localWhisperModel: s.string().default(DEFAULT_EARS_SETTINGS.localWhisperModel),
+  cloudAsrProvider: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrProvider),
+  cloudAsrApiKey: s.string().role('secret').default(DEFAULT_EARS_SETTINGS.cloudAsrApiKey),
   cloudAsrEndpoint: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrEndpoint),
   cloudAsrModel: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrModel),
-  cloudAsrCredentialRef: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrCredentialRef),
   language: s.string().default(DEFAULT_EARS_SETTINGS.language),
   maxRecordingSeconds: s.number().default(DEFAULT_EARS_SETTINGS.maxRecordingSeconds),
   polishingEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.polishingEnabled),
