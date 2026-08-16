@@ -262,6 +262,35 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('does not refetch the cloud model list when only the selected model changes', async () => {
+    vi.useFakeTimers()
+    const saved = { ...DEFAULT_EARS_SETTINGS }
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom(saved) }
+    })
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, models: ['whisper-large-v3-turbo'] } }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings, listCloudProviderModels }))
+    try {
+      await controller.refreshSettings()
+      expect(listCloudProviderModels).toHaveBeenCalledTimes(1)
+
+      controller.actions().edit('asrBackend', 'cloud-openai')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
+
+      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
+      await vi.advanceTimersByTimeAsync(400)
+      expect(updateSettings).toHaveBeenCalledWith({
+        cloudAsrModel: 'whisper-large-v3-turbo'
+      })
+      expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
   it('saves a custom cloud switch with its defaulted model and skips the empty endpoint', async () => {
     vi.useFakeTimers()
     const saved = { ...DEFAULT_EARS_SETTINGS }

@@ -492,7 +492,7 @@ export class EarsSettingsController {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
-      const cloudRelevant = this.clearKeyPending || submittedDrafts.has('cloudAsrProvider') || submittedDrafts.has('cloudAsrModel') || submittedDrafts.has('cloudAsrApiKey') || submittedDrafts.has('asrBackend')
+      const cloudRelevant = this.clearKeyPending || submittedDrafts.has('cloudAsrApiKey')
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
