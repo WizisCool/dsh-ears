@@ -21,6 +21,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - M4: native Plugins settings card and persistence are implemented.
 - M5: local/cloud ASR backends and lifecycle hardening are implemented.
 - M6: local release-readiness audit and the current hardening pass are complete; the MIT license decision is recorded, and the repository is released privately on GitHub. npm publishing remains gated.
+- Post-M6 Whisper robustness hardening (D-020) is complete: downloadable model state is marker-verified, transcription is pre-flighted, discovery failures are negative-cached, the model manager is disposed with the plugin scope, transcription errors carry stderr tails, Windows launcher probing is implemented, and the lifecycle has fake-python integration coverage. D-019 is closed; D-018 remains open.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -261,10 +262,10 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 - dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6.
 - Web Speech availability and privacy behavior vary by browser and platform.
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
-- Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights. State checks and downloads delegate to the installed library, so pip/Homebrew/pipx/conda/Windows layouts follow the library's own paths; a host without a whisper-capable Python reports an honest error instead of guessing.
+- Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights. State checks and downloads delegate to the installed library, so pip/Homebrew/pipx/conda/Windows layouts follow the library's own paths; a host without a whisper-capable Python reports an honest error instead of guessing. Windows launcher probing is implemented but not yet smoke-tested on Windows.
 - OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
 - Final ASR settings are read when the Host RPC begins. Option A is to carry the recording-start backend/model/language snapshot in the RPC; Option B is to lock recognition settings while a recording is active. This remains open because either choice changes the first-release protocol semantics.
-- A Host crash during a Whisper download can leave a non-empty partial cache file that state-by-stat sees as downloaded on restart. Option A is on-demand SHA-256 verification using Whisper's model URL hash; Option B is a completion sidecar/marker. Hashing every large model is a performance tradeoff and is intentionally not introduced without a decision.
+- A Host crash during a Whisper download no longer fakes a downloaded model: the state check requires the `.dsh-ears-done` completion marker (D-020), so a partial file is reported as not downloaded with a re-download action. Model state and transcription are also gated before the CLI runs, so a missing model is rejected instead of silently downloaded mid-recording.
 - The temporary HMR shutdown sometimes logs `Invalid revision range .....HEAD`; it was reproduced outside plugin business calls and remains an environment-level diagnostic to confirm against dsh HMR.
 - The MIT license decision and private repository release are recorded in `.agent/decisions.md` (D-016); npm publishing and public visibility changes remain gated by an explicit release decision.
 

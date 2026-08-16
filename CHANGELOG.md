@@ -14,6 +14,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Typed Typert Remote contracts, cancellation, bounded payloads, and draft-race protection.
 - Whisper model availability UI: downloaded state, download action with tqdm-derived progress, and honest errors across pip/Homebrew/pipx/conda/Windows environments. The status reuses the row's hint line — spinner while checking, click-to-download, cancel-download, and delete-model (two-step confirm) links, no floating blocks or state dots — and later queries are instant after a one-time authoritative model-table load. Cancelling a download also removes its partial file.
 - Cross-field settings staging: incomplete Cloud ASR and polishing edits remain drafts until Host validation can accept the complete configuration.
+- Whisper download completion markers: a model file only counts as downloaded when its `.dsh-ears-done` sidecar exists; marker-less files are reported as not downloaded and orphaned markers are removed (closes the crash-residue decision D-019).
+- Local Whisper transcription pre-flight: recording is rejected with a settings-page hint when the CLI or a downloaded, marked model is missing, instead of the CLI auto-downloading weights inside the transcription timeout.
 
 ### Hardened
 
@@ -27,6 +29,10 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Unknown ASR backend/model identifiers are rejected, canceled Whisper probes short-circuit, and Host/Client Remote cancellation metadata is kept in parity.
 - Stale Whisper action responses, late aborted polish results, and MediaRecorder start failures are handled without overwriting current state or leaking microphone tracks.
 - Failed Whisper model operations retain an actionable retry/cancel/delete path in the settings row.
+- The Whisper model manager is a per-service disposable instance: dispose kills an active download and removes its partial file, and interpreter/model-table discovery failures are negative-cached for 30 seconds instead of re-spawning probes.
+- Failed transcriptions carry the whisper stderr tail (bounded to 800 characters) instead of a bare exit code.
+- Windows probing resolves `python.exe`/`py.exe` launchers with PATHEXT expansion (documented as not yet smoke-tested on Windows).
+- Fake-python integration tests cover the full model lifecycle: download/cancel/delete, progress parsing, completion markers, dispose cleanup, and failure negative-caches.
 
 ### Changed
 
@@ -43,6 +49,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Switching the polish provider clears the stale model and reasoning-effort selection, so another provider's models can never linger in the picker.
 - The provider/model pair rule now applies only while polishing is enabled; the reasoning picker labels the adapter's `off` effort as an explicit switch-off option.
 - Polishing is now disabled by default, its configuration rows appear only after the toggle is enabled (progressive disclosure), the meaningless no-polish picker option is gone, an enabled polish requires a complete provider/model pair, and reasoning-effort labels use the adapter's native names with an untranslated `Default` entry (matching the composer model selector).
+- The not-downloaded hint no longer promises automatic first-use downloads; the Local Whisper hint documents that `medium` and larger models need a GPU or a faster local runtime within the 120-second limit.
 
 ### Deferred
 

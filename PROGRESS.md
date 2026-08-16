@@ -23,11 +23,15 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Hardened settings auto-save so incomplete Cloud ASR and polishing changes stay local until their required fields are complete; Host/Client Remote cancellation metadata is now aligned.
 - Hardened async lifecycles: stale Whisper actions and late aborted polish results are ignored, MediaRecorder start failures release tracks, and failed Whisper downloads keep cancellation authoritative with a visible retry action.
 - Added Host bounds and validation: Cloud ASR requests time out after 120 seconds, streamed polish output is capped, canceled Whisper probes short-circuit, and unknown backend/model identifiers are rejected.
+- Hardened the Whisper model lifecycle: downloads are only reported complete with their `.dsh-ears-done` marker (closing the crash-residue question), transcription pre-flights the CLI and the marked model file instead of auto-downloading mid-recording, the model manager is disposed with the plugin scope, discovery failures are negative-cached for 30 seconds, and transcription errors carry the whisper stderr tail.
+- Fixed Windows python/py launcher probing (`.exe` + PATHEXT) with unit coverage; Windows remains documented as not yet smoke-tested.
+- Documented the 120-second scale boundary: `medium` and larger models need a GPU or a faster runtime (settings hint + README).
+- Covered the full model lifecycle with fake-python integration tests: download/cancel/delete, progress parsing, completion markers, dispose cleanup, and negative caches.
 
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 61 tests across 9 files.
+- `pnpm test` passed: 80 tests across 9 files.
 - `pnpm build` passed.
 - `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.
@@ -41,7 +45,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Only dsh `0.1.0-rc.6` is currently supported.
 - A non-empty live polish completion depends on a usable model route configured in the local dsh environment; route discovery and failure fallback are covered.
 - Browser microphone permission and platform-specific Web Speech behavior need broader manual coverage.
-- A Host restart during Whisper download can leave a partial cache file that a stat-only check may mistake for a complete model; checksum verification or a completion marker needs a deliberate performance decision.
+- A Host restart during Whisper download no longer fakes a downloaded model: state checks require the `.dsh-ears-done` completion marker, so a partial file is reported as not downloaded (D-020; the earlier checksum-or-marker question is closed).
 - A recording currently reads backend/model/language settings when the Host transcribe RPC begins; locking or snapshotting those settings during an active recording remains a protocol decision.
 - Temporary HMR shutdown can log an `Invalid revision range .....HEAD` diagnostic; it needs confirmation against dsh rather than a plugin-side workaround.
 - npm publish and any public visibility change require explicit maintainer approval.

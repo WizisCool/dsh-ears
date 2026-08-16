@@ -5,18 +5,15 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: global code-audit hardening, documentation, verification, and private remote delivery are complete.
+- Current work: post-M6 Whisper robustness hardening (D-020) is complete — marker-verified model state, transcription pre-flight, 30-second failure negative-caching, Cordis dispose wiring, stderr-tail transcription errors, Windows launcher probing, scale hints, and fake-python lifecycle tests. D-019 is closed; D-018 remains open.
 - Follow-up UI fix: added the `dsh-ear.svg` project asset and corrected the rc.6 composer order to model → ContextMeter → microphone → send. The rc.6 settings-section contract does not expose a custom nav-icon field, so the left settings rail keeps dsh's native fallback icon without a dsh-core change.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`, synchronized with `origin/master` after the audit push.
-- Latest code commit: `d8c9648 fix(client): pass native button element to Tooltip for proper ref binding`.
-- Latest feature commit: `134a4e7 feat(client): use native dsh Tooltip and bilingual i18n for microphone button`.
-- Latest fix commit: `a06da1e fix(client): adjust composer order for rc.6 trailing controls`.
-- Latest audit docs commit: `3a85199 docs: record remote delivery`.
-- Handoff baseline: `2963378 docs: finalize audit handoff`; this file records the subsequent remote-delivery update.
-- Remote delivery: pushed `master` to private `origin` and verified the remote tip matches local `HEAD`.
+- Branch: `master`; the post-audit UI fixes and the Whisper hardening commits are local-only until the maintainer authorizes another push.
+- Latest code commit: `70cf098 feat(client): document whisper download gate and model scale hints`.
+- Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
+- Tooling note: `pnpm` is not on this shell's PATH (corepack is too old for pnpm 11); use the local bins — `./node_modules/.bin/tsc --noEmit -p tsconfig.json`, `./node_modules/.bin/vitest run`, `./node_modules/.bin/tsdown`, `./node_modules/.bin/tsc -p tsconfig.build.json`.
 
 ## Completed audit and hardening
 
@@ -28,9 +25,29 @@
 - Aligned Host and Client Remote cancellation metadata for `updateSettings`; the parity test now compares every endpoint's parameters, codecs, cancellation marker, and result schema.
 - Kept the high-risk recording-settings snapshot question and Whisper crash-residue integrity policy open rather than changing the first-release protocol implicitly.
 
+## Completed Whisper robustness hardening (D-020)
+
+- Extracted the module-level whisper state into a per-service, injectable `WhisperModels` instance disposed with the Cordis scope; dispose kills an active download, removes its partial file, and drops cached discoveries.
+- Negative-cached interpreter and model-table discovery failures for 30 seconds so a broken environment stops re-spawning expensive `import whisper` probes.
+- Added download completion markers (`.dsh-ears-done`): a model file only counts as downloaded with its marker present; marker-less files report as not downloaded, orphaned markers are removed, delete/cancel/dispose clean both (closes D-019).
+- Gated Local Whisper transcription on CLI availability and a downloaded, marked model so a missing model is rejected instead of auto-downloaded inside the 120-second transcription timeout.
+- Carried the whisper stderr tail (≤800 characters) into transcription errors.
+- Fixed Windows python/py launcher probing (`python.exe`/`py.exe` + PATHEXT); Windows stays documented as not yet smoke-tested.
+- Documented the scale boundary (`medium`+ needs GPU or faster runtime) in the settings hint and README; the not-downloaded copy no longer promises automatic first-use downloads.
+- Added fake-python integration tests for the full lifecycle: download/cancel/delete, progress parsing, marker semantics, dispose cleanup, and negative caches (80 tests total).
+
 ## Verification evidence
 
-Current local checks after the final handoff commit:
+Current local checks after the Whisper hardening commits:
+
+- `./node_modules/.bin/tsc --noEmit -p tsconfig.json` — passed.
+- `./node_modules/.bin/vitest run` — passed; 80 tests across 9 files.
+- `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` — passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
+- `git diff --cached --check` — passed after each commit.
+- Whisper lifecycle integration tests run against a fake `python3` executable with an isolated `XDG_CACHE_HOME`; they never touch the real whisper installation or `~/.cache/whisper`.
+- Real-whisper smoke on this host (`whisper --help` ≈ 1.1–1.8 s; Homebrew fork `20250625_3`) confirmed the availability-probe headroom; no re-download was performed during the review.
+
+Earlier local checks after the final handoff commit:
 
 - `pnpm check` — passed.
 - `pnpm test` — passed; 61 tests across 9 files.
@@ -62,7 +79,8 @@ Final real rc.6 smoke evidence on the latest build:
 - Emotion recognition/output and emotion UI remain intentionally deferred.
 - The plugin does not bundle Whisper model weights.
 - `transcribe()` reads backend/model/language when the Host RPC begins. Option A is a recording-start settings snapshot; Option B is locking recognition settings during capture/transcription. This requires a protocol decision.
-- After a Host crash during Whisper download, a partial cache file may pass the stat-only startup check. Option A is SHA-256 verification with metadata caching; Option B is a completion sidecar/marker. This requires a performance and compatibility decision.
+- Whisper crash-residue integrity is closed by the `.dsh-ears-done` completion marker (D-020): marker-less files are reported as not downloaded.
+- Windows launcher probing is implemented but not yet smoke-tested on Windows; `medium` and larger models are documented as impractical on the CPU + 120-second path.
 - No API keys, credentials, user audio, personal paths, private endpoints, or user data belong in Git.
 
 ## Remaining release gates
@@ -72,11 +90,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 ## Final task record
 
-- Completed: resolved Tooltip DOM ref binding by rendering a native `<button>` element inside `@deepseek-ai/dsh-client-ui-primitives`'s `Tooltip` component (setting side="top", delayMs=200), integrated complete English and Chinese bilingual copy for all microphone states/errors/tooltips via `settings.dshEars` locale namespace, and verified tests and builds.
-- Validation: `tsc` typecheck, `vitest` (63/63 tests across 9 files), `tsdown` & `tsc` builds, and `git diff --check` all passed.
-- Unfinished: two documented protocol decisions (recording settings snapshot and Whisper crash-residue integrity).
+- Completed: the grilling-driven Whisper robustness hardening recorded in D-020 — injectable/disposable `WhisperModels` with 30-second failure negative-caching and Cordis dispose wiring; `.dsh-ears-done` download completion markers (closing D-019); Local Whisper transcription pre-flight gating; stderr-tail transcription errors; Windows `python.exe`/`py.exe` + PATHEXT probing; bilingual scale/not-downloaded hints in the settings page and README; fake-python integration tests covering the full model lifecycle.
+- Validation: `tsc` typecheck, `vitest` (80/80 tests across 9 files), `tsdown` & `tsc` builds, and `git diff --cached --check` all passed after every commit.
+- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Windows probe and the new Host-side gate still need a real rc.6 Web smoke (Host-side changes require a `dsh web` restart).
 - Blocked: none.
-- Commit: `d8c9648 fix(client): pass native button element to Tooltip for proper ref binding`.
+- Commit: `70cf098 feat(client): document whisper download gate and model scale hints` (see the hardening commit list under Status).
 
 ## Handoff template
 

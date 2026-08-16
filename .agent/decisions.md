@@ -114,10 +114,24 @@
 - Option B: lock recognition settings while capture or transcription is active.
 - Rationale for deferral: both options change the first-release wire or UI semantics and need an explicit compatibility decision.
 
-## D-019 — Whisper cache integrity after Host crash remains open
+## D-019 — Whisper cache integrity after Host crash
 
-- Status: open; no global checksum or sidecar policy approved.
+- Status: accepted; resolved by D-020 (completion sidecar).
 - Current behavior: normal failure and cancellation paths remove incomplete files, while the startup state check trusts the installed library's cache path and file stat.
 - Option A: verify the model URL SHA-256 on demand, with a cache keyed by path/size/mtime to avoid hashing on every poll.
 - Option B: write and require a completion sidecar/marker for downloads performed by dsh-ears.
 - Rationale for deferral: checksum cost for large models and treatment of pre-existing Whisper caches need maintainer agreement.
+
+## D-020 — Whisper robustness hardening
+
+- Status: accepted (closes D-019).
+- Decision: harden the Local Whisper path inside the existing architecture:
+  - The whisper model manager is a per-service, injectable, disposable instance wired into the Cordis scope; dispose kills an active download, removes its partial file, and drops cached discoveries so plugin reloads leave no orphan processes.
+  - Interpreter and model-table discovery failures are negative-cached for 30 seconds so a broken environment does not re-spawn expensive `import whisper` probes on every retry.
+  - A model file is only reported as downloaded when a `.dsh-ears-done` completion marker written by dsh-ears sits next to it; marker-less files are reported as not downloaded with a re-download hint, and orphaned markers are removed. This resolves D-019: a partial file from a killed download can never be reported as complete.
+  - `transcribe()` gates Local Whisper on CLI availability plus a downloaded, marked model before spawning the CLI, instead of letting the CLI auto-download weights inside the transcription timeout.
+  - Failed transcriptions carry the whisper stderr tail (bounded to 800 characters) instead of a bare exit code.
+  - Windows probing resolves `python.exe`/`py.exe` launchers with PATHEXT expansion; Windows remains documented as not yet smoke-tested.
+  - `medium` and larger models are documented as impractical on the CPU + 120-second transcription path (honest UI hint and README note, no timeout change).
+  - The model lifecycle is covered by fake-python integration tests (download/cancel/delete, progress parsing, marker semantics, dispose cleanup, negative caches).
+- Rationale: the review found engineering-hygiene gaps (zero lifecycle tests, orphan processes, silent mid-recording downloads) rather than a reason to replace the library download. The sidecar marker closes the D-019 residual risk without per-poll checksum cost; pre-existing marker-less cache files are conservatively treated as not downloaded, which is cheap to repair with a re-download.
