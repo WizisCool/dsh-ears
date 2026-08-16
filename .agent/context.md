@@ -99,6 +99,7 @@ The project is intended to become a durable community package. Maintain English-
 - The polish flow bounds streamed output and checks cancellation again after Remote resolution; a late result from a Remote implementation that ignores cancellation cannot write into an unmounted draft. MediaRecorder start failures release tracks and make the session terminal.
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter wire shapes, codecs, result schemas, and cancellation metadata. The parity test in `tests/remote-contract.test.ts` is the regression guard for the two hand-written descriptor faces.
 - Whisper model downloads are trustworthy only through their `.dsh-ears-done` completion marker; `transcribe()` pre-flights CLI availability and the marked model file, discovery failures are negative-cached for 30 seconds, and the model manager is disposed with the plugin scope. Windows launcher probing (`python.exe`/`py.exe` + PATHEXT) is implemented but not yet smoke-tested; `medium` and larger models are documented as impractical on the CPU + 120-second path.
+- The composer microphone grays itself out (D-021) on positive unavailability signals only: the Host reports the selected backend unavailable, the Whisper model is downloading, or the model file with its marker is missing. Loading/failed/unknown states and all active flow states keep the button enabled so the stop affordance is never gated.
 
 ## Open protocol boundaries
 

@@ -16,6 +16,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Cross-field settings staging: incomplete Cloud ASR and polishing edits remain drafts until Host validation can accept the complete configuration.
 - Whisper download completion markers: a model file only counts as downloaded when its `.dsh-ears-done` sidecar exists; marker-less files are reported as not downloaded and orphaned markers are removed (closes the crash-residue decision D-019).
 - Local Whisper transcription pre-flight: recording is rejected with a settings-page hint when the CLI or a downloaded, marked model is missing, instead of the CLI auto-downloading weights inside the transcription timeout.
+- Composer microphone availability gating: the button grays out with a bilingual tooltip when the selected backend is reported unavailable, the Whisper model is downloading, or the model file with its marker is missing (positive signals only; active flow states are never gated).
 
 ### Hardened
 

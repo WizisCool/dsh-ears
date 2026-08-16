@@ -27,11 +27,12 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Fixed Windows python/py launcher probing (`.exe` + PATHEXT) with unit coverage; Windows remains documented as not yet smoke-tested.
 - Documented the 120-second scale boundary: `medium` and larger models need a GPU or a faster runtime (settings hint + README).
 - Covered the full model lifecycle with fake-python integration tests: download/cancel/delete, progress parsing, completion markers, dispose cleanup, and negative caches.
+- Grayed the composer microphone (D-021) on positive unavailability signals: backend reported unavailable, Whisper model downloading, or model file with marker missing — with bilingual tooltips and pure-function unit coverage; loading/unknown and active flow states never gray.
 
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 80 tests across 9 files.
+- `pnpm test` passed: 87 tests across 10 files.
 - `pnpm build` passed.
 - `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.

@@ -135,3 +135,10 @@
   - `medium` and larger models are documented as impractical on the CPU + 120-second transcription path (honest UI hint and README note, no timeout change).
   - The model lifecycle is covered by fake-python integration tests (download/cancel/delete, progress parsing, marker semantics, dispose cleanup, negative caches).
 - Rationale: the review found engineering-hygiene gaps (zero lifecycle tests, orphan processes, silent mid-recording downloads) rather than a reason to replace the library download. The sidecar marker closes the D-019 residual risk without per-poll checksum cost; pre-existing marker-less cache files are conservatively treated as not downloaded, which is cheap to repair with a re-download.
+
+## D-021 — Composer microphone availability gating
+
+- Status: accepted.
+- Decision: the composer microphone disables itself (gray `aria-disabled` state with a bilingual tooltip) when the configured backend provably cannot transcribe: the Host reports the selected backend unavailable, the selected Whisper model is still downloading, or the model file with its completion marker is missing.
+- Decision: availability is gated on positive signals only. Loading, failed, and unknown states keep the button enabled, and `starting`/`recording`/`transcribing`/`polishing` states are never gated so the stop affordance stays reachable.
+- Rationale: a definitely broken configuration should not invite a click that is guaranteed to fail; graying on positive Host signals avoids false negatives while keeping the stop control authoritative during an active flow.

@@ -5,11 +5,11 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: post-M6 Whisper robustness hardening (D-020) is complete — marker-verified model state, transcription pre-flight, 30-second failure negative-caching, Cordis dispose wiring, stderr-tail transcription errors, Windows launcher probing, scale hints, and fake-python lifecycle tests. D-019 is closed; D-018 remains open.
+- Current work: post-M6 Whisper robustness hardening (D-020) and composer microphone availability gating (D-021) are complete. The microphone now grays out on positive unavailability signals (backend reported unavailable, Whisper model downloading, or model file with marker missing). D-019 is closed; D-018 remains open.
 - Follow-up UI fix: added the `dsh-ear.svg` project asset and corrected the rc.6 composer order to model → ContextMeter → microphone → send. The rc.6 settings-section contract does not expose a custom nav-icon field, so the left settings rail keeps dsh's native fallback icon without a dsh-core change.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`; the post-audit UI fixes and the Whisper hardening commits are local-only until the maintainer authorizes another push.
-- Latest code commit: `70cf098 feat(client): document whisper download gate and model scale hints`.
+- Branch: `master`; the post-audit UI fixes, the Whisper hardening commits, and the microphone gating commit are local-only until the maintainer authorizes another push.
+- Latest code commit: `defa4cd feat(client): gray the microphone when the backend cannot transcribe`.
 - Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
@@ -36,12 +36,18 @@
 - Documented the scale boundary (`medium`+ needs GPU or faster runtime) in the settings hint and README; the not-downloaded copy no longer promises automatic first-use downloads.
 - Added fake-python integration tests for the full lifecycle: download/cancel/delete, progress parsing, marker semantics, dispose cleanup, and negative caches (80 tests total).
 
+## Completed composer microphone availability gating (D-021)
+
+- The microphone grays out (aria-disabled + bilingual tooltip) when the selected backend is reported unavailable by the Host, the Whisper model is still downloading, or the model file with its completion marker is missing.
+- Gating is positive-signal-only: loading, failed, and unknown states keep the button enabled, and `starting`/`recording`/`transcribing`/`polishing` states are never gated so the stop affordance stays reachable.
+- The decision logic lives in the pure `mic-availability.ts` helper with unit coverage; the slot now injects wrapped backend/whisper store hooks built from a shared `createSnapshotHook` wrapper.
+
 ## Verification evidence
 
 Current local checks after the Whisper hardening commits:
 
 - `./node_modules/.bin/tsc --noEmit -p tsconfig.json` — passed.
-- `./node_modules/.bin/vitest run` — passed; 80 tests across 9 files.
+- `./node_modules/.bin/vitest run` — passed; 87 tests across 10 files.
 - `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` — passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
 - `git diff --cached --check` — passed after each commit.
 - Whisper lifecycle integration tests run against a fake `python3` executable with an isolated `XDG_CACHE_HOME`; they never touch the real whisper installation or `~/.cache/whisper`.
@@ -80,6 +86,7 @@ Final real rc.6 smoke evidence on the latest build:
 - The plugin does not bundle Whisper model weights.
 - `transcribe()` reads backend/model/language when the Host RPC begins. Option A is a recording-start settings snapshot; Option B is locking recognition settings during capture/transcription. This requires a protocol decision.
 - Whisper crash-residue integrity is closed by the `.dsh-ears-done` completion marker (D-020): marker-less files are reported as not downloaded.
+- The composer microphone grays out on positive unavailability signals only (D-021); loading/unknown states and active flow states never gray.
 - Windows launcher probing is implemented but not yet smoke-tested on Windows; `medium` and larger models are documented as impractical on the CPU + 120-second path.
 - No API keys, credentials, user audio, personal paths, private endpoints, or user data belong in Git.
 
@@ -90,11 +97,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 ## Final task record
 
-- Completed: the grilling-driven Whisper robustness hardening recorded in D-020 — injectable/disposable `WhisperModels` with 30-second failure negative-caching and Cordis dispose wiring; `.dsh-ears-done` download completion markers (closing D-019); Local Whisper transcription pre-flight gating; stderr-tail transcription errors; Windows `python.exe`/`py.exe` + PATHEXT probing; bilingual scale/not-downloaded hints in the settings page and README; fake-python integration tests covering the full model lifecycle.
-- Validation: `tsc` typecheck, `vitest` (80/80 tests across 9 files), `tsdown` & `tsc` builds, and `git diff --cached --check` all passed after every commit.
-- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Windows probe and the new Host-side gate still need a real rc.6 Web smoke (Host-side changes require a `dsh web` restart).
+- Completed: composer microphone availability gating (D-021) — the microphone grays out with a bilingual tooltip when the Host reports the selected backend unavailable, the Whisper model is downloading, or the model file with its completion marker is missing; gating is positive-signal-only and never applies to active flow states. Added the pure `mic-availability.ts` helper, wrapped backend/whisper store hooks for the slot, and unit coverage.
+- Validation: `tsc` typecheck, `vitest` (87/87 tests across 10 files), `tsdown` & `tsc` builds, and `git diff --cached --check` all passed.
+- Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the gray-mic behavior and the earlier Host-side gate still need a real rc.6 Web smoke (Host-side changes require a `dsh web` restart, and the client bundle needs a browser refresh).
 - Blocked: none.
-- Commit: `70cf098 feat(client): document whisper download gate and model scale hints` (see the hardening commit list under Status).
+- Commit: `defa4cd feat(client): gray the microphone when the backend cannot transcribe`.
 
 ## Handoff template
 
