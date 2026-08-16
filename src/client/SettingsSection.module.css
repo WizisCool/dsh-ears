@@ -337,7 +337,7 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   min-height: 18px;
   border-top: 1px solid var(--dsw-alias-border-l2);
@@ -347,8 +347,8 @@
 .footerStatus {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-height: 18px;
+  margin-right: auto;
 }
 
 .footerMessage {
@@ -360,12 +360,6 @@
 
 .footerMessage[data-kind='error'] {
   color: var(--dsw-alias-state-error-primary);
-}
-
-.unsaved {
-  color: var(--dsw-alias-state-warn-label);
-  font-size: 12px;
-  line-height: 18px;
 }
 
 .footerActions {
@@ -443,6 +437,7 @@
 
   .footerStatus {
     width: 100%;
+    margin-right: 0;
   }
 
   .footerActions {
