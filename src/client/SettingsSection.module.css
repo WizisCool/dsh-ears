@@ -186,13 +186,6 @@
   gap: 8px;
 }
 
-.keyState {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-}
-
 .rowDescInline {
   display: flex;
   align-items: center;
