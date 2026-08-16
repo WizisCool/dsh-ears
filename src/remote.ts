@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
-import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, WhisperModelState } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import type { AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -9,6 +9,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$dshEars {
     getSettings: () => Promise<RemoteResult<EarsSettingsView>>
     updateSettings: (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
+    listCloudProviderModels: (signal?: AbortSignal) => Promise<RemoteResult<CloudProviderModelsView>>
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
     listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
     listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
@@ -23,6 +24,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteMap {
     'dshEars/getSettings': () => Promise<RemoteResult<EarsSettingsView>>
     'dshEars/updateSettings': (patch: EarsSettingsPatch, signal?: AbortSignal) => Promise<RemoteResult<EarsSettingsView>>
+    'dshEars/listCloudProviderModels': (signal?: AbortSignal) => Promise<RemoteResult<CloudProviderModelsView>>
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
     'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
     'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
@@ -76,6 +78,16 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       invocation: { kind: 'direct' },
       parameters: [],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/listCloudProviderModels',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listCloudProviderModels',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#CloudProviderModelsView', schema: cloudProviderModelsViewSchema }
     },
     {
       id: 'dsh-ears#dshEars/updateSettings',

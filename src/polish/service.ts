@@ -10,19 +10,22 @@ import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription
 import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
+import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudConfigurationValid } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
-import type { EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
+import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from './prompts.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
 const MAX_POLISHED_CHARACTERS = 24_000
 const POLISH_TIMEOUT_MS = 20_000
+const CLOUD_MODELS_FAILURE_TTL_MS = 30_000
 
 export class PolishService extends TypertRemoteService {
   static inject = ['llm']
   private settings: SettingsScope<import('../config.js').EarsSettings> | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
+  private cloudModelsFailure: { expiresAt: number; message: string } | undefined
   private readonly whisperModels = new WhisperModels()
 
   constructor(ctx: Context) {
@@ -121,6 +124,28 @@ export class PolishService extends TypertRemoteService {
         detail: cloudAvailable ? 'Cloud transcription is configured.' : 'Choose a cloud model and configure the API key.'
       }
     ]
+  }
+
+  async listCloudProviderModels(signal: AbortSignal): Promise<CloudProviderModelsView> {
+    const settings = this.settings?.get() ?? DEFAULT_EARS_SETTINGS
+    const entry = cloudProviderEntry(settings.cloudAsrProvider)
+    if (entry === undefined || entry.baseUrl === undefined) return { status: 'unsupported' }
+    const key = settings.cloudAsrApiKey.trim()
+    if (key === '') return { status: 'no-key' }
+    signal.throwIfAborted()
+    const now = Date.now()
+    if (this.cloudModelsFailure !== undefined && this.cloudModelsFailure.expiresAt > now) {
+      return { status: 'error', models: [], error: this.cloudModelsFailure.message }
+    }
+    try {
+      const models = await fetchCloudProviderModels(entry, key, signal)
+      return { status: 'ok', models }
+    } catch (error) {
+      if (signal.aborted) throw error
+      const message = error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed'
+      this.cloudModelsFailure = { expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message }
+      return { status: 'error', models: [], error: message }
+    }
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {

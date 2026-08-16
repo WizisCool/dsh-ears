@@ -360,6 +360,7 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
   return {
     getSettings: async () => ({ ok: true, value: settingsView }),
     updateSettings: async () => ({ ok: true, value: settingsView }),
+    listCloudProviderModels: async () => ({ ok: true, value: { status: 'unsupported' } }),
     listRoutes: async () => ({ ok: true, value: [] }),
     listAsrBackends: async () => ({ ok: true, value: [] }),
     listReasoningEfforts: async () => ({ ok: true, value: { efforts: [] } }),

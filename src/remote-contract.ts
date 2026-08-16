@@ -74,6 +74,11 @@ export const whisperModelStateSchema = z.object({
   totalBytes: z.number().nullable(),
   error: z.string().nullable()
 })
+export const cloudProviderModelsViewSchema = z.object({
+  status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
+  models: z.array(z.string()).optional(),
+  error: z.string().optional()
+})
 export const asrBackendInfoSchema = z.object({
   id: asrBackendSchema,
   name: z.string(),
@@ -98,3 +103,4 @@ export type { PolishRoute }
 export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
+export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>

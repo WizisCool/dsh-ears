@@ -1,4 +1,4 @@
-import { audioBase64Schema, audioMimeTypeSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -26,6 +26,16 @@ export const TYPERT = {
       invocation: { kind: 'direct' },
       parameters: [],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/listCloudProviderModels',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'listCloudProviderModels',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#CloudProviderModelsView', schema: cloudProviderModelsViewSchema }
     },
     {
       id: 'dsh-ears#dshEars/updateSettings',
@@ -238,6 +248,13 @@ export const TYPERT = {
           },
           {
             kind: 'method',
+            name: 'listCloudProviderModels',
+            signature: 'listCloudProviderModels(signal: AbortSignal): Promise<CloudProviderModelsView>',
+            summary: 'List the selected cloud provider transcription models from its live catalog.',
+            jsDoc: '/** List the selected cloud provider transcription models from its live catalog. */'
+          },
+          {
+            kind: 'method',
             name: 'listRoutes',
             signature: 'listRoutes(): Promise<PolishRoute[]>',
             summary: 'List models already registered in dsh.',
@@ -321,6 +338,10 @@ export const TYPERT = {
           {
             name: 'WhisperModelState',
             declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null }'
+          },
+          {
+            name: 'CloudProviderModelsView',
+            declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; error?: string }"
           }
         ]
       }
