@@ -1,5 +1,6 @@
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 1 * 1024 * 1024
+const REQUEST_TIMEOUT_MS = 120_000
 
 export interface OpenAICompatibleTranscriptionOptions {
   readonly audio: Uint8Array
@@ -14,6 +15,7 @@ export interface OpenAICompatibleTranscriptionOptions {
 export async function transcribeOpenAICompatible(options: OpenAICompatibleTranscriptionOptions): Promise<string> {
   if (options.audio.byteLength === 0) throw new Error('The recorded audio is empty')
   if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new Error('The recorded audio is too large')
+  options.signal.throwIfAborted()
   const endpoint = validateEndpoint(options.endpoint)
   const model = options.model.trim()
   if (model === '') throw new Error('The cloud ASR model is not configured')
@@ -27,23 +29,32 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   const headers: Record<string, string> = {}
   const credential = options.credential?.trim()
   if (credential) headers.Authorization = `Bearer ${credential}`
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers,
-    body: form,
-    signal: options.signal
-  })
-  const body = await readBoundedText(response)
-  if (!response.ok) throw new Error(`Cloud ASR request failed with HTTP ${response.status}`)
-
-  let parsed: unknown
+  const timeout = new AbortController()
+  const timer = setTimeout(() => timeout.abort(new Error('Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
+  const forwardAbort = () => timeout.abort(options.signal.reason)
+  options.signal.addEventListener('abort', forwardAbort, { once: true })
   try {
-    parsed = JSON.parse(body)
-  } catch {
-    throw new Error('Cloud ASR returned invalid JSON')
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: form,
+      signal: timeout.signal
+    })
+    const body = await readBoundedText(response)
+    if (!response.ok) throw new Error(`Cloud ASR request failed with HTTP ${response.status}`)
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(body)
+    } catch {
+      throw new Error('Cloud ASR returned invalid JSON')
+    }
+    if (!isRecord(parsed) || typeof parsed.text !== 'string') throw new Error('Cloud ASR returned no transcript')
+    return parsed.text.trim()
+  } finally {
+    clearTimeout(timer)
+    options.signal.removeEventListener('abort', forwardAbort)
   }
-  if (!isRecord(parsed) || typeof parsed.text !== 'string') throw new Error('Cloud ASR returned no transcript')
-  return parsed.text.trim()
 }
 
 function validateEndpoint(value: string): string {

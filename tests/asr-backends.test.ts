@@ -2,9 +2,14 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isWhisperAvailable, transcribeWithWhisper } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('local Whisper backend', () => {
   it('detects an executable without loading a model', async () => {
@@ -92,5 +97,24 @@ describe('OpenAI-compatible cloud ASR backend', () => {
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }
+  })
+
+  it('times out an unresponsive endpoint', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+    })))
+
+    const pending = transcribeOpenAICompatible({
+      audio: Uint8Array.from([1]),
+      mimeType: 'audio/wav',
+      language: 'en-US',
+      endpoint: 'https://asr.example.test/audio/transcriptions',
+      model: 'whisper-1',
+      signal: new AbortController().signal
+    })
+    const rejection = expect(pending).rejects.toThrow('timed out')
+    await vi.advanceTimersByTimeAsync(120_000)
+    await rejection
   })
 })
