@@ -8,7 +8,7 @@ import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { isWhisperAvailable, transcribeWithWhisper } from '../asr/local-whisper.js'
-import { cancelWhisperModelDownload, deleteWhisperModel, downloadWhisperModel, getWhisperModelState } from '../asr/whisper-models.js'
+import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import type { AsrBackendInfo } from '../asr/types.js'
@@ -25,9 +25,13 @@ export class PolishService extends TypertRemoteService {
   private resolveCredential: ((reference: string) => Promise<string | undefined>) | undefined
   private describeCredential: ((reference: string) => Promise<boolean>) | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
+  private readonly whisperModels = new WhisperModels()
 
   constructor(ctx: Context) {
     super(ctx, 'dshEarsPolish', { namespace: 'dshEars' })
+    ctx.effect(() => () => {
+      this.whisperModels.dispose()
+    }, 'dsh-ears whisper models lifecycle')
     ctx.inject(['settings'], (settingsCtx) => {
       this.settings = settingsCtx.settings.register(settingsNamespace(SETTINGS_NAMESPACE), EarsSettingsSchema, {
         validate: validateSettings
@@ -132,19 +136,19 @@ export class PolishService extends TypertRemoteService {
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {
-    return getWhisperModelState(whisperModel(model), await this.whisperIsAvailable())
+    return this.whisperModels.getWhisperModelState(whisperModel(model), await this.whisperIsAvailable())
   }
 
   async downloadWhisperModel(model: string): Promise<WhisperModelState> {
-    return downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return this.whisperModels.downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable())
   }
 
   async cancelWhisperModelDownload(model: string): Promise<WhisperModelState> {
-    return cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable())
+    return this.whisperModels.cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable())
   }
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
-    return deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable())
   }
 
   async listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView> {
