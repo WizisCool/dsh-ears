@@ -18,8 +18,14 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
   })
 
-  it('requires a valid endpoint for the custom provider when cloud ASR is active', () => {
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'cloud-openai', cloudAsrProvider: 'custom' })).toThrow('Cloud ASR endpoint')
+  it('validates the endpoint value per field, independent of the selected backend', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'cloud-openai', cloudAsrProvider: 'custom' })).not.toThrow()
+    expect(() => validateEarsSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'custom',
+      cloudAsrEndpoint: 'not-a-url'
+    })).toThrow('Cloud ASR endpoint')
     expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',

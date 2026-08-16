@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from '../src/polish/prompts.js'
-import { PolishService } from '../src/polish/service.js'
+import { PolishService, validateSettings } from '../src/polish/service.js'
 
 vi.mock('../src/asr/local-whisper.js', () => ({
   isWhisperAvailable: vi.fn(async () => false),
@@ -20,6 +20,36 @@ function createSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS = DEFAULT_EA
     update: vi.fn(async () => undefined)
   }
 }
+
+describe('settings registration validate', () => {
+  it('accepts a Groq key write while the cloud model is not yet selected (D-024 deadlock regression)', () => {
+    expect(() => validateSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'groq',
+      cloudAsrApiKey: 'gsk_test_key',
+      cloudAsrModel: ''
+    })).not.toThrow()
+  })
+
+  it('accepts a custom provider without an endpoint while cloud ASR is selected', () => {
+    expect(() => validateSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'custom',
+      cloudAsrEndpoint: ''
+    })).not.toThrow()
+  })
+
+  it('still rejects a malformed endpoint value', () => {
+    expect(() => validateSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'custom',
+      cloudAsrEndpoint: 'not-a-url'
+    })).toThrow('Cloud ASR endpoint')
+  })
+})
 
 describe('PolishService', () => {
   const fibers: Array<{ dispose(): Promise<void> }> = []

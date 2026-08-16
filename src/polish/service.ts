@@ -11,7 +11,7 @@ import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
-import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudConfigurationValid } from '../asr/providers.js'
+import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { POLISH_SYSTEM_PROMPT, polishUserText } from './prompts.js'
@@ -297,9 +297,9 @@ function whisperModel(value: string): WhisperModelId {
   throw new Error(`Unknown dsh-ears Whisper model: ${value}`)
 }
 
-function validateSettings(settings: EarsSettings): void {
+/** Host registration validate: field-level integrity only; no cross-field completeness gates (D-024). */
+export function validateSettings(settings: EarsSettings): void {
   validateEarsSettings(settings)
-  if (!isCloudConfigurationValid(settings)) throw new Error('Cloud ASR configuration is incomplete')
 }
 
 function decodeAudio(value: string): Uint8Array {
