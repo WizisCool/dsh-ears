@@ -36,7 +36,8 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "dsh-ear.svg"
   ],
   "packageManager": "pnpm@11.19.0",
   "dsh": {

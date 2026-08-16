@@ -1,5 +1,7 @@
 # dsh-ears
 
+![dsh-ear icon](./dsh-ear.svg)
+
 An open-source voice-input plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): give the text-only DeepSeek a pair of ears.
 
 The interaction is deliberately close to Codex Desktop:
