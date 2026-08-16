@@ -91,6 +91,23 @@ describe('PolishService', () => {
     await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
   })
 
+  it('does not update settings when the request is already aborted', async () => {
+    const update = vi.fn(async () => undefined)
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: true,
+      register: () => ({ get: () => DEFAULT_EARS_SETTINGS, update })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(context.get('dshEarsPolish')?.updateSettings({ language: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it('does not prepare a route when the request is already aborted', async () => {
     const prepareCall = vi.fn()
     const context = createContext({ prepareCall })

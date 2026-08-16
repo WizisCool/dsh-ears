@@ -39,6 +39,7 @@ export const TYPERT = {
         source: 'json',
         codec: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsPatch', schema: earsSettingsPatchSchema }
       }],
+      cancellation: { parameter: 'signal' },
       result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
     },
     {
@@ -227,6 +228,13 @@ export const TYPERT = {
             signature: 'listAsrBackends(): Promise<AsrBackendInfo[]>',
             summary: 'List configured and locally available ASR backends.',
             jsDoc: '/** List configured and locally available ASR backends. */'
+          },
+          {
+            kind: 'method',
+            name: 'updateSettings',
+            signature: 'updateSettings(patch: EarsSettingsPatch, signal: AbortSignal): Promise<EarsSettingsView>',
+            summary: 'Update plugin settings when the request has not been cancelled.',
+            jsDoc: '/** Update plugin settings when the request has not been cancelled. */'
           },
           {
             kind: 'method',

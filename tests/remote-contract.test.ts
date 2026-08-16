@@ -43,6 +43,27 @@ describe('settings Remote contract', () => {
     expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['polish', 'transcribe', 'updateSettings'])
   })
 
+  it('keeps every endpoint wire shape aligned across Host and Client', () => {
+    const hostById = new Map(TYPERT.invocations.map((invocation) => [invocation.id, invocation]))
+    for (const client of TYPERT_REMOTE.descriptors) {
+      const host = hostById.get(client.id)
+      if (host === undefined) throw new Error(`Host descriptor is missing: ${client.id}`)
+      expect(client.parameters.map((parameter) => ({
+        name: parameter.name,
+        wire: parameter.wire,
+        source: parameter.source,
+        codec: parameter.codec
+      }))).toEqual(host.parameters.map((parameter) => ({
+        name: parameter.name,
+        wire: parameter.wire,
+        source: parameter.source,
+        codec: parameter.codec
+      })))
+      expect(client.cancellation).toEqual(host.cancellation)
+      expect(client.result).toEqual(host.result)
+    }
+  })
+
   it('uses the same strict text codecs on both Remote faces', () => {
     const host = TYPERT.invocations.find((invocation) => invocation.id.endsWith('/polish'))
     const client = TYPERT_REMOTE.descriptors.find((descriptor) => descriptor.id.endsWith('/polish'))

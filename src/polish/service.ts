@@ -74,8 +74,9 @@ export class PolishService extends TypertRemoteService {
     }
   }
 
-  async updateSettings(patch: EarsSettingsPatch): Promise<EarsSettingsView> {
+  async updateSettings(patch: EarsSettingsPatch, signal: AbortSignal): Promise<EarsSettingsView> {
     if (this.settings === undefined) return this.getSettings()
+    signal.throwIfAborted()
     await this.settings.update(patch)
     return this.getSettings()
   }
