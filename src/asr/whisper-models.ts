@@ -219,7 +219,15 @@ async function runDownload(python: string, model: WhisperModelId): Promise<void>
       try {
         await removeModelFile(python, model)
       } catch (error) {
+        if (handle.cancelRequested) {
+          handle.finished = true
+          return
+        }
         handle.error = `${message}; incomplete model cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+      }
+      if (handle.cancelRequested) {
+        handle.finished = true
+        return
       }
       if (handle.error === null) handle.error = message
       handle.finished = true
