@@ -446,6 +446,39 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('flushes a pending API key save immediately when saveNow is called', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().setApiKey('gsk_test')
+      expect(updateSettings).not.toHaveBeenCalled()
+      controller.actions().saveNow()
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' })
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports a successful key save through lastSaved with an increasing revision', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      expect(controller.getCardStore().getSnapshot().lastSaved).toEqual({ revision: 0, fields: [] })
+
+      controller.actions().setApiKey('gsk_test')
+      controller.actions().saveNow()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().lastSaved.revision).toBe(1))
+
+      expect(controller.getCardStore().getSnapshot().lastSaved.fields).toEqual(['cloudAsrApiKey'])
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it('populates the cloud model store from the provider listing RPC', async () => {
     const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, models: ['whisper-large-v3-turbo'] } }))
     const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))

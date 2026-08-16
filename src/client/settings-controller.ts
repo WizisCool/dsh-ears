@@ -19,6 +19,7 @@ export interface EarsCardState {
   loadFailed: boolean
   saving: boolean
   failed: boolean
+  lastSaved: { revision: number; fields: readonly FieldName[] }
   asrBackend: FieldState
   localWhisperModel: FieldState
   cloudAsrProvider: FieldState
@@ -99,6 +100,7 @@ export class EarsSettingsController {
   private loadFailed = false
   private failed = false
   private invalidFlags = new Map<FieldName, boolean>()
+  private lastSaved: { revision: number; fields: readonly FieldName[] } = { revision: 0, fields: [] }
   private clearKeyPending = false
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -139,11 +141,21 @@ export class EarsSettingsController {
       edit: (field: FieldName, text: string) => this.edit(field, text),
       setApiKey: (text: string) => this.edit('cloudAsrApiKey', text),
       clearApiKey: () => void this.clearApiKey(),
+      saveNow: () => this.flushSave(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
       deleteModel: () => void this.deleteModel()
     }
+  }
+
+  /** Flush a pending debounced save immediately (Enter-to-save affordance). */
+  flushSave(): void {
+    if (this.saveTimer !== undefined) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = undefined
+    }
+    void this.save()
   }
 
   dispose(): void {
@@ -499,6 +511,9 @@ export class EarsSettingsController {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
         this.invalidFlags.delete(field)
       }
+      const savedFields: FieldName[] = [...submittedDrafts.keys()]
+      if (this.clearKeyPending) savedFields.push('cloudAsrApiKey')
+      this.lastSaved = { revision: this.lastSaved.revision + 1, fields: savedFields }
       if (this.clearKeyPending) this.clearKeyPending = false
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
@@ -536,6 +551,7 @@ export class EarsSettingsController {
       loadFailed: this.loadFailed,
       saving: this.saving,
       failed: this.failed,
+      lastSaved: this.lastSaved,
       asrBackend,
       localWhisperModel,
       cloudAsrProvider,

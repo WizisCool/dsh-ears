@@ -173,6 +173,25 @@
   cursor: default;
 }
 
+.textInputSaved {
+  border-color: var(--dsw-alias-state-success-primary);
+}
+
+.savedFlash {
+  color: var(--dsw-alias-state-success-primary);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  animation: dshEarsSavedFade 1.4s ease forwards;
+}
+
+@keyframes dshEarsSavedFade {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .statusError {
   margin: 0;
   color: var(--dsw-alias-state-error-primary);
