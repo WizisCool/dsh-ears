@@ -209,7 +209,7 @@ export class PolishService extends TypertRemoteService {
         provider,
         model
       }, timeout.signal)
-      const effort = await this.resolveReasoningEffort(provider, model, reasoningEffort)
+      const effort = await this.resolveReasoningEffort(provider, model, reasoningEffort, timeout.signal)
       const message = createUserMessage({
         content: [{ type: 'text', text: polishUserText(raw) }],
         source: { kind: 'user' }
@@ -236,11 +236,11 @@ export class PolishService extends TypertRemoteService {
     return this.settings.get()
   }
 
-  private async resolveReasoningEffort(provider: string, model: string, requested: string): Promise<string | undefined> {
+  private async resolveReasoningEffort(provider: string, model: string, requested: string, signal: AbortSignal): Promise<string | undefined> {
     const effort = requested.trim()
     if (effort === '') return undefined
     try {
-      const info = await this.ctx.llm.resolveModelInfo(provider, model)
+      const info = await this.ctx.llm.resolveModelInfo(provider, model, signal)
       const efforts = info.reasoning?.efforts ?? []
       return efforts.some((candidate) => candidate.id === effort) ? effort : undefined
     } catch {
