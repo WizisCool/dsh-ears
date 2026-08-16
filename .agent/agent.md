@@ -9,7 +9,8 @@
 - Follow-up UI fix: added the `dsh-ear.svg` project asset and corrected the rc.6 composer order to model → ContextMeter → microphone → send. The rc.6 settings-section contract does not expose a custom nav-icon field, so the left settings rail keeps dsh's native fallback icon without a dsh-core change.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`, synchronized with `origin/master` after the audit push.
-- Latest code commit: `134a4e7 feat(client): use native dsh Tooltip and bilingual i18n for microphone button`.
+- Latest code commit: `d8c9648 fix(client): pass native button element to Tooltip for proper ref binding`.
+- Latest feature commit: `134a4e7 feat(client): use native dsh Tooltip and bilingual i18n for microphone button`.
 - Latest fix commit: `a06da1e fix(client): adjust composer order for rc.6 trailing controls`.
 - Latest audit docs commit: `3a85199 docs: record remote delivery`.
 - Handoff baseline: `2963378 docs: finalize audit handoff`; this file records the subsequent remote-delivery update.
@@ -71,11 +72,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 ## Final task record
 
-- Completed: replaced native OS title tooltip with dsh-native `Tooltip` component from `@deepseek-ai/dsh-client-ui-primitives` (side="top", delayMs=500), integrated complete English and Chinese bilingual copy for all microphone states/errors/tooltips via `settings.dshEars` locale namespace, and added locale dictionary parity tests.
+- Completed: resolved Tooltip DOM ref binding by rendering a native `<button>` element inside `@deepseek-ai/dsh-client-ui-primitives`'s `Tooltip` component (setting side="top", delayMs=200), integrated complete English and Chinese bilingual copy for all microphone states/errors/tooltips via `settings.dshEars` locale namespace, and verified tests and builds.
 - Validation: `tsc` typecheck, `vitest` (63/63 tests across 9 files), `tsdown` & `tsc` builds, and `git diff --check` all passed.
 - Unfinished: two documented protocol decisions (recording settings snapshot and Whisper crash-residue integrity).
 - Blocked: none.
-- Commit: `134a4e7 feat(client): use native dsh Tooltip and bilingual i18n for microphone button`.
+- Commit: `d8c9648 fix(client): pass native button element to Tooltip for proper ref binding`.
 
 ## Handoff template
 
