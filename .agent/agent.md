@@ -5,8 +5,8 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: the settings page uses the platform card's explicit save model (D-026): edits stage as drafts and commit through the footer's separator + Save/Discard buttons (Save blocked unless dirty, valid, and idle; an invalid draft blocks the whole save and keeps the drafts; Host rejection keeps the drafts with the red saveFailed line; Discard drops everything without confirmation; empty text clears a field on save, with the API key keeping absent=keep plus a staged clear action). The debounced auto-save, Enter-to-save, and the save-success flash are removed. Validation stays per-field and immediate (D-024) with no "not yet configured" prompts; no third-party form library is adopted (D-025). D-019 is closed; D-018 remains open.
-- Latest code commit: `c69f2b5 feat(client): replace auto-save with the platform card save/discard model`.
+- Current work: the settings page uses the platform card's explicit save model (D-026): edits stage as drafts and commit through the footer's separator + Save/Discard buttons (Save blocked unless dirty, valid, and idle; an invalid draft blocks the whole save and keeps the drafts; Host rejection keeps the drafts with the red saveFailed line; Discard drops everything without confirmation; closing or navigating away also discards uncommitted drafts; empty text clears a field on save, with the API key keeping absent=keep plus a staged clear action). The footer has no redundant unsaved/saving labels, and the debounced auto-save, Enter-to-save, and save-success flash remain removed. Validation stays per-field and immediate (D-024) with no "not yet configured" prompts; no third-party form library is adopted (D-025). D-019 is closed; D-018 remains open.
+- Latest code commit: `2f3686a fix(client): discard settings drafts on close`.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; all post-audit work (UI fixes, Whisper hardening, microphone gating, cloud provider presets, per-field settings model) is local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -127,6 +127,43 @@ Final real rc.6 smoke evidence on the latest build:
 - Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the Groq preset needs a real rc.6 Web smoke (Host-side changes require a `dsh web` restart, and the client bundle needs a browser refresh — this agent session runs on the current `dsh web`, so the restart must happen outside it) and a live Groq `zh` transcription smoke with a real key (Groq docs do not explicitly list Chinese); Windows smoke remains pending.
 - Blocked: none.
 - Commits: `5d20866 docs: record Groq provider preset decision and announce file ownership`, `9ae277a feat(host): add cloud ASR provider registry with inline API keys`, `e4827f8 feat(host): list cloud provider models from the live catalog`, `f735a5c feat(client): add grouped provider selector and live cloud model rows`.
+
+## Repository onboarding record (2026-08-17)
+
+- Completed: read the required project documents in repository order, reviewed the Hindsight component/convention/decision/initiative pages, traced the current Host/Client/Remote implementation and all 12 test suites, and inspected the installed dsh `0.1.0-rc.6` slot contracts used by the plugin. No business code changed. The authoritative current settings behavior is D-026 explicit staged drafts with Save/Discard; older auto-save wording in historical progress/changelog entries and pre-D-026 Hindsight summaries is superseded.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (121/121 tests across 12 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed (Host ESM, Client factory bundle, CSS, declarations, and source maps). The build emits only the known tsdown `external`/`noExternal` deprecation warnings.
+- Runtime note: no `pnpm run dev:web`, `pnpm dev:watch`, or `tsdown --watch` process is active. Client changes therefore require rebuilding and refreshing the existing `http://127.0.0.1:3080`; Host, settings registration, or Remote changes additionally require restarting that existing `dsh web` process. Do not start a replacement server by default.
+- Unfinished: D-018, the live rc.6 Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending; npm publishing, release tags, and public visibility remain gated. Historical documentation contains a few superseded references to the Plugins card and debounced auto-save, but no cleanup was included in this onboarding-only task.
+- Blocked: none.
+- Next: take one maintainer-selected atomic plugin task; verify every affected dsh API against the installed rc.6 declarations/implementation before editing, preserve the Host/browser credential boundary and Remote descriptor parity, then run the smallest relevant type/test/build/live-smoke set.
+- Commit: no task commit created; onboarding was performed from baseline `6fab8e8 docs: record D-026 explicit save model and revise the settings docs`.
+
+## Settings UI polish record (2026-08-17)
+
+- Completed: fixed the configured API-key row shifting 52px left by keeping the key control in the same 240px lane as text inputs; moved Clear/Undo inside that lane; added an explicit staged-clear state (`保存后清除` / `Clears on save`) with an Undo action; removed the final-row + footer double separator; added consistent row control wrappers, selector ellipsis, invalid input borders/alert semantics, and narrow-layout stacking for controls and footer actions.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (121/121 tests across 12 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; `node /Users/junze/.agents/skills/impeccable/scripts/detect.mjs --json src/client/settings.tsx src/client/SettingsSection.module.css` returned `[]`; `git diff --check` passed. Live CDP smoke against `http://127.0.0.1:3080` verified API-key/text-input left-edge alignment, one bottom separator, staged clear/undo behavior, and no horizontal overflow at a 560px viewport.
+- Unfinished: no Host or Remote behavior was changed; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending. The existing Web process has no watcher, so users must refresh the current page after the rebuilt Client bundle is served.
+- Blocked: none.
+- Next: refresh the existing Web UI to inspect the rebuilt Client bundle in the user's visible session; no replacement server was started.
+- Commit: `29ad35e fix(client): stabilize settings field controls`.
+
+## Settings footer simplification record (2026-08-17)
+
+- Completed: removed the redundant `未保存` / `Unsaved` footer label and kept the Save button text stable during in-flight writes, eliminating the fast text-width jump. Save/Discard still use the controller's internal saving gate to prevent duplicate or conflicting actions; the footer now renders status space only for a real save failure and keeps actions right-aligned at desktop and narrow widths. D-026 was revised to record the presentation change.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run tests/settings.test.ts` passed (24/24); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; the Impeccable detector returned `[]`; `git diff --check` passed. The existing `http://127.0.0.1:3080` Chrome tab was refreshed, and the served `/plugins/dsh-ears/client.js` returned HTTP 200 with neither unsaved nor saving-label strings.
+- Unfinished: no controller, Host, or Remote semantics changed; the existing D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: inspect the refreshed settings footer in the visible Web GUI; no replacement server was started and no watcher is running.
+- Commit: `e9873bb fix(client): keep settings footer status stable`.
+
+## Settings close-discard bug fix record (2026-08-17)
+
+- Completed: fixed closing the settings panel (or navigating to another settings section) without Save so it discards all staged drafts. Root cause: `EarsSettingsController` is plugin-scoped and outlives the settings panel, while `EarsSettingsSection` previously had no unmount cleanup; reopening therefore rendered the retained in-memory draft and looked like an automatic save even though no Host write occurred. The section now invokes the existing Discard action on unmount, without changing explicit Save or Host persistence behavior.
+- Validation: the deterministic rc.6 CDP repro first failed with persisted value `130`, draft `131`, reopened `131`, then passed after the fix with reopened `130`; the new `tests/settings-section-lifecycle.test.ts` regression passed; `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; the full `./node_modules/.bin/vitest run` passed (122/122 tests across 13 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; Impeccable returned `[]`; `git diff --check` passed.
+- Unfinished: no Host or Remote behavior changed; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: refresh the existing visible Web GUI and verify close/reopen manually if desired; no replacement dsh server was started.
+- Commit: `2f3686a fix(client): discard settings drafts on close`.
 
 ## Handoff template
 
