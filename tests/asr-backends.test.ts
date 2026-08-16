@@ -40,6 +40,25 @@ describe('local Whisper backend', () => {
       await rm(directory, { recursive: true, force: true })
     }
   })
+
+  it('carries the whisper stderr tail into transcription failures', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
+    const command = join(directory, 'fake-whisper.mjs')
+    await writeFile(command, '#!/usr/bin/env node\nprocess.stderr.write(\'Traceback (most recent call last):\\nRuntimeError: model not found\\n\')\nprocess.exit(1)\n')
+    await chmod(command, 0o755)
+    try {
+      await expect(transcribeWithWhisper({
+        audio: Uint8Array.from([1, 2, 3]),
+        mimeType: 'audio/webm',
+        language: 'zh-CN',
+        model: 'tiny',
+        signal: new AbortController().signal,
+        command
+      })).rejects.toThrow('model not found')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('local Whisper transcription pre-flight', () => {

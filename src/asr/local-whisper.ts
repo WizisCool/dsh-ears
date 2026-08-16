@@ -9,6 +9,7 @@ const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const COMMAND_TIMEOUT_MS = 5_000
 const TRANSCRIPTION_TIMEOUT_MS = 120_000
 const MAX_STDERR_BYTES = 64 * 1024
+const MAX_STDERR_TAIL = 800
 
 /**
  * Reject a local Whisper transcription before spawning the CLI when the model
@@ -105,8 +106,11 @@ async function runProcess(command: string, args: readonly string[], options: { s
       signal: options.signal
     })
     let stderrBytes = 0
+    let stderrTail = ''
     child.stderr?.on('data', (chunk: Buffer | string) => {
+      const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
       stderrBytes += Buffer.byteLength(chunk)
+      stderrTail = (stderrTail + text).slice(-MAX_STDERR_TAIL)
       if (stderrBytes > MAX_STDERR_BYTES) child.kill('SIGTERM')
     })
     child.once('error', reject)
@@ -115,7 +119,12 @@ async function runProcess(command: string, args: readonly string[], options: { s
         resolve()
         return
       }
-      reject(new Error(`Whisper process exited with ${signal === null ? `code ${String(code)}` : signal}`))
+      // Carry the last stderr line into the error so a failed transcription
+      // can say "model not found" or "audio decode failed" instead of a bare
+      // exit code.
+      const tail = stderrTail.trim().split(/[\r\n]+/).filter((line) => line.trim() !== '').at(-1)?.trim() ?? ''
+      const reason = signal === null ? `code ${String(code)}` : signal
+      reject(new Error(tail === '' ? `Whisper process exited with ${reason}` : `Whisper process exited with ${reason}: ${tail}`))
     })
   })
 }
