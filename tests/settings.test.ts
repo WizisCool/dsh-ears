@@ -122,7 +122,6 @@ describe('EarsSettingsController settings lifecycle', () => {
       writable: true,
       settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
       cloudAsrApiKeyConfigured: false,
-      cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
       overridden: []
     }
     const updateSettings = vi.fn(() => update.promise)
@@ -377,7 +376,6 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     writable: true,
     settings: DEFAULT_EARS_SETTINGS,
     cloudAsrApiKeyConfigured: false,
-    cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
     overridden: []
   }
   return {
@@ -411,7 +409,6 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     writable: true,
     settings,
     cloudAsrApiKeyConfigured: settings.cloudAsrApiKey.trim() !== '',
-    cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
     overridden: []
   }
 }

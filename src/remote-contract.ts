@@ -43,7 +43,6 @@ export const earsSettingsViewSchema = z.object({
   writable: z.boolean(),
   settings: earsSettingsSchema,
   cloudAsrApiKeyConfigured: z.boolean(),
-  cloudAsrEndpointEffective: z.string(),
   overridden: z.array(z.string())
 })
 
@@ -96,7 +95,6 @@ export type EarsSettingsView = {
   writable: boolean
   settings: EarsSettings
   cloudAsrApiKeyConfigured: boolean
-  cloudAsrEndpointEffective: string
   overridden: string[]
 }
 export type { PolishRoute }

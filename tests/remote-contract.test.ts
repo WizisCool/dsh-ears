@@ -43,7 +43,6 @@ describe('settings Remote contract', () => {
         polishReasoningEffort: ''
       },
       cloudAsrApiKeyConfigured: false,
-      cloudAsrEndpointEffective: 'https://api.groq.com/openai/v1/audio/transcriptions',
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
   })

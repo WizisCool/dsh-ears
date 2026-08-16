@@ -50,7 +50,6 @@ export class PolishService extends TypertRemoteService {
         writable: false,
         settings: DEFAULT_EARS_SETTINGS,
         cloudAsrApiKeyConfigured: false,
-        cloudAsrEndpointEffective: '',
         overridden: []
       }
     }
@@ -64,7 +63,6 @@ export class PolishService extends TypertRemoteService {
       writable: provider?.writable ?? false,
       settings: { ...snapshot, cloudAsrApiKey: '' },
       cloudAsrApiKeyConfigured: snapshot.cloudAsrApiKey.trim() !== '',
-      cloudAsrEndpointEffective: cloudAsrEndpointFor(snapshot),
       overridden: isRecord(user) ? Object.keys(user) : []
     }
   }

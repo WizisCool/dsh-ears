@@ -23,7 +23,6 @@ export interface EarsCardState {
   localWhisperModel: FieldState
   cloudAsrProvider: FieldState
   cloudAsrApiKeyConfigured: boolean
-  cloudAsrEndpointEffective: string
   cloudAsrEndpoint: FieldState
   cloudAsrModel: FieldState
   language: FieldState
@@ -88,7 +87,7 @@ export class EarsSettingsController {
   private readonly whisperStore: SnapshotStore<WhisperModelView>
   private readonly cloudModelsStore: SnapshotStore<CloudModelsView>
   private readonly drafts = new Map<FieldName, string>()
-  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, cloudAsrEndpointEffective: '', overridden: [] }
+  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
@@ -558,7 +557,6 @@ export class EarsSettingsController {
       localWhisperModel,
       cloudAsrProvider,
       cloudAsrApiKeyConfigured: this.settingsView.cloudAsrApiKeyConfigured,
-      cloudAsrEndpointEffective: this.settingsView.cloudAsrEndpointEffective,
       cloudAsrEndpoint: { ...cloudAsrEndpoint, invalid: cloudAsrEndpoint.invalid || cloudEndpointRequired },
       cloudAsrModel: { ...cloudAsrModel, invalid: cloudAsrModel.invalid || cloudModelRequired },
       language,
