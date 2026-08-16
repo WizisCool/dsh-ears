@@ -229,10 +229,26 @@ function KeyRow({ label, hint, configured, disabled, invalid, onEdit, onClear, t
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
       <div className={styles.keyControl}>
-        <Input className={styles.textInput} type="password" autoComplete="off" value={draft} disabled={disabled} aria-label={label} aria-invalid={invalid} placeholder={configured ? t('cloudKeyConfigured') : t('cloudKeyNotConfigured')} onChange={(event) => {
-          setDraft(event.target.value)
-          onEdit(event.target.value)
-        }} />
+        <input
+          className={styles.textInput}
+          type="password"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          data-bwignore="true"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          value={draft}
+          disabled={disabled}
+          aria-label={label}
+          aria-invalid={invalid}
+          placeholder={configured ? t('cloudKeyConfigured') : t('cloudKeyNotConfigured')}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            onEdit(event.target.value)
+          }}
+        />
         {configured ? <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => {
           setDraft('')
           onClear()
