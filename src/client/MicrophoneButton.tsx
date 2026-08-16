@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
 import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
@@ -68,15 +68,15 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   if (!backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
-      <Tooltip label={unavailableLabel} side="top" delayMs={500}>
-        <Button
+      <Tooltip label={unavailableLabel} side="top" delayMs={200}>
+        <button
+          type="button"
           aria-label={t('voiceUnavailable')}
-          disabled
+          aria-disabled="true"
           className={styles.button}
-          size="sm"
-          variant="ghost"
-          icon={<MicrophoneIcon />}
-        />
+        >
+          <MicrophoneIcon />
+        </button>
       </Tooltip>
     )
   }
@@ -226,18 +226,18 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
           : t('voiceStart')
 
   return (
-    <Tooltip label={tooltipLabel} side="top" delayMs={500}>
-      <Button
+    <Tooltip label={tooltipLabel} side="top" delayMs={200}>
+      <button
+        type="button"
         aria-label={ariaLabel}
         aria-pressed={active}
+        aria-disabled={busy ? 'true' : undefined}
         className={styles.button}
         data-state={state}
-        disabled={busy}
         onClick={toggle}
-        size="sm"
-        variant="ghost"
-        icon={active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
-      />
+      >
+        {active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
+      </button>
     </Tooltip>
   )
 }
