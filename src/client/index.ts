@@ -4,8 +4,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
-import { EarsSettingsController } from './settings-controller.js'
-import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, localeEn, localeZh } from './settings.js'
+import { EarsSettingsController, EMPTY_WHISPER_STATE, type BackendState, type WhisperModelView } from './settings-controller.js'
+import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, createSnapshotHook, localeEn, localeZh } from './settings.js'
 
 /** Required Client service: the slot registry owns the UI contribution lifecycle. */
 export const inject = ['slots', 'remote', 'locale']
@@ -16,6 +16,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     const earsRemote = remoteCtx.remote.dshEars
     const settingsController = new EarsSettingsController(earsRemote)
     const settingsHook = createSettingsHook(settingsController.getSettingsStore())
+    const backendHook = createSnapshotHook<BackendState>(settingsController.getBackendStore(), { status: 'loading', backends: [] })
+    const whisperHook = createSnapshotHook<WhisperModelView>(settingsController.getWhisperStore(), { status: 'loading', state: EMPTY_WHISPER_STATE })
     const earsT = remoteCtx.locale.bind(LOCALE_NAMESPACE)
 
     remoteCtx.effect(() => {
@@ -46,6 +48,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           inject: () => ({
             remote: earsRemote,
             useEarsSettings: settingsHook,
+            useEarsBackends: backendHook,
+            useEarsWhisper: whisperHook,
             earsT
           })
         },

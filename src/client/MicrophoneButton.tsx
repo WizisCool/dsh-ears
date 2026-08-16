@@ -3,6 +3,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
+import type { AsrBackendInfo } from '../remote-contract.js'
 import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
@@ -10,6 +11,8 @@ import styles from './MicrophoneButton.module.css'
 import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
 import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
+import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
+import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -20,13 +23,15 @@ type VoiceInputButtonProps = {
   }
   readonly remote: EarsRemote
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
+  readonly useEarsBackends: BackendHook
+  readonly useEarsWhisper: WhisperModelHook
   readonly t?: Translate
   readonly earsT?: Translate
 }
 
 type ButtonState = VoiceInputState
 
-export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, t: slotT, earsT }: VoiceInputButtonProps) {
+export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, t: slotT, earsT }: VoiceInputButtonProps) {
   const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
   const [state, setState] = useState<ButtonState>('idle')
   const speechSessionRef = useRef<WebSpeechSession | null>(null)
@@ -39,6 +44,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const actionsRef = useRef(inputActions)
   const latestDraftRef = useRef(input.draft)
   const settings = useEarsSettings((value) => value)
+  const backendInfo = useEarsBackends((value) => value)
+  const whisperView = useEarsWhisper((value) => value)
   const settingsRef = useRef(settings)
   const mountedRef = useRef(true)
 
@@ -64,6 +71,24 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }, [])
 
   const backend = normalizeBackend(settings.asrBackend)
+  const configUnavailable = state === 'idle' || state === 'error'
+    ? micUnavailableReason(backend, backendInfo, whisperView)
+    : null
+  if (configUnavailable !== null) {
+    return (
+      <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200}>
+        <button
+          type="button"
+          aria-label={t('voiceUnavailable')}
+          aria-disabled="true"
+          className={styles.button}
+        >
+          <MicrophoneIcon />
+        </button>
+      </Tooltip>
+    )
+  }
+
   const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : isMediaRecorderAvailable()
   if (!backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
@@ -255,6 +280,18 @@ function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> 
 
 function normalizeBackend(value: string): AsrBackendId {
   return (ASR_BACKEND_IDS as readonly string[]).includes(value) ? value as AsrBackendId : 'web-speech'
+}
+
+function micUnavailableTooltip(reason: MicUnavailableReason, backends: readonly AsrBackendInfo[], t: Translate): string {
+  if (reason.kind === 'model-not-downloaded') return t('whisperNotDownloaded')
+  if (reason.kind === 'model-downloading') {
+    const percent = reason.percent === null ? '' : ` ${String(Math.max(0, Math.min(100, Math.round(reason.percent * 100))))}%`
+    return `${t('whisperDownloading')}${percent}`
+  }
+  const info = backends.find((candidate) => candidate.id === reason.backendId)
+  if (reason.backendId === 'local-whisper') return `${t('backendUnavailable')}${t('localUnavailable')}`
+  if (reason.backendId === 'cloud-openai') return `${t('backendUnavailable')}${t('cloudUnavailable')}`
+  return `${t('backendUnavailable')}${info?.detail ?? ''}`
 }
 
 function MicrophoneIcon() {

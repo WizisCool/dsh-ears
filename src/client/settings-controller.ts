@@ -41,7 +41,7 @@ export type BackendHook = SnapshotSelectorHook<BackendState>
 export type ReasoningEffortsHook = SnapshotSelectorHook<ReasoningEffortsState>
 export type WhisperModelHook = SnapshotSelectorHook<WhisperModelView>
 
-const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
+export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
   cliAvailable: false,
   downloaded: false,
   downloading: false,

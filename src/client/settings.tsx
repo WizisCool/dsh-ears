@@ -61,10 +61,14 @@ interface EarsSettingsSectionProps {
 
 
 
-export function createSettingsHook(store: SnapshotStore<EarsSettings>): EarsSettingsHook {
-  return function useEarsSettings<S>(selector: (settings: EarsSettings) => S): S {
-    return useSyncExternalStore((listener) => store.subscribe(listener), () => selector(store.getSnapshot()), () => selector(DEFAULT_EARS_SETTINGS))
+export function createSnapshotHook<T>(store: SnapshotStore<T>, fallback: T): SnapshotSelectorHook<T> {
+  return function useSnapshotStore<S>(selector: (value: T) => S): S {
+    return useSyncExternalStore((listener) => store.subscribe(listener), () => selector(store.getSnapshot()), () => selector(fallback))
   }
+}
+
+export function createSettingsHook(store: SnapshotStore<EarsSettings>): EarsSettingsHook {
+  return createSnapshotHook(store, DEFAULT_EARS_SETTINGS)
 }
 
 export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode {
