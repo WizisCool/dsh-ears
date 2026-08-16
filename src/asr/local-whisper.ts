@@ -3,11 +3,25 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { WhisperModelId } from '../config.js'
+import type { WhisperModelState } from './whisper-models.js'
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const COMMAND_TIMEOUT_MS = 5_000
 const TRANSCRIPTION_TIMEOUT_MS = 120_000
 const MAX_STDERR_BYTES = 64 * 1024
+
+/**
+ * Reject a local Whisper transcription before spawning the CLI when the model
+ * cannot possibly succeed: no CLI, an unhealthy model state, or a model file
+ * that is missing or lacks the dsh-ears completion marker. Without this gate
+ * the CLI would silently auto-download the model inside the transcription
+ * timeout (D-018-adjacent behavior the first release does not want).
+ */
+export function validateWhisperTranscription(state: WhisperModelState): void {
+  if (!state.cliAvailable) throw new Error('Local Whisper is unavailable: no whisper CLI was found on the dsh Host.')
+  if (state.error !== null) throw new Error(`The Whisper model state could not be verified: ${state.error}`)
+  if (!state.downloaded) throw new Error('The Whisper model is not downloaded. Download it on the dsh-ear settings page before recording.')
+}
 
 export interface LocalWhisperOptions {
   readonly audio: Uint8Array

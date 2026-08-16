@@ -7,7 +7,7 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, isCredentialReference, isHttpEndpoint, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
-import { isWhisperAvailable, transcribeWithWhisper } from '../asr/local-whisper.js'
+import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
@@ -177,11 +177,15 @@ export class PolishService extends TypertRemoteService {
     const backend = asrBackend(settings.asrBackend)
     if (backend === 'web-speech') throw new Error('Web Speech recordings are transcribed in the browser')
     if (backend === 'local-whisper') {
+      const model = whisperModel(settings.localWhisperModel)
+      const cliAvailable = await this.whisperIsAvailable()
+      const state = await this.whisperModels.getWhisperModelState(model, cliAvailable)
+      validateWhisperTranscription(state)
       return transcribeWithWhisper({
         audio,
         mimeType,
         language: settings.language,
-        model: whisperModel(settings.localWhisperModel),
+        model,
         signal
       })
     }

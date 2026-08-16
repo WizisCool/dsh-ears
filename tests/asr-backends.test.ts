@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { isWhisperAvailable, transcribeWithWhisper } from '../src/asr/local-whisper.js'
+import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 
 afterEach(() => {
@@ -39,6 +39,34 @@ describe('local Whisper backend', () => {
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
+  })
+})
+
+describe('local Whisper transcription pre-flight', () => {
+  const readyState = {
+    cliAvailable: true,
+    downloaded: true,
+    downloading: false,
+    progress: null,
+    bytes: null,
+    totalBytes: 100,
+    error: null
+  }
+
+  it('accepts a downloaded model on a host with a CLI', () => {
+    expect(() => validateWhisperTranscription(readyState)).not.toThrow()
+  })
+
+  it('rejects a host without a whisper CLI', () => {
+    expect(() => validateWhisperTranscription({ ...readyState, cliAvailable: false })).toThrow('no whisper CLI')
+  })
+
+  it('rejects an unhealthy model state query', () => {
+    expect(() => validateWhisperTranscription({ ...readyState, error: 'table broken' })).toThrow('table broken')
+  })
+
+  it('rejects a model that is not downloaded', () => {
+    expect(() => validateWhisperTranscription({ ...readyState, downloaded: false })).toThrow('not downloaded')
   })
 })
 
