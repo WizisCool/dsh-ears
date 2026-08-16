@@ -68,7 +68,7 @@ pnpm dev:watch
 
 ## Backend notes
 
-Local Whisper must be installed on the dsh Host and available as `whisper` on `PATH`. Model weights belong to that installation; dsh-ears does not bundle or upload them. Temporary audio files are created in a private temporary directory and removed after each operation.
+Local Whisper must be installed on the dsh Host and available as `whisper` on `PATH`. Model weights belong to that installation; dsh-ears does not bundle or upload them. Download a model from the `Settings → dsh-ear` page before recording: transcription is rejected while the selected model is missing or incomplete instead of silently downloading it mid-recording. `medium` and larger models need a GPU or a faster local runtime to finish within the 120-second transcription limit. Model discovery follows the installed library's own paths (pip, Homebrew, pipx, conda); Windows launcher probing is implemented but has not been smoke-tested on Windows yet. Temporary audio files are created in a private temporary directory and removed after each operation.
 
 Cloud ASR sends audio to the endpoint configured by the user. Use HTTPS for remote services, do not embed credentials in the URL, and consider the privacy and retention policy of the chosen provider. Localhost/private endpoints are allowed because endpoint configuration is an explicit Host-side administrator action; the plugin does not discover or probe arbitrary endpoints.
 
@@ -76,7 +76,7 @@ Web Speech may send audio to a browser-vendor recognition service. “No additio
 
 ## Verification
 
-The repository currently has 61 focused tests across 9 test files. The verified local dsh smoke path includes:
+The repository currently has 80 focused tests across 9 test files. The verified local dsh smoke path includes:
 
 - dsh Host and browser plugin loading;
 - native `dsh-ear` settings persistence;
