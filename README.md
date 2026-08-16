@@ -25,7 +25,7 @@ The compatibility promise is intentionally narrow until another dsh release is t
 
 - Web Speech: live interim/final transcript updates in the browser.
 - Local Whisper: Host-side `whisper` CLI execution after recording stops.
-- OpenAI-compatible cloud ASR: Host-side multipart request with `file`, `model`, and optional language.
+- OpenAI-compatible cloud ASR: Host-side multipart request with `file`, `model`, and optional language, bounded by a 120-second request timeout.
 
 The final-result backends use the browser `MediaRecorder` and a bounded one-shot audio RPC. They do not switch backends invisibly during one recording.
 
@@ -74,13 +74,15 @@ Web Speech may send audio to a browser-vendor recognition service. “No additio
 
 ## Verification
 
-The repository currently has 35 focused tests across 9 test files. The verified local dsh smoke path includes:
+The repository currently has 61 focused tests across 9 test files. The verified local dsh smoke path includes:
 
 - dsh Host and browser plugin loading;
 - native `dsh-ear` settings persistence;
 - light/dark composer layout and dsh semantic color tokens;
 - real local Whisper transcription through `dshEars/transcribe`;
 - Web Speech and MediaRecorder lifecycle failure paths.
+
+The hardening suite also covers cross-field settings staging, stale Whisper action responses, late aborted polish results, bounded cloud/polish responses, strict ASR identifiers, and Host/Client Remote descriptor parity.
 
 See [PLAN.md](./PLAN.md) for the full implementation plan, [SECURITY.md](./SECURITY.md) for the threat and data-handling boundary, and [PROGRESS.md](./PROGRESS.md) for the current delivery record.
 

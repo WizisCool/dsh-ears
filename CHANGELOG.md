@@ -13,6 +13,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - dsh credential-reference support without plugin-owned secret storage.
 - Typed Typert Remote contracts, cancellation, bounded payloads, and draft-race protection.
 - Whisper model availability UI: downloaded state, download action with tqdm-derived progress, and honest errors across pip/Homebrew/pipx/conda/Windows environments. The status reuses the row's hint line — spinner while checking, click-to-download, cancel-download, and delete-model (two-step confirm) links, no floating blocks or state dots — and later queries are instant after a one-time authoritative model-table load. Cancelling a download also removes its partial file.
+- Cross-field settings staging: incomplete Cloud ASR and polishing edits remain drafts until Host validation can accept the complete configuration.
 
 ### Hardened
 
@@ -22,6 +23,10 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Bounded local Whisper files, cloud response bodies, and ASR payloads.
 - Whisper helper scripts exit via `os._exit`, avoiding the Homebrew python/torch/openblas OpenMP-teardown SIGSEGV (isolated to the child process; download results stay authoritative).
 - Whisper model state actions surface Host/Remote failures and retain the last known state instead of silently ignoring failed requests.
+- Cloud ASR requests now have a 120-second timeout; streamed polish output is bounded and falls back to raw text when oversized.
+- Unknown ASR backend/model identifiers are rejected, canceled Whisper probes short-circuit, and Host/Client Remote cancellation metadata is kept in parity.
+- Stale Whisper action responses, late aborted polish results, and MediaRecorder start failures are handled without overwriting current state or leaking microphone tracks.
+- Failed Whisper model operations retain an actionable retry/cancel/delete path in the settings row.
 
 ### Changed
 

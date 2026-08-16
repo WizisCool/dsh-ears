@@ -20,7 +20,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - M3: dsh-owned text polishing and route discovery are implemented.
 - M4: native Plugins settings card and persistence are implemented.
 - M5: local/cloud ASR backends and lifecycle hardening are implemented.
-- M6: local release-readiness audit is complete; the MIT license decision is recorded, and the repository is released privately on GitHub. npm publishing remains gated.
+- M6: local release-readiness audit and the current hardening pass are complete; the MIT license decision is recorded, and the repository is released privately on GitHub. npm publishing remains gated.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -72,6 +72,7 @@ dsh-ears/
 │   ├── client/
 │   │   ├── index.ts          # Client composition
 │   │   ├── MicrophoneButton.tsx # Composer control and backend dispatch
+│   │   ├── settings-controller.ts # Async settings, route, and Whisper state controller
 │   │   ├── voice-flow.ts     # Draft, polish, and stale-result protection
 │   │   └── settings.tsx      # Dedicated settings.section page
 │   ├── asr/
@@ -124,9 +125,12 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 - Web Speech remains a browser live backend, but its recognition service may be provided by the browser vendor.
 - Local Whisper and cloud ASR use MediaRecorder audio and a final-result Host RPC; they do not attempt invisible backend switching during one recording.
 - The Host rejects oversized audio, uses bounded temporary files and response bodies, and removes local Whisper temporary directories in `finally` blocks.
+- Cloud ASR requests have a 120-second Host timeout; polish output is capped and falls back to the raw transcript when the cap is exceeded.
+- Host rejects unknown ASR/backend identifiers instead of silently mapping them to a real model or backend.
 - M3 uses a named plugin RPC for text-only polishing. The Host invokes dsh `ctx.llm`; the Client sends text and a route reference, never audio or credentials.
 - Client Remote calls use a Cordis child scope that injects `remote.dshEars`; asynchronous controllers and React event callbacks receive the concrete namespace rather than retaining an unscoped `ctx.remote` object.
 - The final-audio RPC accepts one bounded base64 payload and MIME type, carries an AbortSignal, and returns a strict transcript string. Streaming/chunked audio is intentionally not part of the first final-backend contract.
+- Host and Client Remote descriptors carry the same endpoint parameters, codecs, result schemas, and cancellation metadata; settings updates honor an already-aborted request before writing.
 - Settings use a dedicated `settings.section` page registered at the same level as General, Models, and Plugins (nav order 16, right after Plugins). The earlier `settings.plugin.item` card surface was replaced; see D-017.
 
 ## LLM polishing
@@ -141,7 +145,7 @@ Polishing is owned by dsh:
 - If the selected route is missing, unavailable, times out, or fails, return the original transcript and never block the draft.
 - When polishing is enabled, a provider/model pair is required (an empty pair is invalid, not a no-polish state); when polishing is disabled, the pair is dormant and not validated.
 
-The polishing prompt removes filler words, repairs likely ASR errors, restores punctuation, preserves meaning, formats explicit enumerations as lists, and treats transcript text as data rather than instructions. The runtime prompt may be Chinese; its implementation and tests remain English-documented.
+The polishing prompt removes filler words, repairs likely ASR errors, restores punctuation, preserves meaning, formats explicit enumerations as lists, and treats transcript text as data rather than instructions. The Host bounds both input and streamed output; any timeout, cancellation, route failure, or oversized result falls back to the raw transcript. The runtime prompt may be Chinese; its implementation and tests remain English-documented.
 
 ## ASR contracts
 
@@ -162,7 +166,7 @@ type ASRBackendInfo = {
 
 The browser backend uses `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The final backends use `MediaRecorder` with mono, echo-cancellation, noise-suppression, and automatic-gain-control constraints. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording. Teardown aborts are silent and never write into an unmounted draft.
 
-Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. Model availability is surfaced through two Host RPCs: the state RPC discovers the installed whisper's Python (CLI shebang first, then platform PATH probes with a fast spec-only check) and reports CLI availability plus the standard cache file, while the download RPC fetches a missing model through the installed library's own downloader with tqdm progress. The cloud adapter sends `file`, `model`, and optional language fields to an explicit HTTP(S) endpoint. Cloud credentials are resolved per operation from dsh credential references. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
+Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. Model availability is surfaced through two Host RPCs: the state RPC discovers the installed whisper's Python (CLI shebang first, then platform PATH probes with a fast spec-only check) and reports CLI availability plus the standard cache file, while the download RPC fetches a missing model through the installed library's own downloader with tqdm progress. The cloud adapter sends `file`, `model`, and optional language fields to an explicit HTTP(S) endpoint, with a 120-second request timeout. Cloud credentials are resolved per operation from dsh credential references. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
 
 ## Settings
 
@@ -171,7 +175,7 @@ Local Whisper is invoked on the dsh Host with argument arrays and private tempor
 - Recognition group: ASR backend selection, local Whisper model, cloud endpoint/model/dsh credential reference, language (default `zh-CN`), and per-recording limit (default 120 seconds).
 - Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. The group's rows appear only after polishing is enabled; an enabled polish requires a complete provider/model pair.
 
-The page keeps the same draft/save/discard flow and read-only fallback as the previous card. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the page stores only a dsh credential reference such as `OPENAI_API_KEY`.
+The page keeps the same draft and read-only fallback as the previous card, with 400 ms auto-save. Incomplete cross-field Cloud ASR or polishing edits remain local drafts until their required fields are complete; stale Whisper action responses cannot replace a newer selection, and failed model operations retain a retry action. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR credentials remain Host-side and separate from polishing; the page stores only a dsh credential reference such as `OPENAI_API_KEY`.
 
 ## Milestones
 
@@ -206,7 +210,7 @@ The page keeps the same draft/save/discard flow and read-only fallback as the pr
 ### M3/M4 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 35 tests across 9 files.
+- `pnpm test`: passed; 61 tests across 9 files.
 - `pnpm build`: passed; Host RPC, Client bundle, CSS modules, and declarations generated.
 - Fresh dsh Web boot on a temporary port: passed; the microphone and dedicated `dsh-ear` settings page loaded.
 - Native `Settings → dsh-ear`: passed; the page appeared and loaded dsh provider routes.
@@ -227,13 +231,14 @@ The page keeps the same draft/save/discard flow and read-only fallback as the pr
 ### M5 verification
 
 - `pnpm check`: passed.
-- `pnpm test`: passed; 35 tests across 9 files.
+- `pnpm test`: passed; 61 tests across 9 files.
 - `pnpm build`: passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
 - Local Whisper smoke: passed with a generated AIFF file and the installed `whisper --model tiny` command.
 - dsh Host RPC smoke: passed with a real `dshEars/transcribe` request and transcript response.
 - Cloud adapter tests: passed for multipart payloads, anonymous endpoints, credential headers, URL credential rejection, and bounded chunked responses.
 - Browser lifecycle tests: passed for MediaRecorder cleanup/idempotence, Web Speech silent abort, and synchronous-start failure.
 - Draft-flow tests: passed for stale manual edits and late polish results.
+- Hardening tests: passed for cross-field settings staging, stale Whisper operations, late aborted polish results, bounded cloud/polish responses, strict identifier rejection, and full Host/Client descriptor parity.
 
 ### M6 — Release readiness — local audit complete
 
@@ -258,6 +263,9 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
 - Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights. State checks and downloads delegate to the installed library, so pip/Homebrew/pipx/conda/Windows layouts follow the library's own paths; a host without a whisper-capable Python reports an honest error instead of guessing.
 - OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
+- Final ASR settings are read when the Host RPC begins. Option A is to carry the recording-start backend/model/language snapshot in the RPC; Option B is to lock recognition settings while a recording is active. This remains open because either choice changes the first-release protocol semantics.
+- A Host crash during a Whisper download can leave a non-empty partial cache file that state-by-stat sees as downloaded on restart. Option A is on-demand SHA-256 verification using Whisper's model URL hash; Option B is a completion sidecar/marker. Hashing every large model is a performance tradeoff and is intentionally not introduced without a decision.
+- The temporary HMR shutdown sometimes logs `Invalid revision range .....HEAD`; it was reproduced outside plugin business calls and remains an environment-level diagnostic to confirm against dsh HMR.
 - The MIT license decision and private repository release are recorded in `.agent/decisions.md` (D-016); npm publishing and public visibility changes remain gated by an explicit release decision.
 
 ## References

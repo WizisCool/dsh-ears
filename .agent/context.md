@@ -91,3 +91,15 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 ## Public-quality target
 
 The project is intended to become a durable community package. Maintain English-first source/docs/context, narrow compatibility claims, deterministic builds, focused tests, real dsh smoke evidence, security boundaries, and atomic history. Do not add a legal license, push, publish, or create release tags without an explicit release decision.
+
+## Current hardening invariants
+
+- The settings controller stages incomplete cross-field edits: enabling polishing or selecting Cloud ASR does not submit a Host-invalid partial configuration, while valid fields continue to save independently. Whisper download, cancel, delete, and polling responses are generation-checked so an older response cannot replace a newer operation or model selection.
+- Host final ASR requests are bounded: audio and response sizes remain limited, Cloud ASR has a 120-second request timeout, already-aborted probes/transcribes short-circuit, and unknown backend/model identifiers are rejected rather than mapped to a real default.
+- The polish flow bounds streamed output and checks cancellation again after Remote resolution; a late result from a Remote implementation that ignores cancellation cannot write into an unmounted draft. MediaRecorder start failures release tracks and make the session terminal.
+- Host and Client Remote descriptors must agree on endpoint IDs, parameter wire shapes, codecs, result schemas, and cancellation metadata. The parity test in `tests/remote-contract.test.ts` is the regression guard for the two hand-written descriptor faces.
+
+## Open protocol boundaries
+
+- `transcribe()` reads recognition settings when the Host RPC begins. Snapshotting backend/model/language in the recording-start request or locking settings during capture are both viable, but neither is silently chosen because it changes the first-release protocol.
+- Whisper state uses the installed library's cache path and file stat after startup. A Host crash during download can leave a partial file that needs either SHA-256 verification or a completion marker; the performance tradeoff remains a maintainer decision.

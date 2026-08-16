@@ -105,3 +105,19 @@
 - Decision: Register `dsh-ears` configuration as its own `settings.section` page (`dsh-ear`, nav order 16 — between Plugins and Agent presets) instead of the `settings.plugin.item` card inside the Plugins page.
 - Decision: Style the page with the same semantic tokens, card geometry, and field patterns as the shipped Models/General pages so the surface reads as a native settings page.
 - Rationale: The Plugins-page card is dense and cannot grow; a dedicated page provides room for clearer grouped configuration (Recognition, Polishing) and future options while staying inside dsh's canonical settings window.
+
+## D-018 — Final ASR settings snapshot remains open
+
+- Status: open; no first-release protocol change approved.
+- Current behavior: `dshEars/transcribe` reads the current backend, model, and language settings when the Host RPC begins. The browser does not promise invisible backend switching during one recording.
+- Option A: carry the recording-start backend/model/language snapshot in the final-audio RPC so a settings change cannot alter an in-flight recording.
+- Option B: lock recognition settings while capture or transcription is active.
+- Rationale for deferral: both options change the first-release wire or UI semantics and need an explicit compatibility decision.
+
+## D-019 — Whisper cache integrity after Host crash remains open
+
+- Status: open; no global checksum or sidecar policy approved.
+- Current behavior: normal failure and cancellation paths remove incomplete files, while the startup state check trusts the installed library's cache path and file stat.
+- Option A: verify the model URL SHA-256 on demand, with a cache keyed by path/size/mtime to avoid hashing on every poll.
+- Option B: write and require a completion sidecar/marker for downloads performed by dsh-ears.
+- Rationale for deferral: checksum cost for large models and treatment of pre-existing Whisper caches need maintainer agreement.

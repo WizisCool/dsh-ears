@@ -5,82 +5,57 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Local release-readiness audit: complete; the MIT license decision is recorded and the repository is released privately on GitHub; npm publishing remains gated by an explicit release decision.
-- Target: dsh `0.1.0-rc.6`.
-- Latest implementation commit: `d66c270 fix(client): surface Whisper remote failures`.
-- Latest docs commit: `3000339 docs: record dedicated settings page decision`.
-- Latest client commit: `a1ef1c9 fix(asr): bypass python teardown crash with os._exit`.
-- Latest test/package commits: `242563b test: cover Remote descriptor parity`, `674d656 chore(package): include changelog in tarball`.
-- Current branch: `master`; the handoff commit for this refinement follows the implementation commit.
-- Previous UI commit: `7bfa752 fix(client): follow dsh composer styling`.
-- Previous icon commit: `e7c4c94 fix(client): refine microphone icon`.
-- Remote operations: pushed to the private GitHub repository `WizisCool/dsh-ears`; no npm publish, release tag, or public visibility change has been performed.
-- Repository language: English-first for source, docs, context, comments, and commits.
+- Current work: global code-audit hardening is implemented locally; final docs, verification, and remote push are still pending in this handoff.
+- Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
+- Branch: `master`, currently 65 commits ahead of `origin/master`; no push has been performed for this audit yet.
+- Latest code commit: `ef27118 fix(protocol): align settings cancellation metadata`.
+- Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
+- Repository language: English-first for source, docs, context, comments, and commit messages.
 
-## Completed implementation
+## Completed audit and hardening
 
-- Official-style Host/Client package exports, `dsh.bundle.patch`, `dsh.client`, and CSS-module client bundling.
-- Web Speech live recognition with interim/final draft updates, retryable errors, recording limits, and silent teardown abort.
-- dsh-native composer placement and light/dark semantic token adaptation: model selector → microphone → send visually.
-- Refined the 16px microphone SVG with dsh-compatible optical weight, rounded geometry, and currentColor theming.
-- Matched microphone default/hover/focus behavior and label-secondary color to the native model selector.
-- Host-owned dsh LLM route discovery and optional transcript polishing with raw-transcript fallback.
-- Dedicated `settings.section` page (`dsh-ear`, order 16) with Plugins-style tab cards (Recognition / Polishing), General/Permissions-style rows with pill `Menu` selectors, clean backend labels (`Web Speech` / `Local Whisper` / `Cloud ASR`), active-backend-only configuration rows with matching hint text (settings persist across switches), a native-style switch for the polishing toggle, display-name-only provider/model pickers, a dsh-route-driven reasoning-effort picker (`dshEars/listReasoningEfforts` → validated `reasoningEffort` on `dshEars/polish`), and debounced auto-save with per-field invalid skipping and native-style feedback (D-017; supersedes the former Plugins-page card and the manual Save/Discard footer).
-- Local Whisper Host adapter using a non-shell child process, private temporary files, cancellation, timeout, and cleanup.
-- OpenAI-compatible cloud ASR adapter using bounded multipart input/response handling and per-operation dsh credential resolution.
-- MediaRecorder capture with constrained mono audio, idempotent stop, error cleanup, track release, and manual draft protection.
-- Browser-side recording buffers are bounded before finalization; overflow stops capture and releases tracks.
-- Typed Typert Host/Client Remote contracts and Cordis child-scope injection of `remote.dshEars`.
-- Shared settings validation and pure draft-flow helpers with focused tests.
+- Split the settings view from its asynchronous controller and added request generations for settings, routes, reasoning efforts, and Whisper state.
+- Staged incomplete cross-field settings edits: enabling polishing or switching to Cloud ASR waits for required fields instead of submitting a Host-invalid partial patch; valid fields still save independently.
+- Made Whisper download/cancel/delete/poll responses latest-wins, kept cancellation authoritative during cleanup, and preserved retry actions after failures.
+- Made MediaRecorder start failures terminal and track-safe; late polish results are ignored after abort/unmount even when a Remote implementation ignores cancellation.
+- Added Cloud ASR request timeout (120 seconds), early cancellation checks, bounded streamed polish output, and strict rejection of unknown backend/model identifiers.
+- Aligned Host and Client Remote cancellation metadata for `updateSettings`; the parity test now compares every endpoint's parameters, codecs, cancellation marker, and result schema.
+- Kept the high-risk recording-settings snapshot question and Whisper crash-residue integrity policy open rather than changing the first-release protocol implicitly.
 
 ## Verification evidence
 
-Commands currently passing:
+Current local checks after the latest code commit:
 
-- `pnpm check`
-- `pnpm test` — 35 tests across 9 files
-- `pnpm build`
-- `pnpm pack --dry-run` — passed; tarball contents reviewed
-- `git diff --check`
-- `node /Users/junze/.agents/skills/impeccable/scripts/detect.mjs --json src/client/MicrophoneButton.tsx` — passed with no findings
-- Microphone and model selector computed text colors matched in both dsh themes; default microphone background was transparent and focus ring used `--dsw-alias-border-l3`.
+- `pnpm check` — passed.
+- `pnpm test` — passed; 61 tests across 9 files.
+- `pnpm build` — passed; Host ESM, Client factory bundle, CSS, declarations, and source maps generated.
+- `pnpm pack --dry-run` — passed; package contents include Host/Client entries, declarations, patch, README, changelog, and license.
+- `git diff --check` — passed after each code commit.
+- Secret scan for common key/private-key patterns — no matches.
 
-Real dsh verification already completed:
+Real rc.6 smoke evidence already obtained during this audit and to be repeated after the final docs/code baseline:
 
-- dsh Host loaded the plugin and the browser bundle rendered the microphone.
-- Native Plugins settings loaded dsh routes, persisted a recording-limit edit, and restored it.
-- No `remote.dshEars without inject` regression appeared after fresh boot/hot reload.
-- Composer position and dsh semantic colors were measured in both light and dark themes.
-- The refined microphone SVG hot-loaded in the local dsh browser and was visually checked in light and dark composer states; the original light theme setting was restored afterward.
-- A generated audio file was transcribed by the installed local Whisper command.
-- A real dsh Host `dshEars/transcribe` wire request returned the expected transcript.
+- `dsh --version` returned `0.1.0-rc.6`.
+- `pnpm dev:config` produced the HMR patch and a temporary Web boot on port 64803 loaded `/plugins/dsh-ears/client.js`.
+- Native `dsh-ear` Recognition and Polishing tabs loaded; Whisper state RPC rendered; composer order measured as model → microphone → send.
+- Browser warning/error logs were empty.
+- Shutdown printed `Invalid revision range c964...HEAD`; this was reproduced as an HMR/environment diagnostic after the plugin had loaded, not attributed to business code.
 
-## Current boundaries
+## Current boundaries and open decisions
 
-- Compatibility is promised only for dsh `0.1.0-rc.6` until another release is tested.
 - Web Speech may use a browser-vendor recognition service; it is not claimed to be local-only.
 - Cloud ASR is limited to the documented OpenAI-compatible multipart `{ file, model, language? }` and JSON `{ text }` contract.
 - Emotion recognition/output and emotion UI remain intentionally deferred.
 - The plugin does not bundle Whisper model weights.
+- `transcribe()` reads backend/model/language when the Host RPC begins. Option A is a recording-start settings snapshot; Option B is locking recognition settings during capture/transcription. This requires a protocol decision.
+- After a Host crash during Whisper download, a partial cache file may pass the stat-only startup check. Option A is SHA-256 verification with metadata caching; Option B is a completion sidecar/marker. This requires a performance and compatibility decision.
 - No API keys, credentials, user audio, personal paths, private endpoints, or user data belong in Git.
 
-## Remaining release work
+## Remaining delivery work
 
-1. Keep the compatibility matrix current when dsh releases change.
-2. npm publishing, release tags, and any public visibility change require an explicit maintainer release decision.
-
-## Blockers
-
-None. A non-empty live dsh polish completion still depends on a usable configured dsh model route; route discovery and failure fallback are verified.
-
-## Latest task record
-
-- Completed: surfaced Whisper model Host/Remote failures in the settings controller without discarding the last known model state; added a regression test for the `RemoteResult` failure branch.
-- Validation: `pnpm check` passed; `pnpm test` passed with 35/35 tests across 9 files; `pnpm build` passed; staged diff check passed.
-- Unfinished: optional hardening — retry `refreshSettings()` after a transient first-fetch failure so the page does not stay read-only — deferred pending maintainer decision.
-- Blocked: none.
-- Next: continue the module-by-module code audit; push the unpushed local commits after maintainer authorization.
-- Commit: `d66c270 fix(client): surface Whisper remote failures`.
+1. Run the final post-doc `check`/`test`/`build`, pack check, and rc.6 smoke.
+2. Update this handoff with the final docs commit hash and verification result.
+3. Push the complete `master` history to the private `origin` repository; do not publish npm or change visibility.
 
 ## Handoff template
 

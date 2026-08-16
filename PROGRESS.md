@@ -20,16 +20,20 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Polishing is disabled by default; its rows appear only after the toggle is enabled, the no-polish option is removed, an enabled polish requires a complete provider/model pair, and reasoning labels are adapter-native (untranslated `Default`, matching the model selector).
 - Whisper model availability is now visible: downloaded state, a download action with progress (delegated to the installed library, tqdm-derived), and honest errors across platforms/environments.
 - Whisper model state controls now surface Host/Remote failures while preserving the last known state, instead of silently looking like an unavailable or missing model.
+- Hardened settings auto-save so incomplete Cloud ASR and polishing changes stay local until their required fields are complete; Host/Client Remote cancellation metadata is now aligned.
+- Hardened async lifecycles: stale Whisper actions and late aborted polish results are ignored, MediaRecorder start failures release tracks, and failed Whisper downloads keep cancellation authoritative with a visible retry action.
+- Added Host bounds and validation: Cloud ASR requests time out after 120 seconds, streamed polish output is capped, canceled Whisper probes short-circuit, and unknown backend/model identifiers are rejected.
 
 ## Verified
 
 - `pnpm check` passed.
-- `pnpm test` passed: 35 tests across 9 files.
+- `pnpm test` passed: 61 tests across 9 files.
 - `pnpm build` passed.
 - `pnpm pack --dry-run` passed; the tarball includes the Host/Client entries, declarations, bundle patch, README, and changelog.
 - Real dsh Host/browser loading, native settings persistence, and hot-reload Remote injection were verified.
 - Local Whisper produced a transcript from generated audio and the same result was returned through a real dsh Host RPC.
 - Light/dark composer layout and dsh token behavior were measured in the local Web surface.
+- Final rc.6 smoke after hardening: temporary Web boot on port 64803 loaded `/plugins/dsh-ears/client.js`; native `dsh-ear` Recognition/Polishing tabs loaded, Whisper state RPC rendered, composer order remained model → microphone → send, and browser warning/error logs were empty.
 
 ## Still intentionally open
 
@@ -37,4 +41,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 - Only dsh `0.1.0-rc.6` is currently supported.
 - A non-empty live polish completion depends on a usable model route configured in the local dsh environment; route discovery and failure fallback are covered.
 - Browser microphone permission and platform-specific Web Speech behavior need broader manual coverage.
+- A Host restart during Whisper download can leave a partial cache file that a stat-only check may mistake for a complete model; checksum verification or a completion marker needs a deliberate performance decision.
+- A recording currently reads backend/model/language settings when the Host transcribe RPC begins; locking or snapshotting those settings during an active recording remains a protocol decision.
+- Temporary HMR shutdown can log an `Invalid revision range .....HEAD` diagnostic; it needs confirmation against dsh rather than a plugin-side workaround.
 - npm publish and any public visibility change require explicit maintainer approval.
