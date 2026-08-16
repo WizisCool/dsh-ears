@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { access, readFile, rm, stat } from 'node:fs/promises'
+import { access, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
@@ -8,6 +8,7 @@ const STATE_COMMAND_TIMEOUT_MS = 15_000
 const PROBE_COMMAND_TIMEOUT_MS = 5_000
 const MAX_STDERR_TAIL = 800
 const FAILURE_CACHE_TTL_MS = 30_000
+const DOWNLOAD_MARKER_SUFFIX = '.dsh-ears-done'
 
 export interface WhisperModelState {
   cliAvailable: boolean
@@ -108,7 +109,9 @@ export class WhisperModels {
       if (table !== undefined) {
         const file = table.files.get(handle.model)
         if (file !== undefined) {
-          void rm(join(table.root, file), { force: true }).catch(() => undefined)
+          const filePath = join(table.root, file)
+          void rm(filePath, { force: true }).catch(() => undefined)
+          void rm(markerPath(filePath), { force: true }).catch(() => undefined)
         }
       }
       handle.finished = true
@@ -151,8 +154,16 @@ export class WhisperModels {
       const filePath = join(table.root, file)
       try {
         const info = await stat(filePath)
+        // A model file without the dsh-ears completion marker may be a partial
+        // download from a killed process; treat it as not downloaded so the
+        // user can re-download instead of transcribing with a broken file.
+        if (!await fileExists(markerPath(filePath))) {
+          return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The model file exists but was not downloaded by dsh-ears; download it again to verify.` }
+        }
         return { cliAvailable, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: info.size, error: null }
       } catch {
+        // No model file: drop an orphaned marker silently.
+        await rm(markerPath(filePath), { force: true }).catch(() => undefined)
         return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
       }
     } catch (error) {
@@ -203,7 +214,7 @@ export class WhisperModels {
       // Best-effort cleanup of the partial file so it is not mistaken for a
       // complete model by the next state query.
       try {
-        await this.removeModelFile(handle.python, model)
+        await this.removeModelArtifacts(handle.python, model)
       } catch (error) {
         handle.error = `Whisper download cancellation cleanup failed: ${error instanceof Error ? error.message : String(error)}`
       }
@@ -230,7 +241,9 @@ export class WhisperModels {
       if (file === undefined) {
         return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The installed whisper does not know the model "${model}".` }
       }
-      await rm(join(table.root, file), { force: true })
+      const filePath = join(table.root, file)
+      await rm(filePath, { force: true })
+      await rm(markerPath(filePath), { force: true })
       return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
     } catch (error) {
       return {
@@ -273,7 +286,7 @@ export class WhisperModels {
       completionStarted = true
       void (async () => {
         try {
-          await this.removeModelFile(python, model)
+          await this.removeModelArtifacts(python, model)
         } catch (error) {
           if (handle.cancelRequested) {
             handle.finished = true
@@ -290,8 +303,19 @@ export class WhisperModels {
       })()
     }
     try {
+      // Drop a stale completion marker before overwriting: if this download is
+      // killed mid-write, the leftover file must not be reported as complete.
+      const table = await this.resolveModelTable(python)
+      const file = table.files.get(model)
+      if (file !== undefined) await rm(markerPath(join(table.root, file)), { force: true })
+    } catch (error) {
+      finishFailure(error instanceof Error ? error.message : String(error))
+      return
+    }
+    try {
       child = spawn(python, ['-u', '-c', script, model], {
         stdio: ['ignore', 'ignore', 'pipe'],
+        env: this.env,
         windowsHide: true
       })
     } catch (error) {
@@ -317,8 +341,7 @@ export class WhisperModels {
     child.once('close', (code, signal) => {
       if (handle.finished || handle.cancelRequested) return
       if (code === 0 || stderrTail.includes('__DSH_EARS_DONE__')) {
-        handle.progress = 1
-        handle.finished = true
+        void this.completeDownload(python, model, handle)
         return
       }
       const tail = stderrTail.trim().split(/[\r\n]+/).filter((line) => line.trim() !== '').at(-1)?.trim() ?? ''
@@ -329,10 +352,34 @@ export class WhisperModels {
     })
   }
 
-  private async removeModelFile(python: string, model: WhisperModelId): Promise<void> {
+  /** Write the completion marker that makes a downloaded file trustworthy. */
+  private async completeDownload(python: string, model: WhisperModelId, handle: DownloadHandle): Promise<void> {
+    try {
+      const table = await this.resolveModelTable(python)
+      const file = table.files.get(model)
+      if (file === undefined) throw new Error(`The installed whisper does not know the model "${model}".`)
+      await writeFile(markerPath(join(table.root, file)), model, 'utf8')
+    } catch (error) {
+      if (!handle.cancelRequested) {
+        handle.error = `Whisper download completed but the completion marker could not be written: ${error instanceof Error ? error.message : String(error)}`
+      }
+      handle.progress = 1
+      handle.finished = true
+      return
+    }
+    if (handle.cancelRequested || handle.finished) return
+    handle.progress = 1
+    handle.finished = true
+  }
+
+  private async removeModelArtifacts(python: string, model: WhisperModelId): Promise<void> {
     const table = await this.resolveModelTable(python)
     const file = table.files.get(model)
-    if (file !== undefined) await rm(join(table.root, file), { force: true })
+    if (file !== undefined) {
+      const filePath = join(table.root, file)
+      await rm(filePath, { force: true })
+      await rm(markerPath(filePath), { force: true })
+    }
   }
 
   /**
@@ -350,11 +397,11 @@ export class WhisperModels {
       const cliPath = await this.resolveExecutable(this.platform === 'win32' ? 'whisper.exe' : 'whisper')
       if (cliPath !== undefined) {
         const interpreter = await readShebangInterpreter(cliPath)
-        if (interpreter !== undefined && await hasWhisperSpec(interpreter)) return interpreter
+        if (interpreter !== undefined && await this.hasWhisperSpec(interpreter)) return interpreter
       }
       for (const candidate of pythonCandidates(this.platform)) {
         const path = await this.resolveExecutable(candidate)
-        if (path !== undefined && await hasWhisperSpec(path)) return path
+        if (path !== undefined && await this.hasWhisperSpec(path)) return path
       }
       return undefined
     })()
@@ -401,7 +448,7 @@ export class WhisperModels {
       'os._exit(0)'
     ].join('\n')
     const promise = (async () => {
-      const output = await runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
+      const output = await this.runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
       const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
       if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
         throw new Error('Could not read the installed whisper model table')
@@ -428,6 +475,54 @@ export class WhisperModels {
     } finally {
       if (this.modelTablePromise === promise) this.modelTablePromise = undefined
     }
+  }
+
+  /** Spec-only check: resolves the whisper distribution without importing it. */
+  private async hasWhisperSpec(python: string): Promise<boolean> {
+    try {
+      const output = await this.runPythonCollect(python, ['-c', "import importlib.util, sys; print(importlib.util.find_spec('whisper') is not None); sys.stdout.flush(); import os; os._exit(0)"], PROBE_COMMAND_TIMEOUT_MS)
+      return output.trim() === 'True'
+    } catch {
+      return false
+    }
+  }
+
+  private runPythonCollect(command: string, args: readonly string[], timeoutMs: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, [...args], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        env: this.env,
+        windowsHide: true
+      })
+      let stdout = ''
+      let settled = false
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true
+          child.kill('SIGTERM')
+          reject(new Error('Whisper Python command timed out'))
+        }
+      }, timeoutMs)
+      child.stdout?.on('data', (chunk: Buffer | string) => {
+        stdout += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
+      })
+      child.once('error', (error) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        reject(error)
+      })
+      child.once('close', (code) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        if (code === 0) {
+          resolve(stdout)
+          return
+        }
+        reject(new Error(`Whisper Python exited with code ${String(code)}`))
+      })
+    })
   }
 
   private async resolveExecutable(command: string): Promise<string | undefined> {
@@ -468,55 +563,21 @@ function stateFromHandle(handle: DownloadHandle, cliAvailable: boolean): Whisper
   }
 }
 
-/** Spec-only check: resolves the whisper distribution without importing it. */
-async function hasWhisperSpec(python: string): Promise<boolean> {
+function isMissingExecutable(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
+}
+
+function markerPath(filePath: string): string {
+  return `${filePath}${DOWNLOAD_MARKER_SUFFIX}`
+}
+
+async function fileExists(path: string): Promise<boolean> {
   try {
-    const output = await runPythonCollect(python, ['-c', "import importlib.util, sys; print(importlib.util.find_spec('whisper') is not None); sys.stdout.flush(); import os; os._exit(0)"], PROBE_COMMAND_TIMEOUT_MS)
-    return output.trim() === 'True'
+    await access(path, constants.F_OK)
+    return true
   } catch {
     return false
   }
-}
-
-function runPythonCollect(command: string, args: readonly string[], timeoutMs: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, [...args], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
-    })
-    let stdout = ''
-    let settled = false
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true
-        child.kill('SIGTERM')
-        reject(new Error('Whisper Python command timed out'))
-      }
-    }, timeoutMs)
-    child.stdout?.on('data', (chunk: Buffer | string) => {
-      stdout += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
-    })
-    child.once('error', (error) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      reject(error)
-    })
-    child.once('close', (code) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      if (code === 0) {
-        resolve(stdout)
-        return
-      }
-      reject(new Error(`Whisper Python exited with code ${String(code)}`))
-    })
-  })
-}
-
-function isMissingExecutable(error: unknown): boolean {
-  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
 }
 
 async function readShebangInterpreter(executablePath: string): Promise<string | undefined> {
