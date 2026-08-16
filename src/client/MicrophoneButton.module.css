@@ -39,13 +39,14 @@
 }
 
 /*
- * rc.6 renders the right list slot before the named model seat. The public
- * data-slot topology lets the plugin preserve the intended visual order
- * without relying on generated class names:
- * model → microphone → native trailing controls → send.
+ * rc.6 renders the right list slot before the named model seat in the DOM.
+ * The public data-slot topology lets the plugin restore the intended visual
+ * order without relying on generated class names:
+ * model → ContextMeter → microphone → send.
  *
- * The final rule also keeps future dsh-owned controls that follow the model
- * seat on the trailing side of the microphone (for example, ContextMeter).
+ * Native controls after the model seat share the middle order. The final
+ * primary button is moved to the last position so the microphone stays beside
+ * it, even though the plugin's right-slot contribution is mounted earlier.
  */
 :global([data-slot='conversation.input.model']) {
   order: 1;
@@ -55,16 +56,20 @@
   order: 1;
 }
 
-:global([data-slot='conversation.input.right']) {
+:global([data-slot='conversation.input.model'] ~ *) {
   order: 2;
+}
+
+:global([data-slot='conversation.input.right']) {
+  order: 3;
 }
 
 :global([data-slot='conversation.input.right'] > *) {
-  order: 2;
+  order: 3;
 }
 
-:global([data-slot='conversation.input.model'] ~ *) {
-  order: 3;
+:global([data-slot='conversation.input.model'] ~ button:last-child) {
+  order: 4;
 }
 
 @media (prefers-reduced-motion: reduce) {
