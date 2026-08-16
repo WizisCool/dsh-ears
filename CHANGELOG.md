@@ -56,7 +56,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Polishing is now disabled by default, its configuration rows appear only after the toggle is enabled (progressive disclosure), the meaningless no-polish picker option is gone, an enabled polish requires a complete provider/model pair, and reasoning-effort labels use the adapter's native names with an untranslated `Default` entry (matching the composer model selector).
 - The not-downloaded hint no longer promises automatic first-use downloads; the Local Whisper hint documents that `medium` and larger models need a GPU or a faster local runtime within the 120-second limit.
 - Cloud ASR credentials moved from dsh credential references to a plugin-owned `role('secret')` inline API key (write-only across the plugin wire, redacted `getSettings`, absent=keep/set/clear patch semantics), reversing D-014 for the cloud ASR surface; the `cloudAsrCredentialRef` field is removed (package unreleased, no migration).
-- The Recognition backend selector became a single grouped menu with bilingual group labels and per-provider hint text; the Groq endpoint row is pinned read-only, and the Groq model row shows live-fetched models (empty until a key is configured, inline warning plus retry on fetch failure, stale-model notice when the saved model leaves the live list).
+- The Recognition backend selector became a single grouped menu with bilingual group labels and per-provider hint text; the pinned Groq endpoint is no longer shown as a row (presets hide it entirely), and the Groq model row shows live-fetched models (empty until a key is configured, inline warning plus retry on fetch failure, stale-model notice when the saved model leaves the live list).
 
 ### Deferred
 
