@@ -318,6 +318,29 @@ describe('EarsSettingsController settings lifecycle', () => {
       vi.useRealTimers()
     }
   })
+
+  it('populates the cloud model store from the provider listing RPC', async () => {
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, models: ['whisper-large-v3-turbo'] } }))
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+
+    await controller.refreshSettings()
+
+    expect(controller.getCloudModelsStore().getSnapshot()).toEqual({
+      status: 'ready',
+      view: { status: 'ok', models: ['whisper-large-v3-turbo'] }
+    })
+    controller.dispose()
+  })
+
+  it('marks the custom provider model listing as unsupported', async () => {
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'no-key' as const } }))
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+
+    controller.actions().edit('cloudAsrProvider', 'custom')
+    await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported'))
+    expect(listCloudProviderModels).not.toHaveBeenCalled()
+    controller.dispose()
+  })
 })
 
 describe('Locale parity', () => {

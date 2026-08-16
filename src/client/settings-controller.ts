@@ -4,8 +4,8 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, WHISPER_MODEL_IDS, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { cloudAsrModelFor, isCloudConfigurationValid } from '../asr/providers.js'
-import type { AsrBackendInfo, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
+import { cloudAsrModelFor, isCloudConfigurationValid, supportsModelListing } from '../asr/providers.js'
+import type { AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 
 export type FieldName = keyof EarsSettings
@@ -37,12 +37,19 @@ export interface RouteState { status: 'loading' | 'ready'; routes: readonly Poli
 export interface BackendState { status: 'loading' | 'ready'; backends: readonly AsrBackendInfo[] }
 export interface ReasoningEffortsState { status: 'loading' | 'ready'; efforts: readonly ReasoningEffortInfo[]; defaultEffort?: string }
 export interface WhisperModelView { status: 'loading' | 'ready'; state: WhisperModelState }
+export interface CloudModelsView { status: 'loading' | 'ready'; view: CloudProviderModelsView }
 export type EarsSettingsHook = SnapshotSelectorHook<EarsSettings>
 export type EarsCardHook = SnapshotSelectorHook<EarsCardState>
 export type RouteHook = SnapshotSelectorHook<RouteState>
 export type BackendHook = SnapshotSelectorHook<BackendState>
 export type ReasoningEffortsHook = SnapshotSelectorHook<ReasoningEffortsState>
 export type WhisperModelHook = SnapshotSelectorHook<WhisperModelView>
+export type CloudModelsHook = SnapshotSelectorHook<CloudModelsView>
+
+export const EMPTY_CLOUD_MODELS_VIEW: CloudModelsView = Object.freeze({
+  status: 'ready',
+  view: Object.freeze({ status: 'unsupported' })
+})
 
 export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
   cliAvailable: false,
@@ -79,12 +86,14 @@ export class EarsSettingsController {
   private readonly backendStore: SnapshotStore<BackendState>
   private readonly reasoningStore: SnapshotStore<ReasoningEffortsState>
   private readonly whisperStore: SnapshotStore<WhisperModelView>
+  private readonly cloudModelsStore: SnapshotStore<CloudModelsView>
   private readonly drafts = new Map<FieldName, string>()
   private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, cloudAsrEndpointEffective: '', overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
   private whisperView: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE }
+  private cloudModelsView: CloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
   private saving = false
   private loaded = false
   private failed = false
@@ -99,6 +108,7 @@ export class EarsSettingsController {
   private backendRequest = 0
   private reasoningRequest = 0
   private whisperRequest = 0
+  private cloudModelsRequest = 0
   private whisperRefreshInFlight = false
   private whisperRefreshQueued = false
   private whisperMutationInFlight = false
@@ -111,6 +121,7 @@ export class EarsSettingsController {
     this.backendStore = createSnapshotStore(this.backendState)
     this.reasoningStore = createSnapshotStore(this.reasoningState)
     this.whisperStore = createSnapshotStore(this.whisperView)
+    this.cloudModelsStore = createSnapshotStore(this.cloudModelsView)
   }
 
   getSettingsStore(): SnapshotStore<EarsSettings> { return this.settingsStore }
@@ -119,12 +130,14 @@ export class EarsSettingsController {
   getBackendStore(): SnapshotStore<BackendState> { return this.backendStore }
   getReasoningStore(): SnapshotStore<ReasoningEffortsState> { return this.reasoningStore }
   getWhisperStore(): SnapshotStore<WhisperModelView> { return this.whisperStore }
+  getCloudModelsStore(): SnapshotStore<CloudModelsView> { return this.cloudModelsStore }
 
   actions() {
     return {
       edit: (field: FieldName, text: string) => this.edit(field, text),
       setApiKey: (text: string) => this.edit('cloudAsrApiKey', text),
       clearApiKey: () => void this.clearApiKey(),
+      retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
       deleteModel: () => void this.deleteModel()
@@ -138,6 +151,7 @@ export class EarsSettingsController {
     this.backendRequest += 1
     this.reasoningRequest += 1
     this.whisperRequest += 1
+    this.cloudModelsRequest += 1
     this.whisperRefreshQueued = false
     if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
     this.saveTimer = undefined
@@ -162,6 +176,7 @@ export class EarsSettingsController {
         this.publishCard()
         void this.refreshReasoningEfforts()
         void this.refreshWhisperState()
+        void this.refreshCloudModels()
         return
       }
     } catch {
@@ -207,6 +222,29 @@ export class EarsSettingsController {
     }
     if (this.disposed || request !== this.backendRequest) return
     this.backendStore.set(this.backendState)
+  }
+
+  async refreshCloudModels(): Promise<void> {
+    if (this.disposed) return
+    const provider = (this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider).trim()
+    if (!supportsModelListing(provider)) {
+      this.cloudModelsView = { status: 'ready', view: { status: 'unsupported' } }
+      this.cloudModelsStore.set(this.cloudModelsView)
+      return
+    }
+    const request = ++this.cloudModelsRequest
+    this.cloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
+    this.cloudModelsStore.set(this.cloudModelsView)
+    try {
+      const result = await this.remote.listCloudProviderModels()
+      const view: CloudProviderModelsView = result.ok ? result.value : { status: 'error', models: [], error: result.error.message }
+      if (this.disposed || request !== this.cloudModelsRequest) return
+      this.cloudModelsView = { status: 'ready', view }
+    } catch {
+      if (this.disposed || request !== this.cloudModelsRequest) return
+      this.cloudModelsView = { status: 'ready', view: { status: 'error', models: [], error: 'Could not fetch the model list.' } }
+    }
+    this.cloudModelsStore.set(this.cloudModelsView)
   }
 
   async refreshReasoningEfforts(): Promise<void> {
@@ -398,6 +436,7 @@ export class EarsSettingsController {
     this.scheduleSave()
     if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
+    if (field === 'cloudAsrProvider' || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
   }
 
   private async clearApiKey(): Promise<void> {
@@ -462,6 +501,7 @@ export class EarsSettingsController {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
+      const cloudRelevant = this.clearKeyPending || submittedDrafts.has('cloudAsrProvider') || submittedDrafts.has('cloudAsrModel') || submittedDrafts.has('cloudAsrApiKey') || submittedDrafts.has('asrBackend')
       this.settingsView = result.value
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
@@ -469,6 +509,7 @@ export class EarsSettingsController {
       }
       if (this.clearKeyPending) this.clearKeyPending = false
       void this.refreshBackends()
+      if (cloudRelevant) void this.refreshCloudModels()
     } catch {
       if (!this.disposed) this.failed = true
     } finally {
