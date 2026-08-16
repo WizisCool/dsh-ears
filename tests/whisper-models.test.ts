@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { parseDownloadProgress, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
+import { executableSuffixes, parseDownloadProgress, pythonCandidates, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
 
 describe('whisper download progress parsing', () => {
   it('extracts percent and sizes from a tqdm line', () => {
@@ -31,6 +31,23 @@ describe('whisper download progress parsing', () => {
 
   it('returns nulls for text without a progress tuple', () => {
     expect(parseDownloadProgress('some warning line\n')).toEqual({ percent: null, bytes: null, totalBytes: null })
+  })
+})
+
+describe('windows executable discovery', () => {
+  it('probes python.exe and py.exe launchers on win32', () => {
+    expect(pythonCandidates('win32')).toEqual(['python.exe', 'py.exe'])
+    expect(pythonCandidates('darwin')).toEqual(['python3', 'python'])
+  })
+
+  it('expands extension-less commands against PATHEXT on win32', () => {
+    expect(executableSuffixes('py', 'win32', '.EXE;.CMD')).toEqual(['', '.EXE', '.CMD'])
+    expect(executableSuffixes('py', 'win32', undefined)).toEqual(['', '.COM', '.EXE', '.BAT', '.CMD'])
+  })
+
+  it('leaves commands with extensions and POSIX probing untouched', () => {
+    expect(executableSuffixes('python.exe', 'win32', '.EXE;.CMD')).toEqual([''])
+    expect(executableSuffixes('python3', 'darwin', undefined)).toEqual([''])
   })
 })
 

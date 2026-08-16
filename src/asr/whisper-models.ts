@@ -56,8 +56,20 @@ function pathDelimiter(platform: NodeJS.Platform): string {
   return platform === 'win32' ? ';' : ':'
 }
 
-function pythonCandidates(platform: NodeJS.Platform): readonly string[] {
-  return platform === 'win32' ? ['python', 'py'] : ['python3', 'python']
+export function pythonCandidates(platform: NodeJS.Platform): readonly string[] {
+  return platform === 'win32' ? ['python.exe', 'py.exe'] : ['python3', 'python']
+}
+
+/**
+ * Suffixes to try when probing an executable on PATH. Windows launchers such
+ * as `py` live on disk as `py.exe`, so extension-less commands are also tried
+ * against every PATHEXT entry (defaulting to the Windows list when unset).
+ */
+export function executableSuffixes(command: string, platform: NodeJS.Platform, pathext: string | undefined): readonly string[] {
+  if (platform !== 'win32') return ['']
+  if (command.includes('.')) return ['']
+  const extensions = (pathext ?? '.COM;.EXE;.BAT;.CMD').split(';')
+  return ['', ...extensions.filter((extension) => extension !== '')]
 }
 
 export interface WhisperModelsOptions {
@@ -527,14 +539,17 @@ export class WhisperModels {
 
   private async resolveExecutable(command: string): Promise<string | undefined> {
     const path = this.env.PATH ?? ''
+    const suffixes = executableSuffixes(command, this.platform, this.env.PATHEXT)
     for (const directory of path.split(pathDelimiter(this.platform))) {
       if (directory === '') continue
-      const candidate = join(directory, command)
-      try {
-        await access(candidate, this.platform === 'win32' ? constants.F_OK : constants.X_OK)
-        return candidate
-      } catch {
-        // Keep scanning PATH.
+      for (const suffix of suffixes) {
+        const candidate = join(directory, `${command}${suffix}`)
+        try {
+          await access(candidate, this.platform === 'win32' ? constants.F_OK : constants.X_OK)
+          return candidate
+        } catch {
+          // Keep scanning PATH.
+        }
       }
     }
     return undefined
