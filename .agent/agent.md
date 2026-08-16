@@ -5,10 +5,11 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: global code-audit hardening is implemented locally; final docs, verification, and remote push are still pending in this handoff.
+- Current work: global code-audit hardening, documentation, and verification are complete locally; remote push is the remaining delivery action.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`, currently 65 commits ahead of `origin/master`; no push has been performed for this audit yet.
+- Branch: `master`, currently 66 commits ahead of `origin/master`; no push has been performed for this audit yet.
 - Latest code commit: `ef27118 fix(protocol): align settings cancellation metadata`.
+- Latest audit docs commit: `dd3d473 docs: record audit hardening and open boundaries`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
 
@@ -24,7 +25,7 @@
 
 ## Verification evidence
 
-Current local checks after the latest code commit:
+Current local checks after the latest audit docs commit:
 
 - `pnpm check` — passed.
 - `pnpm test` — passed; 61 tests across 9 files.
@@ -33,11 +34,11 @@ Current local checks after the latest code commit:
 - `git diff --check` — passed after each code commit.
 - Secret scan for common key/private-key patterns — no matches.
 
-Real rc.6 smoke evidence already obtained during this audit and to be repeated after the final docs/code baseline:
+Final real rc.6 smoke evidence on the latest build:
 
 - `dsh --version` returned `0.1.0-rc.6`.
-- `pnpm dev:config` produced the HMR patch and a temporary Web boot on port 64803 loaded `/plugins/dsh-ears/client.js`.
-- Native `dsh-ear` Recognition and Polishing tabs loaded; Whisper state RPC rendered; composer order measured as model → microphone → send.
+- `pnpm dev:config` produced the HMR patch and a temporary Web boot on port 64804 loaded `/plugins/dsh-ears/client.js` (HTTP 200; manifest revision observed).
+- Native `dsh-ear` Recognition and Polishing tabs loaded without the load-failure hint; Whisper state RPC rendered; composer order measured as model → microphone → send with computed orders 1, 2, 3.
 - Browser warning/error logs were empty.
 - Shutdown printed `Invalid revision range c964...HEAD`; this was reproduced as an HMR/environment diagnostic after the plugin had loaded, not attributed to business code.
 
@@ -53,9 +54,8 @@ Real rc.6 smoke evidence already obtained during this audit and to be repeated a
 
 ## Remaining delivery work
 
-1. Run the final post-doc `check`/`test`/`build`, pack check, and rc.6 smoke.
-2. Update this handoff with the final docs commit hash and verification result.
-3. Push the complete `master` history to the private `origin` repository; do not publish npm or change visibility.
+1. Push the complete `master` history to the private `origin` repository; do not publish npm or change visibility.
+2. Verify the remote branch tip after pushing and record the push result.
 
 ## Handoff template
 
