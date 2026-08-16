@@ -7,8 +7,8 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import type { AsrBackendInfo, WhisperModelState } from '../remote-contract.js'
-import type { BackendHook, CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, ReasoningEffortsState, RouteHook, RouteState, WhisperModelHook } from './settings-controller.js'
+import type { WhisperModelState } from '../remote-contract.js'
+import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, ReasoningEffortsState, RouteHook, RouteState, WhisperModelHook } from './settings-controller.js'
 import styles from './SettingsSection.module.css'
 
 export const LOCALE_NAMESPACE = 'settings.dshEars'
@@ -22,7 +22,7 @@ export const localeZh = {
   voiceUnavailable: '语音输入不可用',
   voiceUnavailableWebSpeech: '当前浏览器不支持语音输入',
   voiceUnavailableRecorder: '当前浏览器无法录制所选 ASR 后端所需的音频',
-  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。medium 及更大模型需要 GPU 或更快的本地运行时，否则可能超出转录时限。', backendHintGroq: 'Groq 云端 Whisper 转写，需配置 API key。', backendHintCustom: '任意 OpenAI 兼容的 /audio/transcriptions 端点。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', groupLocal: '本地', groupCloud: '云提供商', groqProvider: 'Groq', customProvider: '自定义 OpenAI 兼容', localModel: 'Whisper 模型', whisperDownloaded: '模型已下载', whisperNotDownloaded: '模型未下载，请先下载后再录音使用', whisperDownloading: '下载中', whisperChecking: '检测中…', clickDownload: '点击下载', retryDownload: '重试下载', cancelDownload: '取消下载', deleteModel: '删除模型', confirmDeleteModel: '确认删除？', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudModelGroqHint: '从 Groq 实时获取的转写模型。', cloudModelNoKey: '先配置 API key，随后自动获取可用模型。', cloudModelFetchFailed: '获取模型列表失败。', cloudModelStale: '所选模型不在最新列表中，可能已下线。', retryModels: '重试', cloudKey: 'API key', cloudKeyHint: '只写入不回显；留空保持原值，点击清除可移除。', cloudKeyConfigured: '已配置', cloudKeyNotConfigured: '未配置', clearKey: '清除', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请选择云端模型并配置 API key。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请重启 dsh web 后刷新此页面。', saveFailed: '保存失败，修改已保留，再次修改即可重试。', invalid: '请检查设置有误的字段。'
+  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。medium 及更大模型需要 GPU 或更快的本地运行时，否则可能超出转录时限。', backendHintGroq: 'Groq 云端 Whisper 转写，需配置 API key。', backendHintCustom: '任意 OpenAI 兼容的 /audio/transcriptions 端点。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', groupLocal: '本地', groupCloud: '云提供商', groqProvider: 'Groq', customProvider: '自定义 OpenAI 兼容', localModel: 'Whisper 模型', whisperDownloaded: '模型已下载', whisperNotDownloaded: '模型未下载，请先下载后再录音使用', whisperDownloading: '下载中', whisperChecking: '检测中…', clickDownload: '点击下载', retryDownload: '重试下载', cancelDownload: '取消下载', deleteModel: '删除模型', confirmDeleteModel: '确认删除？', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudModelGroqHint: '从 Groq 实时获取的转写模型。', cloudModelFetchFailed: '获取模型列表失败。', cloudModelStale: '所选模型不在最新列表中，可能已下线。', retryModels: '重试', cloudKey: 'API key', cloudKeyHint: '只写入不回显；留空保持原值，点击清除可移除。', cloudKeyConfigured: '已配置', cloudKeyNotConfigured: '未配置', clearKey: '清除', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请选择云端模型并配置 API key。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请稍后重试。', saveFailed: '保存失败，修改已保留，再次修改即可重试。'
 } as const
 
 export const localeEn = {
@@ -34,7 +34,7 @@ export const localeEn = {
   voiceUnavailable: 'Voice input unavailable',
   voiceUnavailableWebSpeech: 'Voice input is unavailable in this browser',
   voiceUnavailableRecorder: 'This browser cannot record audio for the selected ASR backend',
-  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation. medium and larger models need a GPU or a faster local runtime, or transcription may exceed its limit.', backendHintGroq: 'Groq-hosted Whisper transcription; requires an API key.', backendHintCustom: 'Any OpenAI-compatible /audio/transcriptions endpoint.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', groupLocal: 'Local', groupCloud: 'Cloud providers', groqProvider: 'Groq', customProvider: 'Custom OpenAI-compatible', localModel: 'Whisper model', whisperDownloaded: 'Model downloaded', whisperNotDownloaded: 'Not downloaded; download it before recording', whisperDownloading: 'Downloading', whisperChecking: 'Checking…', clickDownload: 'Click to download', retryDownload: 'Retry download', cancelDownload: 'Cancel download', deleteModel: 'Delete model', confirmDeleteModel: 'Confirm delete?', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudModelGroqHint: 'Transcription models fetched from Groq.', cloudModelNoKey: 'Configure the API key to fetch available models.', cloudModelFetchFailed: 'Could not fetch the model list.', cloudModelStale: 'The selected model is not in the latest list; it may be retired.', retryModels: 'Retry', cloudKey: 'API key', cloudKeyHint: 'Write-only; leave blank to keep the stored key, or clear to remove it.', cloudKeyConfigured: 'Configured', cloudKeyNotConfigured: 'Not configured', clearKey: 'Clear', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Choose a cloud model and configure the API key.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Restart dsh web and refresh this page.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.', invalid: 'Check the fields with invalid values.'
+  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation. medium and larger models need a GPU or a faster local runtime, or transcription may exceed its limit.', backendHintGroq: 'Groq-hosted Whisper transcription; requires an API key.', backendHintCustom: 'Any OpenAI-compatible /audio/transcriptions endpoint.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', groupLocal: 'Local', groupCloud: 'Cloud providers', groqProvider: 'Groq', customProvider: 'Custom OpenAI-compatible', localModel: 'Whisper model', whisperDownloaded: 'Model downloaded', whisperNotDownloaded: 'Not downloaded; download it before recording', whisperDownloading: 'Downloading', whisperChecking: 'Checking…', clickDownload: 'Click to download', retryDownload: 'Retry download', cancelDownload: 'Cancel download', deleteModel: 'Delete model', confirmDeleteModel: 'Confirm delete?', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudModelGroqHint: 'Transcription models fetched from Groq.', cloudModelFetchFailed: 'Could not fetch the model list.', cloudModelStale: 'The selected model is not in the latest list; it may be retired.', retryModels: 'Retry', cloudKey: 'API key', cloudKeyHint: 'Write-only; leave blank to keep the stored key, or clear to remove it.', cloudKeyConfigured: 'Configured', cloudKeyNotConfigured: 'Not configured', clearKey: 'Clear', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Choose a cloud model and configure the API key.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Please try again later.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.'
 } as const
 
 export type LocaleKey = keyof typeof localeEn
@@ -50,7 +50,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 interface EarsSettingsSectionProps {
   readonly useEarsCard: EarsCardHook
   readonly useEarsRoutes: RouteHook
-  readonly useEarsBackends: BackendHook
   readonly useEarsReasoning: ReasoningEffortsHook
   readonly useEarsWhisper: WhisperModelHook
   readonly useEarsCloudModels: CloudModelsHook
@@ -79,7 +78,6 @@ export function createSettingsHook(store: SnapshotStore<EarsSettings>): EarsSett
 export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode {
   const state = props.useEarsCard((snapshot) => snapshot)
   const routes = props.useEarsRoutes((snapshot) => snapshot)
-  const backends = props.useEarsBackends((snapshot) => snapshot)
   const reasoning = props.useEarsReasoning((snapshot) => snapshot)
   const whisper = props.useEarsWhisper((snapshot) => snapshot)
   const cloudModels = props.useEarsCloudModels((snapshot) => snapshot)
@@ -91,7 +89,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const providerOptions = uniqueProviders(routes.routes)
   const modelOptions = routes.routes.filter((route) => route.provider === state.polishProvider.text)
   const modelValueIsKnown = modelOptions.some((route) => route.model === state.polishModel.text)
-  const selectedBackend = backends.backends.find((backend) => backend.id === state.asrBackend.text)
   const selectedEntryId = state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text : state.asrBackend.text
   const backendMenu: MenuEntry[] = [
     { type: 'label', id: 'group-local', text: t('groupLocal') },
@@ -110,7 +107,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     <section className={styles.section}>
       <h2 className={styles.title}>{t('title')}</h2>
       <p className={styles.intro}>{t('description')}</p>
-      {!state.loaded ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : null}
+      {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : null}
       <div className={styles.tabs} role="tablist" aria-label={t('tabs')}>
         {tabs.map((tab, index) => {
           const selected = tab.id === activeTab
@@ -146,14 +143,13 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             }
             props.edit('asrBackend', id)
           }} />
-          {selectedBackend && !selectedBackend.available ? <p className={styles.statusError}>{t('backendUnavailable')}{backendUnavailableDetail(selectedBackend, t)}</p> : null}
           {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
           {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} configured={state.cloudAsrApiKeyConfigured} disabled={!state.writable} invalid={false} onEdit={props.setApiKey} onClear={props.clearApiKey} t={t} />
-            <CloudModelRow label={t('cloudModel')} value={state.cloudAsrModel.text} models={cloudModels} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(value) => props.edit('cloudAsrModel', value)} onRetry={props.retryCloudModels} t={t} />
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} configured={state.cloudAsrApiKeyConfigured} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} t={t} />
+            <CloudModelRow label={t('cloudModel')} value={state.cloudAsrModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrModel', value)} onRetry={props.retryCloudModels} t={t} />
           </> : <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} configured={state.cloudAsrApiKeyConfigured} disabled={!state.writable} invalid={false} onEdit={props.setApiKey} onClear={props.clearApiKey} t={t} />
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} configured={state.cloudAsrApiKeyConfigured} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} t={t} />
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
           </> : null}
           <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} />
@@ -173,18 +169,17 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       )}
       <div className={styles.footer}>
         {state.failed ? <p className={styles.footerStatus} data-kind="error" role="alert">{t('saveFailed')}</p> : null}
-        {!state.failed && state.invalid ? <p className={styles.footerStatus} data-kind="error">{t('invalid')}</p> : null}
       </div>
     </section>
   )
 }
 
-function RowField({ label, hint, invalid, children }: { label: string; hint: string; invalid: boolean; children: ReactNode }) {
+function RowField({ label, hint, invalid, alert, children }: { label: string; hint: string; invalid: boolean; alert?: boolean; children: ReactNode }) {
   return (
     <div className={styles.row}>
       <div className={styles.rowText}>
         <div className={styles.rowTitle}>{label}</div>
-        <div className={`${styles.rowDesc} ${invalid ? styles.invalid : ''}`}>{hint}</div>
+        <div className={`${styles.rowDesc} ${invalid ? styles.invalid : ''}`} {...(alert === true ? { role: 'alert' } : {})}>{hint}</div>
       </div>
       {children}
     </div>
@@ -247,17 +242,14 @@ function KeyRow({ label, hint, configured, disabled, invalid, onEdit, onClear, t
   )
 }
 
-function CloudModelRow({ label, value, models, disabled, invalid, onChange, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onRetry: () => void; t: Translate }) {
+function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; onChange: (value: string) => void; onRetry: () => void; t: Translate }) {
   if (models.status === 'loading') {
-    return <RowField label={label} hint={t('loadingModels')} invalid={invalid}><div className={styles.rowDescInline}><span className={styles.spinner} aria-hidden="true" /><span>{t('loadingModels')}</span></div></RowField>
+    return <RowField label={label} hint={t('loadingModels')} invalid={false}><div className={styles.rowDescInline}><span className={styles.spinner} aria-hidden="true" /><span>{t('loadingModels')}</span></div></RowField>
   }
   const view = models.view
-  if (view.status === 'no-key') {
-    return <RowField label={label} hint={t('cloudModelNoKey')} invalid={invalid}><div className={styles.rowDescInline}><span>{t('cloudModelNoKey')}</span></div></RowField>
-  }
   if (view.status === 'error') {
     return (
-      <RowField label={label} hint={view.error ?? t('cloudModelFetchFailed')} invalid={invalid}>
+      <RowField label={label} hint={view.error ?? t('cloudModelFetchFailed')} invalid alert>
         <div className={styles.rowDescInline}>
           <span>{t('cloudModelFetchFailed')}</span>
           <button type="button" className={styles.linkButton} disabled={disabled} onClick={onRetry}>{t('retryModels')}</button>
@@ -267,9 +259,10 @@ function CloudModelRow({ label, value, models, disabled, invalid, onChange, onRe
   }
   const options = (view.models ?? []).map((model) => [model, model] as [string, string])
   const stale = view.status === 'ok' && value.trim() !== '' && !(view.models ?? []).includes(value)
+  const noModels = view.status !== 'ok' || options.length === 0
   return (
     <>
-      <SelectRow label={label} hint={t('cloudModelGroqHint')} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled} invalid={invalid} onChange={onChange} />
+      <SelectRow label={label} hint={t('cloudModelGroqHint')} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled || noModels} invalid={false} onChange={onChange} />
       {stale ? <p className={styles.statusError}>{t('cloudModelStale')}</p> : null}
     </>
   )
@@ -365,12 +358,6 @@ function uniqueProviders(routes: readonly PolishRoute[]): PolishRoute[] {
     seen.add(route.provider)
     return true
   })
-}
-
-function backendUnavailableDetail(backend: AsrBackendInfo, t: Translate): string {
-  if (backend.id === 'local-whisper') return t('localUnavailable')
-  if (backend.id === 'cloud-openai') return t('cloudUnavailable')
-  return backend.detail
 }
 
 function backendHint(backend: string, provider: string, t: Translate): string {

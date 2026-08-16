@@ -198,7 +198,7 @@ describe('EarsSettingsController settings lifecycle', () => {
     controller.dispose()
   })
 
-  it('holds an incomplete polishing enable until the route is complete', async () => {
+  it('saves the polishing toggle immediately without a route pair', async () => {
     vi.useFakeTimers()
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(true) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
@@ -207,15 +207,19 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().edit('polishingEnabled', 'on')
       await vi.advanceTimersByTimeAsync(400)
 
-      expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().invalid).toBe(true)
+      expect(updateSettings).toHaveBeenCalledWith({
+        polishingEnabled: true
+      })
+      const snapshot = controller.getCardStore().getSnapshot()
+      expect(snapshot.polishingEnabled.invalid).toBe(false)
+      expect(snapshot.polishProvider.invalid).toBe(false)
+      expect(snapshot.polishModel.invalid).toBe(false)
 
       controller.actions().edit('polishProvider', 'provider')
       controller.actions().edit('polishModel', 'model')
       await vi.advanceTimersByTimeAsync(400)
 
       expect(updateSettings).toHaveBeenCalledWith({
-        polishingEnabled: true,
         polishProvider: 'provider',
         polishModel: 'model',
         polishReasoningEffort: ''
@@ -226,32 +230,39 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
-  it('holds a cloud backend switch until the Groq model is selected', async () => {
+  it('saves a Groq backend switch immediately with no error for the untouched model field', async () => {
     vi.useFakeTimers()
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const saved = { ...DEFAULT_EARS_SETTINGS }
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom(saved) }
+    })
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
       controller.actions().edit('asrBackend', 'cloud-openai')
       await vi.advanceTimersByTimeAsync(400)
 
-      expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().cloudAsrModel.invalid).toBe(true)
+      expect(updateSettings).toHaveBeenCalledWith({
+        asrBackend: 'cloud-openai'
+      })
+      const snapshot = controller.getCardStore().getSnapshot()
+      expect(snapshot.cloudAsrModel.invalid).toBe(false)
 
       controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
       await vi.advanceTimersByTimeAsync(400)
 
       expect(updateSettings).toHaveBeenCalledWith({
-        asrBackend: 'cloud-openai',
         cloudAsrModel: 'whisper-large-v3-turbo'
       })
+      expect(controller.getCardStore().getSnapshot().cloudAsrModel.invalid).toBe(false)
     } finally {
       controller.dispose()
       vi.useRealTimers()
     }
   })
 
-  it('holds a custom cloud switch until the endpoint is valid and defaults its model', async () => {
+  it('saves a custom cloud switch with its defaulted model and skips the empty endpoint', async () => {
     vi.useFakeTimers()
     const saved = { ...DEFAULT_EARS_SETTINGS }
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
@@ -267,18 +278,106 @@ describe('EarsSettingsController settings lifecycle', () => {
 
       expect(updateSettings).toHaveBeenCalledTimes(1)
       expect(updateSettings).toHaveBeenCalledWith({
+        asrBackend: 'cloud-openai',
         cloudAsrProvider: 'custom',
         cloudAsrModel: 'whisper-1'
       })
+      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
 
       controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
       await vi.advanceTimersByTimeAsync(400)
 
       expect(updateSettings).toHaveBeenCalledTimes(2)
       expect(updateSettings).toHaveBeenCalledWith({
-        asrBackend: 'cloud-openai',
         cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions'
       })
+      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports load failure only after the single retry fails and clears it on recovery', async () => {
+    vi.useFakeTimers()
+    const failure = { ok: false as const, error: { code: 'HOST_FAILURE', message: 'unavailable', details: {} } }
+    const success = { ok: true as const, value: settingsView(false) }
+    const getSettings = vi.fn(async () => failure)
+    const controller = new EarsSettingsController(createRemote({ getSettings }))
+    try {
+      expect(controller.getCardStore().getSnapshot().loadFailed).toBe(false)
+      await controller.refreshSettings()
+      expect(controller.getCardStore().getSnapshot().loadFailed).toBe(false)
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(getSettings).toHaveBeenCalledTimes(2)
+      expect(controller.getCardStore().getSnapshot().loadFailed).toBe(true)
+
+      getSettings.mockResolvedValueOnce(success)
+      await controller.refreshSettings()
+      expect(controller.getCardStore().getSnapshot().loaded).toBe(true)
+      expect(controller.getCardStore().getSnapshot().loadFailed).toBe(false)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('marks typed-invalid values red only when the save debounce settles', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('language', '')
+      expect(controller.getCardStore().getSnapshot().language.invalid).toBe(false)
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().language.invalid).toBe(true)
+
+      controller.actions().edit('cloudAsrEndpoint', 'not-a-url')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
+
+      controller.actions().setApiKey('x'.repeat(513))
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(true)
+
+      controller.actions().setApiKey('')
+      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(false)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('never marks an untouched persisted value invalid', async () => {
+    const getSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, language: '' }) }))
+    const controller = new EarsSettingsController(createRemote({ getSettings }))
+
+    await controller.refreshSettings()
+
+    const snapshot = controller.getCardStore().getSnapshot()
+    expect(snapshot.language.text).toBe('')
+    expect(snapshot.language.invalid).toBe(false)
+    controller.dispose()
+  })
+
+  it('skips an empty endpoint draft without marking it invalid', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('cloudAsrEndpoint', '')
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(updateSettings).not.toHaveBeenCalled()
+      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
     } finally {
       controller.dispose()
       vi.useRealTimers()

@@ -4,7 +4,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, WHISPER_MODEL_IDS, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { cloudAsrModelFor, isCloudConfigurationValid, supportsModelListing } from '../asr/providers.js'
+import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
 import type { AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 
@@ -16,12 +16,13 @@ export interface EarsCardState {
   available: boolean
   writable: boolean
   loaded: boolean
+  loadFailed: boolean
   saving: boolean
   failed: boolean
-  invalid: boolean
   asrBackend: FieldState
   localWhisperModel: FieldState
   cloudAsrProvider: FieldState
+  cloudAsrApiKey: FieldState
   cloudAsrApiKeyConfigured: boolean
   cloudAsrEndpoint: FieldState
   cloudAsrModel: FieldState
@@ -95,7 +96,9 @@ export class EarsSettingsController {
   private cloudModelsView: CloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
   private saving = false
   private loaded = false
+  private loadFailed = false
   private failed = false
+  private invalidFlags = new Map<FieldName, boolean>()
   private clearKeyPending = false
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -169,6 +172,7 @@ export class EarsSettingsController {
         this.settingsView = result.value
         this.settingsStore.set(result.value.settings)
         this.loaded = true
+        this.loadFailed = false
         this.retryAttempted = false
         if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
         this.retryTimer = undefined
@@ -182,6 +186,7 @@ export class EarsSettingsController {
       // Fall through to the not-loaded retry path.
     }
     if (this.disposed || request !== this.settingsRequest) return
+    if (!this.loaded && this.retryAttempted) this.loadFailed = true
     this.publishCard()
     void this.refreshReasoningEfforts()
     if (!this.loaded && !this.retryAttempted && this.retryTimer === undefined) {
@@ -425,11 +430,13 @@ export class EarsSettingsController {
     } else if (field === 'cloudAsrApiKey') {
       if (text.trim() === '') {
         this.drafts.delete('cloudAsrApiKey')
+        this.invalidFlags.delete('cloudAsrApiKey')
         this.publishCard()
         return
       }
     }
     this.drafts.set(field, text)
+    this.invalidFlags.delete(field)
     this.failed = false
     this.publishCard()
     this.scheduleSave()
@@ -442,6 +449,7 @@ export class EarsSettingsController {
     if (this.disposed) return
     this.clearKeyPending = true
     this.drafts.delete('cloudAsrApiKey')
+    this.invalidFlags.delete('cloudAsrApiKey')
     this.failed = false
     this.publishCard()
     await this.save()
@@ -457,32 +465,13 @@ export class EarsSettingsController {
 
   private async save(): Promise<void> {
     if (this.disposed || this.saving || !this.settingsView.writable) return
-    const providerText = this.drafts.get('polishProvider') ?? this.settingsView.settings.polishProvider
-    const modelText = this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel
-    const polishingEnabledText = this.drafts.get('polishingEnabled') ?? (this.settingsView.settings.polishingEnabled ? 'on' : 'off')
-    const routeInvalid = polishingEnabledText === 'on' && (providerText.trim() === '' || modelText.trim() === '')
-    const asrBackendText = this.drafts.get('asrBackend') ?? this.settingsView.settings.asrBackend
-    const cloudProviderText = this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider
-    const cloudEndpointText = this.drafts.get('cloudAsrEndpoint') ?? this.settingsView.settings.cloudAsrEndpoint
-    const cloudModelText = this.drafts.get('cloudAsrModel') ?? this.settingsView.settings.cloudAsrModel
-    const stagedSettings: EarsSettings = {
-      ...this.settingsView.settings,
-      asrBackend: asrBackendText,
-      cloudAsrProvider: cloudProviderText,
-      cloudAsrEndpoint: cloudEndpointText,
-      cloudAsrModel: cloudModelText
-    }
-    const cloudConfigInvalid = !isCloudConfigurationValid(stagedSettings)
     const patch: EarsSettingsPatch = {}
     const submittedDrafts = new Map<FieldName, string>()
     for (const [field, text] of this.drafts) {
-      if (routeInvalid && (field === 'polishingEnabled' || field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort')) {
-        continue
-      }
-      if (field === 'asrBackend' && cloudConfigInvalid) continue
-      if (isInvalidForSave(field, text, stagedSettings)) {
-        continue
-      }
+      const invalid = isInvalid(field, text)
+      this.invalidFlags.set(field, invalid)
+      if (invalid) continue
+      if (text.trim() === '' && field !== 'polishModel' && field !== 'polishReasoningEffort') continue
       const value = parseField(field, text)
       if (value !== undefined) {
         (patch as Record<string, unknown>)[field] = value
@@ -492,7 +481,10 @@ export class EarsSettingsController {
     if (this.clearKeyPending) {
       (patch as Record<string, unknown>).cloudAsrApiKey = ''
     }
-    if (Object.keys(patch).length === 0) return
+    if (Object.keys(patch).length === 0) {
+      this.publishCard()
+      return
+    }
     this.saving = true
     this.failed = false
     this.publishCard()
@@ -505,6 +497,7 @@ export class EarsSettingsController {
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
+        this.invalidFlags.delete(field)
       }
       if (this.clearKeyPending) this.clearKeyPending = false
       void this.refreshBackends()
@@ -523,10 +516,11 @@ export class EarsSettingsController {
 
   private snapshot(): EarsCardState {
     const current = this.settingsView.settings
-    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: isInvalid(name, text) })
+    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.invalidFlags.get(name) === true })
     const asrBackend = field('asrBackend', this.drafts.get('asrBackend') ?? current.asrBackend)
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
+    const cloudAsrApiKey = field('cloudAsrApiKey', this.drafts.get('cloudAsrApiKey') ?? '')
     const cloudAsrEndpoint = field('cloudAsrEndpoint', this.drafts.get('cloudAsrEndpoint') ?? current.cloudAsrEndpoint)
     const cloudAsrModel = field('cloudAsrModel', this.drafts.get('cloudAsrModel') ?? current.cloudAsrModel)
     const language = field('language', this.drafts.get('language') ?? current.language)
@@ -535,35 +529,25 @@ export class EarsSettingsController {
     const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? current.polishProvider)
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
-    const routeInvalid = polishingEnabled.text === 'on' && (polishProvider.text.trim() === '' || polishModel.text.trim() === '')
-    const stagedSettings: EarsSettings = {
-      ...current,
-      asrBackend: asrBackend.text,
-      cloudAsrProvider: cloudAsrProvider.text,
-      cloudAsrEndpoint: cloudAsrEndpoint.text,
-      cloudAsrModel: cloudAsrModel.text
-    }
-    const cloudConfigInvalid = !isCloudConfigurationValid(stagedSettings)
-    const cloudEndpointRequired = asrBackend.text === 'cloud-openai' && cloudAsrProvider.text === 'custom' && cloudAsrEndpoint.text.trim() === ''
-    const cloudModelRequired = asrBackend.text === 'cloud-openai' && cloudAsrModelFor(stagedSettings) === ''
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
       loaded: this.loaded,
+      loadFailed: this.loadFailed,
       saving: this.saving,
       failed: this.failed,
-      invalid: asrBackend.invalid || localWhisperModel.invalid || cloudAsrProvider.invalid || cloudConfigInvalid || language.invalid || maxRecordingSeconds.invalid || polishingEnabled.invalid || polishProvider.invalid || polishModel.invalid || polishReasoningEffort.invalid || routeInvalid,
       asrBackend,
       localWhisperModel,
       cloudAsrProvider,
+      cloudAsrApiKey,
       cloudAsrApiKeyConfigured: this.settingsView.cloudAsrApiKeyConfigured,
-      cloudAsrEndpoint: { ...cloudAsrEndpoint, invalid: cloudAsrEndpoint.invalid || cloudEndpointRequired },
-      cloudAsrModel: { ...cloudAsrModel, invalid: cloudAsrModel.invalid || cloudModelRequired },
+      cloudAsrEndpoint,
+      cloudAsrModel,
       language,
       maxRecordingSeconds,
       polishingEnabled,
-      polishProvider: { ...polishProvider, invalid: polishProvider.invalid || routeInvalid },
-      polishModel: { ...polishModel, invalid: polishModel.invalid || routeInvalid },
+      polishProvider,
+      polishModel,
       polishReasoningEffort
     }
   }
@@ -590,13 +574,4 @@ function isInvalid(field: FieldName, text: string): boolean {
   if (field === 'polishingEnabled') return text !== 'on' && text !== 'off'
   const value = Number(text)
   return !isValidRecordingLimit(value)
-}
-
-function isInvalidForSave(field: FieldName, text: string, staged: EarsSettings): boolean {
-  if (isInvalid(field, text)) return true
-  if (staged.asrBackend !== 'cloud-openai') return false
-  if (field === 'cloudAsrApiKey') return text.trim() === ''
-  if (field === 'cloudAsrEndpoint') return staged.cloudAsrProvider === 'custom' && text.trim() === ''
-  if (field === 'cloudAsrModel') return staged.cloudAsrProvider === 'groq' && text.trim() === ''
-  return false
 }

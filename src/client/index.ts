@@ -69,7 +69,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
             hooks: {
               earsCard: settingsController.getCardStore(),
               earsRoutes: settingsController.getRouteStore(),
-              earsBackends: settingsController.getBackendStore(),
               earsReasoning: settingsController.getReasoningStore(),
               earsWhisper: settingsController.getWhisperStore(),
               earsCloudModels: settingsController.getCloudModelsStore()
