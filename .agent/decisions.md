@@ -142,3 +142,10 @@
 - Decision: the composer microphone disables itself (gray `aria-disabled` state with a bilingual tooltip) when the configured backend provably cannot transcribe: the Host reports the selected backend unavailable, the selected Whisper model is still downloading, or the model file with its completion marker is missing.
 - Decision: availability is gated on positive signals only. Loading, failed, and unknown states keep the button enabled, and `starting`/`recording`/`transcribing`/`polishing` states are never gated so the stop affordance stays reachable.
 - Rationale: a definitely broken configuration should not invite a click that is guaranteed to fail; graying on positive Host signals avoids false negatives while keeping the stop control authoritative during an active flow.
+
+## D-022 — Composer microphone click-through to settings
+
+- Status: rejected (2026-08-16); no implementation.
+- Proposal: let the grayed microphone remain clickable and jump to the `dsh-ear` settings section.
+- Finding: dsh rc.6 exposes no public endpoint for opening the settings panel at a section. The shell (`dsh-client-ui-settings-general`) owns panel open state and the active section id as private React state inside `SettingsRoot`; `openSection(id)` is passed only to `settings.onboarding` steps, and no service, event, or window bridge exports it. Reaching it would require fragile DOM automation of the shell's private trigger/nav chrome.
+- Rationale: the implementation effort (private-state reach-around or DOM hacks, both against the project's stable-seam policy) outweighs the design value; the gray tooltip already points users to the settings page.

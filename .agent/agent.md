@@ -98,6 +98,7 @@ Final real rc.6 smoke evidence on the latest build:
 ## Final task record
 
 - Completed: composer microphone availability gating (D-021) — the microphone grays out with a bilingual tooltip when the Host reports the selected backend unavailable, the Whisper model is downloading, or the model file with its completion marker is missing; gating is positive-signal-only and never applies to active flow states. Added the pure `mic-availability.ts` helper, wrapped backend/whisper store hooks for the slot, and unit coverage.
+- Rejected: click-through from the grayed microphone to the `dsh-ear` settings section (D-022) — rc.6 has no public endpoint for opening the settings panel at a section; the shell owns the open state privately. No code was written for it.
 - Validation: `tsc` typecheck, `vitest` (87/87 tests across 10 files), `tsdown` & `tsc` builds, and `git diff --cached --check` all passed.
 - Unfinished: D-018 (recording-settings snapshot versus locking) remains open; the gray-mic behavior and the earlier Host-side gate still need a real rc.6 Web smoke (Host-side changes require a `dsh web` restart, and the client bundle needs a browser refresh).
 - Blocked: none.
