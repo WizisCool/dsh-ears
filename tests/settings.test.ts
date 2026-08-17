@@ -539,6 +539,27 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('does not retry a rejected save in a loop', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('language', 'en-US')
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS)
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().failed).toBe(true))
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS * 4)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+      expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps staged drafts after a rejected save and discards them on demand', async () => {
     const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
