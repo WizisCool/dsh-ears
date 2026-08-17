@@ -107,9 +107,17 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   useEffect(() => {
     stopRecordingRef.current = null
-    return voiceSession.onStopRequested(() => {
+    const stop = voiceSession.onStopRequested(() => {
       void stopRecordingRef.current?.()
     })
+    const cancel = voiceSession.onCancelRequested(() => {
+      transcribeAbortRef.current?.abort()
+      polishAbortRef.current?.abort()
+    })
+    return () => {
+      stop()
+      cancel()
+    }
   }, [voiceSession])
 
   useEffect(() => {
@@ -240,6 +248,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
             if (!failed) setState('idle')
             return
           }
+          const epoch = voiceSession.captureEpoch()
           commitTranscript({
             transcript,
             baseDraft,
@@ -250,7 +259,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
             setState,
             latestDraftRef,
             actionsRef,
-            polishAbortRef
+            polishAbortRef,
+            isCurrent: () => voiceSession.isCurrentEpoch(epoch)
           })
         }
       })
@@ -300,8 +310,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         return
       }
       setState('transcribing')
+      const epoch = voiceSession.captureEpoch()
       const result = await remote.transcribe(audio.base64, audio.mimeType, controller.signal)
-      if (!mountedRef.current) return
+      if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
       if (!result.ok) {
         applyVoiceFailure(voiceSession, 'asr', result.error)
         return
@@ -319,10 +330,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         setState,
         latestDraftRef,
         actionsRef,
-        polishAbortRef
+        polishAbortRef,
+        isCurrent: () => voiceSession.isCurrentEpoch(epoch)
       })
     } catch (error) {
-      if (mountedRef.current) applyVoiceFailure(voiceSession, 'asr', error)
+      if (mountedRef.current && !controller.signal.aborted) applyVoiceFailure(voiceSession, 'asr', error)
     } finally {
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
     }

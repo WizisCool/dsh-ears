@@ -638,6 +638,7 @@ describe('Locale parity', () => {
       'voiceStart',
       'voiceStop',
       'voiceStarting',
+      'voiceDiscard',
       'voiceTranscribing',
       'voicePolishing',
       'voicePolishFailed',

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { VOICE_ERROR_DISMISS_MS, VOICE_WAVEFORM_SLOTS, VoiceInputSession } from '../src/client/voice-session.js'
+import { recognitionBarAction, VOICE_ERROR_DISMISS_MS, VOICE_WAVEFORM_SLOTS, VoiceInputSession } from '../src/client/voice-session.js'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -33,6 +33,15 @@ describe('VoiceInputSession', () => {
     expect(session.getSnapshot().levels).toEqual([])
   })
 
+  it('uses stop while recording and discard while transcribing or polishing', () => {
+    expect(recognitionBarAction('recording')).toBe('stop')
+    expect(recognitionBarAction('transcribing')).toBe('discard')
+    expect(recognitionBarAction('polishing')).toBe('discard')
+    expect(recognitionBarAction('starting')).toBe('busy')
+    expect(recognitionBarAction('idle')).toBe('busy')
+    expect(recognitionBarAction('error')).toBe('busy')
+  })
+
   it('notifies the active recorder when the bar requests stop', () => {
     const session = new VoiceInputSession()
     const stop = vi.fn()
@@ -46,6 +55,29 @@ describe('VoiceInputSession', () => {
     unsubscribe()
     session.requestStop()
     expect(stop).toHaveBeenCalledOnce()
+  })
+
+  it('discards an in-flight transcribe or polish and returns to idle', () => {
+    const session = new VoiceInputSession()
+    const cancel = vi.fn()
+    session.onCancelRequested(cancel)
+
+    session.setState('recording')
+    session.requestCancel()
+    expect(cancel).not.toHaveBeenCalled()
+    expect(session.getSnapshot().state).toBe('recording')
+
+    session.setState('transcribing')
+    const epoch = session.captureEpoch()
+    session.requestCancel()
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(session.isCurrentEpoch(epoch)).toBe(false)
+    expect(session.getSnapshot()).toEqual({ state: 'idle', levels: [], detail: '' })
+
+    session.setState('polishing')
+    session.requestCancel()
+    expect(cancel).toHaveBeenCalledTimes(2)
+    expect(session.getSnapshot().state).toBe('idle')
   })
 
   it('dismisses recognition errors after a short delay', () => {
@@ -73,14 +105,19 @@ describe('VoiceInputSession', () => {
     const session = new VoiceInputSession()
     const stateListener = vi.fn()
     const stopListener = vi.fn()
+    const cancelListener = vi.fn()
     session.subscribe(stateListener)
     session.onStopRequested(stopListener)
+    session.onCancelRequested(cancelListener)
 
     session.dispose()
     session.setState('recording')
     session.requestStop()
+    session.setState('transcribing')
+    session.requestCancel()
 
     expect(stateListener).not.toHaveBeenCalled()
     expect(stopListener).not.toHaveBeenCalled()
+    expect(cancelListener).not.toHaveBeenCalled()
   })
 })

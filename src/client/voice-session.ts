@@ -15,12 +15,32 @@ export const VOICE_WAVEFORM_SLOTS = 128
 export const VOICE_ERROR_DISMISS_MS = 2600
 
 const NOTICE_STATES = new Set<VoiceInputState>(['error', 'polish-error', 'upstream-error'])
+const DISCARDABLE_STATES = new Set<VoiceInputState>(['transcribing', 'polishing'])
+
+export type RecognitionBarAction = 'stop' | 'discard' | 'busy'
+
+/** Recording keeps the stop square; transcribe/polish swap it for discard. */
+export function recognitionBarAction(state: VoiceInputState): RecognitionBarAction {
+  if (state === 'recording') return 'stop'
+  if (DISCARDABLE_STATES.has(state)) return 'discard'
+  return 'busy'
+}
 
 export class VoiceInputSession {
   private snapshot: VoiceInputSessionSnapshot = { state: 'idle', levels: [], detail: '' }
   private readonly listeners = new Set<Listener>()
   private readonly stopListeners = new Set<StopListener>()
+  private readonly cancelListeners = new Set<StopListener>()
+  private epoch = 0
   private errorTimer: ReturnType<typeof setTimeout> | undefined
+
+  captureEpoch(): number {
+    return this.epoch
+  }
+
+  isCurrentEpoch(epoch: number): boolean {
+    return this.epoch === epoch
+  }
 
   readonly getSnapshot = (): VoiceInputSessionSnapshot => this.snapshot
 
@@ -32,6 +52,11 @@ export class VoiceInputSession {
   readonly onStopRequested = (listener: StopListener): (() => void) => {
     this.stopListeners.add(listener)
     return () => this.stopListeners.delete(listener)
+  }
+
+  readonly onCancelRequested = (listener: StopListener): (() => void) => {
+    this.cancelListeners.add(listener)
+    return () => this.cancelListeners.delete(listener)
   }
 
   setState(state: VoiceInputState, detail = ''): void {
@@ -60,10 +85,18 @@ export class VoiceInputSession {
     for (const listener of this.stopListeners) listener()
   }
 
+  requestCancel(): void {
+    if (!DISCARDABLE_STATES.has(this.snapshot.state)) return
+    this.epoch += 1
+    for (const listener of this.cancelListeners) listener()
+    if (DISCARDABLE_STATES.has(this.snapshot.state)) this.setState('idle')
+  }
+
   dispose(): void {
     this.clearErrorTimer()
     this.listeners.clear()
     this.stopListeners.clear()
+    this.cancelListeners.clear()
   }
 
   private clearErrorTimer(): void {

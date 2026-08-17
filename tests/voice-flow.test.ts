@@ -131,6 +131,32 @@ describe('voice draft flow', () => {
     expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
   })
 
+  it('does not start polishing after the voice task is discarded', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    const polish = vi.fn()
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null },
+      isCurrent: () => false
+    })
+
+    expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
+    expect(polish).not.toHaveBeenCalled()
+    expect(setState).toHaveBeenCalledWith('idle')
+    expect(setState).not.toHaveBeenCalledWith('polishing')
+  })
+
   it('does not publish an idle state after polishing is aborted', async () => {
     const setDraft = vi.fn()
     const setState = vi.fn()

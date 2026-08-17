@@ -19,6 +19,7 @@ export interface CommitTranscriptOptions {
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
+  isCurrent?: () => boolean
 }
 
 export function commitTranscript(options: CommitTranscriptOptions): void {
@@ -38,6 +39,10 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
   // Honor the local toggle so an off switch never flashes "polishing".
   // An enabled toggle still asks the Host even with an empty local pair;
   // the Host is authoritative for the stored route.
+  if (options.isCurrent !== undefined && !options.isCurrent()) {
+    options.setState('idle')
+    return
+  }
   if (!shouldRequestPolish(options.settings)) {
     options.setState('idle')
     return
@@ -53,7 +58,8 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     setState: options.setState,
     latestDraftRef: options.latestDraftRef,
     actionsRef: options.actionsRef,
-    polishAbortRef: options.polishAbortRef
+    polishAbortRef: options.polishAbortRef,
+    isCurrent: options.isCurrent
   })
 }
 
@@ -73,9 +79,11 @@ export interface PolishDraftOptions {
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
+  isCurrent?: () => boolean
 }
 
 export async function polishDraft(options: PolishDraftOptions): Promise<void> {
+  if (options.isCurrent !== undefined && !options.isCurrent()) return
   const controller = new AbortController()
   options.polishAbortRef.current = controller
   options.setState('polishing')
