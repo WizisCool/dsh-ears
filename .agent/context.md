@@ -10,6 +10,13 @@ microphone → transcription → optional dsh LLM polishing → editable draft �
 
 The user must always remain in control of the final send action.
 
+## Official dsh documentation
+
+- Site: [https://deepseek-harness.github.io/deepseek-harness/guide/quickstart](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart) (Web UI getting started).
+- Plugin tutorials: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), [插件配置](https://deepseek-harness.github.io/deepseek-harness/develop/basic/config), [打包与安装](https://deepseek-harness.github.io/deepseek-harness/develop/basic/publish), [开发一个 Tool](https://deepseek-harness.github.io/deepseek-harness/develop/basic/tool), [生命周期](https://deepseek-harness.github.io/deepseek-harness/develop/framework/).
+- Source of the same pages: `docs/user/develop/` in [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness).
+- Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config` + Schemastery, `dsh.bundle.patch`, and `dsh plugin add`. dsh-ears additionally uses the browser `dsh.client` half, `settings.section`, `conversation.input.*` slots, and Typert remotes — verify those against the installed packages, not only the basic tutorial.
+
 ## Compatibility
 
 - Supported dsh targets: `0.1.0-rc.6` and `0.1.0-rc.7`.

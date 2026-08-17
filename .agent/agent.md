@@ -323,6 +323,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
 
+## Official dsh docs pointer (2026-08-18)
+
+- Completed: recorded the official DeepSeek Harness documentation site the maintainer provided. The linked quickstart is the Web UI getting-started page; plugin authoring lives under `/develop/basic/` (first plugin, config, publish, tools) and `/develop/framework/` (lifecycle). dsh-ears already matches the Host plugin shape (`apply` / `inject` / Service / `ctx.effect` / `dsh.bundle.patch`). Browser slots, Typert remotes, and the native `settings.section` page are beyond that basic tutorial and stay verified against installed rc.7 packages.
+- Validation: fetched the live site and `docs/user/develop/` in `deepseek-ai/deepseek-harness`; no plugin code changed.
+- Unfinished: none for this pointer.
+- Blocked: none.
+- Next: use the official site plus installed package declarations when touching dsh APIs.
+- Commit: this docs record.
+
 ## Handoff template
 
 ```text

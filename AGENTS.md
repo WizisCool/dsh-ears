@@ -21,7 +21,7 @@ This is the repository-level entry point for coding agents. Read it before chang
 
 - Follow the official DeepSeek Harness repository's package shape, README structure, naming, lifecycle, and TypeScript style where applicable.
 - Prefer the smallest change that completes one independently verifiable task.
-- Verify dsh APIs against current documentation and the installed rc.6 packages; do not guess an API from memory.
+- Verify dsh APIs against current official docs and the installed rc.6/rc.7 packages; do not guess an API from memory. Canonical site: [DeepSeek Harness docs](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart). Plugin path: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), then config / publish / tools / lifecycle. Also use the installed `@deepseek-ai/dsh-*` declarations.
 - Keep Host and browser Client responsibilities explicit. Do not introduce a browser-side credential path for Host-owned services.
 - Do not implement emotion UI or custom LLM provider support without an explicit contract and scope decision. Local Whisper and cloud ASR are implemented; future providers still require an independent protocol and smoke test.
 
