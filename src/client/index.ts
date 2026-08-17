@@ -100,16 +100,17 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       )
     )
 
-    remoteCtx.slots.inject('settings.section', () =>
-      remoteCtx.slots.register(
+    remoteCtx.slots.inject('settings.section', () => {
+      const sectionLabel = (): string => settingsPageLabel(settingsController.getCardStore().getSnapshot().settingsDisplayName.text, {
+        plugin: earsT('displayNamePlugin'),
+        voice: earsT('displayNameVoice')
+      })
+      const registerSection = () => remoteCtx.slots.register(
         {
           name: 'settings.section',
           id: 'dsh-ears',
           order: 16,
-          label: () => settingsPageLabel(settingsController.getCardStore().getSnapshot().settingsDisplayName.text, {
-            plugin: earsT('displayNamePlugin'),
-            voice: earsT('displayNameVoice')
-          }),
+          label: sectionLabel(),
           inject: () => ({
             hooks: {
               earsCard: settingsController.getCardStore(),
@@ -125,7 +126,25 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         },
         EarsSettingsSection
       )
-    )
+      let disposeSection = registerSection()
+      let lastLabel = sectionLabel()
+      let disposed = false
+      const unsubscribe = settingsController.getCardStore().subscribe(() => {
+        const nextLabel = sectionLabel()
+        if (disposed || nextLabel === lastLabel) return
+        lastLabel = nextLabel
+        queueMicrotask(() => {
+          if (disposed) return
+          disposeSection()
+          disposeSection = registerSection()
+        })
+      })
+      return () => {
+        disposed = true
+        unsubscribe()
+        disposeSection()
+      }
+    })
   })
 
   return async () => {

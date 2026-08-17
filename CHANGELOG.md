@@ -55,6 +55,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Changing the settings display name now updates the left-rail nav as well as the page title.
 - The General tab now hides the shortcut recorder when the voice shortcut is off, matching the polishing tab's progressive disclosure.
 - Silent or too-short Bailian recordings (including `qwen-audio-3.0-asr-flash` HTTP 400) now end quietly with no polish, instead of a red `语音识别上游错误： internal: Cloud ASR request failed with HTTP 400`.
 - The live recognition waveform again fills the bar after the status label: a previous overflow tweak had made the label grow and pushed a smaller waveform to the right.
