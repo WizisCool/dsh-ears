@@ -238,31 +238,60 @@ export class PolishService extends TypertRemoteService {
     const forwardAbort = () => timeout.abort(signal.reason)
     signal.addEventListener('abort', forwardAbort, { once: true })
 
+    const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
+    if (signal.aborted) return finish(raw)
+    if (timeout.signal.aborted) throw new Error('The dsh LLM polishing request timed out')
     try {
-      const prepared = await this.ctx.llm.prepareCall({
-        provider: routeProvider,
-        model: routeModel
-      }, timeout.signal)
-      const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
-      const message = createUserMessage({
-        content: [{ type: 'text', text: polishUserText(raw) }],
-        source: { kind: 'user' }
-      })
-      const output = await collectText(prepared.stream({
-        ...prepared.config,
-        ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
-        messages: [message],
-        system: resolvePolishSystemPrompt(storedPrompt),
-        signal: timeout.signal
-      }), MAX_POLISHED_CHARACTERS)
-
-      return finish(output === '' ? raw : output)
-    } catch {
-      return finish(raw)
+      const first = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, effort, timeout.signal)
+      if (effort !== undefined && first.trim() === raw && !timeout.signal.aborted && !signal.aborted) {
+        try {
+          return finish(await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal))
+        } catch {
+          if (signal.aborted) return finish(raw)
+          return finish(first)
+        }
+      }
+      return finish(first)
+    } catch (error) {
+      if (signal.aborted) return finish(raw)
+      if (timeout.signal.aborted) throw new Error('The dsh LLM polishing request timed out')
+      if (effort === undefined) {
+        throw error instanceof Error ? error : new Error('The dsh LLM route did not complete polishing')
+      }
+      try {
+        return finish(await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal))
+      } catch {
+        if (signal.aborted) return finish(raw)
+        throw new Error('The dsh LLM route did not complete polishing')
+      }
     } finally {
       clearTimeout(timer)
       signal.removeEventListener('abort', forwardAbort)
     }
+  }
+
+  private async completePolish(
+    provider: string,
+    model: string,
+    raw: string,
+    storedPrompt: string,
+    effort: string | undefined,
+    signal: AbortSignal
+  ): Promise<string> {
+    const prepared = await this.ctx.llm.prepareCall({ provider, model }, signal)
+    const message = createUserMessage({
+      content: [{ type: 'text', text: polishUserText(raw) }],
+      source: { kind: 'user' }
+    })
+    const output = await collectText(prepared.stream({
+      ...prepared.config,
+      ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
+      messages: [message],
+      system: resolvePolishSystemPrompt(storedPrompt),
+      signal
+    }), MAX_POLISHED_CHARACTERS)
+    if (output === '') throw new Error('The dsh LLM route returned no polished text')
+    return output
   }
 
   private requireSettings() {

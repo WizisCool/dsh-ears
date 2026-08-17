@@ -121,7 +121,39 @@ describe('PolishService', () => {
     expect(prepareCall).not.toHaveBeenCalled()
   })
 
-  it('returns the raw transcript when the selected route fails', async () => {
+  it('retries polish without reasoning effort after the first attempt fails', async () => {
+    const stream = vi.fn()
+      .mockImplementationOnce(async function* () {
+        throw new Error('effort rejected')
+      })
+      .mockImplementation(async function* () {
+        yield { type: 'text-delta', text: '整理后的文本' }
+      })
+    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'provider',
+      polishModel: 'model'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      'provider',
+      'model',
+      'medium',
+      new AbortController().signal
+    )).resolves.toBe('整理后的文本')
+    expect(prepareCall).toHaveBeenCalledTimes(2)
+    expect(stream).toHaveBeenCalledTimes(2)
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'medium' })
+    expect(stream.mock.calls[1]?.[0]).not.toHaveProperty('reasoningEffort')
+  })
+
+  it('rejects when the selected route fails', async () => {
     const context = createContext({
       prepareCall: vi.fn(async () => {
         throw new Error('route unavailable')
@@ -130,7 +162,38 @@ describe('PolishService', () => {
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).resolves.toBe('保留这段内容')
+    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).rejects.toThrow('route unavailable')
+  })
+
+  it('retries polish without reasoning effort when the first result is unchanged', async () => {
+    const stream = vi.fn()
+      .mockImplementationOnce(async function* () {
+        yield { type: 'text-delta', text: '原始转写' }
+      })
+      .mockImplementation(async function* () {
+        yield { type: 'text-delta', text: '整理后的文本' }
+      })
+    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'provider',
+      polishModel: 'model'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      'provider',
+      'model',
+      'medium',
+      new AbortController().signal
+    )).resolves.toBe('整理后的文本')
+    expect(prepareCall).toHaveBeenCalledTimes(2)
+    expect(stream.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'medium' })
+    expect(stream.mock.calls[1]?.[0]).not.toHaveProperty('reasoningEffort')
   })
 
   it('still line-breaks a glued 第一/第二 transcript when the model returns prose', async () => {
@@ -220,7 +283,7 @@ describe('PolishService', () => {
     expect(prepareCall).not.toHaveBeenCalled()
   })
 
-  it('falls back to the raw transcript when polishing output exceeds the limit', async () => {
+  it('rejects when polishing output exceeds the limit', async () => {
     const context = createContext({
       prepareCall: vi.fn(async () => ({
         config: {},
@@ -232,7 +295,7 @@ describe('PolishService', () => {
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', '', new AbortController().signal)).resolves.toBe('保留原文')
+    await expect(context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', '', new AbortController().signal)).rejects.toThrow('too large')
   })
 
   it('passes the polish timeout signal to reasoning metadata lookup', async () => {
@@ -251,8 +314,9 @@ describe('PolishService', () => {
     fibers.push(fiber)
     try {
       const pending = context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', 'high', new AbortController().signal)
+      const rejected = expect(pending).rejects.toThrow('timed out')
       await vi.advanceTimersByTimeAsync(20_000)
-      await expect(pending).resolves.toBe('保留原文')
+      await rejected
       expect(resolveModelInfo).toHaveBeenCalledWith('provider', 'model', expect.any(AbortSignal))
     } finally {
       vi.useRealTimers()
