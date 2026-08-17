@@ -10,6 +10,7 @@ import {
   normalizeShortcut,
   parseShortcut,
   shortcutFromEvent,
+  shortcutFromEventAndHeld,
   shortcutRejectReason
 } from '../src/shortcut.js'
 
@@ -145,6 +146,22 @@ describe('shortcut matching from events', () => {
     expect(shortcutFromEvent(keyEvent('KeyA', { meta: true }))).toBe('meta+a')
     expect(shortcutFromEvent(keyEvent('Unmapped'))).toBeNull()
     expect(shortcutFromEvent(keyEvent('Shift', { shift: true }, 'Shift'))).toBeNull()
+  })
+
+  it('keeps Control on macOS events that omit ctrlKey', () => {
+    const controlDown = { ...keyEvent('ControlLeft', {}, 'Control'), ctrlKey: false }
+    expect(modifiersFromEvent(controlDown, true)).toEqual(['ctrl'])
+    expect(modifiersFromEvent(controlDown, false)).toEqual([])
+
+    const spaceWithoutCtrlFlag = {
+      ...keyEvent('Space', {}, ' '),
+      ctrlKey: false,
+      getModifierState: (name: string) => name === 'Control'
+    }
+    expect(shortcutFromEvent(spaceWithoutCtrlFlag)).toBe('ctrl+space')
+    expect(shortcutFromEventAndHeld(keyEvent('Space'), ['ctrl'])).toBe('ctrl+space')
+    expect(matchesShortcut('ctrl+space', spaceWithoutCtrlFlag)).toBe(true)
+    expect(matchesShortcut('ctrl', controlDown)).toBe(true)
   })
 
   it('identifies modifier key presses and extracts active modifiers', () => {

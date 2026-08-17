@@ -8,7 +8,7 @@ import { ASR_BACKEND_IDS, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effective
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
-import { formatModifierChord, formatShortcut, isModifierKeyEvent, isReservedShortcut, modifiersFromEvent, shortcutFromEvent, shortcutFromModifiers, shortcutRejectReason } from '../shortcut.js'
+import { formatModifierChord, formatShortcut, isModifierKeyEvent, isReservedShortcut, modifiersFromEvent, shortcutFromEventAndHeld, shortcutFromModifiers, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier } from '../shortcut.js'
 import type { WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, ReasoningEffortsState, RouteHook, RouteState, WhisperModelHook } from './settings-controller.js'
@@ -263,12 +263,12 @@ function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, 
       }
       if (event.repeat) return
       if (isModifierKeyEvent(event)) {
-        const held = modifiersFromEvent(event)
+        const held = modifiersFromEvent(event, true)
         lastHeldRef.current = held
         setPressedModifiers(held)
         return
       }
-      const chord = shortcutFromEvent(event)
+      const chord = shortcutFromEventAndHeld(event, lastHeldRef.current)
       if (chord === null) return
       event.preventDefault()
       event.stopPropagation()

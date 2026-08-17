@@ -181,43 +181,87 @@ export function isReservedShortcut(chord: string): boolean {
   return normalized !== null && RESERVED_CHORDS.has(normalized)
 }
 
+type ModifierSourceEvent = {
+  readonly code?: string
+  readonly key?: string
+  readonly ctrlKey: boolean
+  readonly altKey: boolean
+  readonly shiftKey: boolean
+  readonly metaKey: boolean
+  readonly getModifierState?: (key: string) => boolean
+}
+
+/**
+ * Read held modifiers. macOS/WebKit often leaves `ctrlKey` false on Control
+ * keydown and on the following key; `getModifierState` and the event's own
+ * Control/Alt/Shift/Meta key restore them. `fromKey` is only for keydown of
+ * the modifier itself — do not use it on keyup or Control would never release.
+ */
+export function modifiersFromEvent(event: ModifierSourceEvent, fromKey = false): readonly ShortcutModifier[] {
+  const modifiers: ShortcutModifier[] = []
+  if (isCtrlDown(event, fromKey)) modifiers.push('ctrl')
+  if (isAltDown(event, fromKey)) modifiers.push('alt')
+  if (isShiftDown(event, fromKey)) modifiers.push('shift')
+  if (isMetaDown(event, fromKey)) modifiers.push('meta')
+  return modifiers
+}
+
+function isCtrlDown(event: ModifierSourceEvent, fromKey: boolean): boolean {
+  return event.ctrlKey || event.getModifierState?.('Control') === true
+    || (fromKey && (event.key === 'Control' || event.code === 'ControlLeft' || event.code === 'ControlRight'))
+}
+
+function isAltDown(event: ModifierSourceEvent, fromKey: boolean): boolean {
+  return event.altKey || event.getModifierState?.('Alt') === true
+    || (fromKey && (event.key === 'Alt' || event.code === 'AltLeft' || event.code === 'AltRight'))
+}
+
+function isShiftDown(event: ModifierSourceEvent, fromKey: boolean): boolean {
+  return event.shiftKey || event.getModifierState?.('Shift') === true
+    || (fromKey && (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight'))
+}
+
+function isMetaDown(event: ModifierSourceEvent, fromKey: boolean): boolean {
+  return event.metaKey || event.getModifierState?.('Meta') === true
+    || (fromKey && (event.key === 'Meta' || event.code === 'MetaLeft' || event.code === 'MetaRight'))
+}
+
 /** Build the canonical chord from a keydown; null when the event carries no capturable key. */
-export function shortcutFromEvent(event: { readonly code: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): string | null {
+export function shortcutFromEvent(event: ModifierSourceEvent & { readonly code: string }): string | null {
   const key = KEY_TOKEN_BY_CODE[event.code]
   if (key === undefined) return null
-  const modifiers: ShortcutModifier[] = []
-  if (event.ctrlKey) modifiers.push('ctrl')
-  if (event.altKey) modifiers.push('alt')
-  if (event.shiftKey) modifiers.push('shift')
-  if (event.metaKey) modifiers.push('meta')
-  return canonicalChord({ modifiers, key })
+  return canonicalChord({ modifiers: modifiersFromEvent(event), key })
+}
+
+/** Merge remembered held modifiers with the current event (macOS Control can vanish from the second keydown). */
+export function shortcutFromEventAndHeld(
+  event: ModifierSourceEvent & { readonly code: string },
+  held: readonly ShortcutModifier[]
+): string | null {
+  const key = KEY_TOKEN_BY_CODE[event.code]
+  if (key === undefined) return null
+  const current = modifiersFromEvent(event)
+  const merged = SHORTCUT_MODIFIERS.filter((modifier) => held.includes(modifier) || current.includes(modifier))
+  return canonicalChord({ modifiers: merged, key })
 }
 
 /** True when a keydown event matches the stored chord, with strict modifier equality. */
-export function matchesShortcut(chord: string, event: { readonly code: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): boolean {
+export function matchesShortcut(chord: string, event: ModifierSourceEvent & { readonly code: string }): boolean {
   const parsed = parseShortcut(chord)
   if (parsed === null) return false
+  const modifierKey = MODIFIER_CODES.has(event.code)
   if (parsed.key === '') {
-    if (!MODIFIER_CODES.has(event.code)) return false
+    if (!modifierKey) return false
   } else if (event.code !== CODE_BY_KEY_TOKEN[parsed.key]) return false
-  const has = (modifier: ShortcutModifier): boolean => event.ctrlKey && modifier === 'ctrl' || event.altKey && modifier === 'alt' || event.shiftKey && modifier === 'shift' || event.metaKey && modifier === 'meta'
+  const held = modifiersFromEvent(event, modifierKey)
   const want = (modifier: ShortcutModifier): boolean => parsed.modifiers.includes(modifier)
-  return (SHORTCUT_MODIFIERS as readonly ShortcutModifier[]).every((modifier) => has(modifier) === want(modifier))
+  return (SHORTCUT_MODIFIERS as readonly ShortcutModifier[]).every((modifier) => held.includes(modifier) === want(modifier))
 }
 
 /** True when the pressed key is a modifier key itself. */
-export function isModifierKeyEvent(event: { readonly key: string }): boolean {
+export function isModifierKeyEvent(event: { readonly key: string; readonly code?: string }): boolean {
   return event.key === 'Control' || event.key === 'Alt' || event.key === 'Shift' || event.key === 'Meta'
-}
-
-/** Extract the active modifiers in canonical order (ctrl, alt, shift, meta). */
-export function modifiersFromEvent(event: { readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): readonly ShortcutModifier[] {
-  const modifiers: ShortcutModifier[] = []
-  if (event.ctrlKey) modifiers.push('ctrl')
-  if (event.altKey) modifiers.push('alt')
-  if (event.shiftKey) modifiers.push('shift')
-  if (event.metaKey) modifiers.push('meta')
-  return modifiers
+    || (event.code !== undefined && MODIFIER_CODES.has(event.code))
 }
 
 const MODIFIER_LABELS: Readonly<Record<ShortcutModifier, Readonly<Record<'mac' | 'win' | 'linux', string>>>> = {
