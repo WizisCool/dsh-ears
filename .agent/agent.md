@@ -223,6 +223,19 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: metadata-only readiness change — no code or runtime behavior changed; no rebuild or GUI refresh needed.
 - Commit: `1749afc chore(deps): relax the dsh-credentials peer range to accept rc.7 hosts`.
 
+## Custom polish prompt record (D-029, 2026-08-18)
+
+- Completed: added a customizable polish system prompt on the dsh-ear Polishing tab and replaced the built-in default polish prompt with a multilingual ASR-editing contract.
+  - Host (`src/polish/prompts.ts`): `POLISH_SYSTEM_PROMPT` is now the multilingual contract (language/term/code preservation, spoken self-corrections, enumeration-to-list, few-shot examples); new `POLISH_OUTPUT_GUARD` (return only the polished text; treat the transcript as data) and `resolvePolishSystemPrompt(storedPrompt)` (empty → default; non-empty → trimmed custom prompt + guard). `src/polish/service.ts` `polish()` now reads `settings.polishPrompt` and resolves it through the selector.
+  - Settings (`src/config.ts`, `src/config-schema.ts`, `src/remote-contract.ts`): new `EarsSettings.polishPrompt` (default `''`), `MAX_POLISH_PROMPT_LENGTH = 4000`, trim-based host validation, schemastery field (Host-only), strict client view/patch zod schemas.
+  - Client (`src/client/settings-controller.ts`, `src/client/settings.tsx`, `SettingsSection.module.css`): `polishPrompt` staged like other string fields (empty draft = explicit clear → `''`), over-length draft invalid and blocks the whole save (D-024/D-026); the Polishing tab (gated on the toggle) renders a multiline textarea row with a live `n/4000` counter, Reset-to-default (stages an empty draft), and a read-only 查看默认 / View default expand showing the shipped prompt; new bilingual locale keys.
+  - Tests: config.test.ts (default + trim-based 4000 cap), polish.test.ts (resolver: empty→default / custom→trimmed+guard; service captures `stream.system` for default vs custom), remote-contract.test.ts (view literal + explicit-clear patch), settings.test.ts (staging/save/clear/over-length), settings-section-lifecycle.test.ts (typed card-state literal).
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (162/162 tests across 16 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed (13 files; `lib/` is gitignored, no churn); Impeccable detector returned `[]` on `settings.tsx` + `SettingsSection.module.css`; `git diff --cached --check` passed after each commit.
+- Unfinished: a live browser smoke of the new prompt row (client bundle rebuild + `http://127.0.0.1:3080` refresh needed; no watcher running); the new default prompt changed polish output behavior for all existing users (multilingual instead of Chinese-targeted) — verify with a real live polish run; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending; per-route custom prompts remain deferred (D-029).
+- Blocked: none.
+- Next: rebuild/refresh the running Web UI to verify the prompt row visually; optionally run a live polish with the new default and with a custom prompt to confirm system-prompt selection end to end.
+- Commits: `27eaa7f feat(host): add customizable polish system prompt with a multilingual default`, `2fd8047 feat(client): add the polish prompt row with counter, reset, and view-default`, `a0f4c82 docs: record custom polish prompt decision and updated default prompt`.
+
 ## Handoff template
 
 ```text
