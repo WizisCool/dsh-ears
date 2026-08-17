@@ -6,9 +6,18 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: `1331c13 fix(client): keep two-modifier shortcut chords when capturing` on `master`.
+- Latest commit: `7fd45ec feat(client): discard in-flight transcribe and polish from the bar` on `master`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
+
+## Recognition-bar discard action (2026-08-18)
+
+- Completed: while the recognition card is `transcribing` or `polishing`, the previously disabled stop square becomes the same `IconTrashOutline16` trash as an in-progress Goal row. Clicking it discards that voice task: abort the Host transcribe/polish RPC, ignore a late result, return to idle, and play the existing collapse animation. Recording still uses the stop square. Starting and error states keep a disabled stop.
+- Validation: `pnpm check` passed; `pnpm test` passed twice (252/252 across 23 files); `pnpm build` passed; Impeccable detector returned `[]` on the recognition bar. Existing `dsh web` on `127.0.0.1:3080` served `/plugins/dsh-ears/client.js` with HTTP 200 and the new `voiceDiscard` copy. No live click-through of an in-flight Host transcribe (needs a real recording).
+- Unfinished: live GUI refresh to click the trash during 正在转写… / 正在润色…; D-018 and live smokes remain pending.
+- Blocked: none.
+- Next: refresh the existing Web UI to inspect trash-during-processing; do not push without authorization.
+- Commit: `7fd45ec feat(client): discard in-flight transcribe and polish from the bar`.
 
 ## Two-modifier shortcut capture fix (2026-08-18)
 
