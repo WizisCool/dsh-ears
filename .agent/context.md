@@ -64,7 +64,7 @@ The Host sends multipart form data containing `file`, `model`, and optional lang
 
 ## Draft and polishing flow
 
-`src/client/voice-flow.ts` is pure flow logic shared by the microphone component and tests. Final ASR refuses to overwrite a draft changed while transcription was pending. Polishing first leaves the raw transcript in the draft; a late result is ignored after a manual edit, and any route failure/cancellation leaves usable raw text.
+`src/client/voice-flow.ts` is pure flow logic shared by the microphone component and tests. Final ASR refuses to overwrite a draft changed while transcription was pending. The recognition bar names each stage on the existing dock card; there is no extra toast. Polishing runs only when the local `polishingEnabled` toggle is on (an empty local provider/model pair still asks the Host, which uses the stored route). The raw transcript is written first; a late result is applied if the composer still holds that raw draft or the pre-transcript base, ignored after a manual edit, and a route failure stays on the bar as `polish-error` while keeping the raw text.
 
 ## Settings
 

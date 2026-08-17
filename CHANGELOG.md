@@ -29,7 +29,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 ### Hardened
 
 - The built-in polish prompt is now a multilingual ASR-editing contract instead of a Chinese-targeted one-liner: it preserves the transcript's original language and technical/code terminology (brands, version markers, path/CLI entities), resolves spoken self-corrections ("not X, but Y"), formats explicit enumerations as numbered lists, segments long transcripts into paragraphs, and ships few-shot examples, while keeping the transcript-is-data and output-only-the-polished-text rules.
-- The client now always asks the Host to polish after a successful transcript. The Host is authoritative: if polishing is enabled there, an empty client provider/model pair uses the stored route instead of silently skipping the LLM. Web Speech also commits the last interim text when the browser never emits a final result.
+- The recognition bar now names each stage (starting, listening, transcribing, polishing) and stays up with the existing error line when capture fails, or a polish-specific line when polish fails, instead of adding a separate toast.
+- Polish results are applied even if the composer has not flushed the committed raw draft yet. A failed Host polish keeps the raw transcript and surfaces `润色失败，已保留原文` on the bar. If an explicit reasoning-effort call fails or returns the raw transcript unchanged, the Host retries once with the model default. A real route failure now rejects the RPC instead of silently returning the raw text.
 - Light/dark theme adaptation through dsh semantic tokens.
 - Model → microphone → send visual ordering on dsh rc.6.
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
@@ -50,6 +51,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Closing the polishing toggle no longer flashes `正在润色…`: the client only enters the polishing state when `polishingEnabled` is on. An enabled toggle still asks the Host even if the local provider/model pair is empty.
 - The shortcut recorder now gives live feedback while only modifier keys are held: the capture button shows the pressed modifiers (e.g. `Ctrl+Shift+…`), and releasing every modifier without a key shows the inline "modifier-only" error instead of staying silent. Modifier keydowns are no longer invisible; a non-modifier key still completes the capture and Escape still resets and cancels.
 - Modifier+character chords are now allowed (user-requested revision of the D-028 rule): letters and digits with Ctrl/Shift/Meta record and save as valid shortcuts, with browser/OS-reserved combinations (Ctrl+letter/digit, Cmd+letter/digit, and the reserved Ctrl+Shift/Cmd+Shift sets) shown as amber warnings instead of being blocked. Bare letters/digits/text keys and Alt/Option+letter chords (which type special characters on macOS) are still rejected, and the error copy explains why.
 - The voice hotkey now **outranks text input**: the composer listener runs on the window capture phase and calls `preventDefault`/`stopPropagation` on a matching chord, so pressing the shortcut inside the composer or any text field triggers voice input instead of being swallowed by the editor. Non-matching, disabled, or gated chords leave the event untouched.

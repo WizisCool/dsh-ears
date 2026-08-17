@@ -5,9 +5,9 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-031. The composer microphone, session-scoped `conversation.input.dock` recognition card, dedicated `dsh-ear` settings page (uncarded General-style rows, per-field auto-save), Web Speech + Local Whisper + Groq/Custom cloud ASR, and dsh-owned polishing with a customizable prompt are all in tree. D-019 is closed; D-018 remains open.
-- Latest code commit: pending polish-prompt review.
-- Latest commit: `docs: record D-031 auto-save settings`.
+- Current work: first-release product surface is implemented through D-031. Live polish now skips the recognition-bar “polishing” flash when the toggle is off, names each remaining stage on that same bar, and applies Host results unless the user edited the draft. D-019 is closed; D-018 remains open.
+- Latest code commit: `35bd24c fix(host): retry unchanged effort polish and reject failures`.
+- Latest commit: `docs: record polish bar status and skip-when-off`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -295,6 +295,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: `feat(host): strengthen the default polish prompt` and the enumeration layout follow-up.
+
+## Recognition-bar polish status record (2026-08-18)
+
+- Completed: fixed the brief `正在润色…` flash when polishing is off (the previous “always call Host” skip-fix was too broad). `commitTranscript` now honors `polishingEnabled` and only shows the polishing state when the toggle is on; an enabled toggle still asks the Host with an empty local provider/model pair. The existing recognition bar now names starting / listening / transcribing / polishing, keeps capture failures as `error`, and keeps polish failures as `polish-error` (`润色失败，已保留原文`) — no extra toast. Stale composer drafts still accept the polish result; a Host route that no-ops or throws with an explicit reasoning effort retries once without effort; a real route failure now rejects the RPC so the bar can show the polish-error line instead of silently writing the raw transcript back.
+- Validation: `pnpm check` passed; `pnpm test` passed (183/183 across 17 files); `pnpm build` passed (client 288.54 kB, host 57.80 kB); Impeccable detector returned `[]` on `VoiceRecognitionBar.tsx`, `VoiceRecognitionBar.module.css`, and `MicrophoneButton.tsx`.
+- Unfinished: Host + client changes need a `dsh web` restart and a browser refresh to load; live polish smoke with the user’s antigravity/gemini route still needs that restart. D-018, live Groq/`zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: restart the existing `dsh web` process and refresh the page; do not push without authorization.
+- Commits: `52479d6 fix(client): skip polish UI and surface stages on the bar`, `35bd24c fix(host): retry unchanged effort polish and reject failures`, plus this docs record.
 
 ## Handoff template
 
