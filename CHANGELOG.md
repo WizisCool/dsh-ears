@@ -53,6 +53,9 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Recognition and polish errors on the status bar now dismiss themselves after a short delay, so a failed attempt no longer occupies the composer. Empty Bailian / cloud transcripts use the same path, with amber `请检查配置后重试` copy instead of a sticky red `语音输入失败，点击重试`.
+- Host-backed recording starts sooner: the microphone is warmed on hover or focus, and Web Speech no longer waits for a second `getUserMedia` analyser before it is ready to listen.
+
 - Closing the polishing toggle no longer flashes `正在润色…`: the client only enters the polishing state when `polishingEnabled` is on. An enabled toggle still asks the Host even if the local provider/model pair is empty.
 - The shortcut recorder now gives live feedback while only modifier keys are held: the capture button shows the pressed modifiers (e.g. `Ctrl+Shift+…`), and releasing every modifier without a key shows the inline "modifier-only" error instead of staying silent. Modifier keydowns are no longer invisible; a non-modifier key still completes the capture and Escape still resets and cancels.
 - Modifier+character chords are now allowed (user-requested revision of the D-028 rule): letters and digits with Ctrl/Shift/Meta record and save as valid shortcuts, with browser/OS-reserved combinations (Ctrl+letter/digit, Cmd+letter/digit, and the reserved Ctrl+Shift/Cmd+Shift sets) shown as amber warnings instead of being blocked. Bare letters/digits/text keys and Alt/Option+letter chords (which type special characters on macOS) are still rejected, and the error copy explains why.
@@ -60,6 +63,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - The shortcut recorder control is now right-aligned like the other settings rows: the capture pill uses the same content-width, `flex-end` alignment as the shipped selectors (it no longer sits at the left of the 240px API-key lane), and the Reset-to-default action sits directly next to the pill instead of floating at the far edge. At narrow widths the pill stretches full-width with the reset action below it.
 
 ### Changed
+
+- Settings field hints now follow the official dsh plugin one-clause style instead of multi-sentence tutorials.
 
 - The built-in default polish system prompt is now the tighter ASR-cleaning contract: stay close to the speaker, repair ASR/technical terms, list only explicit enumerations, and output only the cleaned text. A custom `polishPrompt` still replaces it entirely.
 - The `dsh-ear` settings page drops the card wrapper and Save/Discard footer (D-031). Rows match native General: hairline dividers, no card surface. Valid edits auto-save after 400 ms, on blur, or when the panel closes; an invalid draft is skipped and stays local; a failed write keeps the drafts and does not retry in a loop.

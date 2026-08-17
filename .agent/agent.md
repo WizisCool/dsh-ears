@@ -5,9 +5,9 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-032 (Bailian DashScope ASR + per-provider cloud keys). D-019 is closed; D-018 remains open.
-- Latest code commit: pending grouped cloud ASR settings.
-- Latest commit: `docs: record the official DeepSeek Harness plugin guides`.
+- Current work: first-release product surface is implemented through D-032 (Bailian DashScope ASR + per-provider cloud keys). Current pass is recognition-bar UX: auto-dismiss errors, amber empty-ASR copy, faster start, shorter official-style hints. D-019 is closed; D-018 remains open.
+- Latest code commit: `4644777 fix(client): dismiss recognition errors and tighten voice UX`.
+- Latest commit: `4644777 fix(client): dismiss recognition errors and tighten voice UX`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -331,6 +331,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
+
+## Recognition-bar UX record (2026-08-18)
+
+- Completed: failed recognition and polish-error states auto-dismiss after 2.6s so the bar does not stay in the composer. Empty Bailian/cloud transcripts keep the existing error path, now with amber `请检查配置后重试` / `Check the configuration and try again` instead of a sticky red retry line. Host-backed recording pre-warms `getUserMedia` on hover/focus/pointerdown and Web Speech no longer starts a competing analyser capture before `onstart`. Settings field hints were shortened to the official dsh plugin one-clause style.
+- Validation: `pnpm check` passed; `pnpm test` passed (200/200 across 19 files); `pnpm build` passed (client ~296.28 kB, host ~70.05 kB).
+- Unfinished: live GUI refresh of the rebuilt client on the existing `http://127.0.0.1:3080` session; live Bailian empty-result and start-latency smokes still need that refresh. D-018, Groq/`zh`, and Windows smokes remain pending.
+- Blocked: none.
+- Next: refresh the existing Web UI (client-only; no Host restart). Do not push without authorization.
+- Commit: `4644777 fix(client): dismiss recognition errors and tighten voice UX`.
 
 ## Official dsh docs pointer (2026-08-18)
 
