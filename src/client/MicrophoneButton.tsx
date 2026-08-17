@@ -16,7 +16,7 @@ import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
-import { playClick, playRecognitionChime, resumeSounds, retainSounds } from './sounds.js'
+import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 
 type VoiceInputButtonProps = {
@@ -241,7 +241,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       speechSessionRef.current = session
       session.start()
       setState('recording')
-      playListeningChime(settingsRef.current)
       armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
     } catch {
       levelMonitorRef.current?.stop()
@@ -330,7 +329,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       mediaStartedAtRef.current = Date.now()
       session.start()
       setState('recording')
-      playListeningChime(settingsRef.current)
       armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
       try {
         levelMonitorRef.current = session.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
@@ -421,11 +419,6 @@ function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> 
 function playToggleClick(settings: EarsSettings, intensity: number): void {
   if (settings.voiceSoundsEnabled === false) return
   playClick(intensity)
-}
-
-function playListeningChime(settings: EarsSettings): void {
-  if (settings.voiceSoundsEnabled === false) return
-  playRecognitionChime()
 }
 
 function normalizeBackend(value: string): AsrBackendId {

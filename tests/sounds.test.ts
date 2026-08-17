@@ -1,16 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { disposeSounds, playClick, playRecognitionChime, retainSounds } from '../src/client/sounds.js'
-
-class FakeOscillator extends EventTarget {
-  type = 'sine'
-  frequency = { value: 0 }
-  startedAt: number | undefined
-  stoppedAt: number | undefined
-  start(time: number): void { this.startedAt = time }
-  stop(time: number): void { this.stoppedAt = time }
-  connect(): this { return this }
-  disconnect(): void { /* no-op */ }
-}
+import { disposeSounds, playClick, retainSounds } from '../src/client/sounds.js'
 
 class FakeGain {
   gain = {
@@ -44,7 +33,6 @@ class FakeAudioContext {
   currentTime = 1
   sampleRate = 48_000
   closed = false
-  oscillators: FakeOscillator[] = []
   sources: FakeBufferSource[] = []
   filters: FakeFilter[] = []
   destination = {}
@@ -70,11 +58,6 @@ class FakeAudioContext {
     this.filters.push(filter)
     return filter
   }
-  createOscillator(): FakeOscillator {
-    const oscillator = new FakeOscillator()
-    this.oscillators.push(oscillator)
-    return oscillator
-  }
   createGain(): FakeGain {
     return new FakeGain()
   }
@@ -86,7 +69,7 @@ afterEach(() => {
 })
 
 describe('voice sounds', () => {
-  it('plays a band-passed noise click and a rising G5–C6 chime', async () => {
+  it('plays a band-passed noise click', async () => {
     const created: FakeAudioContext[] = []
     vi.stubGlobal('window', {
       AudioContext: class extends FakeAudioContext {
@@ -98,19 +81,12 @@ describe('voice sounds', () => {
     })
 
     playClick(0.5)
-    playRecognitionChime()
     await vi.waitFor(() => expect(created[0]?.sources.length).toBe(1))
-    await vi.waitFor(() => expect(created[0]?.oscillators.length).toBe(2))
 
     const ctx = created[0]
     expect(ctx?.sources[0]?.started).toBe(true)
     expect(ctx?.filters[0]?.type).toBe('bandpass')
     expect(ctx?.filters[0]?.Q.value).toBe(8)
-    expect(ctx?.oscillators[0]?.frequency.value).toBeCloseTo(783.99)
-    expect(ctx?.oscillators[1]?.frequency.value).toBeCloseTo(1046.5)
-    expect(ctx?.oscillators[0]?.stoppedAt).toBeCloseTo(1.12)
-    expect(ctx?.oscillators[1]?.startedAt).toBeCloseTo(1.10)
-    expect(ctx?.oscillators[1]?.stoppedAt).toBeCloseTo(1.38)
   })
 
   it('closes the shared context when the last listener is released', async () => {

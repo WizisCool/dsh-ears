@@ -5,10 +5,6 @@ type AudioContextWindow = Window & {
 const CLICK_NOISE_SECONDS = 0.004
 const CLICK_DECAY = 25
 const CLICK_DURATION_SECONDS = 0.045
-const CHIME_ATTACK_SECONDS = 0.008
-const CHIME_MASTER_GAIN = 0.5
-const G5_HZ = 783.99
-const C6_HZ = 1046.5
 
 let context: AudioContext | undefined
 let retainCount = 0
@@ -27,7 +23,7 @@ async function ensureContext(): Promise<AudioContext | undefined> {
   return context
 }
 
-/** Resume the shared context inside a user gesture so later chimes are allowed. */
+/** Resume the shared context inside a user gesture so the click can play. */
 export function resumeSounds(): void {
   void ensureContext()
 }
@@ -52,11 +48,6 @@ export function disposeSounds(): void {
 /** A short band-passed noise click. `intensity` is 0–1. */
 export function playClick(intensity = 0.5): void {
   void playClickAsync(intensity)
-}
-
-/** Bright rising perfect-fourth chime: G5 then C6. */
-export function playRecognitionChime(): void {
-  void playRecognitionChimeAsync()
 }
 
 async function playClickAsync(intensity: number): Promise<void> {
@@ -89,44 +80,6 @@ async function playClickAsync(intensity: number): Promise<void> {
   source.addEventListener('ended', () => {
     source.disconnect()
     filter.disconnect()
-    gain.disconnect()
-  }, { once: true })
-}
-
-async function playRecognitionChimeAsync(): Promise<void> {
-  const ctx = await ensureContext()
-  if (ctx === undefined) return
-  const master = ctx.createGain()
-  master.gain.value = CHIME_MASTER_GAIN
-  master.connect(ctx.destination)
-  const now = ctx.currentTime
-  scheduleTone(ctx, master, now, G5_HZ, 0.12, 0.06)
-  scheduleTone(ctx, master, now + 0.10, C6_HZ, 0.28, 0.07)
-}
-
-function scheduleTone(
-  ctx: AudioContext,
-  destination: AudioNode,
-  start: number,
-  frequency: number,
-  duration: number,
-  peak: number
-): void {
-  const oscillator = ctx.createOscillator()
-  oscillator.type = 'sine'
-  oscillator.frequency.value = frequency
-  const gain = ctx.createGain()
-  const attackAt = start + CHIME_ATTACK_SECONDS
-  gain.gain.setValueAtTime(0.0001, start)
-  gain.gain.exponentialRampToValueAtTime(peak, attackAt)
-  gain.gain.setValueAtTime(peak, attackAt)
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
-  oscillator.connect(gain)
-  gain.connect(destination)
-  oscillator.start(start)
-  oscillator.stop(start + duration)
-  oscillator.addEventListener('ended', () => {
-    oscillator.disconnect()
     gain.disconnect()
   }, { once: true })
 }

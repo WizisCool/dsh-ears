@@ -9,7 +9,7 @@ export const EarsSettingsSchema = s.object({
   maxRecordingSeconds: s.number().default(DEFAULT_EARS_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds'),
   voiceShortcutEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceShortcutEnabled).description('Enable the in-page voice shortcut'),
   voiceShortcut: s.string().default(DEFAULT_EARS_SETTINGS.voiceShortcut).description('In-page voice shortcut'),
-  voiceSoundsEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceSoundsEnabled).description('Play synthesized click and chime for voice input'),
+  voiceSoundsEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceSoundsEnabled).description('Play a synthesized click for voice input'),
   cloudAsrProvider: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrProvider).description('Active cloud ASR provider: groq, custom, or bailian'),
   groq: s.object({
     apiKey: s.string().role('secret').default('').description('Groq API key (Whisper)'),

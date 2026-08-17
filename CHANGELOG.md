@@ -6,7 +6,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Added
 
-- Synthesized voice-input sounds (no audio files): a short click on start/stop and a G5–C6 chime when listening actually begins. Toggle is in General, on by default.
+- Synthesized voice-input click (no audio files) on start/stop. Toggle is in General, on by default.
 - Alibaba Cloud Model Studio (百炼) as a cloud ASR provider: DashScope sync `multimodal-generation` for Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash. Users enter an HTTPS origin, a dedicated API key, and a model name. Recordings on this provider are capped at 300 seconds. Filetrans / realtime remain out of scope.
 - Cloud ASR API keys are now per provider, with explicit names and a grouped Host settings file: `groq`, `customOpenAi`, and `bailian` each have their own `apiKey` (and model / endpoint / host). The previous flat `cloudAsrApiKey` is Groq-only after rewrite.
 - Codex-like dsh composer microphone control with live Web Speech input.
