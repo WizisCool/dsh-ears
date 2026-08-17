@@ -191,7 +191,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Unfinished: explicit reasoning-effort selections on this private OpenAI-compatible route still need an adapter/gateway contract if users want to retain `Off`/`High`/`Max` rather than use the model default.
 - Blocked: none.
 - Next: keep polishing on `Default` for this route; if explicit effort controls are required, add a provider-specific compatibility contract and live smoke before changing the plugin behavior.
-- Commit: pending documentation-only handoff commit.
+- Commit: `d748edc docs: record polishing route diagnosis`.
 
 ## Handoff template
 
