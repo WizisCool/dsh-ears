@@ -127,12 +127,7 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
     } catch {
       throw new Error('Cloud ASR returned invalid JSON')
     }
-    if (!response.ok) {
-      const message = isRecord(parsed) && typeof parsed.message === 'string' && parsed.message.trim() !== ''
-        ? parsed.message.trim()
-        : `Cloud ASR request failed with HTTP ${response.status}`
-      throw new Error(message)
-    }
+    if (!response.ok) throw new Error(dashScopeErrorDetail(parsed, response.status))
     return extractDashScopeTranscript(parsed)
   } finally {
     clearTimeout(timer)
@@ -145,6 +140,16 @@ function validateEndpoint(value: string): string {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Cloud ASR endpoint must use HTTP or HTTPS')
   if (url.username !== '' || url.password !== '') throw new Error('Cloud ASR endpoint must not contain credentials')
   return url.toString()
+}
+
+export function dashScopeErrorDetail(parsed: unknown, status: number): string {
+  if (!isRecord(parsed)) return `Cloud ASR request failed with HTTP ${status}`
+  const code = typeof parsed.code === 'string' ? parsed.code.trim() : ''
+  const message = typeof parsed.message === 'string' ? parsed.message.trim() : ''
+  if (code !== '' && message !== '' && message !== code) return `${code}: ${message}`
+  if (code !== '') return code
+  if (message !== '') return message
+  return `Cloud ASR request failed with HTTP ${status}`
 }
 
 function firstText(value: unknown): string | undefined {

@@ -1,7 +1,8 @@
 import type { EarsSettings } from '../config.js'
 import type { EarsRemote } from '../remote.js'
+import { classifyVoiceFailure, failureMessage, remoteFailureDetail } from './voice-error.js'
 
-export type VoiceInputState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error'
+export type VoiceInputState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error' | 'upstream-error'
 
 export interface DraftActions {
   setDraft(text: string): void
@@ -14,7 +15,7 @@ export interface CommitTranscriptOptions {
   requireUnchanged: boolean
   settings: EarsSettings
   remote: EarsRemote
-  setState: (state: VoiceInputState) => void
+  setState: (state: VoiceInputState, detail?: string) => void
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
@@ -68,7 +69,7 @@ export interface PolishDraftOptions {
   model: string
   reasoningEffort: string
   remote: EarsRemote
-  setState: (state: VoiceInputState) => void
+  setState: (state: VoiceInputState, detail?: string) => void
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
@@ -88,7 +89,7 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
     }
 
     if (!result.ok) {
-      options.setState('polish-error')
+      options.setState('polish-error', remoteFailureDetail(result.error))
       return
     }
     const text = result.value.trim() !== '' ? result.value.trim() : options.transcript
@@ -96,8 +97,14 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
     options.latestDraftRef.current = nextDraft
     options.actionsRef.current.setDraft(nextDraft)
     options.setState('idle')
-  } catch {
-    if (!controller.signal.aborted) options.setState('polish-error')
+  } catch (error) {
+    if (controller.signal.aborted) return
+    const message = failureMessage(error)
+    if (classifyVoiceFailure(message) === 'empty') {
+      options.setState('idle')
+      return
+    }
+    options.setState('polish-error', remoteFailureDetail({ message }))
   } finally {
     if (options.polishAbortRef.current === controller) options.polishAbortRef.current = null
   }

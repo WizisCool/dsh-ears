@@ -126,7 +126,7 @@ describe('voice draft flow', () => {
       actionsRef: { current: { setDraft } },
       polishAbortRef: { current: null }
     })
-    await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('polish-error'))
+    await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('polish-error', 'unavailable'))
     expect(setDraft).toHaveBeenCalledTimes(1)
     expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
   })

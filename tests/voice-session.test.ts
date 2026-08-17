@@ -13,7 +13,7 @@ describe('VoiceInputSession', () => {
 
     session.setState('recording')
 
-    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [] })
+    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [], detail: '' })
     expect(listener).toHaveBeenCalledTimes(1)
     unsubscribe()
     session.setState('transcribing')
@@ -41,7 +41,7 @@ describe('VoiceInputSession', () => {
     session.setState('recording')
     session.requestStop()
 
-    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [] })
+    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [], detail: '' })
     expect(stop).toHaveBeenCalledOnce()
     unsubscribe()
     session.requestStop()
@@ -51,11 +51,11 @@ describe('VoiceInputSession', () => {
   it('dismisses recognition errors after a short delay', () => {
     vi.useFakeTimers()
     const session = new VoiceInputSession()
-    session.setState('error')
+    session.setState('upstream-error', 'InvalidApiKey')
     vi.advanceTimersByTime(VOICE_ERROR_DISMISS_MS - 1)
-    expect(session.getSnapshot().state).toBe('error')
+    expect(session.getSnapshot()).toEqual({ state: 'upstream-error', levels: [], detail: 'InvalidApiKey' })
     vi.advanceTimersByTime(1)
-    expect(session.getSnapshot().state).toBe('idle')
+    expect(session.getSnapshot()).toEqual({ state: 'idle', levels: [], detail: '' })
     session.dispose()
   })
 

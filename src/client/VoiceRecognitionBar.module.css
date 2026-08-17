@@ -76,22 +76,35 @@
   animation: listening-pulse 1200ms ease-in-out infinite;
 }
 
-.root[data-state='error'] .indicator,
-.root[data-state='polish-error'] .indicator {
+.root[data-state='error'] .indicator {
   background: var(--dsw-alias-state-warn-label);
   box-shadow: none;
   animation: none;
 }
 
-.root[data-state='error'] .label,
-.root[data-state='polish-error'] .label {
+.root[data-state='error'] .label {
   color: var(--dsw-alias-state-warn-label);
 }
 
+.root[data-state='upstream-error'] .indicator,
+.root[data-state='polish-error'] .indicator {
+  background: var(--dsw-alias-state-error-primary);
+  box-shadow: none;
+  animation: none;
+}
+
+.root[data-state='upstream-error'] .label,
+.root[data-state='polish-error'] .label {
+  color: var(--dsw-alias-state-error-primary);
+}
+
 .label {
-  flex: none;
+  min-width: 0;
+  flex: 1 1 auto;
   color: var(--dsw-alias-label-primary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .waveform {

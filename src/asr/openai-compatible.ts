@@ -41,14 +41,14 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
       signal: timeout.signal
     })
     const body = await readBoundedText(response)
-    if (!response.ok) throw new Error(`Cloud ASR request failed with HTTP ${response.status}`)
-
     let parsed: unknown
     try {
       parsed = JSON.parse(body)
     } catch {
+      if (!response.ok) throw new Error(`Cloud ASR request failed with HTTP ${response.status}`)
       throw new Error('Cloud ASR returned invalid JSON')
     }
+    if (!response.ok) throw new Error(openAiCompatibleErrorDetail(parsed, response.status))
     if (!isRecord(parsed) || typeof parsed.text !== 'string') throw new Error('Cloud ASR returned no transcript')
     return parsed.text.trim()
   } finally {
@@ -112,6 +112,17 @@ function fileName(mimeType: string): string {
 function languageCode(language: string): string {
   const code = language.trim().split('-', 1)[0]
   return code === '' ? 'auto' : code
+}
+
+export function openAiCompatibleErrorDetail(parsed: unknown, status: number): string {
+  if (!isRecord(parsed)) return `Cloud ASR request failed with HTTP ${status}`
+  const nested = isRecord(parsed.error) ? parsed.error : parsed
+  const code = typeof nested.code === 'string' ? nested.code.trim() : typeof nested.type === 'string' ? nested.type.trim() : ''
+  const message = typeof nested.message === 'string' ? nested.message.trim() : ''
+  if (code !== '' && message !== '' && message !== code) return `${code}: ${message}`
+  if (code !== '') return code
+  if (message !== '') return message
+  return `Cloud ASR request failed with HTTP ${status}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

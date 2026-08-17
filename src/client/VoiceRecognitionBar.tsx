@@ -15,24 +15,25 @@ type VoiceRecognitionBarProps = {
 type PresentationPhase = 'hidden' | 'visible' | 'exiting'
 
 type DisplayState = {
-  readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error'
+  readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error' | 'upstream-error'
   readonly levels: readonly number[]
+  readonly detail: string
 }
 
 const EXIT_DURATION_MS = 180
 
 export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceRecognitionBarProps) {
   const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
-  const { state, levels } = useVoiceInputSession(voiceSession)
+  const { state, levels, detail } = useVoiceInputSession(voiceSession)
   const active = isVisibleState(state)
   const [phase, setPhase] = useState<PresentationPhase>(active ? 'visible' : 'hidden')
   const rootRef = useRef<HTMLDivElement>(null)
   const hasShownRef = useRef(active)
-  const lastDisplayRef = useRef<DisplayState>({ state: 'recording', levels: [] })
+  const lastDisplayRef = useRef<DisplayState>({ state: 'recording', levels: [], detail: '' })
 
   useEffect(() => {
-    if (active) lastDisplayRef.current = { state, levels }
-  }, [active, state, levels])
+    if (active) lastDisplayRef.current = { state, levels, detail }
+  }, [active, state, levels, detail])
 
   useEffect(() => {
     if (active) {
@@ -54,9 +55,10 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
 
   if (phase === 'hidden') return null
 
-  const display = active ? { state, levels } : lastDisplayRef.current
+  const display = active ? { state, levels, detail } : lastDisplayRef.current
   const processing = display.state === 'transcribing' || display.state === 'polishing'
-  const label = statusLabel(display.state, t)
+  const label = statusLabel(display, t)
+  const notice = display.state === 'error' || display.state === 'polish-error' || display.state === 'upstream-error'
   const interactive = active && display.state === 'recording'
 
   return (
@@ -65,8 +67,8 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
         <div className={styles.inner}>
           <div className={styles.status} role="status" aria-live="polite">
             <span className={styles.indicator} aria-hidden="true" />
-            <span className={styles.label}>{label}</span>
-            {processing ? <IconLoadingOutline16 className={styles.spinner} size={16} /> : display.state === 'error' ? null : <Waveform levels={display.levels} />}
+            <span className={styles.label} title={label}>{label}</span>
+            {processing ? <IconLoadingOutline16 className={styles.spinner} size={16} /> : notice ? null : <Waveform levels={display.levels} />}
           </div>
           <Tooltip label={interactive ? t('voiceStop') : t('voiceBusy')} side="top" delayMs={200}>
             <button
@@ -97,15 +99,16 @@ function Waveform({ levels }: { readonly levels: readonly number[] }) {
   )
 }
 
-function statusLabel(state: DisplayState['state'], t: Translate): string {
-  if (state === 'starting') return t('voiceStarting')
-  if (state === 'recording') return t('voiceRecording')
-  if (state === 'transcribing') return t('voiceTranscribing')
-  if (state === 'polishing') return t('voicePolishing')
-  if (state === 'polish-error') return t('voicePolishFailed')
+function statusLabel(display: DisplayState, t: Translate): string {
+  if (display.state === 'starting') return t('voiceStarting')
+  if (display.state === 'recording') return t('voiceRecording')
+  if (display.state === 'transcribing') return t('voiceTranscribing')
+  if (display.state === 'polishing') return t('voicePolishing')
+  if (display.state === 'upstream-error') return `${t('voiceUpstreamAsr')}${display.detail || t('voiceError')}`
+  if (display.state === 'polish-error') return `${t('voiceUpstreamPolish')}${display.detail || t('voicePolishFailed')}`
   return t('voiceError')
 }
 
 function isVisibleState(state: string): state is DisplayState['state'] {
-  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'polishing' || state === 'error' || state === 'polish-error'
+  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'polishing' || state === 'error' || state === 'polish-error' || state === 'upstream-error'
 }

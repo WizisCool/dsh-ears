@@ -4,7 +4,7 @@ import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
@@ -200,6 +200,7 @@ export class PolishService extends TypertRemoteService {
     const settings = this.requireSettings()
     signal.throwIfAborted()
     const audio = decodeAudio(audioBase64)
+    const language = effectiveRecognitionLanguage(settings.language, hostUiLocale(this.ctx))
     const backend = asrBackend(settings.asrBackend)
     if (backend === 'web-speech') throw new Error('Web Speech recordings are transcribed in the browser')
     if (backend === 'local-whisper') {
@@ -210,7 +211,7 @@ export class PolishService extends TypertRemoteService {
       return transcribeWithWhisper({
         audio,
         mimeType,
-        language: settings.language,
+        language,
         model,
         signal
       })
@@ -227,7 +228,7 @@ export class PolishService extends TypertRemoteService {
       return transcribeDashScopeAsr({
         audio,
         mimeType,
-        language: settings.language,
+        language,
         endpoint,
         model,
         credential,
@@ -237,7 +238,7 @@ export class PolishService extends TypertRemoteService {
     return transcribeOpenAICompatible({
       audio,
       mimeType,
-      language: settings.language,
+      language,
       endpoint,
       model,
       credential: credential === '' ? undefined : credential,
@@ -374,6 +375,17 @@ function decodeAudio(value: string): Uint8Array {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hostUiLocale(ctx: Context): string {
+  try {
+    const provider = ctx.get('settings') as { get?: (ns: unknown) => unknown } | undefined
+    const value = provider?.get?.(settingsNamespace('locale'))
+    if (isRecord(value) && (value.preference === 'en' || value.preference === 'zh')) return value.preference
+  } catch {
+    // Tests and hosts without the locale namespace keep the Chinese fallback.
+  }
+  return 'zh'
 }
 
 async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: number): Promise<string> {

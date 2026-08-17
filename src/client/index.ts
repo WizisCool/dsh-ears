@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationSlotProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -32,6 +33,11 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       return session
     }
     const earsT = remoteCtx.locale.bind(LOCALE_NAMESPACE)
+    const useUiLocale = (): string => useSyncExternalStore(
+      remoteCtx.locale.subscribe,
+      () => remoteCtx.locale.getSnapshot().active,
+      () => remoteCtx.locale.getSnapshot().active
+    )
 
     remoteCtx.effect(() => {
       const disposeZh = remoteCtx.locale.register(LOCALE_NAMESPACE, 'zh', localeZh)
@@ -67,6 +73,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
             useEarsBackends: backendHook,
             useEarsWhisper: whisperHook,
             voiceSession: voiceSessionFor(sessionId),
+            useUiLocale,
             earsT
           })
         },
@@ -106,6 +113,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
               earsCloudModels: settingsController.getCloudModelsStore()
             },
             earsT,
+            useUiLocale,
             ...settingsController.actions()
           })
         },

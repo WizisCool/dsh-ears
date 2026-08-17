@@ -795,7 +795,7 @@ function parseField(field: FieldName, text: string): unknown {
 }
 
 function isInvalid(field: FieldName, text: string): boolean {
-  if (field === 'language') return text.trim() === ''
+  if (field === 'language') return false
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrProvider') return !(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(text)

@@ -4,6 +4,7 @@ import type { VoiceInputState } from './voice-flow.js'
 export type VoiceInputSessionSnapshot = {
   readonly state: VoiceInputState
   readonly levels: readonly number[]
+  readonly detail: string
 }
 
 type Listener = () => void
@@ -13,8 +14,10 @@ type StopListener = () => void
 export const VOICE_WAVEFORM_SLOTS = 128
 export const VOICE_ERROR_DISMISS_MS = 2600
 
+const NOTICE_STATES = new Set<VoiceInputState>(['error', 'polish-error', 'upstream-error'])
+
 export class VoiceInputSession {
-  private snapshot: VoiceInputSessionSnapshot = { state: 'idle', levels: [] }
+  private snapshot: VoiceInputSessionSnapshot = { state: 'idle', levels: [], detail: '' }
   private readonly listeners = new Set<Listener>()
   private readonly stopListeners = new Set<StopListener>()
   private errorTimer: ReturnType<typeof setTimeout> | undefined
@@ -31,16 +34,17 @@ export class VoiceInputSession {
     return () => this.stopListeners.delete(listener)
   }
 
-  setState(state: VoiceInputState): void {
-    if (this.snapshot.state === state) return
+  setState(state: VoiceInputState, detail = ''): void {
+    const nextDetail = NOTICE_STATES.has(state) ? detail : ''
+    if (this.snapshot.state === state && this.snapshot.detail === nextDetail) return
     this.clearErrorTimer()
-    const resetLevels = state === 'starting' || state === 'idle' || state === 'error' || state === 'polish-error'
-    this.snapshot = { ...this.snapshot, state, levels: resetLevels ? [] : this.snapshot.levels }
+    const resetLevels = state === 'starting' || state === 'idle' || NOTICE_STATES.has(state)
+    this.snapshot = { state, levels: resetLevels ? [] : this.snapshot.levels, detail: nextDetail }
     this.emit()
-    if (state === 'error' || state === 'polish-error') {
+    if (NOTICE_STATES.has(state)) {
       this.errorTimer = setTimeout(() => {
         this.errorTimer = undefined
-        if (this.snapshot.state === 'error' || this.snapshot.state === 'polish-error') this.setState('idle')
+        if (NOTICE_STATES.has(this.snapshot.state)) this.setState('idle')
       }, VOICE_ERROR_DISMISS_MS)
     }
   }

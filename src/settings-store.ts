@@ -47,7 +47,7 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     cloudAsrBailianApiKey: bailian.apiKey || text(record.cloudAsrBailianApiKey),
     cloudAsrBailianHost: bailian.host || text(record.cloudAsrBailianHost),
     cloudAsrBailianModel: bailian.model || (provider === 'bailian' ? legacyModel : '') || text(record.cloudAsrBailianModel),
-    language: text(record.language) || DEFAULT_EARS_SETTINGS.language,
+    language: text(record.language),
     maxRecordingSeconds: typeof record.maxRecordingSeconds === 'number'
       ? record.maxRecordingSeconds
       : DEFAULT_EARS_SETTINGS.maxRecordingSeconds,

@@ -50,7 +50,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrBailianApiKey: '',
   cloudAsrBailianHost: '',
   cloudAsrBailianModel: '',
-  language: 'zh-CN',
+  language: '',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
@@ -108,6 +108,16 @@ export function isBailianAsrHost(value: string): boolean {
   }
 }
 
+/** Empty stored language follows the dsh English/中文 locale. A typed value wins. */
+export function languageFromUiLocale(locale: string): string {
+  return locale.trim().toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN'
+}
+
+export function effectiveRecognitionLanguage(stored: string, uiLocale: string): string {
+  const value = stored.trim()
+  return value === '' ? languageFromUiLocale(uiLocale) : value
+}
+
 export function effectiveRecordingSeconds(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'maxRecordingSeconds'>): number {
   const limit = settings.maxRecordingSeconds
   if (settings.asrBackend === 'cloud-openai' && settings.cloudAsrProvider === 'bailian') {
@@ -123,7 +133,6 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
   if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
-  if (settings.language.trim() === '') throw new Error('dsh-ears recognition language is required')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')

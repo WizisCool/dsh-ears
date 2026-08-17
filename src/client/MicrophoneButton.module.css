@@ -47,6 +47,12 @@
   color: var(--dsw-alias-state-warn-label);
 }
 
+.button[data-state='upstream-error'],
+.button[data-state='polish-error'] {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+}
+
 .button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
+import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
+  it('follows the dsh UI locale when recognition language is unset', () => {
+    expect(DEFAULT_EARS_SETTINGS.language).toBe('')
+    expect(effectiveRecognitionLanguage('', 'zh')).toBe('zh-CN')
+    expect(effectiveRecognitionLanguage('', 'en')).toBe('en-US')
+    expect(effectiveRecognitionLanguage('ja-JP', 'en')).toBe('ja-JP')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, language: '' })).not.toThrow()
+  })
+
   it('accepts HTTP(S) endpoints without embedded credentials', () => {
     expect(isHttpEndpoint('https://asr.example.test/audio/transcriptions')).toBe(true)
     expect(isHttpEndpoint('http://user:pass@asr.example.test/audio/transcriptions')).toBe(false)

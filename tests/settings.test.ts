@@ -418,19 +418,20 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().edit('language', '')
+      controller.actions().edit('maxRecordingSeconds', '0')
       const first = controller.getCardStore().getSnapshot()
-      expect(first.language.invalid).toBe(true)
+      expect(first.maxRecordingSeconds.invalid).toBe(true)
       expect(first.invalid).toBe(true)
       expect(first.dirty).toBe(true)
 
       controller.actions().save()
       expect(updateSettings).not.toHaveBeenCalled()
 
+      controller.actions().edit('maxRecordingSeconds', '120')
       controller.actions().edit('language', 'en-US')
       controller.actions().edit('cloudAsrCustomEndpoint', 'not-a-url')
       controller.actions().save()
-      expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
+      expect(updateSettings).toHaveBeenCalledWith({ maxRecordingSeconds: 120, language: 'en-US' })
       expect(controller.getCardStore().getSnapshot().cloudAsrCustomEndpoint.invalid).toBe(true)
 
       controller.actions().setApiKey('x'.repeat(513))
@@ -555,7 +556,7 @@ describe('EarsSettingsController settings lifecycle', () => {
       const after = controller.getCardStore().getSnapshot()
       expect(after.dirty).toBe(false)
       expect(after.failed).toBe(false)
-      expect(after.language.text).toBe('zh-CN')
+      expect(after.language.text).toBe('')
     } finally {
       controller.dispose()
     }
@@ -620,6 +621,8 @@ describe('Locale parity', () => {
       'voicePolishing',
       'voicePolishFailed',
       'voiceError',
+      'voiceUpstreamAsr',
+      'voiceUpstreamPolish',
       'voiceUnavailable',
       'voiceUnavailableWebSpeech',
       'voiceUnavailableRecorder'

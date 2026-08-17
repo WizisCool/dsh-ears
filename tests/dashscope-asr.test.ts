@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { audioFormatFromMime, dashscopeRequestBody, extractDashScopeTranscript, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
+import { audioFormatFromMime, dashScopeErrorDetail, dashscopeRequestBody, extractDashScopeTranscript, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 
 describe('DashScope ASR request shape', () => {
   it('classifies Qwen3 Flash models separately from Fun-ASR Flash', () => {
@@ -49,6 +49,11 @@ describe('DashScope ASR response parsing', () => {
 
   it('surfaces a DashScope error message', () => {
     expect(() => extractDashScopeTranscript({ code: 'InvalidParameter', message: 'model not supported' })).toThrow('model not supported')
+  })
+
+  it('prefers the DashScope error code in HTTP failures', () => {
+    expect(dashScopeErrorDetail({ code: 'InvalidApiKey', message: 'Invalid API-key provided.' }, 401)).toBe('InvalidApiKey: Invalid API-key provided.')
+    expect(dashScopeErrorDetail({ code: 'Throttling.RateQuota' }, 429)).toBe('Throttling.RateQuota')
   })
 
   it('rejects a successful response that contains no transcript text', () => {
