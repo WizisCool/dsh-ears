@@ -237,6 +237,25 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('preserves the selected polishing model while switching providers', () => {
+    const controller = new EarsSettingsController(createRemote())
+    try {
+      controller.actions().edit('polishProvider', 'provider-a')
+      controller.actions().edit('polishModel', 'model-a')
+      controller.actions().edit('polishReasoningEffort', 'high')
+      controller.actions().edit('polishProvider', 'provider-b')
+      expect(controller.getCardStore().getSnapshot().polishModel.text).toBe('')
+
+      controller.actions().edit('polishModel', 'model-b')
+      controller.actions().edit('polishProvider', 'provider-a')
+
+      expect(controller.getCardStore().getSnapshot().polishModel.text).toBe('model-a')
+      expect(controller.getCardStore().getSnapshot().polishReasoningEffort.text).toBe('high')
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it('saves a Groq backend switch with its model when save is clicked', async () => {
     const saved = { ...DEFAULT_EARS_SETTINGS }
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
@@ -284,6 +303,24 @@ describe('EarsSettingsController settings lifecycle', () => {
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
       expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('preserves each cloud provider model while switching between providers', async () => {
+    const controller = new EarsSettingsController(createRemote())
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('asrBackend', 'cloud-openai')
+      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
+      controller.actions().edit('cloudAsrProvider', 'custom')
+      expect(controller.getCardStore().getSnapshot().cloudAsrModel.text).toBe('whisper-1')
+
+      controller.actions().edit('cloudAsrModel', 'custom-model')
+      controller.actions().edit('cloudAsrProvider', 'groq')
+
+      expect(controller.getCardStore().getSnapshot().cloudAsrModel.text).toBe('whisper-large-v3-turbo')
     } finally {
       controller.dispose()
     }
@@ -514,6 +551,25 @@ describe('EarsSettingsController settings lifecycle', () => {
     await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported'))
     expect(listCloudProviderModels).not.toHaveBeenCalled()
     controller.dispose()
+  })
+
+  it('does not let an older cloud model listing replace a newer provider state', async () => {
+    const listing = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const listCloudProviderModels = vi.fn(() => listing.promise)
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+    try {
+      const first = controller.refreshCloudModels()
+      controller.actions().edit('cloudAsrProvider', 'custom')
+      expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+
+      listing.resolve({ ok: true, value: { status: 'ok', models: ['whisper-large-v3-turbo'] } })
+      await first
+      await Promise.resolve()
+
+      expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+    } finally {
+      controller.dispose()
+    }
   })
 })
 

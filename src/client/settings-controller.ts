@@ -93,6 +93,10 @@ export class EarsSettingsController {
   private readonly whisperStore: SnapshotStore<WhisperModelView>
   private readonly cloudModelsStore: SnapshotStore<CloudModelsView>
   private readonly drafts = new Map<FieldName, string>()
+  // The wire stores one active model; these session caches keep provider switches reversible in the editor.
+  private readonly cloudAsrModels = new Map<string, string>()
+  private readonly polishModels = new Map<string, string>()
+  private readonly polishReasoningEfforts = new Map<string, string>()
   private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
@@ -127,6 +131,7 @@ export class EarsSettingsController {
     this.reasoningStore = createSnapshotStore(this.reasoningState)
     this.whisperStore = createSnapshotStore(this.whisperView)
     this.cloudModelsStore = createSnapshotStore(this.cloudModelsView)
+    this.rememberCloudAsrModel(DEFAULT_EARS_SETTINGS.cloudAsrProvider, DEFAULT_EARS_SETTINGS.cloudAsrModel)
   }
 
   getSettingsStore(): SnapshotStore<EarsSettings> { return this.settingsStore }
@@ -174,6 +179,8 @@ export class EarsSettingsController {
       if (this.disposed || request !== this.settingsRequest) return
       if (result.ok) {
         this.settingsView = result.value
+        this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, result.value.settings.cloudAsrModel)
+        this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
         this.settingsStore.set(result.value.settings)
         this.loaded = true
         this.loadFailed = false
@@ -234,13 +241,13 @@ export class EarsSettingsController {
 
   async refreshCloudModels(): Promise<void> {
     if (this.disposed) return
-    const provider = (this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider).trim()
+    const request = ++this.cloudModelsRequest
+    const provider = this.currentCloudAsrProvider()
     if (!supportsModelListing(provider)) {
       this.cloudModelsView = { status: 'ready', view: { status: 'unsupported' } }
       this.cloudModelsStore.set(this.cloudModelsView)
       return
     }
-    const request = ++this.cloudModelsRequest
     this.cloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
     this.cloudModelsStore.set(this.cloudModelsView)
     try {
@@ -381,6 +388,69 @@ export class EarsSettingsController {
     }
   }
 
+  private currentCloudAsrProvider(): string {
+    return (this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider).trim()
+  }
+
+  private currentCloudAsrModel(): string {
+    return (this.drafts.get('cloudAsrModel') ?? this.settingsView.settings.cloudAsrModel).trim()
+  }
+
+  private rememberCloudAsrModel(provider: string, model: string): void {
+    const normalizedProvider = provider.trim()
+    if (normalizedProvider === '') return
+    this.cloudAsrModels.set(normalizedProvider, model.trim())
+  }
+
+  private cloudAsrModelForProvider(provider: string): string {
+    const remembered = this.cloudAsrModels.get(provider)
+    if (remembered !== undefined) return remembered
+    return cloudAsrModelFor({ cloudAsrProvider: provider, cloudAsrModel: '' })
+  }
+
+  private resetCloudAsrModels(): void {
+    this.cloudAsrModels.clear()
+    this.rememberCloudAsrModel(this.settingsView.settings.cloudAsrProvider, this.settingsView.settings.cloudAsrModel)
+  }
+
+  private currentPolishProvider(): string {
+    return (this.drafts.get('polishProvider') ?? this.settingsView.settings.polishProvider).trim()
+  }
+
+  private currentPolishModel(): string {
+    return (this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel).trim()
+  }
+
+  private currentPolishReasoningEffort(): string {
+    return (this.drafts.get('polishReasoningEffort') ?? this.settingsView.settings.polishReasoningEffort).trim()
+  }
+
+  private polishReasoningKey(provider: string, model: string): string {
+    return `${provider}\u0000${model}`
+  }
+
+  private rememberPolishSelection(provider: string, model: string, reasoningEffort: string): void {
+    const normalizedProvider = provider.trim()
+    const normalizedModel = model.trim()
+    if (normalizedProvider === '') return
+    this.polishModels.set(normalizedProvider, normalizedModel)
+    this.polishReasoningEfforts.set(this.polishReasoningKey(normalizedProvider, normalizedModel), reasoningEffort.trim())
+  }
+
+  private polishModelForProvider(provider: string): string {
+    return this.polishModels.get(provider) ?? ''
+  }
+
+  private polishReasoningEffortFor(provider: string, model: string): string {
+    return this.polishReasoningEfforts.get(this.polishReasoningKey(provider, model)) ?? ''
+  }
+
+  private resetPolishSelections(): void {
+    this.polishModels.clear()
+    this.polishReasoningEfforts.clear()
+    this.rememberPolishSelection(this.settingsView.settings.polishProvider, this.settingsView.settings.polishModel, this.settingsView.settings.polishReasoningEffort)
+  }
+
   private currentWhisperModel(): string {
     return (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
   }
@@ -425,12 +495,20 @@ export class EarsSettingsController {
   private edit(field: FieldName, text: string): void {
     if (this.disposed) return
     if (field === 'polishProvider') {
-      this.drafts.set('polishModel', '')
-      this.drafts.set('polishReasoningEffort', '')
+      this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), this.currentPolishReasoningEffort())
+      const model = this.polishModelForProvider(text.trim())
+      this.drafts.set('polishModel', model)
+      this.drafts.set('polishReasoningEffort', this.polishReasoningEffortFor(text.trim(), model))
     } else if (field === 'polishModel') {
+      this.rememberPolishSelection(this.currentPolishProvider(), text, '')
       this.drafts.set('polishReasoningEffort', '')
+    } else if (field === 'polishReasoningEffort') {
+      this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), text)
     } else if (field === 'cloudAsrProvider') {
-      this.drafts.set('cloudAsrModel', cloudAsrModelFor({ cloudAsrProvider: text, cloudAsrModel: '' }))
+      this.rememberCloudAsrModel(this.currentCloudAsrProvider(), this.currentCloudAsrModel())
+      this.drafts.set('cloudAsrModel', this.cloudAsrModelForProvider(text.trim()))
+    } else if (field === 'cloudAsrModel') {
+      this.rememberCloudAsrModel(this.currentCloudAsrProvider(), text)
     } else if (field === 'cloudAsrApiKey') {
       if (text.trim() === '') {
         this.drafts.delete('cloudAsrApiKey')
@@ -468,6 +546,8 @@ export class EarsSettingsController {
   private discard(): void {
     if (this.disposed) return
     this.drafts.clear()
+    this.resetCloudAsrModels()
+    this.resetPolishSelections()
     this.clearKeyPending = false
     this.failed = false
     this.publishCard()
@@ -500,7 +580,9 @@ export class EarsSettingsController {
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
       const cloudRelevant = this.clearKeyPending || submittedDrafts.has('cloudAsrApiKey')
+      this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
       this.settingsView = result.value
+      this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, result.value.settings.cloudAsrModel)
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
