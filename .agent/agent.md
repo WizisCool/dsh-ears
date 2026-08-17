@@ -6,8 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
-- Latest code commit: pending waveform layout restore.
-- Latest commit: `ff36cf5 docs: record the locale.subscribe render crash`.
+- Latest code commit: pending silent Bailian 400 handling.
+- Latest commit: `fc3180f fix(client): restore the recognition waveform to the remaining bar width`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -331,6 +331,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
+
+## Silent Bailian 400 handling (2026-08-18)
+
+- Completed: `qwen-audio-3.0-asr-flash` HTTP 400 on silent/too-short audio is treated as empty speech. Host returns `""`; the client also skips transcribe/polish for recordings under 400 ms or 512 bytes. Real 400s like `InvalidParameter: model not exist` still surface in red.
+- Validation: `pnpm check` passed; `pnpm test` passed (209/209); `pnpm build` passed.
+- Unfinished: Host + client need a `dsh web` restart and refresh. D-018 and live smokes remain pending.
+- Blocked: none.
+- Next: restart `dsh web` and refresh, then retry a silent Bailian click.
+- Commit: this turn’s `fix` commit.
 
 ## Waveform layout restore (2026-08-18)
 

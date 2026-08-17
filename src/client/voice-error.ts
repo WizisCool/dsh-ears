@@ -10,7 +10,11 @@ const EMPTY_MARKERS = [
   'recorded audio is empty',
   'no-speech',
   'no speech',
-  'aborted'
+  'no valid speech',
+  'audio too short',
+  'empty audio',
+  'aborted',
+  'cloud asr request failed with http 400'
 ]
 
 const CONFIG_MARKERS = [
@@ -47,6 +51,18 @@ export function failureMessage(error: unknown): string {
   return ''
 }
 
+export const MIN_RECORDING_MS = 400
+export const MIN_AUDIO_BYTES = 512
+
+export function isTrivialRecording(byteLength: number, durationMs: number): boolean {
+  return durationMs < MIN_RECORDING_MS || byteLength < MIN_AUDIO_BYTES
+}
+
+export function base64ByteLength(value: string): number {
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor(value.length * 3 / 4) - padding)
+}
+
 function looksGenericCode(code: string): boolean {
-  return /^(error|failed|exception)$/i.test(code)
+  return /^(error|failed|exception|internal)$/i.test(code)
 }

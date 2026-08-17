@@ -9,7 +9,7 @@ import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
-import { classifyVoiceFailure, failureMessage, remoteFailureDetail } from './voice-error.js'
+import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecording, remoteFailureDetail } from './voice-error.js'
 import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
 import { matchesShortcut } from '../shortcut.js'
 import type { Translate } from './settings.js'
@@ -48,6 +48,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
   const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
   const mediaBaseDraftRef = useRef('')
+  const mediaStartedAtRef = useRef(0)
   const mediaStartCancelledRef = useRef(false)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const polishAbortRef = useRef<AbortController | null>(null)
@@ -265,11 +266,17 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     levelMonitorRef.current?.stop()
     levelMonitorRef.current = null
     const baseDraft = mediaBaseDraftRef.current
-    setState('transcribing')
+    const startedAt = mediaStartedAtRef.current
     const controller = new AbortController()
     transcribeAbortRef.current = controller
     try {
       const audio = await session.stop()
+      if (!mountedRef.current) return
+      if (isTrivialRecording(base64ByteLength(audio.base64), Date.now() - startedAt)) {
+        setState('idle')
+        return
+      }
+      setState('transcribing')
       const result = await remote.transcribe(audio.base64, audio.mimeType, controller.signal)
       if (!mountedRef.current) return
       if (!result.ok) {
@@ -313,6 +320,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       mediaSessionRef.current = session
       mediaBaseDraftRef.current = baseDraft
+      mediaStartedAtRef.current = Date.now()
       session.start()
       setState('recording')
       armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())

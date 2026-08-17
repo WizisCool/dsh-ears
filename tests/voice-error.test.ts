@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyVoiceFailure, remoteFailureDetail } from '../src/client/voice-error.js'
+import { classifyVoiceFailure, isTrivialRecording, remoteFailureDetail } from '../src/client/voice-error.js'
 
 describe('voice failure classification', () => {
   it('treats silence and empty transcripts as a no-op', () => {
@@ -7,6 +7,10 @@ describe('voice failure classification', () => {
     expect(classifyVoiceFailure('ASR returned no transcript')).toBe('empty')
     expect(classifyVoiceFailure('The recorded audio is empty')).toBe('empty')
     expect(classifyVoiceFailure('Speech recognition failed (no-speech)')).toBe('empty')
+    expect(classifyVoiceFailure('internal: Cloud ASR request failed with HTTP 400')).toBe('empty')
+    expect(isTrivialRecording(100, 2000)).toBe(true)
+    expect(isTrivialRecording(4000, 120)).toBe(true)
+    expect(isTrivialRecording(4000, 800)).toBe(false)
   })
 
   it('treats missing keys and hosts as configuration issues', () => {

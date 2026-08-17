@@ -53,6 +53,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Silent or too-short Bailian recordings (including `qwen-audio-3.0-asr-flash` HTTP 400) now end quietly with no polish, instead of a red `语音识别上游错误： internal: Cloud ASR request failed with HTTP 400`.
 - The live recognition waveform again fills the bar after the status label: a previous overflow tweak had made the label grow and pushed a smaller waveform to the right.
 - The composer microphone and the dsh-ear settings page no longer crash on render: the UI-locale hook now calls `locale.subscribe` as a method instead of passing the unbound function.
 - Clicking the microphone and stopping without speaking no longer shows `请检查配置后重试`. Empty transcripts and `no-speech` just close the bar.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { audioFormatFromMime, dashScopeErrorDetail, dashscopeRequestBody, extractDashScopeTranscript, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
+import { audioFormatFromMime, dashScopeErrorDetail, dashscopeRequestBody, extractDashScopeTranscript, isDashScopeEmptyAudioError, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 
 describe('DashScope ASR request shape', () => {
   it('classifies Qwen3 Flash models separately from Fun-ASR Flash', () => {
@@ -56,10 +56,19 @@ describe('DashScope ASR response parsing', () => {
     expect(dashScopeErrorDetail({ code: 'Throttling.RateQuota' }, 429)).toBe('Throttling.RateQuota')
   })
 
-  it('rejects a successful response that contains no transcript text', () => {
-    expect(() => extractDashScopeTranscript({ output: { text: '' } })).toThrow('Cloud ASR returned no transcript')
-    expect(() => extractDashScopeTranscript({ output: { choices: [{ message: { content: [{ text: '   ' }] } }] } })).toThrow('Cloud ASR returned no transcript')
-    expect(() => extractDashScopeTranscript({ output: {} })).toThrow('Cloud ASR returned no transcript')
+  it('treats a successful response with no transcript text as empty speech', () => {
+    expect(extractDashScopeTranscript({ output: { text: '' } })).toBe('')
+    expect(extractDashScopeTranscript({ output: { choices: [{ message: { content: [{ text: '   ' }] } }] } })).toBe('')
+    expect(extractDashScopeTranscript({ output: {} })).toBe('')
+  })
+
+  it('treats opaque or no-speech HTTP 400s as empty audio', () => {
+    expect(isDashScopeEmptyAudioError({}, 400)).toBe(true)
+    expect(isDashScopeEmptyAudioError({ request_id: 'abc' }, 400)).toBe(true)
+    expect(isDashScopeEmptyAudioError({ code: 'InvalidParameter', message: 'audio too short' }, 400)).toBe(true)
+    expect(isDashScopeEmptyAudioError({ error: { message: 'No valid speech detected' } }, 400)).toBe(true)
+    expect(isDashScopeEmptyAudioError({ code: 'InvalidApiKey', message: 'Invalid API-key provided.' }, 400)).toBe(false)
+    expect(isDashScopeEmptyAudioError({ code: 'InvalidParameter', message: 'model not exist' }, 400)).toBe(false)
   })
 })
 
@@ -97,5 +106,39 @@ describe('transcribeDashScopeAsr', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
     expect(body.model).toBe('fun-asr-flash')
     expect(body.input.messages[0].content[0].type).toBe('input_audio')
+  })
+
+  it('returns an empty transcript when qwen-audio rejects silent audio with HTTP 400', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ request_id: 'silent' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).resolves.toBe('')
+  })
+
+  it('still surfaces a configuration HTTP 400', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      code: 'InvalidParameter',
+      message: 'model not exist'
+    }), { status: 400, headers: { 'content-type': 'application/json' } })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toThrow('InvalidParameter: model not exist')
   })
 })

@@ -90,11 +90,11 @@ export function extractDashScopeTranscript(parsed: unknown): string {
   }
   const message = typeof parsed.message === 'string' ? parsed.message.trim() : ''
   if (message !== '') throw new Error(message)
-  throw new Error('Cloud ASR returned no transcript')
+  return ''
 }
 
 export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Promise<string> {
-  if (options.audio.byteLength === 0) throw new Error('The recorded audio is empty')
+  if (options.audio.byteLength === 0) return ''
   options.signal.throwIfAborted()
   const model = options.model.trim()
   if (model === '') throw new Error('The cloud ASR model is not configured')
@@ -127,7 +127,10 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
     } catch {
       throw new Error('Cloud ASR returned invalid JSON')
     }
-    if (!response.ok) throw new Error(dashScopeErrorDetail(parsed, response.status))
+    if (!response.ok) {
+      if (isDashScopeEmptyAudioError(parsed, response.status)) return ''
+      throw new Error(dashScopeErrorDetail(parsed, response.status))
+    }
     return extractDashScopeTranscript(parsed)
   } finally {
     clearTimeout(timer)
@@ -142,14 +145,63 @@ function validateEndpoint(value: string): string {
   return url.toString()
 }
 
+export function dashScopeErrorFields(parsed: unknown): { code: string; message: string } {
+  const record = isRecord(parsed) ? parsed : {}
+  const nested = isRecord(record.error) ? record.error : record
+  const codeValue = nested.code ?? record.code
+  const code = typeof codeValue === 'string' ? codeValue.trim() : typeof codeValue === 'number' ? String(codeValue) : ''
+  const messageValue = nested.message ?? nested.msg ?? nested.error_msg ?? record.message ?? record.msg
+  const message = typeof messageValue === 'string' ? messageValue.trim() : ''
+  return { code, message }
+}
+
 export function dashScopeErrorDetail(parsed: unknown, status: number): string {
-  if (!isRecord(parsed)) return `Cloud ASR request failed with HTTP ${status}`
-  const code = typeof parsed.code === 'string' ? parsed.code.trim() : ''
-  const message = typeof parsed.message === 'string' ? parsed.message.trim() : ''
+  const { code, message } = dashScopeErrorFields(parsed)
   if (code !== '' && message !== '' && message !== code) return `${code}: ${message}`
   if (code !== '') return code
   if (message !== '') return message
   return `Cloud ASR request failed with HTTP ${status}`
+}
+
+const EMPTY_AUDIO_MARKERS = [
+  'no speech',
+  'no valid speech',
+  'no voice',
+  'empty audio',
+  'audio is empty',
+  'too short',
+  'audio too short',
+  'silent',
+  'silence',
+  'invalid audio',
+  'cannot decode',
+  'decode audio',
+  'audio data is invalid',
+  '未检测',
+  '没有语音',
+  '音频为空',
+  '时长过短',
+  '无效音频',
+  '无法解析'
+]
+
+const CONFIG_ERROR_CODES = [
+  'invalidapikey',
+  'invalidapi-key',
+  'arrearage',
+  'throttling',
+  'accessdenied',
+  'forbidden',
+  'unauthorized'
+]
+
+export function isDashScopeEmptyAudioError(parsed: unknown, status: number): boolean {
+  if (status !== 400 && status !== 422) return false
+  const { code, message } = dashScopeErrorFields(parsed)
+  const detail = `${code} ${message}`.toLowerCase()
+  if (CONFIG_ERROR_CODES.some((marker) => detail.includes(marker))) return false
+  if (EMPTY_AUDIO_MARKERS.some((marker) => detail.includes(marker))) return true
+  return code === '' && message === ''
 }
 
 function firstText(value: unknown): string | undefined {
