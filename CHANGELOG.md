@@ -59,6 +59,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Changed
 
+- The built-in default polish system prompt is now the tighter ASR-cleaning contract: stay close to the speaker, repair ASR/technical terms, list only explicit enumerations, and output only the cleaned text. A custom `polishPrompt` still replaces it entirely.
 - The `dsh-ear` settings page drops the card wrapper and Save/Discard footer (D-031). Rows match native General: hairline dividers, no card surface. Valid edits auto-save after 400 ms, on blur, or when the panel closes; an invalid draft is skipped and stays local; a failed write keeps the drafts and does not retry in a loop.
 - Compatibility now covers dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6`; the compile/test baseline is the exact `0.1.0-rc.7` packages.
 - Tab layout: the settings page is now 通用 / General → 识别 / Recognition → 润色 / Polishing, with General as the default landing tab; the Recognition tab keeps only ASR backend/provider/model/key rows.

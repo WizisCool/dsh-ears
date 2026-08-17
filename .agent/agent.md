@@ -5,8 +5,8 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-031. Live polish now skips the recognition-bar “polishing” flash when the toggle is off, names each remaining stage on that same bar, and applies Host results unless the user edited the draft. D-019 is closed; D-018 remains open.
-- Latest code commit: `35bd24c fix(host): retry unchanged effort polish and reject failures`.
+- Current work: first-release product surface is implemented through D-031. The built-in default polish system prompt is the maintainer-supplied ASR-cleaning contract. D-019 is closed; D-018 remains open.
+- Latest code commit: pending default-prompt replacement.
 - Latest commit: `docs: record polish bar status and skip-when-off`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
@@ -304,6 +304,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart the existing `dsh web` process and refresh the page; do not push without authorization.
 - Commits: `52479d6 fix(client): skip polish UI and surface stages on the bar`, `35bd24c fix(host): retry unchanged effort polish and reject failures`, plus this docs record.
+
+## Default polish prompt replacement record (2026-08-18)
+
+- Completed: replaced `POLISH_SYSTEM_PROMPT` with the maintainer-supplied ASR-cleaning contract (self-correction, filler vs tone particles, ASR/technical repair, explicit-enumeration lists only, output-only-the-cleaned-text). Custom `polishPrompt` still replaces it entirely with `POLISH_OUTPUT_GUARD`. Updated the prompt-content assertions, Unreleased changelog, and D-029 wording.
+- Validation: `pnpm check` passed; `pnpm exec vitest run tests/polish.test.ts` passed (24/24).
+- Unfinished: Host-only change — restart `dsh web` to load the new default. D-018, live Groq/`zh` smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: restart `dsh web`; do not push without authorization.
+- Commit: this turn’s `feat(host)` and `docs` commits.
 
 ## Handoff template
 
