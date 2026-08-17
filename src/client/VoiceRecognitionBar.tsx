@@ -15,7 +15,7 @@ type VoiceRecognitionBarProps = {
 type PresentationPhase = 'hidden' | 'visible' | 'exiting'
 
 type DisplayState = {
-  readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing'
+  readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error'
   readonly levels: readonly number[]
 }
 
@@ -56,10 +56,8 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
 
   const display = active ? { state, levels } : lastDisplayRef.current
   const processing = display.state === 'transcribing' || display.state === 'polishing'
-  const label = display.state === 'starting' || display.state === 'recording'
-    ? t('voiceRecording')
-    : display.state === 'transcribing' ? t('voiceTranscribing') : t('voicePolishing')
-  const interactive = active && !processing
+  const label = statusLabel(display.state, t)
+  const interactive = active && display.state === 'recording'
 
   return (
     <div ref={rootRef} className={styles.root} data-phase={phase} data-state={display.state} aria-hidden={phase === 'exiting'}>
@@ -68,7 +66,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
           <div className={styles.status} role="status" aria-live="polite">
             <span className={styles.indicator} aria-hidden="true" />
             <span className={styles.label}>{label}</span>
-            {processing ? <IconLoadingOutline16 className={styles.spinner} size={16} /> : <Waveform levels={display.levels} />}
+            {processing ? <IconLoadingOutline16 className={styles.spinner} size={16} /> : display.state === 'error' ? null : <Waveform levels={display.levels} />}
           </div>
           <Tooltip label={interactive ? t('voiceStop') : t('voiceBusy')} side="top" delayMs={200}>
             <button
@@ -99,6 +97,15 @@ function Waveform({ levels }: { readonly levels: readonly number[] }) {
   )
 }
 
+function statusLabel(state: DisplayState['state'], t: Translate): string {
+  if (state === 'starting') return t('voiceStarting')
+  if (state === 'recording') return t('voiceRecording')
+  if (state === 'transcribing') return t('voiceTranscribing')
+  if (state === 'polishing') return t('voicePolishing')
+  if (state === 'polish-error') return t('voicePolishFailed')
+  return t('voiceError')
+}
+
 function isVisibleState(state: string): state is DisplayState['state'] {
-  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'polishing'
+  return state === 'starting' || state === 'recording' || state === 'transcribing' || state === 'polishing' || state === 'error' || state === 'polish-error'
 }

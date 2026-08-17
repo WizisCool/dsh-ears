@@ -1,7 +1,7 @@
 import type { EarsSettings } from '../config.js'
 import type { EarsRemote } from '../remote.js'
 
-export type VoiceInputState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error'
+export type VoiceInputState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error'
 
 export interface DraftActions {
   setDraft(text: string): void
@@ -34,8 +34,13 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
   const draftAtStop = appendToDraft(options.baseDraft, transcript)
   options.latestDraftRef.current = draftAtStop
   options.actionsRef.current.setDraft(draftAtStop)
-  // Always ask the Host. Local settings can be stale (DEFAULT / empty pair)
-  // while the Host already has polishing enabled; the Host is authoritative.
+  // Honor the local toggle so an off switch never flashes "polishing".
+  // An enabled toggle still asks the Host even with an empty local pair;
+  // the Host is authoritative for the stored route.
+  if (!shouldRequestPolish(options.settings)) {
+    options.setState('idle')
+    return
+  }
   void polishDraft({
     transcript,
     baseDraft: options.baseDraft,
@@ -49,6 +54,10 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     actionsRef: options.actionsRef,
     polishAbortRef: options.polishAbortRef
   })
+}
+
+export function shouldRequestPolish(settings: Pick<EarsSettings, 'polishingEnabled'>): boolean {
+  return settings.polishingEnabled
 }
 
 export interface PolishDraftOptions {
@@ -73,18 +82,34 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
   try {
     const result = await options.remote.polish(options.transcript, options.provider, options.model, options.reasoningEffort, controller.signal)
     if (controller.signal.aborted) return
-    if (options.latestDraftRef.current !== options.draftAtStop) return
+    if (!shouldApplyPolishResult(options.latestDraftRef.current, options.draftAtStop, options.baseDraft)) {
+      if (!controller.signal.aborted) options.setState('idle')
+      return
+    }
 
-    const text = result.ok && result.value.trim() !== '' ? result.value.trim() : options.transcript
+    if (!result.ok) {
+      options.setState('polish-error')
+      return
+    }
+    const text = result.value.trim() !== '' ? result.value.trim() : options.transcript
     const nextDraft = appendToDraft(options.baseDraft, text)
     options.latestDraftRef.current = nextDraft
     options.actionsRef.current.setDraft(nextDraft)
+    options.setState('idle')
   } catch {
-    // The raw transcript is already in the draft. A failed optional polish must not remove it.
+    if (!controller.signal.aborted) options.setState('polish-error')
   } finally {
     if (options.polishAbortRef.current === controller) options.polishAbortRef.current = null
-    if (!controller.signal.aborted) options.setState('idle')
   }
+}
+
+export function shouldApplyPolishResult(currentDraft: string, draftAtStop: string, baseDraft: string): boolean {
+  const current = collapseDraft(currentDraft)
+  return current === collapseDraft(draftAtStop) || current === collapseDraft(baseDraft)
+}
+
+function collapseDraft(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
 }
 
 export function updateDraft(

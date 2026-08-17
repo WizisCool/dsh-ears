@@ -31,7 +31,7 @@ export class VoiceInputSession {
 
   setState(state: VoiceInputState): void {
     if (this.snapshot.state === state) return
-    const resetLevels = state === 'starting' || state === 'idle' || state === 'error'
+    const resetLevels = state === 'starting' || state === 'idle' || state === 'error' || state === 'polish-error'
     this.snapshot = { ...this.snapshot, state, levels: resetLevels ? [] : this.snapshot.levels }
     this.emit()
   }

@@ -76,6 +76,18 @@
   animation: listening-pulse 1200ms ease-in-out infinite;
 }
 
+.root[data-state='error'] .indicator,
+.root[data-state='polish-error'] .indicator {
+  background: var(--dsw-alias-state-error-primary);
+  box-shadow: none;
+  animation: none;
+}
+
+.root[data-state='error'] .label,
+.root[data-state='polish-error'] .label {
+  color: var(--dsw-alias-state-error-primary);
+}
+
 .label {
   flex: none;
   color: var(--dsw-alias-label-primary);

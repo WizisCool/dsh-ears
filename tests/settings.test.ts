@@ -605,8 +605,10 @@ describe('Locale parity', () => {
     const buttonKeys = [
       'voiceStart',
       'voiceStop',
+      'voiceStarting',
       'voiceTranscribing',
       'voicePolishing',
+      'voicePolishFailed',
       'voiceError',
       'voiceUnavailable',
       'voiceUnavailableWebSpeech',

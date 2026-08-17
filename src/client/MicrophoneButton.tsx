@@ -127,7 +127,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const active = state === 'starting' || state === 'recording'
   const busy = state === 'transcribing' || state === 'polishing'
   const backend = normalizeBackend(settings.asrBackend)
-  const configUnavailable = !active && !busy && (state === 'idle' || state === 'error')
+  const configUnavailable = !active && !busy && (state === 'idle' || state === 'error' || state === 'polish-error')
     ? micUnavailableReason(backend, backendInfo, whisperView)
     : null
   gateRef.current = configUnavailable
@@ -335,7 +335,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
   toggleRef.current = toggle
 
-  const tooltipLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : state === 'error' ? t('voiceError') : t('voiceStart')
+  const tooltipLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : state === 'polish-error' ? t('voicePolishFailed') : state === 'error' ? t('voiceError') : t('voiceStart')
   const ariaLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : t('voiceStart')
 
   return (

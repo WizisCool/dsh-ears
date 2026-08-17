@@ -81,6 +81,56 @@ describe('voice draft flow', () => {
     expect(latestDraftRef.current).toBe('manual edit')
   })
 
+  it('still applies polish when the composer has not flushed the committed raw draft', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    let resolvePolish: ((result: { ok: boolean; value?: string }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: string }>((resolve) => {
+      resolvePolish = resolve
+    }))
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+    latestDraftRef.current = 'original draft'
+    resolvePolish?.({ ok: true, value: 'polished text' })
+    await vi.waitFor(() => expect(setDraft).toHaveBeenLastCalledWith('original draft polished text'))
+    expect(setState).toHaveBeenLastCalledWith('idle')
+  })
+
+  it('keeps the raw draft and shows an error when the polish RPC fails', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    const polish = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'unavailable', details: {} } }))
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+    await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('polish-error'))
+    expect(setDraft).toHaveBeenCalledTimes(1)
+    expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
+  })
+
   it('does not publish an idle state after polishing is aborted', async () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
@@ -147,11 +197,34 @@ describe('voice draft flow', () => {
     expect(latestDraftRef.current).toBe('original draft recognized text')
   })
 
-  it('asks the Host to polish after a successful transcript even when the local settings look unconfigured', () => {
+  it('asks the Host to polish when polishing is on even if the local route pair is empty', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
     const latestDraftRef = { current: 'original draft' }
     const polish = vi.fn(async () => ({ ok: true as const, value: '整理后的文本' }))
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings: { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true },
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
+    expect(polish).toHaveBeenCalledWith('recognized text', '', '', '', expect.any(AbortSignal))
+    expect(setState).toHaveBeenCalledWith('polishing')
+  })
+
+  it('does not flash a polishing state when polishing is disabled', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    const polish = vi.fn()
 
     commitTranscript({
       transcript: 'recognized text',
@@ -166,8 +239,9 @@ describe('voice draft flow', () => {
     })
 
     expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
-    expect(polish).toHaveBeenCalledWith('recognized text', '', '', '', expect.any(AbortSignal))
-    expect(setState).toHaveBeenCalledWith('polishing')
+    expect(polish).not.toHaveBeenCalled()
+    expect(setState).toHaveBeenCalledWith('idle')
+    expect(setState).not.toHaveBeenCalledWith('polishing')
   })
 
   it('keeps draft spacing predictable', () => {
