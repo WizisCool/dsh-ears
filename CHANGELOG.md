@@ -41,8 +41,14 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - Failed transcriptions carry the whisper stderr tail (bounded to 800 characters) instead of a bare exit code.
 - Windows probing resolves `python.exe`/`py.exe` launchers with PATHEXT expansion (documented as not yet smoke-tested on Windows).
 - Fake-python integration tests cover the full model lifecycle: download/cancel/delete, progress parsing, completion markers, dispose cleanup, and failure negative-caches.
+- The `dsh-ear` settings page gains a leading **通用 / General** tab as its default landing tab. It hosts the voice-input keyboard shortcut — an enable switch plus a Raycast-style recorder — and the recognition language and recording-limit rows that moved here from the Recognition tab.
+- In-page voice-input keyboard shortcut (D-028): default `Ctrl+Shift+Space` on all three platforms starts/stops voice input while the dsh page is focused and the composer is visible without a modal overlay; recording press stops and transcribes, transcribing/polishing presses are ignored, IME composition and key auto-repeat never trigger it, and when the microphone is gated the shortcut focuses the grayed button so its existing bilingual tooltip explains why. The listener lives in the composer microphone and ignores events inside `[role="dialog"]`.
+- Hand-written shortcut module (`src/shortcut.ts`, no third-party dependency, per the D-025 precedent and the keyboard-shortcut research in `.agent/research/voice-dictation-shortcuts.md`): layout-stable `KeyboardEvent.code` key tokens, canonical `ctrl+shift+space` storage, platform-aware display (⌃⌥⇧⌘ on macOS), hard rejection of modifier-only, letter/digit, and bare text-action chords, amber (non-blocking) warnings for browser/OS-reserved chords, Escape to cancel capture, and a Reset-to-default action. Host settings validation enforces the same chord rules on every write.
 
 ### Changed
+
+- Tab layout: the settings page is now 通用 / General → 识别 / Recognition → 润色 / Polishing, with General as the default landing tab; the Recognition tab keeps only ASR backend/provider/model/key rows.
+- The language and recording-limit rows moved from the Recognition tab to the General tab (their validation, defaults, and save semantics are unchanged).
 
 - Plugin configuration card title renamed to `dsh-ear`.
 - The read-only settings hint now explains the settings-provider condition and the required fix (zh/en).

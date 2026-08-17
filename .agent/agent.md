@@ -193,6 +193,24 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: keep polishing on `Default` for this route; if explicit effort controls are required, add a provider-specific compatibility contract and live smoke before changing the plugin behavior.
 - Commit: `d748edc docs: record polishing route diagnosis`.
 
+## Voice shortcut research record (2026-08-17)
+
+- Completed: researched in-page voice/dictation shortcuts, native OS defaults, global-hotkey voice apps, shortcut recorder UI precedents, `hotkeys-js`/Mousetrap, and single-/two-key web voice precedent. Wrote the primary/secondary/unverifiable-claim-separated report at `.agent/research/voice-dictation-shortcuts.md`, following the repository's existing `.agent/research/` convention. No code changed.
+- Validation: inspected `AGENTS.md`, `PLAN.md`, `.agent/agent.md`, `.agent/context.md`, and existing research files; verified the report is a single structured English Markdown file with adjacent source URLs and explicit claim-quality labels.
+- Unfinished: current vendor defaults and library release activity should be rechecked before becoming implementation requirements.
+- Blocked: none.
+- Next: use the report to choose an in-page shortcut/recorder design if the feature is scoped.
+- Commit: no commit created.
+
+## General tab and voice-input shortcut record (D-028)
+
+- Completed: added the leading 通用 (General) tab as the settings page's default landing tab. It hosts the voice-input shortcut enable switch plus a Raycast-style recorder (default `Ctrl+Shift+Space` on all three platforms, Escape to cancel, Reset-to-default, hard rejection of modifier-only/letter/digit/bare-text-action chords, amber non-blocking warnings for browser/OS-reserved chords) and the recognition language and recording-limit rows moved from the Recognition tab. Implemented the hand-written shared `src/shortcut.ts` (no third-party dependency, per the D-025 precedent and the research in `.agent/research/voice-dictation-shortcuts.md`): layout-stable `KeyboardEvent.code` tokens, canonical `ctrl+shift+space` storage, strict modifier-equality matching, platform-aware display (⌃⌥⇧⌘ vs Ctrl/Alt/Shift/Win-Super). The composer microphone now listens for the chord: idle=start, recording=stop and transcribe, transcribing/polishing=ignored, IME composition and key auto-repeat never trigger it, events inside `[role="dialog"]` and hidden views are ignored, and a gated microphone turns the press into a focus of the grayed button so its existing bilingual tooltip explains why. New `voiceShortcutEnabled`/`voiceShortcut` settings flow through the schemastery schema, Remote view/patch schemas, controller staging/validation (an invalid chord blocks the whole save per D-026, reset restores the default), and Host field-level validation. Docs: D-028 ADR, PLAN (status, decisions table, settings, package shape, risks), README settings, CHANGELOG Unreleased, context.md; the research report `.agent/research/voice-dictation-shortcuts.md` is committed as docs.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (150/150 tests across 16 files, incl. new `tests/shortcut.test.ts` and voice-shortcut coverage in settings/config/remote-contract/lifecycle suites); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; the Impeccable detector returned `[]` on the changed UI targets; `git diff --cached --check` passed after each commit.
+- Unfinished: live browser smoke of the General tab recorder and the hotkey on the running dsh web (client bundle rebuilt; the existing `http://127.0.0.1:3080` page needs a refresh; no watcher is running); real microphone/vendor Web Speech and live Host ASR remain environment-dependent; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: refresh the existing dsh page to verify the General tab layout, the recorder flows, and the `Ctrl+Shift+Space` toggle in the visible GUI; do not push or publish without authorization.
+- Commit: TBD (feat commit, then docs commit).
+
 ## Handoff template
 
 ```text

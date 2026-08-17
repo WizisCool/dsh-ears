@@ -37,9 +37,10 @@ After transcription, dsh-ears can ask any provider/model route already configure
 
 ### Settings
 
-Open `Settings → dsh-ear` in dsh. The page provides:
+Open `Settings → dsh-ear` in dsh. The page opens on a **General** tab and provides:
 
-- recognition language and recording limit;
+- a voice-input keyboard shortcut: an enable switch plus a recorder to capture any supported combination. The default is `Ctrl+Shift+Space` (same on Windows, Linux, and macOS): press it while the dsh page is focused to start voice input, and press it again to stop and transcribe. The shortcut works only inside the dsh page — a web page cannot register a system-wide hotkey, so it never intercepts other applications. Typing keys (letters/digits/bare Space and punctuation) and modifier-only chords are rejected; combinations reserved by the browser or OS are flagged with a warning but can still be saved. When the configured backend cannot record (see Backend notes), the shortcut surfaces the same unavailable hint as the grayed microphone button instead of recording.
+- recognition language and recording limit (moved to the General tab);
 - a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible);
 - local Whisper model management;
 - cloud provider API key, endpoint, and model (Groq's model list is fetched live from the provider);

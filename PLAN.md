@@ -25,6 +25,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - Cloud ASR provider presets (D-023) are implemented: a Host-side provider registry with the Groq preset (pinned endpoint, live model listing, write-only inline `role('secret')` API key) and the Custom OpenAI-compatible provider; the recognition selector is a grouped menu (本地 / 云提供商), and cloud readiness gates the microphone. The live rc.6 Web smoke and a live Groq `zh` transcription smoke remain pending.
 - Unconfigured-state presentation and the per-field validation model (D-024, D-025) are implemented: the settings page validates only the edited field, red appears only for invalid user input and real failures, an incomplete polishing pair leaves polishing dormant, guidance prompts for "not yet configured" states are removed, the first-load alert only appears after the automatic retry fails, and no third-party form library is adopted. The save mechanism is now the platform card's staged-draft Save/Discard buttons (D-026), replacing the debounced auto-save.
 - The active recognition surface (D-027) is implemented through `conversation.input.dock`: a standalone Task/Goal-style card with real microphone levels, a stop action, processing states, and a motion-safe exit transition. It is ordered immediately before queued messages so recognition stays above the pending queue and closest to the input; the composer microphone remains visible, stops active capture through the same session action, and is disabled only during final processing.
+- The 通用 (General) tab with the in-page voice-input shortcut (D-028) is implemented: a leading default landing tab hosts the shortcut enable switch, the same-session-toggle hotkey listener (default `Ctrl+Shift+Space`), and the moved language/recording-limit rows; the hand-written `src/shortcut.ts` module (no third-party dependency) covers parse/normalize/validate/match/capture/format with typing-key/modifier-only rejection, amber reserved-chord warnings, and platform-aware display; the composer hotkey respects the settings dialog and visibility guards and focuses the gated microphone button to surface its tooltip when recording is unavailable. The research report behind the design is in `.agent/research/voice-dictation-shortcuts.md`.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -56,6 +57,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D12 | ~~Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section.~~ Superseded by D-017. | Superseded |
 | D13 | The project is licensed MIT and released to the private GitHub repository `WizisCool/dsh-ears`; npm publishing and public visibility changes remain gated. | Accepted |
 | D14 | The plugin configuration is a dedicated `settings.section` page (`dsh-ear`) beside General, Models, and Plugins, styled with the shipped pages' semantic tokens and card geometry. | Accepted |
+| D28 | The `dsh-ear` page gains a leading 通用 (General) tab (default landing tab) hosting a configurable in-page voice-input shortcut (default `Ctrl+Shift+Space`, enable switch + recorder, hand-written module, no dependency) and the moved language/recording-limit rows. The shortcut is in-page only: it toggles recording while the chat composer is visible without a modal overlay; typing-key/modifier-only chords are rejected, browser-reserved chords warn amber, and a gated microphone surfaces the existing tooltip instead of recording. | Accepted |
 
 ## Package shape
 
@@ -93,6 +95,7 @@ dsh-ears/
 │   │   └── prompts.ts        # Product prompt text
 │   ├── config.ts             # Shared constants, types, and validation
 │   ├── config-schema.ts      # Host-only schemastery settings schema
+│   ├── shortcut.ts           # Shared voice-shortcut chord logic (parse/validate/match/format)
 │   └── remote-contract.ts     # Strict Host/Client wire schemas
 └── tests/
 ```
@@ -177,9 +180,10 @@ Local Whisper is invoked on the dsh Host with argument arrays and private tempor
 
 ## Settings
 
-`dsh-ears` owns a dedicated settings page registered in `settings.section` (`dsh-ear`, nav order 16 — between Plugins and Agent presets), styled with the same semantic tokens, card geometry, and field patterns as the shipped Models page:
+`dsh-ears` owns a dedicated settings page registered in `settings.section` (`dsh-ear`, nav order 16 — between Plugins and Agent presets), styled with the same semantic tokens, card geometry, and field patterns as the shipped Models page. The page is tabbed with a leading 通用 (General) tab as the default landing tab:
 
-- Recognition group: a grouped backend/provider selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible), local Whisper model, cloud provider API key (write-only, never returned), endpoint (hidden for presets, editable for custom), model (live-fetched for presets, free text for custom), language (default `zh-CN`), and per-recording limit (default 120 seconds).
+- General group: an enabled/disabled voice-shortcut switch (default on) and a Raycast-style shortcut recorder (default `Ctrl+Shift+Space`, in-page only: it starts/stops recording while the dsh chat composer is visible without a modal overlay; typing-key and modifier-only chords are rejected, browser/OS-reserved chords warn amber without blocking the save, Escape cancels capture, and Reset restores the default), plus the language (default `zh-CN`) and per-recording limit (default 120 seconds) rows that moved here from the Recognition tab.
+- Recognition group: a grouped backend/provider selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible), local Whisper model, cloud provider API key (write-only, never returned), endpoint (hidden for presets, editable for custom), and model (live-fetched for presets, free text for custom).
 - Polishing group: enabled/disabled and a provider/model selector populated from dsh's configured routes. The group's rows appear only after polishing is enabled; a complete provider/model pair activates polishing, and an incomplete pair leaves it dormant (D-024).
 
 The page keeps the same draft and read-only fallback as the previous card. Edits stage as drafts and commit through the footer's Save/Discard buttons (D-026, the platform card model): Save is blocked unless dirty, valid, and idle; an invalid draft blocks the whole save, keeps the drafts, and shows a red hint on its own row; a Host rejection keeps the drafts with a red saveFailed line; Discard drops all drafts; empty text clears a field on save, and untouched or not-yet-configured fields render quietly (D-024). An incomplete provider/model pair leaves polishing dormant until completed (revised D3). Stale Whisper action responses cannot replace a newer selection, and failed model operations retain a retry action. The first release has no emotion toggle and no plugin-owned LLM credential fields. Cloud ASR keys remain Host-side and separate from polishing; the plugin stores the key in a `role('secret')` settings field whose value never crosses the wire back to the browser.
@@ -267,6 +271,7 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 
 - dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6.
 - Web Speech availability and privacy behavior vary by browser and platform.
+- The voice shortcut is strictly in-page: a web page cannot register an OS-global hotkey, so the feature deliberately does not promise dictation from other applications; this is documented rather than worked around (D-028). Recorder chords are matched by physical `KeyboardEvent.code`, so a chord recorded on one keyboard layout stays self-consistent, while the fixed default (`Ctrl+Shift+Space`) is layout-stable; characters never reach the page from the primary IME toggle keys (`Ctrl+Space`, `Cmd+Space`) by design.
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
 - Whisper model cache ownership is delegated to the Host's `whisper` installation; the plugin does not bundle model weights. State checks and downloads delegate to the installed library, so pip/Homebrew/pipx/conda/Windows layouts follow the library's own paths; a host without a whisper-capable Python reports an honest error instead of guessing. Windows launcher probing is implemented but not yet smoke-tested on Windows.
 - OpenAI-compatible cloud behavior is intentionally limited to the documented multipart `{ file, model, language? }` request and `{ text }` response contract. Other providers need independent adapters.
