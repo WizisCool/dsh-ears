@@ -17,6 +17,7 @@ import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
+import { resolvePolishRoute } from './route.js'
 import { applyFlatSettingsPatch, flattenStoredSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
@@ -28,7 +29,7 @@ export class PolishService extends TypertRemoteService {
   static inject = ['llm']
   private settings: SettingsScope<Record<string, unknown>> | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
-  private cloudModelsFailure: { expiresAt: number; message: string } | undefined
+  private cloudModelsFailure: { key: string; expiresAt: number; message: string } | undefined
   private readonly whisperModels = new WhisperModels()
 
   constructor(ctx: Context) {
@@ -147,16 +148,18 @@ export class PolishService extends TypertRemoteService {
     if (key === '') return { status: 'no-key' }
     signal.throwIfAborted()
     const now = Date.now()
-    if (this.cloudModelsFailure !== undefined && this.cloudModelsFailure.expiresAt > now) {
+    const cacheKey = `${entry.id}\0${key}`
+    if (this.cloudModelsFailure !== undefined && this.cloudModelsFailure.key === cacheKey && this.cloudModelsFailure.expiresAt > now) {
       return { status: 'error', models: [], error: this.cloudModelsFailure.message }
     }
     try {
       const models = await fetchCloudProviderModels(entry, key, signal)
+      this.cloudModelsFailure = undefined
       return { status: 'ok', models }
     } catch (error) {
       if (signal.aborted) throw error
       const message = error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed'
-      this.cloudModelsFailure = { expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message }
+      this.cloudModelsFailure = { key: cacheKey, expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message }
       return { status: 'error', models: [], error: message }
     }
   }
@@ -252,12 +255,10 @@ export class PolishService extends TypertRemoteService {
     const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
     const storedPrompt = settings.polishPrompt
     const finish = (text: string): string => storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text
-    const requestedProvider = provider.trim()
-    const requestedModel = model.trim()
-    const routeProvider = requestedProvider || settings.polishProvider.trim()
-    const routeModel = requestedModel || settings.polishModel.trim()
-    const enabled = settings.polishingEnabled || (requestedProvider !== '' && requestedModel !== '')
-    if (!enabled || routeProvider === '' || routeModel === '') return finish(raw)
+    const route = resolvePolishRoute(settings, provider, model)
+    if (route === null) return finish(raw)
+    const routeProvider = route.provider
+    const routeModel = route.model
 
     const timeout = new AbortController()
     const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)
