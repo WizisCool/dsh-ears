@@ -77,7 +77,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const current = settingsRef.current
-      if (!current.voiceShortcutEnabled) return
+      if (current.voiceShortcutEnabled === false) return
       if (event.isComposing || event.repeat) return
       if (!matchesShortcut(current.voiceShortcut, event)) return
       const target = event.target

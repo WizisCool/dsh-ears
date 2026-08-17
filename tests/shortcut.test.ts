@@ -38,6 +38,13 @@ describe('shortcut parse and normalize', () => {
     expect(parseShortcut('f13')).toBeNull()
     expect(parseShortcut('ctrl+ctrl+space')).toEqual({ modifiers: ['ctrl'], key: 'space' })
   })
+
+  it('treats non-string input as malformed (mid-deploy host/client skew guard)', () => {
+    expect(parseShortcut(undefined as unknown as string)).toBeNull()
+    expect(shortcutRejectReason(undefined as unknown as string)).toBe('invalid')
+    expect(isValidStoredShortcut(undefined as unknown as string)).toBe(false)
+    expect(matchesShortcut(undefined as unknown as string, keyEvent('Space'))).toBe(false)
+  })
 })
 
 describe('shortcut rejection rules', () => {

@@ -651,4 +651,19 @@ describe('EarsSettingsController voice shortcut fields', () => {
     expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
     controller.dispose()
   })
+
+  it('falls back to the shortcut defaults when the persisted view predates the fields', async () => {
+    const legacySettings: EarsSettings = { ...DEFAULT_EARS_SETTINGS } as EarsSettings
+    delete (legacySettings as Partial<EarsSettings>).voiceShortcutEnabled
+    delete (legacySettings as Partial<EarsSettings>).voiceShortcut
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true as const, value: settingsViewFrom(legacySettings) })
+    }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('ctrl+shift+space')
+    expect(controller.getCardStore().getSnapshot().voiceShortcutEnabled.text).toBe('on')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(false)
+    controller.dispose()
+  })
 })

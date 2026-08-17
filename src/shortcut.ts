@@ -84,6 +84,7 @@ function isModifierToken(token: string): token is ShortcutModifier {
 
 /** Parse a canonical chord into modifiers and key token; null on malformed input. */
 export function parseShortcut(chord: string): ParsedShortcut | null {
+  if (typeof chord !== 'string') return null
   if (chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return null
   const tokens = chord.trim().toLowerCase().split('+').filter((token) => token !== '')
   if (tokens.length === 0) return null
@@ -120,7 +121,7 @@ export type ShortcutRejectReason = 'modifier-only' | 'typing-key' | 'invalid'
  * they only raise `isReservedShortcut` warnings.
  */
 export function shortcutRejectReason(chord: string): ShortcutRejectReason | null {
-  if (chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
+  if (typeof chord !== 'string' || chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
   const tokens = chord.trim().toLowerCase().split('+').filter((token) => token !== '')
   if (tokens.length === 0) return 'invalid'
   if (tokens.every(isModifierToken)) return 'modifier-only'
