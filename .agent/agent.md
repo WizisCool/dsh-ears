@@ -5,9 +5,8 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
-- Latest code commit: pending synthesized voice sounds.
-- Latest commit: `5c98f8e fix(host): treat silent Bailian clips as empty speech`.
+- Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
+- Latest commit: `16144d8 fix(client): keep Control when capturing chords on macOS`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -394,6 +393,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: use the official site plus installed package declarations when touching dsh APIs.
 - Commit: this docs record.
+
+## Shortcut library re-evaluation (2026-08-18)
+
+- Completed: considered replacing `src/shortcut.ts` with a statically compilable library. `tinykeys` is the only ESM/static-fit candidate; it would not remove Host validation, reserved/typing-key policy, the recorder, `lastHeld` macOS Control capture, or platform labels. The maintainer accepted keeping the hand-written module. D-028 now records that this is closed.
+- Validation: no code change; docs only (`decisions.md`, this file).
+- Unfinished: D-018, live Groq/`zh`, Bailian, and Windows smokes remain pending.
+- Blocked: none.
+- Next: take the next maintainer-selected task; do not add a shortcut dependency; do not push without authorization.
+- Commit: none (decision record only).
 
 ## Handoff template
 
