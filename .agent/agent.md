@@ -245,7 +245,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Unfinished: the visible Web GUI still needs a manual refresh to inspect the updated card/prompt layout; no browser CDP endpoint was available in this session, and no watcher is running. Live Groq/Web and Groq `zh` transcription smokes, D-018, and Windows smoke remain pending.
 - Blocked: none.
 - Next: refresh the existing Web UI and inspect General, Recognition, and Polishing tabs at desktop and narrow widths; do not start a replacement server or push without authorization.
-- Commits: `eaead54 fix(client): preserve provider settings across switches`; `cab3550 fix(client): polish native settings layout`.
+- Commits: `eaead54 fix(client): preserve provider settings across switches`; `f93a801 fix(client): polish native settings layout`.
 
 ## Handoff template
 
