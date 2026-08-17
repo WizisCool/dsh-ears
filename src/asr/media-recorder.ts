@@ -1,3 +1,5 @@
+import { AudioLevelMonitor, VOICE_AUDIO_CONSTRAINTS } from './audio-level.js'
+
 export interface RecordedAudio {
   readonly base64: string
   readonly mimeType: string
@@ -43,14 +45,7 @@ export class MediaRecorderSession {
 
   static async create(): Promise<MediaRecorderSession> {
     if (!isMediaRecorderAvailable()) throw new Error('Media recording is unavailable in this browser')
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    })
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: VOICE_AUDIO_CONSTRAINTS })
     try {
       const mimeType = supportedMimeType()
       const recorder = mimeType === '' ? new MediaRecorder(stream) : new MediaRecorder(stream, { mimeType })
@@ -59,6 +54,11 @@ export class MediaRecorderSession {
       stopTracks(stream)
       throw error
     }
+  }
+
+  createLevelMonitor(onLevel: (level: number) => void): AudioLevelMonitor {
+    if (this.aborted || this.closed) throw new Error('Media recording session is no longer active')
+    return AudioLevelMonitor.fromStream(this.stream, onLevel)
   }
 
   start(): void {

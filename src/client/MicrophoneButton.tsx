@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconStopFill16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
+import { AudioLevelMonitor } from '../asr/audio-level.js'
 import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
@@ -13,6 +14,7 @@ import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
+import { useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -25,22 +27,29 @@ type VoiceInputButtonProps = {
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
   readonly useEarsBackends: BackendHook
   readonly useEarsWhisper: WhisperModelHook
+  readonly voiceSession: VoiceInputSession
   readonly t?: Translate
   readonly earsT?: Translate
 }
 
 type ButtonState = VoiceInputState
 
-export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, t: slotT, earsT }: VoiceInputButtonProps) {
+export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, voiceSession, t: slotT, earsT }: VoiceInputButtonProps) {
   const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
-  const [state, setState] = useState<ButtonState>('idle')
+  const voiceSnapshot = useVoiceInputSession(voiceSession)
+  const state = voiceSnapshot.state
+  const setState = (nextState: ButtonState) => {
+    voiceSession.setState(nextState)
+  }
   const speechSessionRef = useRef<WebSpeechSession | null>(null)
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
+  const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
   const mediaBaseDraftRef = useRef('')
   const mediaStartCancelledRef = useRef(false)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const polishAbortRef = useRef<AbortController | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null)
   const actionsRef = useRef(inputActions)
   const latestDraftRef = useRef(input.draft)
   const settings = useEarsSettings((value) => value)
@@ -61,20 +70,39 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     settingsRef.current = settings
   }, [settings])
 
-  useEffect(() => () => {
-    mountedRef.current = false
-    speechSessionRef.current?.abort()
-    mediaSessionRef.current?.abort()
-    transcribeAbortRef.current?.abort()
-    polishAbortRef.current?.abort()
-    clearRecordingTimer(recordingTimerRef)
-  }, [])
+  useEffect(() => {
+    stopRecordingRef.current = null
+    return voiceSession.onStopRequested(() => {
+      void stopRecordingRef.current?.()
+    })
+  }, [voiceSession])
 
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      stopRecordingRef.current = null
+      voiceSession.setState('idle')
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
+      speechSessionRef.current?.abort()
+      speechSessionRef.current = null
+      mediaSessionRef.current?.abort()
+      mediaSessionRef.current = null
+      transcribeAbortRef.current?.abort()
+      polishAbortRef.current?.abort()
+      clearRecordingTimer(recordingTimerRef)
+    }
+  }, [voiceSession])
+
+  const active = state === 'starting' || state === 'recording'
+  const busy = state === 'transcribing' || state === 'polishing'
   const backend = normalizeBackend(settings.asrBackend)
-  const configUnavailable = state === 'idle' || state === 'error'
+  const configUnavailable = !active && !busy && (state === 'idle' || state === 'error')
     ? micUnavailableReason(backend, backendInfo, whisperView)
     : null
-  if (configUnavailable !== null) {
+
+  if (!active && !busy && configUnavailable !== null) {
     return (
       <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200}>
         <button
@@ -90,7 +118,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : isMediaRecorderAvailable()
-  if (!backendAvailable) {
+  if (!active && !busy && !backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
       <Tooltip label={unavailableLabel} side="top" delayMs={200}>
@@ -106,56 +134,88 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     )
   }
 
-  const active = state === 'starting' || state === 'recording'
-  const busy = state === 'transcribing' || state === 'polishing'
-
   const startWebSpeech = () => {
     const baseDraft = input.draft
     let sessionDraft = baseDraft
     let failed = false
-    const session = new WebSpeechSession({
-      language: settingsRef.current.language,
-      onStart: () => {
-        setState('recording')
-        armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
-      },
-      onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
-      onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
-      onError: () => {
-        failed = true
-        setState('error')
-      },
-      onEnd: (text) => {
-        clearRecordingTimer(recordingTimerRef)
-        speechSessionRef.current = null
-        if (failed || text === '') {
-          if (!failed) setState('idle')
+    mediaStartCancelledRef.current = false
+    setState('starting')
+
+    let session!: WebSpeechSession
+    let levelMonitorStarting = false
+    const startLevelMonitor = () => {
+      if (levelMonitorStarting || levelMonitorRef.current !== null) return
+      levelMonitorStarting = true
+      void AudioLevelMonitor.capture((level) => voiceSession.pushAudioLevel(level)).then((monitor) => {
+        levelMonitorStarting = false
+        if (!mountedRef.current || speechSessionRef.current !== session) {
+          monitor.stop()
           return
         }
-        commitTranscript({
-          transcript: text,
-          baseDraft,
-          expectedDraft: sessionDraft,
-          requireUnchanged: true,
-          settings: settingsRef.current,
-          remote,
-          setState,
-          latestDraftRef,
-          actionsRef,
-          polishAbortRef
-        })
-      }
-    })
+        levelMonitorRef.current?.stop()
+        levelMonitorRef.current = monitor
+      }).catch(() => {
+        levelMonitorStarting = false
+        // Web Speech remains usable when the optional waveform analyser is unavailable.
+      })
+    }
 
-    speechSessionRef.current = session
-    setState('starting')
-    session.start()
+    try {
+      session = new WebSpeechSession({
+        language: settingsRef.current.language,
+        onStart: () => {
+          setState('recording')
+          startLevelMonitor()
+          armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
+        },
+        onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
+        onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
+        onError: () => {
+          failed = true
+          levelMonitorRef.current?.stop()
+          levelMonitorRef.current = null
+          setState('error')
+        },
+        onEnd: (text) => {
+          clearRecordingTimer(recordingTimerRef)
+          levelMonitorRef.current?.stop()
+          levelMonitorRef.current = null
+          speechSessionRef.current = null
+          if (failed || text === '') {
+            if (!failed) setState('idle')
+            return
+          }
+          commitTranscript({
+            transcript: text,
+            baseDraft,
+            expectedDraft: sessionDraft,
+            requireUnchanged: true,
+            settings: settingsRef.current,
+            remote,
+            setState,
+            latestDraftRef,
+            actionsRef,
+            polishAbortRef
+          })
+        }
+      })
+
+      speechSessionRef.current = session
+      session.start()
+    } catch {
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
+      speechSessionRef.current = null
+      if (mountedRef.current) setState('error')
+    }
   }
 
   const stopRecording = async () => {
     clearRecordingTimer(recordingTimerRef)
     if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null) {
       mediaStartCancelledRef.current = true
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
       setState('idle')
       return
     }
@@ -166,6 +226,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const session = mediaSessionRef.current
     if (session === null) return
     mediaSessionRef.current = null
+    levelMonitorRef.current?.stop()
+    levelMonitorRef.current = null
     const baseDraft = mediaBaseDraftRef.current
     setState('transcribing')
     const controller = new AbortController()
@@ -193,6 +255,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     }
   }
 
+  stopRecordingRef.current = stopRecording
+
   const startMediaRecording = async () => {
     const baseDraft = input.draft
     mediaStartCancelledRef.current = false
@@ -206,10 +270,17 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       mediaSessionRef.current = session
       mediaBaseDraftRef.current = baseDraft
+      try {
+        levelMonitorRef.current = session.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
+      } catch {
+        // Recording remains usable when the optional waveform analyser is unavailable.
+      }
       session.start()
       setState('recording')
       armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => void stopRecording())
     } catch {
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
       session?.abort()
       if (mediaSessionRef.current === session) mediaSessionRef.current = null
       if (mountedRef.current) setState(mediaStartCancelledRef.current ? 'idle' : 'error')
@@ -224,31 +295,14 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     if (busy) return
 
     if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') {
-      startWebSpeech()
+      void startWebSpeech()
     } else {
       void startMediaRecording()
     }
   }
 
-  const tooltipLabel =
-    state === 'error'
-      ? t('voiceError')
-      : state === 'transcribing'
-        ? t('voiceTranscribing')
-        : state === 'polishing'
-          ? t('voicePolishing')
-          : active
-            ? t('voiceStop')
-            : t('voiceStart')
-
-  const ariaLabel =
-    state === 'transcribing'
-      ? t('voiceTranscribing')
-      : state === 'polishing'
-        ? t('voicePolishing')
-        : active
-          ? t('voiceStop')
-          : t('voiceStart')
+  const tooltipLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : state === 'error' ? t('voiceError') : t('voiceStart')
+  const ariaLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : t('voiceStart')
 
   return (
     <Tooltip label={tooltipLabel} side="top" delayMs={200}>
@@ -256,12 +310,12 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         type="button"
         aria-label={ariaLabel}
         aria-pressed={active}
-        aria-disabled={busy ? 'true' : undefined}
+        disabled={busy}
         className={styles.button}
         data-state={state}
         onClick={toggle}
       >
-        {active ? <IconStopFill16 size={16} /> : <MicrophoneIcon />}
+        <MicrophoneIcon />
       </button>
     </Tooltip>
   )

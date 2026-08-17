@@ -24,6 +24,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - Post-M6 Whisper robustness hardening (D-020) is complete: downloadable model state is marker-verified, transcription is pre-flighted, discovery failures are negative-cached, the model manager is disposed with the plugin scope, transcription errors carry stderr tails, Windows launcher probing is implemented, and the lifecycle has fake-python integration coverage. D-019 is closed; D-018 remains open.
 - Cloud ASR provider presets (D-023) are implemented: a Host-side provider registry with the Groq preset (pinned endpoint, live model listing, write-only inline `role('secret')` API key) and the Custom OpenAI-compatible provider; the recognition selector is a grouped menu (本地 / 云提供商), and cloud readiness gates the microphone. The live rc.6 Web smoke and a live Groq `zh` transcription smoke remain pending.
 - Unconfigured-state presentation and the per-field validation model (D-024, D-025) are implemented: the settings page validates only the edited field, red appears only for invalid user input and real failures, an incomplete polishing pair leaves polishing dormant, guidance prompts for "not yet configured" states are removed, the first-load alert only appears after the automatic retry fails, and no third-party form library is adopted. The save mechanism is now the platform card's staged-draft Save/Discard buttons (D-026), replacing the debounced auto-save.
+- The active recognition surface (D-027) is implemented through `conversation.input.dock`: a standalone Task/Goal-style card with real microphone levels, a stop action, processing states, and a motion-safe exit transition. It is ordered immediately before queued messages so recognition stays above the pending queue and closest to the input; the composer microphone remains visible, stops active capture through the same session action, and is disabled only during final processing.
 - First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
@@ -31,7 +32,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 The package has two faces:
 
 - Host face: Cordis lifecycle, Host RPC, dsh settings integration, local/cloud ASR, and dsh `ctx.llm` access.
-- Browser face: the microphone UI, Web Speech session, MediaRecorder capture for final ASR, and `inputActions.setDraft()` updates.
+- Browser face: the composer microphone, session-scoped recognition card and live waveform, Web Speech session, MediaRecorder capture for final ASR, and `inputActions.setDraft()` updates.
 
 Web Speech runs in the browser and is not a PCM recorder. Local Whisper and cloud ASR use a separate MediaRecorder source and final-result Host RPC; the first release does not promise invisible backend switching during one recording.
 
@@ -51,7 +52,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D8 | Development starts private; public release and package publishing require a later release decision. | Accepted |
 | D9 | First release is validated only against dsh `0.1.0-rc.6`. | Accepted |
 | D10 | Web Speech failure preserves the current draft and asks the user to record again. | Accepted |
-| D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, microphone when idle, stop square while recording, live draft updates, and manual send only. | Accepted |
+| D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, live draft updates, and manual send only. Revised by D-027: the toolbar microphone stays visible and highlighted during capture while the active Task/Goal-style card adds status, waveform, and its own stop action. | Accepted, revised |
 | D12 | ~~Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section.~~ Superseded by D-017. | Superseded |
 | D13 | The project is licensed MIT and released to the private GitHub repository `WizisCool/dsh-ears`; npm publishing and public visibility changes remain gated. | Accepted |
 | D14 | The plugin configuration is a dedicated `settings.section` page (`dsh-ear`) beside General, Models, and Plugins, styled with the shipped pages' semantic tokens and card geometry. | Accepted |
@@ -75,11 +76,14 @@ dsh-ears/
 │   ├── client/
 │   │   ├── index.ts          # Client composition
 │   │   ├── MicrophoneButton.tsx # Composer control and backend dispatch
+│   │   ├── VoiceRecognitionBar.tsx # Active recognition card
+│   │   ├── voice-session.ts  # Session-scoped active state and waveform samples
 │   │   ├── settings-controller.ts # Async settings, route, and Whisper state controller
 │   │   ├── voice-flow.ts     # Draft, polish, and stale-result protection
 │   │   └── settings.tsx      # Dedicated settings.section page
 │   ├── asr/
 │   │   ├── types.ts          # Final audio/backend metadata
+│   │   ├── audio-level.ts    # Browser analyser and microphone levels
 │   │   ├── media-recorder.ts # Browser capture for final backends
 │   │   ├── web-speech.ts     # Browser live backend
 │   │   ├── local-whisper.ts  # Host Whisper CLI adapter
@@ -123,8 +127,8 @@ The development `.dsh/cordis.patch.yml` is machine-local and HMR-only. The plugi
 
 - The bundle patch activates the Host package entry when installed into a profile.
 - `dsh.client` declares the browser package and its injected runtime dependencies.
-- M2 uses `conversation.input.right` and `inputActions.setDraft()` in the browser face.
-- M2 uses dsh public `data-slot` topology plus semantic CSS tokens to adapt the control to rc.6 ordering and light/dark themes.
+- M2 uses `conversation.input.right` and `inputActions.setDraft()` in the browser face; D-027 additionally uses the public `conversation.input.dock` seam for the active recognition card.
+- M2 uses dsh public `data-slot` topology plus semantic CSS tokens to adapt the control and recognition card to rc.6 ordering and light/dark themes.
 - Web Speech remains a browser live backend, but its recognition service may be provided by the browser vendor.
 - Local Whisper and cloud ASR use MediaRecorder audio and a final-result Host RPC; they do not attempt invisible backend switching during one recording.
 - The Host rejects oversized audio, uses bounded temporary files and response bodies, and removes local Whisper temporary directories in `finally` blocks.
@@ -167,7 +171,7 @@ type ASRBackendInfo = {
 }
 ```
 
-The browser backend uses `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The final backends use `MediaRecorder` with mono, echo-cancellation, noise-suppression, and automatic-gain-control constraints. The control lives in `conversation.input.right` and follows the Codex composer reference: compact circular toolbar button, microphone icon at rest, stop-square icon while recording, and no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording. Teardown aborts are silent and never write into an unmounted draft.
+The browser backend uses `SpeechRecognition`/`webkitSpeechRecognition`, `lang: zh-CN`, `continuous`, and `interimResults`. The final backends use `MediaRecorder` with mono, echo-cancellation, noise-suppression, and automatic-gain-control constraints. The persistent microphone control lives in `conversation.input.right`; during an active flow, D-027 additionally renders status, the real analyser waveform, and a stop-square action in a standalone `conversation.input.dock` card. The microphone delegates to the same stop path during capture and becomes disabled during final processing. There is no automatic send. Unsupported browsers show an unavailable state. Mid-session errors preserve the draft and ask for a new recording. Teardown aborts are silent and never write into an unmounted draft.
 
 Local Whisper is invoked on the dsh Host with argument arrays and private temporary files; it does not use a shell. Model availability is surfaced through two Host RPCs: the state RPC discovers the installed whisper's Python (CLI shebang first, then platform PATH probes with a fast spec-only check) and reports CLI availability plus the standard cache file, while the download RPC fetches a missing model through the installed library's own downloader with tqdm progress. Cloud ASR runs through a Host-side provider registry: preset providers (Groq) pin their endpoint and fetch their transcription model list from the provider catalog with the stored inline key, while the Custom OpenAI-compatible provider accepts an explicit HTTP(S) endpoint with a 120-second request timeout. The Host RPC accepts one bounded base64 payload, carries cancellation, and returns a strict transcript string; streaming audio is intentionally outside the first contract.
 

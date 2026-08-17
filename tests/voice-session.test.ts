@@ -1,0 +1,61 @@
+import { describe, expect, it, vi } from 'vitest'
+import { VOICE_WAVEFORM_SLOTS, VoiceInputSession } from '../src/client/voice-session.js'
+
+describe('VoiceInputSession', () => {
+  it('publishes recognition states to all subscribers', () => {
+    const session = new VoiceInputSession()
+    const listener = vi.fn()
+    const unsubscribe = session.subscribe(listener)
+
+    session.setState('recording')
+
+    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [] })
+    expect(listener).toHaveBeenCalledTimes(1)
+    unsubscribe()
+    session.setState('transcribing')
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a bounded rolling history of real audio levels', () => {
+    const session = new VoiceInputSession()
+    session.setState('recording')
+    const sampleCount = VOICE_WAVEFORM_SLOTS + 12
+    for (let index = 0; index < sampleCount; index += 1) session.pushAudioLevel(index / (sampleCount - 1))
+
+    expect(session.getSnapshot().levels).toHaveLength(VOICE_WAVEFORM_SLOTS)
+    expect(session.getSnapshot().levels[0]).toBeCloseTo(12 / (sampleCount - 1))
+    expect(session.getSnapshot().levels.at(-1)).toBe(1)
+    session.setState('idle')
+    expect(session.getSnapshot().levels).toEqual([])
+  })
+
+  it('notifies the active recorder when the bar requests stop', () => {
+    const session = new VoiceInputSession()
+    const stop = vi.fn()
+    const unsubscribe = session.onStopRequested(stop)
+
+    session.setState('recording')
+    session.requestStop()
+
+    expect(session.getSnapshot()).toEqual({ state: 'recording', levels: [] })
+    expect(stop).toHaveBeenCalledOnce()
+    unsubscribe()
+    session.requestStop()
+    expect(stop).toHaveBeenCalledOnce()
+  })
+
+  it('removes listeners when the plugin scope is disposed', () => {
+    const session = new VoiceInputSession()
+    const stateListener = vi.fn()
+    const stopListener = vi.fn()
+    session.subscribe(stateListener)
+    session.onStopRequested(stopListener)
+
+    session.dispose()
+    session.setState('recording')
+    session.requestStop()
+
+    expect(stateListener).not.toHaveBeenCalled()
+    expect(stopListener).not.toHaveBeenCalled()
+  })
+})

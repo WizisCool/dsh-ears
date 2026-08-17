@@ -39,6 +39,7 @@ Host (`exports["."]`)
 
 Browser (`exports["./client"]`)
   ├─ `conversation.input.right` microphone contribution
+  ├─ session-scoped `conversation.input.dock` recognition card with live waveform
   ├─ Web Speech live recognition
   ├─ MediaRecorder capture for final ASR backends
   ├─ dedicated `settings.section` page (nav `dsh-ear`, order 16)
@@ -78,7 +79,8 @@ Host validation and client validation share the helpers in `src/config.ts`; the 
 ```text
 Browser Client
   ├─ Web Speech live session OR MediaRecorder final capture
-  ├─ conversation.input.right
+  ├─ conversation.input.right (idle microphone)
+  ├─ conversation.input.dock (active recognition card + waveform)
   ├─ inputActions.setDraft()
   └─ dshEars/transcribe + dshEars/polish ──> Host
                                              ├─ dsh ctx.llm

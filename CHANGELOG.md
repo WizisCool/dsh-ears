@@ -7,6 +7,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 ### Added
 
 - Codex-like dsh composer microphone control with live Web Speech input.
+- Native taskbar-style recognition card above the composer: standalone Task/Goal geometry, status, stop action, and a full-width rolling microphone waveform sampled from the active input stream. The card follows dsh's typography and semantic surfaces, stays above queued messages and closest to the composer, preserves the composer microphone throughout the flow, and collapses smoothly before unmounting after completion.
 - Optional dsh-owned transcript polishing using any configured provider/model route.
 - Dedicated native dsh `settings.section` configuration page.
 - Host-side local Whisper and OpenAI-compatible cloud ASR backends.

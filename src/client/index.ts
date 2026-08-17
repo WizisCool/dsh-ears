@@ -4,6 +4,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
+import { VoiceRecognitionBar } from './VoiceRecognitionBar.js'
+import { VoiceInputSession } from './voice-session.js'
 import { EarsSettingsController, EMPTY_WHISPER_STATE, type BackendState, type CloudModelsView, type WhisperModelView } from './settings-controller.js'
 import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, createSnapshotHook, localeEn, localeZh } from './settings.js'
 
@@ -19,6 +21,15 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     const backendHook = createSnapshotHook<BackendState>(settingsController.getBackendStore(), { status: 'loading', backends: [] })
     const whisperHook = createSnapshotHook<WhisperModelView>(settingsController.getWhisperStore(), { status: 'loading', state: EMPTY_WHISPER_STATE })
     const cloudModelsHook = createSnapshotHook<CloudModelsView>(settingsController.getCloudModelsStore(), { status: 'ready', view: { status: 'unsupported' } })
+    const voiceSessions = new Map<string, VoiceInputSession>()
+    const voiceSessionFor = (sessionId: string): VoiceInputSession => {
+      let session = voiceSessions.get(sessionId)
+      if (session === undefined) {
+        session = new VoiceInputSession()
+        voiceSessions.set(sessionId, session)
+      }
+      return session
+    }
     const earsT = remoteCtx.locale.bind(LOCALE_NAMESPACE)
 
     remoteCtx.effect(() => {
@@ -31,6 +42,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     }, 'dsh-ears locale')
 
     remoteCtx.effect(() => () => {
+      for (const session of voiceSessions.values()) session.dispose()
+      voiceSessions.clear()
       settingsController.dispose()
     }, 'dsh-ears settings controller lifecycle')
 
@@ -46,15 +59,32 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           id: 'dsh-ears-voice',
           order: 30,
           locale: LOCALE_NAMESPACE,
-          inject: () => ({
+          inject: (sessionId) => ({
             remote: earsRemote,
             useEarsSettings: settingsHook,
             useEarsBackends: backendHook,
             useEarsWhisper: whisperHook,
+            voiceSession: voiceSessionFor(sessionId),
             earsT
           })
         },
         MicrophoneButton
+      )
+    )
+
+    remoteCtx.slots.inject('conversation.input.dock', () =>
+      remoteCtx.slots.register(
+        {
+          name: 'conversation.input.dock',
+          id: 'dsh-ears-recognition-bar',
+          order: 15,
+          locale: LOCALE_NAMESPACE,
+          inject: (sessionId) => ({
+            voiceSession: voiceSessionFor(sessionId),
+            earsT
+          })
+        },
+        VoiceRecognitionBar
       )
     )
 

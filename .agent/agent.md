@@ -5,8 +5,8 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: the settings page uses the platform card's explicit save model (D-026): edits stage as drafts and commit through the footer's separator + Save/Discard buttons (Save blocked unless dirty, valid, and idle; an invalid draft blocks the whole save and keeps the drafts; Host rejection keeps the drafts with the red saveFailed line; Discard drops everything without confirmation; closing or navigating away also discards uncommitted drafts; empty text clears a field on save, with the API key keeping absent=keep plus a staged clear action). The footer has no redundant unsaved/saving labels, and the debounced auto-save, Enter-to-save, and save-success flash remain removed. Validation stays per-field and immediate (D-024) with no "not yet configured" prompts; no third-party form library is adopted (D-025). D-019 is closed; D-018 remains open.
-- Latest code commit: `2f3686a fix(client): discard settings drafts on close`.
+- Current work: D-027 voice recognition surface is complete: a session-scoped standalone `conversation.input.dock` card sits immediately before dsh's queued-message dock, so it remains above pending messages and closest to the composer. It uses a real analyser waveform, native Task/Goal geometry, an authoritative stop action, delayed grid-row/opacity exit, and the composer microphone remains visible throughout capture and processing. The settings page still uses D-026's staged Save/Discard model and D-024's per-field validation. D-019 is closed; D-018 remains open.
+- Latest code commit: `64c007c feat(client): add native voice recognition dock`.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; all post-audit work (UI fixes, Whisper hardening, microphone gating, cloud provider presets, per-field settings model) is local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -164,6 +164,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: refresh the existing visible Web GUI and verify close/reopen manually if desired; no replacement dsh server was started.
 - Commit: `2f3686a fix(client): discard settings drafts on close`.
+
+## Native recognition card record (D-027)
+
+- Completed: added `VoiceInputSession`, analyser-backed `AudioLevelMonitor`, the standalone `VoiceRecognitionBar`, and shared lifecycle wiring for Web Speech and MediaRecorder. The card uses dsh Task/Goal geometry and typography, is registered at order 15 immediately before the native queue dock at order 20, fills the available waveform lane with a bounded rolling history, keeps the composer microphone mounted and actionable during capture, disables it only during final processing, and collapses with reduced-motion-aware opacity/translate/grid-row motion before unmounting. Updated the plan, decision record, README, changelog, and browser-face context.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (130/130 tests across 15 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; the final Impeccable detector over the changed UI targets returned `[]`; `git diff --check` passed. Clean isolated Chrome smoke against `http://127.0.0.1:3080` at 920px and 560px verified 36px card geometry, 12px radius, full waveform lane ending 10px before the stop action, persistent active microphone visibility, and a visible-but-disabled microphone during `transcribing`, with no runtime exceptions. Installed rc.6 inspection confirmed the native queue dock is order 20 and the plugin bundle is order 15.
+- Unfinished: real microphone/vendor Web Speech and live Host ASR are environment-dependent and were not used in the deterministic smoke; the visible GUI needs a refresh because no `pnpm run dev:web` watcher is running. D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: refresh the existing `http://127.0.0.1:3080` page to load the rebuilt client; do not push or publish without authorization.
+- Commit: `64c007c feat(client): add native voice recognition dock`.
 
 ## Handoff template
 

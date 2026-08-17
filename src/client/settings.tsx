@@ -16,6 +16,8 @@ export const LOCALE_NAMESPACE = 'settings.dshEars'
 export const localeZh = {
   voiceStart: '开始语音输入',
   voiceStop: '停止语音输入',
+  voiceRecording: '正在识别',
+  voiceBusy: '语音处理中',
   voiceTranscribing: '正在转写…',
   voicePolishing: '正在润色…',
   voiceError: '语音输入失败，点击重试',
@@ -28,6 +30,8 @@ export const localeZh = {
 export const localeEn = {
   voiceStart: 'Start voice input',
   voiceStop: 'Stop voice input',
+  voiceRecording: 'Listening',
+  voiceBusy: 'Voice input is processing',
   voiceTranscribing: 'Transcribing voice input',
   voicePolishing: 'Polishing voice input',
   voiceError: 'Voice input failed; click to record again',
