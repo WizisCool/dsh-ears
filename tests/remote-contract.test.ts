@@ -22,6 +22,16 @@ describe('settings Remote contract', () => {
 
   it('rejects settings patches with the wrong wire types', () => {
     expect(() => earsSettingsPatchSchema.parse({ maxRecordingSeconds: '120' })).toThrow()
+    expect(() => earsSettingsPatchSchema.parse({ voiceShortcutEnabled: 'yes' })).toThrow()
+    expect(() => earsSettingsPatchSchema.parse({ voiceShortcut: 42 })).toThrow()
+  })
+
+  it('accepts voice shortcut patch fields', () => {
+    expect(earsSettingsPatchSchema.parse({ voiceShortcutEnabled: false, voiceShortcut: 'ctrl+shift+space' })).toEqual({
+      voiceShortcutEnabled: false,
+      voiceShortcut: 'ctrl+shift+space'
+    })
+    expect(earsSettingsPatchSchema.parse({ voiceShortcut: 'f9' })).toEqual({ voiceShortcut: 'f9' })
   })
 
   it('validates the complete settings view returned by Host RPC', () => {
@@ -37,6 +47,8 @@ describe('settings Remote contract', () => {
         cloudAsrModel: '',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
+        voiceShortcutEnabled: true,
+        voiceShortcut: 'ctrl+shift+space',
         polishingEnabled: true,
         polishProvider: '',
         polishModel: '',

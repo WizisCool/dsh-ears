@@ -212,6 +212,10 @@
   line-height: 18px;
 }
 
+.warning {
+  color: var(--dsw-alias-state-warn-label);
+}
+
 .keyControl {
   position: relative;
   display: flex;

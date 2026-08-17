@@ -1,3 +1,5 @@
+import { isValidStoredShortcut } from './shortcut.js'
+
 export const SETTINGS_NAMESPACE = 'dsh-ears'
 
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
@@ -20,6 +22,8 @@ export interface EarsSettings {
   cloudAsrModel: string
   language: string
   maxRecordingSeconds: number
+  voiceShortcutEnabled: boolean
+  voiceShortcut: string
   polishingEnabled: boolean
   polishProvider: string
   polishModel: string
@@ -35,6 +39,8 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrModel: '',
   language: 'zh-CN',
   maxRecordingSeconds: 120,
+  voiceShortcutEnabled: true,
+  voiceShortcut: 'ctrl+shift+space',
   polishingEnabled: false,
   polishProvider: '',
   polishModel: '',
@@ -80,5 +86,6 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears cloud ASR API key is too long')
   if (settings.language.trim() === '') throw new Error('dsh-ears recognition language is required')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
+  if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
 }

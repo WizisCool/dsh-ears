@@ -10,6 +10,7 @@ import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
 import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
+import { matchesShortcut } from '../shortcut.js'
 import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
@@ -57,6 +58,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const whisperView = useEarsWhisper((value) => value)
   const settingsRef = useRef(settings)
   const mountedRef = useRef(true)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const toggleRef = useRef<(() => void) | null>(null)
+  const gateRef = useRef<MicUnavailableReason | null>(null)
 
   useEffect(() => {
     actionsRef.current = inputActions
@@ -69,6 +73,28 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   useEffect(() => {
     settingsRef.current = settings
   }, [settings])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const current = settingsRef.current
+      if (!current.voiceShortcutEnabled) return
+      if (event.isComposing || event.repeat) return
+      if (!matchesShortcut(current.voiceShortcut, event)) return
+      const target = event.target
+      if (target instanceof Element && target.closest('[role="dialog"]') !== null) return
+      if (document.visibilityState !== 'visible') return
+      const element = buttonRef.current
+      if (element === null || element.offsetParent === null) return
+      event.preventDefault()
+      if (gateRef.current !== null) {
+        if (document.activeElement !== element) element.focus()
+        return
+      }
+      toggleRef.current?.()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     stopRecordingRef.current = null
@@ -101,11 +127,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const configUnavailable = !active && !busy && (state === 'idle' || state === 'error')
     ? micUnavailableReason(backend, backendInfo, whisperView)
     : null
+  gateRef.current = configUnavailable
 
   if (!active && !busy && configUnavailable !== null) {
     return (
       <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200}>
         <button
+          ref={buttonRef}
           type="button"
           aria-label={t('voiceUnavailable')}
           aria-disabled="true"
@@ -123,6 +151,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     return (
       <Tooltip label={unavailableLabel} side="top" delayMs={200}>
         <button
+          ref={buttonRef}
           type="button"
           aria-label={t('voiceUnavailable')}
           aria-disabled="true"
@@ -300,6 +329,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       void startMediaRecording()
     }
   }
+  toggleRef.current = toggle
 
   const tooltipLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : state === 'error' ? t('voiceError') : t('voiceStart')
   const ariaLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : t('voiceStart')
@@ -307,6 +337,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   return (
     <Tooltip label={tooltipLabel} side="top" delayMs={200}>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={ariaLabel}
         aria-pressed={active}

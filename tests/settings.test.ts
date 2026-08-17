@@ -593,3 +593,62 @@ function deferred<T>() {
   const promise = new Promise<T>((nextResolve) => { resolve = nextResolve })
   return { promise, resolve }
 }
+
+describe('EarsSettingsController voice shortcut fields', () => {
+  it('stages and saves the shortcut enable switch as a boolean', async () => {
+    const saved: EarsSettingsView = settingsViewFrom(DEFAULT_EARS_SETTINGS)
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: saved }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().voiceShortcutEnabled.text).toBe('on')
+    controller.actions().edit('voiceShortcutEnabled', 'off')
+    expect(controller.getCardStore().getSnapshot().voiceShortcutEnabled.text).toBe('off')
+    await controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ voiceShortcutEnabled: false })
+    controller.dispose()
+  })
+
+  it('lets an invalid shortcut draft block the whole save and keep every draft', async () => {
+    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('voiceShortcut', 'ctrl+a')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
+    expect(controller.getCardStore().getSnapshot().invalid).toBe(true)
+
+    controller.actions().edit('language', 'en-US')
+    await controller.actions().save()
+
+    expect(updateSettings).not.toHaveBeenCalled()
+    expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('ctrl+a')
+    controller.dispose()
+  })
+
+  it('accepts a capturable chord and clears a stored shortcut back to the default', async () => {
+    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('voiceShortcut', 'ctrl+shift+f9')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(false)
+    expect(controller.getCardStore().getSnapshot().invalid).toBe(false)
+    await controller.actions().save()
+    expect(updateSettings).toHaveBeenCalledWith({ voiceShortcut: 'ctrl+shift+f9' })
+
+    controller.actions().edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)
+    await controller.actions().save()
+    expect(updateSettings).toHaveBeenLastCalledWith({ voiceShortcut: 'ctrl+shift+space' })
+    controller.dispose()
+  })
+
+  it('treats a lone modifier chord as invalid', () => {
+    const controller = new EarsSettingsController(createRemote())
+    controller.actions().edit('voiceShortcut', 'ctrl+shift')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
+    controller.dispose()
+  })
+})

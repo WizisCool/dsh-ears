@@ -1,0 +1,219 @@
+/**
+ * Pure voice-input shortcut logic shared by Host validation, the settings
+ * recorder, and the composer hotkey listener. No DOM, React, or platform API
+ * imports so the module stays testable and bundle-safe on both faces.
+ *
+ * Canonical chord format: lowercase, '+' separated, modifiers in the fixed
+ * order ctrl, alt, shift, meta, then the key token, e.g. `ctrl+shift+space`.
+ * Key tokens are derived from `KeyboardEvent.code` (layout-stable physical
+ * keys) rather than `event.key` (layout-dependent labels).
+ */
+
+export type ShortcutModifier = 'ctrl' | 'alt' | 'shift' | 'meta'
+
+export const SHORTCUT_MODIFIERS: readonly ShortcutModifier[] = ['ctrl', 'alt', 'shift', 'meta']
+
+export const SHORTCUT_MAX_LENGTH = 64
+
+/** Key tokens that type or act on text; never valid as a bare shortcut. */
+const TEXT_ACTION_TOKENS = new Set([
+  'space', 'enter', 'tab', 'backspace', 'delete',
+  'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
+  'home', 'end', 'pageup', 'pagedown', 'insert',
+  'backquote', 'semicolon', 'period', 'comma', 'minus', 'equal',
+  'bracketleft', 'bracketright', 'backslash', 'slash', 'quote', 'intlbackslash'
+])
+
+/** Reserved browser/OS chords that are allowed but flagged with an amber warning. */
+const RESERVED_CHORDS = new Set([
+  'f1', 'f3', 'f4', 'f5', 'f6', 'f10', 'f11', 'f12', 'ctrl+f5',
+  'ctrl+space', 'alt+space', 'alt+tab', 'ctrl+tab', 'ctrl+shift+tab',
+  'alt+f4', 'ctrl+alt+delete',
+  'meta+space', 'meta+backquote', 'meta+q', 'meta+w', 'meta+t', 'meta+m', 'meta+h',
+  'ctrl+enter', 'meta+enter'
+])
+
+export interface ParsedShortcut {
+  readonly modifiers: readonly ShortcutModifier[]
+  readonly key: string
+}
+
+const KEY_TOKEN_BY_CODE: Record<string, string> = {
+  Space: 'space',
+  Backquote: 'backquote',
+  Semicolon: 'semicolon',
+  Period: 'period',
+  Comma: 'comma',
+  Minus: 'minus',
+  Equal: 'equal',
+  BracketLeft: 'bracketleft',
+  BracketRight: 'bracketright',
+  Backslash: 'backslash',
+  Slash: 'slash',
+  Quote: 'quote',
+  IntlBackslash: 'intlbackslash',
+  Enter: 'enter',
+  Tab: 'tab',
+  Backspace: 'backspace',
+  Delete: 'delete',
+  ArrowUp: 'arrowup',
+  ArrowDown: 'arrowdown',
+  ArrowLeft: 'arrowleft',
+  ArrowRight: 'arrowright',
+  Home: 'home',
+  End: 'end',
+  PageUp: 'pageup',
+  PageDown: 'pagedown',
+  Insert: 'insert'
+}
+
+for (let index = 1; index <= 12; index += 1) KEY_TOKEN_BY_CODE[`F${index}`] = `f${index}`
+for (let index = 0; index < 26; index += 1) {
+  const letter = String.fromCharCode(65 + index)
+  KEY_TOKEN_BY_CODE[`Key${letter}`] = letter.toLowerCase()
+}
+for (let index = 0; index <= 9; index += 1) KEY_TOKEN_BY_CODE[`Digit${index}`] = String(index)
+
+const CODE_BY_KEY_TOKEN: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(KEY_TOKEN_BY_CODE).map(([code, token]) => [token, code])
+)
+
+function isModifierToken(token: string): token is ShortcutModifier {
+  return (SHORTCUT_MODIFIERS as readonly string[]).includes(token)
+}
+
+/** Parse a canonical chord into modifiers and key token; null on malformed input. */
+export function parseShortcut(chord: string): ParsedShortcut | null {
+  if (chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return null
+  const tokens = chord.trim().toLowerCase().split('+').filter((token) => token !== '')
+  if (tokens.length === 0) return null
+  const last = tokens[tokens.length - 1]
+  if (isModifierToken(last) || !(last in CODE_BY_KEY_TOKEN)) return null
+  const modifiers: ShortcutModifier[] = []
+  for (const token of tokens.slice(0, -1)) {
+    if (!isModifierToken(token)) return null
+    if (!modifiers.includes(token)) modifiers.push(token)
+  }
+  return { modifiers, key: last }
+}
+
+/** Rebuild a canonical chord from any valid token order; null on malformed input. */
+export function normalizeShortcut(chord: string): string | null {
+  const parsed = parseShortcut(chord)
+  if (parsed === null) return null
+  return canonicalChord(parsed)
+}
+
+function canonicalChord(parsed: ParsedShortcut): string {
+  const parts = [...SHORTCUT_MODIFIERS.filter((modifier) => parsed.modifiers.includes(modifier)), parsed.key]
+  return parts.join('+')
+}
+
+export type ShortcutRejectReason = 'modifier-only' | 'typing-key' | 'invalid'
+
+/**
+ * Why a stored chord must be rejected by the settings field (red, blocks save).
+ * Letters and digits are always rejected: bare they type, and with modifiers
+ * they are browser-reserved edit/browser chords. Bare text-action and
+ * punctuation keys are rejected because they act on text; bare F-keys are
+ * allowed because they never produce text. Reserved chords are valid here;
+ * they only raise `isReservedShortcut` warnings.
+ */
+export function shortcutRejectReason(chord: string): ShortcutRejectReason | null {
+  if (chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
+  const tokens = chord.trim().toLowerCase().split('+').filter((token) => token !== '')
+  if (tokens.length === 0) return 'invalid'
+  if (tokens.every(isModifierToken)) return 'modifier-only'
+  const parsed = parseShortcut(chord)
+  if (parsed === null) return 'invalid'
+  if (/^[a-z]$/.test(parsed.key) || /^[0-9]$/.test(parsed.key)) return 'typing-key'
+  if (parsed.modifiers.length === 0 && TEXT_ACTION_TOKENS.has(parsed.key)) return 'typing-key'
+  return null
+}
+
+export function isValidStoredShortcut(chord: string): boolean {
+  return shortcutRejectReason(chord) === null
+}
+
+/** True when the chord is valid but collides with a browser/OS-reserved combination. */
+export function isReservedShortcut(chord: string): boolean {
+  const normalized = normalizeShortcut(chord)
+  return normalized !== null && RESERVED_CHORDS.has(normalized)
+}
+
+/** Build the canonical chord from a keydown; null when the event carries no capturable key. */
+export function shortcutFromEvent(event: { readonly code: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): string | null {
+  const key = KEY_TOKEN_BY_CODE[event.code]
+  if (key === undefined) return null
+  const modifiers: ShortcutModifier[] = []
+  if (event.ctrlKey) modifiers.push('ctrl')
+  if (event.altKey) modifiers.push('alt')
+  if (event.shiftKey) modifiers.push('shift')
+  if (event.metaKey) modifiers.push('meta')
+  return canonicalChord({ modifiers, key })
+}
+
+/** True when a keydown event matches the stored chord, with strict modifier equality. */
+export function matchesShortcut(chord: string, event: { readonly code: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): boolean {
+  const parsed = parseShortcut(chord)
+  if (parsed === null) return false
+  if (event.code !== CODE_BY_KEY_TOKEN[parsed.key]) return false
+  const has = (modifier: ShortcutModifier): boolean => event.ctrlKey && modifier === 'ctrl' || event.altKey && modifier === 'alt' || event.shiftKey && modifier === 'shift' || event.metaKey && modifier === 'meta'
+  const want = (modifier: ShortcutModifier): boolean => parsed.modifiers.includes(modifier)
+  return (SHORTCUT_MODIFIERS as readonly ShortcutModifier[]).every((modifier) => has(modifier) === want(modifier))
+}
+
+/** True when the event is a bare modifier press (recorder waits for the next key). */
+export function isModifierOnlyEvent(event: { readonly key: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): boolean {
+  if (event.key !== 'Control' && event.key !== 'Alt' && event.key !== 'Shift' && event.key !== 'Meta') return false
+  const activeCount = [event.ctrlKey, event.altKey, event.shiftKey, event.metaKey].filter(Boolean).length
+  return activeCount === 1
+}
+
+const MODIFIER_LABELS: Readonly<Record<ShortcutModifier, Readonly<Record<'mac' | 'win' | 'linux', string>>>> = {
+  ctrl: { mac: '⌃', win: 'Ctrl', linux: 'Ctrl' },
+  alt: { mac: '⌥', win: 'Alt', linux: 'Alt' },
+  shift: { mac: '⇧', win: 'Shift', linux: 'Shift' },
+  meta: { mac: '⌘', win: 'Win', linux: 'Super' }
+}
+
+const KEY_LABELS: Record<string, string> = {
+  space: 'Space',
+  backquote: '`',
+  semicolon: ';',
+  period: '.',
+  comma: ',',
+  minus: '-',
+  equal: '=',
+  bracketleft: '[',
+  bracketright: ']',
+  backslash: '\\',
+  slash: '/',
+  quote: "'",
+  intlbackslash: '\\',
+  enter: 'Enter',
+  tab: 'Tab',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  home: 'Home',
+  end: 'End',
+  insert: 'Insert',
+  arrowup: '↑',
+  arrowdown: '↓',
+  arrowleft: '←',
+  arrowright: '→',
+  pageup: 'Page Up',
+  pagedown: 'Page Down'
+}
+
+for (let index = 1; index <= 12; index += 1) KEY_LABELS[`f${index}`] = `F${index}`
+
+/** Render a stored chord for display; platform only changes the primary modifier labels. */
+export function formatShortcut(chord: string, platform: 'mac' | 'win' | 'linux'): string {
+  const parsed = parseShortcut(chord)
+  if (parsed === null) return chord
+  const modifierText = parsed.modifiers.map((modifier) => MODIFIER_LABELS[modifier][platform]).join(platform === 'mac' ? '' : '+')
+  const keyLabel = KEY_LABELS[parsed.key] ?? (parsed.key.length === 1 ? parsed.key.toUpperCase() : parsed.key)
+  if (modifierText === '') return keyLabel
+  return platform === 'mac' ? `${modifierText}${keyLabel}` : `${modifierText}+${keyLabel}`
+}

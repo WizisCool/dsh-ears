@@ -40,6 +40,8 @@ const cardState: EarsCardState = {
   cloudAsrModel: field(''),
   language: field('en-US'),
   maxRecordingSeconds: field('120'),
+  voiceShortcutEnabled: field('on'),
+  voiceShortcut: field('ctrl+shift+space'),
   polishingEnabled: field('off'),
   polishProvider: field(''),
   polishModel: field(''),

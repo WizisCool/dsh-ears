@@ -2,6 +2,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, WHISPER_MODEL_IDS, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
+import { shortcutRejectReason } from '../shortcut.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
@@ -31,6 +32,8 @@ export interface EarsCardState {
   cloudAsrModel: FieldState
   language: FieldState
   maxRecordingSeconds: FieldState
+  voiceShortcutEnabled: FieldState
+  voiceShortcut: FieldState
   polishingEnabled: FieldState
   polishProvider: FieldState
   polishModel: FieldState
@@ -526,11 +529,13 @@ export class EarsSettingsController {
     const cloudAsrModel = field('cloudAsrModel', this.drafts.get('cloudAsrModel') ?? current.cloudAsrModel)
     const language = field('language', this.drafts.get('language') ?? current.language)
     const maxRecordingSeconds = field('maxRecordingSeconds', this.drafts.get('maxRecordingSeconds') ?? String(current.maxRecordingSeconds))
+    const voiceShortcutEnabled = field('voiceShortcutEnabled', this.drafts.get('voiceShortcutEnabled') ?? (current.voiceShortcutEnabled ? 'on' : 'off'))
+    const voiceShortcut = field('voiceShortcut', this.drafts.get('voiceShortcut') ?? current.voiceShortcut)
     const polishingEnabled = field('polishingEnabled', this.drafts.get('polishingEnabled') ?? (current.polishingEnabled ? 'on' : 'off'))
     const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? current.polishProvider)
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
-    const stagedFields = [asrBackend, localWhisperModel, cloudAsrProvider, cloudAsrApiKey, cloudAsrEndpoint, cloudAsrModel, language, maxRecordingSeconds, polishingEnabled, polishProvider, polishModel, polishReasoningEffort]
+    const stagedFields = [asrBackend, localWhisperModel, cloudAsrProvider, cloudAsrApiKey, cloudAsrEndpoint, cloudAsrModel, language, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, polishingEnabled, polishProvider, polishModel, polishReasoningEffort]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -550,6 +555,8 @@ export class EarsSettingsController {
       cloudAsrModel,
       language,
       maxRecordingSeconds,
+      voiceShortcutEnabled,
+      voiceShortcut,
       polishingEnabled,
       polishProvider,
       polishModel,
@@ -560,7 +567,7 @@ export class EarsSettingsController {
 
 function parseField(field: FieldName, text: string): unknown {
   if (field === 'maxRecordingSeconds') return Number(text)
-  if (field === 'polishingEnabled') return text === 'on'
+  if (field === 'polishingEnabled' || field === 'voiceShortcutEnabled') return text === 'on'
   return text
 }
 
@@ -576,7 +583,8 @@ function isInvalid(field: FieldName, text: string): boolean {
   }
   if (field === 'cloudAsrModel') return false
   if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort') return false
-  if (field === 'polishingEnabled') return text !== 'on' && text !== 'off'
+  if (field === 'polishingEnabled' || field === 'voiceShortcutEnabled') return text !== 'on' && text !== 'off'
+  if (field === 'voiceShortcut') return shortcutRejectReason(text) !== null
   if (text.trim() === '') return false
   const value = Number(text)
   return !isValidRecordingLimit(value)

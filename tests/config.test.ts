@@ -52,4 +52,13 @@ describe('dsh-ears settings validation', () => {
       polishModel: 'model'
     })).not.toThrow()
   })
+
+  it('accepts the default voice shortcut and rejects invalid stored shortcuts', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcutEnabled: false })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+a' })).toThrow('voice shortcut')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+shift' })).toThrow('voice shortcut')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'f9' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+enter' })).not.toThrow()
+  })
 })

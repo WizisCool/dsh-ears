@@ -11,6 +11,8 @@ export const EarsSettingsSchema = s.object({
   cloudAsrModel: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrModel),
   language: s.string().default(DEFAULT_EARS_SETTINGS.language),
   maxRecordingSeconds: s.number().default(DEFAULT_EARS_SETTINGS.maxRecordingSeconds),
+  voiceShortcutEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceShortcutEnabled),
+  voiceShortcut: s.string().default(DEFAULT_EARS_SETTINGS.voiceShortcut),
   polishingEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.polishingEnabled),
   polishProvider: s.string().default(DEFAULT_EARS_SETTINGS.polishProvider),
   polishModel: s.string().default(DEFAULT_EARS_SETTINGS.polishModel),
