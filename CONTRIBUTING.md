@@ -4,7 +4,7 @@ Thank you for contributing. The project is early-stage and follows the English-f
 
 Before making a change, read:
 
-1. [PLAN.md](./PLAN.md)
+1. [.agent/PLAN.md](./.agent/PLAN.md)
 2. [AGENTS.md](./AGENTS.md)
 3. [.agent/agent.md](./.agent/agent.md)
 4. [.agent/workflow.md](./.agent/workflow.md)

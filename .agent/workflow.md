@@ -38,7 +38,7 @@ Use Conventional Commits:
 Stage explicit paths:
 
 ```sh
-git add PLAN.md AGENTS.md .agent README.md CONTRIBUTING.md SECURITY.md
+git add AGENTS.md .agent README.md CONTRIBUTING.md SECURITY.md
 git diff --cached --check
 git commit -m "docs: establish project context"
 ```

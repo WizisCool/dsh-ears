@@ -3,6 +3,8 @@ import { Context } from '@deepseek-ai/cordis'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
 import { PolishService, validateSettings } from '../src/polish/service.js'
+import { resolvePolishRoute } from '../src/polish/route.js'
+import { unflattenEarsSettings } from '../src/settings-store.js'
 
 vi.mock('../src/asr/local-whisper.js', () => ({
   isWhisperAvailable: vi.fn(async () => false),
@@ -20,6 +22,40 @@ function createSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS = DEFAULT_EA
     update: vi.fn(async () => undefined)
   }
 }
+
+function createMutableSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS) {
+  let stored: unknown = unflattenEarsSettings(settings)
+  return {
+    get: () => stored,
+    update: vi.fn(async (next: unknown) => {
+      stored = next
+    })
+  }
+}
+
+describe('resolvePolishRoute', () => {
+  it('uses the stored Host route when polishing is on and the client sent an empty pair', () => {
+    expect(resolvePolishRoute({
+      polishingEnabled: true,
+      polishProvider: 'antigravity',
+      polishModel: 'gemini-3.7-flash-high'
+    }, '', '')).toEqual({
+      provider: 'antigravity',
+      model: 'gemini-3.7-flash-high'
+    })
+  })
+
+  it('stays dormant when polishing is off and the client sent no route', () => {
+    expect(resolvePolishRoute(DEFAULT_EARS_SETTINGS, '', '')).toBeNull()
+  })
+
+  it('honors an explicit client route even when the Host toggle is off', () => {
+    expect(resolvePolishRoute(DEFAULT_EARS_SETTINGS, 'provider', 'model')).toEqual({
+      provider: 'provider',
+      model: 'model'
+    })
+  })
+})
 
 describe('settings registration validate', () => {
   it('accepts a Groq key write while the cloud model is not yet selected (D-024 deadlock regression)', () => {
@@ -218,6 +254,43 @@ describe('PolishService', () => {
       '1. 帮我看一下项目下的 Security Key',
       '2. 帮我梳理一下项目结构'
     ].join('\n'))
+  })
+
+  it('retries cloud model listing after the API key changes instead of reusing the failure cache', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ id: 'whisper-large-v3-turbo' }, { id: 'llama-3.3-70b-versatile' }]
+      }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const scope = createMutableSettingsScope({
+      ...DEFAULT_EARS_SETTINGS,
+      cloudAsrProvider: 'groq',
+      cloudAsrGroqApiKey: 'gsk_old'
+    })
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: true,
+      register: () => scope
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
+      status: 'error',
+      models: [],
+      error: 'Cloud model listing failed with HTTP 401'
+    })
+    await service.updateSettings({ cloudAsrGroqApiKey: 'gsk_new' }, new AbortController().signal)
+    await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
+      status: 'ok',
+      models: ['whisper-large-v3-turbo']
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    vi.unstubAllGlobals()
   })
 
   it('does not report cloud ASR as available without a model', async () => {

@@ -1,15 +1,14 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_MODEL_IDS, isBailianAsrHost, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
-import { shortcutRejectReason } from '../shortcut.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
+import { cloudAsrModelField, isSettingsFieldInvalid, parseSettingsField, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
 import type { AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 
-export type FieldName = keyof EarsSettings
+export type { FieldName } from './settings-fields.js'
 
 /** Debounce for text-like edits. Discrete controls still go through this timer unless flushed. */
 export const SETTINGS_SAVE_DEBOUNCE_MS = 400
@@ -431,20 +430,6 @@ export class EarsSettingsController {
     this.cloudAsrModels.set(normalizedProvider, model.trim())
   }
 
-  private cloudAsrModelForProvider(provider: string): string {
-    const remembered = this.cloudAsrModels.get(provider)
-    if (remembered !== undefined) return remembered
-    const field = cloudAsrModelField(provider)
-    const stored = this.settingsView.settings[field].trim()
-    if (stored !== '') return stored
-    return cloudAsrModelFor({
-      cloudAsrProvider: provider,
-      cloudAsrGroqModel: '',
-      cloudAsrCustomModel: '',
-      cloudAsrBailianModel: ''
-    })
-  }
-
   private resetCloudAsrModels(): void {
     this.cloudAsrModels.clear()
     const settings = this.settingsView.settings
@@ -655,10 +640,10 @@ export class EarsSettingsController {
     const patch: EarsSettingsPatch = {}
     const submittedDrafts = new Map<FieldName, string>()
     for (const [field, text] of this.drafts.entries()) {
-      if (isInvalid(field, text)) continue
+      if (isSettingsFieldInvalid(field, text)) continue
       const value = field === 'maxRecordingSeconds' && text.trim() === ''
         ? DEFAULT_EARS_SETTINGS.maxRecordingSeconds
-        : parseField(field, text)
+        : parseSettingsField(field, text)
       if (value !== undefined) {
         (patch as Record<string, unknown>)[field] = value
         submittedDrafts.set(field, text)
@@ -714,7 +699,7 @@ export class EarsSettingsController {
   private hasPersistableDrafts(): boolean {
     if (this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending) return true
     for (const [field, text] of this.drafts.entries()) {
-      if (!isInvalid(field, text)) return true
+      if (!isSettingsFieldInvalid(field, text)) return true
     }
     return false
   }
@@ -723,7 +708,7 @@ export class EarsSettingsController {
 
   private snapshot(): EarsCardState {
     const current = this.settingsView.settings
-    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.drafts.has(name) && isInvalid(name, text) })
+    const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.drafts.has(name) && isSettingsFieldInvalid(name, text) })
     const asrBackend = field('asrBackend', this.drafts.get('asrBackend') ?? current.asrBackend)
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
@@ -786,43 +771,4 @@ export class EarsSettingsController {
       polishPrompt
     }
   }
-}
-
-function cloudAsrModelField(provider: string): 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' {
-  if (provider === 'bailian') return 'cloudAsrBailianModel'
-  if (provider === 'custom') return 'cloudAsrCustomModel'
-  return 'cloudAsrGroqModel'
-}
-
-function parseField(field: FieldName, text: string): unknown {
-  if (field === 'maxRecordingSeconds') return Number(text)
-  if (field === 'polishingEnabled' || field === 'voiceShortcutEnabled' || field === 'voiceSoundsEnabled') return text === 'on'
-  return text
-}
-
-function isInvalid(field: FieldName, text: string): boolean {
-  if (field === 'language') return false
-  if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
-  if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
-  if (field === 'cloudAsrProvider') return !(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(text)
-  if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
-  if (field === 'cloudAsrCustomEndpoint') {
-    if (text.trim() === '') return false
-    return !isHttpEndpoint(text)
-  }
-  if (field === 'cloudAsrBailianHost') {
-    if (text.trim() === '') return false
-    return !isBailianAsrHost(text)
-  }
-  if (field === 'cloudAsrGroqModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel') return false
-  if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort' || field === 'polishPrompt') {
-    if (field === 'polishPrompt') return text.trim().length > MAX_POLISH_PROMPT_LENGTH
-    return false
-  }
-  if (field === 'settingsDisplayName') return !(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(text)
-  if (field === 'polishingEnabled' || field === 'voiceShortcutEnabled' || field === 'voiceSoundsEnabled') return text !== 'on' && text !== 'off'
-  if (field === 'voiceShortcut') return shortcutRejectReason(text) !== null
-  if (text.trim() === '') return false
-  const value = Number(text)
-  return !isValidRecordingLimit(value)
 }

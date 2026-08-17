@@ -1,6 +1,6 @@
 # dsh-ears
 
-![dsh-ear icon](./dsh-ear.svg)
+![dsh-ear icon](./assets/dsh-ear.svg)
 
 An open-source voice-input plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): give the text-only DeepSeek a pair of ears.
 
@@ -90,11 +90,12 @@ The repository currently has 111 focused tests across 12 test files. The verifie
 
 The hardening suite also covers cross-field settings staging, stale Whisper action responses, late aborted polish results, bounded cloud/polish responses, strict ASR identifiers, and Host/Client Remote descriptor parity.
 
-See [PLAN.md](./PLAN.md) for the full implementation plan, [SECURITY.md](./SECURITY.md) for the threat and data-handling boundary, and [PROGRESS.md](./PROGRESS.md) for the current delivery record.
+See [.agent/PLAN.md](./.agent/PLAN.md) for the full implementation plan, [SECURITY.md](./SECURITY.md) for the threat and data-handling boundary, and [.agent/PROGRESS.md](./.agent/PROGRESS.md) for the current delivery record.
 
 ## Project documents
 
 - [AGENTS.md](./AGENTS.md) — repository instructions for coding agents.
+- [.agent/PLAN.md](./.agent/PLAN.md) — product scope and milestones.
 - [.agent/agent.md](./.agent/agent.md) — current handoff and verification state.
 - [.agent/context.md](./.agent/context.md) — durable architecture context.
 - [.agent/decisions.md](./.agent/decisions.md) — append-only architecture decisions.

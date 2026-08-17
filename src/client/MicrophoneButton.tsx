@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { ASR_BACKEND_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds } from '../config.js'
-import type { AsrBackendId, EarsSettings } from '../config.js'
+import { effectiveRecognitionLanguage, effectiveRecordingSeconds } from '../config.js'
+import type { EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
 import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '../asr/media-recorder.js'
@@ -14,6 +14,7 @@ import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flo
 import { matchesShortcut } from '../shortcut.js'
 import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
+import { resolveCaptureBackend, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
@@ -133,11 +134,27 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const active = state === 'starting' || state === 'recording'
   const busy = state === 'transcribing' || state === 'polishing'
-  const backend = normalizeBackend(settings.asrBackend)
-  const configUnavailable = !active && !busy && (state === 'idle' || state === 'error' || state === 'polish-error' || state === 'upstream-error')
+  const backend = resolveCaptureBackend(settings.asrBackend)
+  const configUnavailable = !active && !busy && backend !== null && (state === 'idle' || state === 'error' || state === 'polish-error' || state === 'upstream-error')
     ? micUnavailableReason(backend, backendInfo, whisperView)
     : null
-  gateRef.current = configUnavailable
+  gateRef.current = backend === null ? { kind: 'backend', backendId: 'web-speech' } : configUnavailable
+
+  if (!active && !busy && backend === null) {
+    return (
+      <Tooltip label={t('voiceUnavailable')} side="top" delayMs={200}>
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={t('voiceUnavailable')}
+          aria-disabled="true"
+          className={styles.button}
+        >
+          <MicrophoneIcon />
+        </button>
+      </Tooltip>
+    )
+  }
 
   if (!active && !busy && configUnavailable !== null) {
     return (
@@ -218,7 +235,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
           levelMonitorRef.current?.stop()
           levelMonitorRef.current = null
           speechSessionRef.current = null
-          const transcript = text.trim() !== '' ? text : sessionDraft === baseDraft ? '' : sessionDraft.startsWith(baseDraft) ? sessionDraft.slice(baseDraft.length).trim() : sessionDraft.trim()
+          const transcript = webSpeechCommittedTranscript({ sessionText: text, sessionDraft, baseDraft })
           if (failed || transcript === '') {
             if (!failed) setState('idle')
             return
@@ -320,7 +337,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     let session: MediaRecorderSession | undefined
     try {
       session = await MediaRecorderSession.create()
-      if (!mountedRef.current || mediaStartCancelledRef.current) {
+      if (shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
         session.abort()
         return
       }
@@ -350,7 +367,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const prewarmMicrophone = () => {
     if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
     if (active || busy) return
-    if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') return
+    if (resolveCaptureBackend(settingsRef.current.asrBackend) === 'web-speech') return
     warmMicrophone()
   }
 
@@ -363,9 +380,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     if (busy) return
     playToggleClick(settingsRef.current, 0.5)
 
-    if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') {
+    const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
+    if (nextBackend === 'web-speech') {
       void startWebSpeech()
-    } else {
+    } else if (nextBackend !== null) {
       void startMediaRecording()
     }
   }
@@ -419,10 +437,6 @@ function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> 
 function playToggleClick(settings: EarsSettings, intensity: number): void {
   if (settings.voiceSoundsEnabled === false) return
   playClick(intensity)
-}
-
-function normalizeBackend(value: string): AsrBackendId {
-  return (ASR_BACKEND_IDS as readonly string[]).includes(value) ? value as AsrBackendId : 'web-speech'
 }
 
 function applyVoiceFailure(session: VoiceInputSession, source: 'asr' | 'polish', error: unknown): void {

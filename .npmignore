@@ -8,7 +8,6 @@ scripts/
 .github/
 AGENTS.md
 CONTRIBUTING.md
-PLAN.md
 SECURITY.md
 tsconfig.json
 tsdown.config.ts
