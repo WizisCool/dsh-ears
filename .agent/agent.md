@@ -6,7 +6,7 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: `0af9b71 chore: keep the package root to package and build files` on `sleeping`.
+- Latest commit: `341df66 chore: keep the package root to package and build files` on `sleeping`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `sleeping` (from `master` at `68f5549`); tracking `origin/sleeping`.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -22,7 +22,7 @@
 - Unfinished: none for this layout change.
 - Blocked: none.
 - Next: commit and push `sleeping`.
-- Commit: `0af9b71 chore: keep the package root to package and build files`.
+- Commit: `341df66 chore: keep the package root to package and build files`.
 
 ## Sleeping-branch review and split (2026-08-18)
 
