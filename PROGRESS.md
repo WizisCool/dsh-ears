@@ -49,7 +49,7 @@ Status: released to private GitHub repo (WizisCool/dsh-ears) with MIT license (2
 ## Still intentionally open
 
 - Emotion recognition/output and emotion UI are deferred by design.
-- Only dsh `0.1.0-rc.6` is currently supported.
+- dsh `0.1.0-rc.6` and `0.1.0-rc.7` are currently supported.
 - A non-empty live polish completion depends on a usable model route configured in the local dsh environment; route discovery and failure fallback are covered.
 - Browser microphone permission and platform-specific Web Speech behavior need broader manual coverage.
 - A Host restart during Whisper download no longer fakes a downloaded model: state checks require the `.dsh-ears-done` completion marker, so a partial file is reported as not downloaded (D-020; the earlier checksum-or-marker question is closed).

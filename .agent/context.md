@@ -12,7 +12,7 @@ The user must always remain in control of the final send action.
 
 ## Compatibility
 
-- First supported dsh target: `0.1.0-rc.6`.
+- Supported dsh targets: `0.1.0-rc.6` and `0.1.0-rc.7`.
 - First supported Node range: `^22.19.0 || >=24.0.0`.
 - The repository makes no compatibility claim for another dsh release until it has been tested.
 

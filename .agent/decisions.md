@@ -32,7 +32,7 @@
 
 ## D-006 — Compatibility
 
-- Status: accepted
+- Status: accepted; extended by D-030
 - Decision: The first release is validated only against dsh `0.1.0-rc.6`.
 
 ## D-007 — Deferred scope
@@ -213,3 +213,10 @@
 - Decision (UX): the prompt row lives in the Polishing group (gated on polishing enabled), is a multiline textarea with a live `n/4000` counter, offers a Reset-to-default action that stages an empty draft, and a read-only 查看默认 / View default expand that shows the shipped prompt.
 - Decision (storage/wire): `polishPrompt` flows through the `EarsSettings` defaults (`DEFAULT_EARS_SETTINGS`), the Host-only schemastery schema, and the strict Remote view/patch zod schemas; the client controller stages/saves it like the other string fields and flags it invalid when over-length. The Remote parity test stays endpoint-based (a new optional field needs no descriptor change).
 - Rationale: the grill settled the whole feature as: whole-replacement (not a template, not appended instructions), empty = default, global single field, explicit-clear writes, and a hard output-contract guard so a custom prompt can change style/content but never the returned shape. The shipped default became the maintained multilingual contract rather than the earlier Chinese-targeted one-liner, aligning polish output with the product's multilingual voice input.
+
+## D-030 — Dual host compatibility for rc.6 and rc.7
+
+- Status: accepted (extends D-006).
+- Decision: dsh-ears is compatible with dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6` so either host satisfies them. The compile/test baseline is the exact `0.1.0-rc.7` packages. No source-level rc fork is introduced: the slots and Host APIs the plugin consumes (`settings.section`, `conversation.input.right` / `dock`, `ctx.llm`, the used ui-primitives symbols) are unchanged across this pair.
+- Prohibited: claiming any later dsh rc, or tightening peers to `^0.1.0-rc.7` in a way that rejects an rc.6 host.
+- Rationale: the rc.6→rc.7 audit found only additive or unrelated host changes; the user asked to keep both hosts working after the local CLI moved to rc.7.

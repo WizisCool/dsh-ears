@@ -27,7 +27,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, and an 
 - The active recognition surface (D-027) is implemented through `conversation.input.dock`: a standalone Task/Goal-style card with real microphone levels, a stop action, processing states, and a motion-safe exit transition. It is ordered immediately before queued messages so recognition stays above the pending queue and closest to the input; the composer microphone remains visible, stops active capture through the same session action, and is disabled only during final processing.
 - The 通用 (General) tab with the in-page voice-input shortcut (D-028) is implemented: a leading default landing tab hosts the shortcut enable switch, the same-session-toggle hotkey listener (default `Ctrl+Shift+Space`), and the moved language/recording-limit rows; the hand-written `src/shortcut.ts` module (no third-party dependency) covers parse/normalize/validate/match/capture/format with typing-key/modifier-only rejection, amber reserved-chord warnings, and platform-aware display; the composer hotkey respects the settings dialog and visibility guards and focuses the gated microphone button to surface its tooltip when recording is unavailable. The research report behind the design is in `.agent/research/voice-dictation-shortcuts.md`.
 - The customizable polish prompt (D-029) is implemented: the Polishing tab gains an optional `polishPrompt` field that replaces the built-in default system prompt entirely when non-empty (blank = built-in default), the host always appends an invisible output-contract guard to a custom prompt, and the editor is a nested textarea with a live `n/4000` counter, Reset-to-default, and a read-only "View default" expand. The built-in polish prompt is now a multilingual ASR-editing contract (language/term/code preservation, spoken self-corrections, enumeration-to-list, few-shot examples).
-- First compatibility target: dsh `0.1.0-rc.6` and Node `^22.19.0 || >=24.0.0`.
+- Compatibility target: dsh `0.1.0-rc.6` and `0.1.0-rc.7`; Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D6 | Cloud ASR adapters are optional and separate from the dsh LLM polishing route. | Accepted |
 | D7 | Emotion output is deferred. A result field may be reserved, but the first release has no emotion UI or setting. | Accepted |
 | D8 | Development starts private; public release and package publishing require a later release decision. | Accepted |
-| D9 | First release is validated only against dsh `0.1.0-rc.6`. | Accepted |
+| D9 | First release is validated against dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Revised by D-030. | Accepted, revised |
 | D10 | Web Speech failure preserves the current draft and asks the user to record again. | Accepted |
 | D11 | The microphone control follows the Codex composer interaction and visual hierarchy: compact circular toolbar control on the right, live draft updates, and manual send only. Revised by D-027: the toolbar microphone stays visible and highlighted during capture while the active Task/Goal-style card adds status, waveform, and its own stop action. | Accepted, revised |
 | D12 | ~~Plugin configuration is rendered in dsh's native Plugins settings page through `settings.plugin.item`; the project does not add a separate Voice settings tab or section.~~ Superseded by D-017. | Superseded |
@@ -60,6 +60,7 @@ After recording stops, polishing runs on the Host through dsh's existing LLM run
 | D14 | The plugin configuration is a dedicated `settings.section` page (`dsh-ear`) beside General, Models, and Plugins, styled with the shipped pages' semantic tokens and card geometry. | Accepted |
 | D28 | The `dsh-ear` page gains a leading 通用 (General) tab (default landing tab) hosting a configurable in-page voice-input shortcut (default `Ctrl+Shift+Space`, enable switch + recorder, hand-written module, no dependency) and the moved language/recording-limit rows. The shortcut is in-page only: it toggles recording while the chat composer is visible without a modal overlay; bare typing keys, Alt/Option+letter chords, and modifier-only chords are rejected while Ctrl/Shift/Meta+letter/digit chords are accepted, browser/OS-reserved chords warn amber, and the hotkey runs at window-capture priority over text input, and a gated microphone surfaces the existing tooltip instead of recording. | Accepted |
 | D29 | Custom polish system prompt: a global `polishPrompt` settings field (default `''`) on the Polishing tab replaces the built-in default system prompt entirely when non-empty; blank means "use the built-in default". The host always appends an invisible output-contract guard to a custom prompt. Validation: trim-based 4000-character cap (over-length blocks the save); empty draft saves an explicit clear. UX: multiline textarea, live `n/4000` counter, Reset-to-default stages an empty draft, and a read-only "View default" expand shows the shipped prompt. The built-in default prompt is the multilingual ASR-editing contract. Per-route prompts deferred. | Accepted |
+| D30 | Compatible with dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6`; the compile/test baseline is exact `0.1.0-rc.7`. No source-level rc fork. | Accepted |
 
 ## Package shape
 
@@ -271,7 +272,7 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 
 ## Risks and open questions
 
-- dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6.
+- dsh rc APIs may change; keep the first compatibility range narrow and verify against rc.6 and rc.7.
 - Web Speech availability and privacy behavior vary by browser and platform.
 - The voice shortcut is strictly in-page: a web page cannot register an OS-global hotkey, so the feature deliberately does not promise dictation from other applications; this is documented rather than worked around (D-028). Recorder chords are matched by physical `KeyboardEvent.code`, so a chord recorded on one keyboard layout stays self-consistent, while the fixed default (`Ctrl+Shift+Space`) is layout-stable; characters never reach the page from the primary IME toggle keys (`Ctrl+Space`, `Cmd+Space`) by design.
 - The current rc.6 `ctx.llm` discovery, route selection, and completion call shape are verified; a non-empty live polish completion depends on a configured usable route.
@@ -286,4 +287,4 @@ The project is intended to become a durable, community-maintainable dsh ecosyste
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Official dsh client plugin packages installed with dsh `0.1.0-rc.6`.
+- Official dsh client plugin packages installed with dsh `0.1.0-rc.6` or `0.1.0-rc.7`.

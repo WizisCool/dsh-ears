@@ -56,6 +56,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Changed
 
+- Compatibility now covers dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6`; the compile/test baseline is the exact `0.1.0-rc.7` packages.
 - Tab layout: the settings page is now 通用 / General → 识别 / Recognition → 润色 / Polishing, with General as the default landing tab; the Recognition tab keeps only ASR backend/provider/model/key rows.
 - The language and recording-limit rows moved from the Recognition tab to the General tab (their validation, defaults, and save semantics are unchanged).
 
@@ -80,4 +81,4 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 - Emotion recognition and emotion UI.
 - Additional cloud-provider-specific protocols.
-- Compatibility claims for dsh releases other than rc.6.
+- Compatibility claims for dsh releases other than rc.6 and rc.7.

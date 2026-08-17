@@ -14,12 +14,12 @@ The microphone control is registered in dsh's composer. While recognition is act
 
 ## Compatibility
 
-- dsh: `0.1.0-rc.6`
+- dsh: `0.1.0-rc.6` and `0.1.0-rc.7`
 - Node.js: `^22.19.0 || >=24.0.0`
 - Package manager: pnpm
 - First browser target: a Chromium browser with the required speech or microphone APIs
 
-The compatibility promise is intentionally narrow until another dsh release is tested.
+The compatibility promise is intentionally narrow. Other dsh releases are unsupported until they have been tested.
 
 ## Capabilities
 

@@ -5,7 +5,7 @@
 1. Read `AGENTS.md` and every relevant file under `.agent/`.
 2. Run `git status --short --branch` and identify pre-existing changes.
 3. Define one independently verifiable atomic goal.
-4. Verify dsh APIs against current documentation and installed rc.6 packages before coding against them.
+4. Verify dsh APIs against current documentation and the installed rc.6/rc.7 packages before coding against them.
 
 ## During work
 
