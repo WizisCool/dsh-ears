@@ -5,9 +5,9 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-032 (Bailian DashScope ASR + per-provider cloud keys). Current pass is recognition-bar UX: auto-dismiss errors, amber empty-ASR copy, faster start, shorter official-style hints. D-019 is closed; D-018 remains open.
-- Latest code commit: `4644777 fix(client): dismiss recognition errors and tighten voice UX`.
-- Latest commit: `4644777 fix(client): dismiss recognition errors and tighten voice UX`.
+- Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
+- Latest code commit: `cec5eb3 fix(client): classify silent recordings and follow the UI locale`.
+- Latest commit: `cec5eb3 fix(client): classify silent recordings and follow the UI locale`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -331,6 +331,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
+
+## Silent-recording and locale-follow language (2026-08-18)
+
+- Completed: stopping without speech now returns to idle (no amber config line). Upstream ASR/polish failures show a red `语音识别上游错误：` / `润色上游错误：` line with the raw service code and still auto-dismiss. Unset recognition language follows the dsh English/中文 setting (`zh` → `zh-CN`, `en` → `en-US`); a typed value is kept.
+- Validation: `pnpm check` passed; `pnpm test` passed (206/206 across 20 files); `pnpm build` passed (client ~301.28 kB, host ~71.38 kB).
+- Unfinished: Host + client need a `dsh web` restart and refresh. Existing files that already stored `language: zh-CN` keep that value until the field is cleared. D-018, Groq/`zh`, and Windows smokes remain pending.
+- Blocked: none.
+- Next: restart `dsh web` and refresh. Do not push without authorization.
+- Commit: `cec5eb3 fix(client): classify silent recordings and follow the UI locale`.
 
 ## Recognition-bar UX record (2026-08-18)
 

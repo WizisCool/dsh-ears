@@ -53,6 +53,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Clicking the microphone and stopping without speaking no longer shows `请检查配置后重试`. Empty transcripts and `no-speech` just close the bar.
+- Upstream ASR and polish failures stay on the bar as a red `语音识别上游错误：` / `润色上游错误：` line with the raw service code, then dismiss themselves. Configuration problems stay amber.
 - Recognition and polish errors on the status bar now dismiss themselves after a short delay, so a failed attempt no longer occupies the composer. Empty Bailian / cloud transcripts use the same path, with amber `请检查配置后重试` copy instead of a sticky red `语音输入失败，点击重试`.
 - Host-backed recording starts sooner: the microphone is warmed on hover or focus, and Web Speech no longer waits for a second `getUserMedia` analyser before it is ready to listen.
 
@@ -63,6 +65,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - The shortcut recorder control is now right-aligned like the other settings rows: the capture pill uses the same content-width, `flex-end` alignment as the shipped selectors (it no longer sits at the left of the 240px API-key lane), and the Reset-to-default action sits directly next to the pill instead of floating at the far edge. At narrow widths the pill stretches full-width with the reset action below it.
 
 ### Changed
+
+- The default recognition language is empty and follows the dsh English / 中文 setting. A value the user types is kept.
 
 - Settings field hints now follow the official dsh plugin one-clause style instead of multi-sentence tutorials.
 
