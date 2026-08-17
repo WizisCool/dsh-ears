@@ -6,11 +6,92 @@ export interface RecordedAudio {
 }
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
+const WARM_HOLD_MS = 8_000
+
+let warmStream: MediaStream | undefined
+let warming: Promise<void> | undefined
+let warmTimer: ReturnType<typeof setTimeout> | undefined
+let warmGeneration = 0
 
 export function isMediaRecorderAvailable(): boolean {
   return typeof navigator !== 'undefined'
     && navigator.mediaDevices?.getUserMedia !== undefined
     && typeof MediaRecorder !== 'undefined'
+}
+
+function streamLive(stream: MediaStream): boolean {
+  return stream.getTracks().some((track) => track.readyState !== 'ended')
+}
+
+function clearWarmTimer(): void {
+  if (warmTimer === undefined) return
+  clearTimeout(warmTimer)
+  warmTimer = undefined
+}
+
+function armWarmRelease(): void {
+  clearWarmTimer()
+  const stream = warmStream
+  if (stream === undefined) return
+  warmTimer = setTimeout(() => {
+    warmTimer = undefined
+    if (warmStream !== stream) return
+    stopTracks(stream)
+    warmStream = undefined
+  }, WARM_HOLD_MS)
+}
+
+export function releaseWarmedMicrophone(): void {
+  warmGeneration += 1
+  clearWarmTimer()
+  if (warmStream !== undefined) {
+    stopTracks(warmStream)
+    warmStream = undefined
+  }
+  warming = undefined
+}
+
+export function warmMicrophone(): void {
+  if (!isMediaRecorderAvailable()) return
+  if (warmStream !== undefined && streamLive(warmStream)) {
+    armWarmRelease()
+    return
+  }
+  if (warming !== undefined) return
+  const generation = warmGeneration
+  const pending = requestMicrophone().then((stream) => {
+    if (generation !== warmGeneration) {
+      stopTracks(stream)
+      return
+    }
+    warmStream = stream
+    armWarmRelease()
+  })
+  warming = pending
+  void pending.catch(() => undefined).finally(() => {
+    if (warming === pending) warming = undefined
+  })
+}
+
+async function acquireMicrophone(): Promise<MediaStream> {
+  if (warming !== undefined) {
+    try {
+      await warming
+    } catch {
+      // A failed warmup must not block a fresh permission prompt on click.
+    }
+  }
+  if (warmStream !== undefined && streamLive(warmStream)) {
+    const stream = warmStream
+    warmStream = undefined
+    clearWarmTimer()
+    return stream
+  }
+  return requestMicrophone()
+}
+
+function requestMicrophone(): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ audio: VOICE_AUDIO_CONSTRAINTS })
 }
 
 export class MediaRecorderSession {
@@ -45,7 +126,7 @@ export class MediaRecorderSession {
 
   static async create(): Promise<MediaRecorderSession> {
     if (!isMediaRecorderAvailable()) throw new Error('Media recording is unavailable in this browser')
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: VOICE_AUDIO_CONSTRAINTS })
+    const stream = await acquireMicrophone()
     try {
       const mimeType = supportedMimeType()
       const recorder = mimeType === '' ? new MediaRecorder(stream) : new MediaRecorder(stream, { mimeType })

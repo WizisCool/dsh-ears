@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
 import { VoiceRecognitionBar } from './VoiceRecognitionBar.js'
+import { releaseWarmedMicrophone } from '../asr/media-recorder.js'
 import { VoiceInputSession } from './voice-session.js'
 import { EarsSettingsController, EMPTY_WHISPER_STATE, type BackendState, type CloudModelsView, type WhisperModelView } from './settings-controller.js'
 import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, createSnapshotHook, localeEn, localeZh } from './settings.js'
@@ -44,6 +45,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     remoteCtx.effect(() => () => {
       for (const session of voiceSessions.values()) session.dispose()
       voiceSessions.clear()
+      releaseWarmedMicrophone()
       settingsController.dispose()
     }, 'dsh-ears settings controller lifecycle')
 

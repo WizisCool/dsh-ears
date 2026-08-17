@@ -5,7 +5,7 @@ import { ASR_BACKEND_IDS, effectiveRecordingSeconds } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
-import { MediaRecorderSession, isMediaRecorderAvailable } from '../asr/media-recorder.js'
+import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '../asr/media-recorder.js'
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
@@ -196,9 +196,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       session = new WebSpeechSession({
         language: settingsRef.current.language,
         onStart: () => {
-          setState('recording')
           startLevelMonitor()
-          armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
         },
         onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
         onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
@@ -235,6 +233,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
       speechSessionRef.current = session
       session.start()
+      setState('recording')
+      armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
     } catch {
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
@@ -303,14 +303,14 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       mediaSessionRef.current = session
       mediaBaseDraftRef.current = baseDraft
+      session.start()
+      setState('recording')
+      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
       try {
         levelMonitorRef.current = session.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
       } catch {
         // Recording remains usable when the optional waveform analyser is unavailable.
       }
-      session.start()
-      setState('recording')
-      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
     } catch {
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
@@ -318,6 +318,12 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       if (mediaSessionRef.current === session) mediaSessionRef.current = null
       if (mountedRef.current) setState(mediaStartCancelledRef.current ? 'idle' : 'error')
     }
+  }
+
+  const prewarmMicrophone = () => {
+    if (active || busy) return
+    if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') return
+    warmMicrophone()
   }
 
   const toggle = () => {
@@ -348,6 +354,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         disabled={busy}
         className={styles.button}
         data-state={state}
+        onPointerEnter={prewarmMicrophone}
+        onPointerDown={prewarmMicrophone}
+        onFocus={prewarmMicrophone}
         onClick={toggle}
       >
         <MicrophoneIcon />

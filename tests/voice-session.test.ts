@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
-import { VOICE_WAVEFORM_SLOTS, VoiceInputSession } from '../src/client/voice-session.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { VOICE_ERROR_DISMISS_MS, VOICE_WAVEFORM_SLOTS, VoiceInputSession } from '../src/client/voice-session.js'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('VoiceInputSession', () => {
   it('publishes recognition states to all subscribers', () => {
@@ -42,6 +46,27 @@ describe('VoiceInputSession', () => {
     unsubscribe()
     session.requestStop()
     expect(stop).toHaveBeenCalledOnce()
+  })
+
+  it('dismisses recognition errors after a short delay', () => {
+    vi.useFakeTimers()
+    const session = new VoiceInputSession()
+    session.setState('error')
+    vi.advanceTimersByTime(VOICE_ERROR_DISMISS_MS - 1)
+    expect(session.getSnapshot().state).toBe('error')
+    vi.advanceTimersByTime(1)
+    expect(session.getSnapshot().state).toBe('idle')
+    session.dispose()
+  })
+
+  it('cancels the error dismiss timer when a new recording starts', () => {
+    vi.useFakeTimers()
+    const session = new VoiceInputSession()
+    session.setState('polish-error')
+    session.setState('recording')
+    vi.advanceTimersByTime(VOICE_ERROR_DISMISS_MS)
+    expect(session.getSnapshot().state).toBe('recording')
+    session.dispose()
   })
 
   it('removes listeners when the plugin scope is disposed', () => {

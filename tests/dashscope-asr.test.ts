@@ -50,6 +50,12 @@ describe('DashScope ASR response parsing', () => {
   it('surfaces a DashScope error message', () => {
     expect(() => extractDashScopeTranscript({ code: 'InvalidParameter', message: 'model not supported' })).toThrow('model not supported')
   })
+
+  it('rejects a successful response that contains no transcript text', () => {
+    expect(() => extractDashScopeTranscript({ output: { text: '' } })).toThrow('Cloud ASR returned no transcript')
+    expect(() => extractDashScopeTranscript({ output: { choices: [{ message: { content: [{ text: '   ' }] } }] } })).toThrow('Cloud ASR returned no transcript')
+    expect(() => extractDashScopeTranscript({ output: {} })).toThrow('Cloud ASR returned no transcript')
+  })
 })
 
 describe('transcribeDashScopeAsr', () => {

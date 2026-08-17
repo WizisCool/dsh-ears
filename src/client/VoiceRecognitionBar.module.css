@@ -78,14 +78,14 @@
 
 .root[data-state='error'] .indicator,
 .root[data-state='polish-error'] .indicator {
-  background: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-warn-label);
   box-shadow: none;
   animation: none;
 }
 
 .root[data-state='error'] .label,
 .root[data-state='polish-error'] .label {
-  color: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-state-warn-label);
 }
 
 .label {

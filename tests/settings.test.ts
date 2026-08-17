@@ -631,6 +631,8 @@ describe('Locale parity', () => {
       expect(typeof localeZh[key]).toBe('string')
       expect(typeof localeEn[key]).toBe('string')
     }
+    expect(localeZh.voiceError).toBe('请检查配置后重试')
+    expect(localeEn.voiceError).toBe('Check the configuration and try again')
   })
 })
 

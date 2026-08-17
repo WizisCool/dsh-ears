@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MediaRecorderSession, isMediaRecorderAvailable } from '../src/asr/media-recorder.js'
+import { MediaRecorderSession, isMediaRecorderAvailable, releaseWarmedMicrophone, warmMicrophone } from '../src/asr/media-recorder.js'
 
 const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
 const originalMediaRecorder = Object.getOwnPropertyDescriptor(globalThis, 'MediaRecorder')
 
 afterEach(() => {
+  releaseWarmedMicrophone()
   if (originalNavigator === undefined) Reflect.deleteProperty(globalThis, 'navigator')
   else Object.defineProperty(globalThis, 'navigator', originalNavigator)
   if (originalMediaRecorder === undefined) Reflect.deleteProperty(globalThis, 'MediaRecorder')
@@ -167,5 +168,33 @@ describe('MediaRecorderSession', () => {
     session.start()
     await expect(session.stop()).rejects.toThrow('audio is too large')
     expect(trackStopped).toBe(true)
+  })
+
+  it('reuses a warmed microphone stream instead of requesting another one', async () => {
+    const stopTrack = vi.fn()
+    const stream = { getTracks: () => [{ readyState: 'live', stop: stopTrack }] }
+    const getUserMedia = vi.fn(async () => stream)
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void {
+        this.state = 'inactive'
+        this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([Uint8Array.from([1])], { type: 'audio/webm' }) }))
+        this.dispatchEvent(new Event('stop'))
+      }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    warmMicrophone()
+    await Promise.resolve()
+    const session = await MediaRecorderSession.create()
+    session.start()
+    await session.stop()
+
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+    expect(stopTrack).toHaveBeenCalledTimes(1)
   })
 })

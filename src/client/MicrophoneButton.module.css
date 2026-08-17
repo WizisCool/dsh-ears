@@ -43,8 +43,8 @@
 }
 
 .button[data-state='error'] {
-  background: var(--dsw-alias-interactive-bg-hover-danger);
-  color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-warn-label);
 }
 
 .button:focus-visible {

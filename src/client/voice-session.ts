@@ -11,11 +11,13 @@ type Listener = () => void
 type StopListener = () => void
 
 export const VOICE_WAVEFORM_SLOTS = 128
+export const VOICE_ERROR_DISMISS_MS = 2600
 
 export class VoiceInputSession {
   private snapshot: VoiceInputSessionSnapshot = { state: 'idle', levels: [] }
   private readonly listeners = new Set<Listener>()
   private readonly stopListeners = new Set<StopListener>()
+  private errorTimer: ReturnType<typeof setTimeout> | undefined
 
   readonly getSnapshot = (): VoiceInputSessionSnapshot => this.snapshot
 
@@ -31,9 +33,16 @@ export class VoiceInputSession {
 
   setState(state: VoiceInputState): void {
     if (this.snapshot.state === state) return
+    this.clearErrorTimer()
     const resetLevels = state === 'starting' || state === 'idle' || state === 'error' || state === 'polish-error'
     this.snapshot = { ...this.snapshot, state, levels: resetLevels ? [] : this.snapshot.levels }
     this.emit()
+    if (state === 'error' || state === 'polish-error') {
+      this.errorTimer = setTimeout(() => {
+        this.errorTimer = undefined
+        if (this.snapshot.state === 'error' || this.snapshot.state === 'polish-error') this.setState('idle')
+      }, VOICE_ERROR_DISMISS_MS)
+    }
   }
 
   pushAudioLevel(level: number): void {
@@ -48,8 +57,15 @@ export class VoiceInputSession {
   }
 
   dispose(): void {
+    this.clearErrorTimer()
     this.listeners.clear()
     this.stopListeners.clear()
+  }
+
+  private clearErrorTimer(): void {
+    if (this.errorTimer === undefined) return
+    clearTimeout(this.errorTimer)
+    this.errorTimer = undefined
   }
 
   private emit(): void {
