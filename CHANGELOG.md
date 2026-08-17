@@ -59,6 +59,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- Capturing a two-modifier shortcut such as `Ctrl+Shift` now keeps both keys. The recorder used to replace the held set on each release, so only the last remaining modifier was saved.
 - Changing the settings display name now updates the left-rail nav as well as the page title. Switching dsh between 中文 and English also retargets the Voice / 语音 label.
 - Voice shortcuts may be a modifier-only chord such as `Ctrl` or `Ctrl+Shift`. Releasing the modifiers during capture saves that chord. On macOS, Control is kept when capturing Control+another key even if the browser omits `ctrlKey`.
 - The shortcut reset control now sits inside the same 240px lane as the other settings fields, so opening the page no longer grows or shifts the row.

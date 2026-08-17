@@ -6,9 +6,18 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: `341df66 chore: keep the package root to package and build files` on `sleeping`.
+- Latest commit: `1331c13 fix(client): keep two-modifier shortcut chords when capturing` on `master`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `sleeping` (from `master` at `68f5549`); tracking `origin/sleeping`.
+- Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
+
+## Two-modifier shortcut capture fix (2026-08-18)
+
+- Completed: capturing `Ctrl+Shift` (or any two-modifier chord) no longer keeps only the last remaining key. The recorder used to overwrite `lastHeld` on each modifier keyup, so releasing Shift then Control saved `ctrl`. Capture now lives in `reduceShortcutRecorder`: it tracks currently held modifiers and a peak simultaneous set, commits the peak when every modifier is released, still uses the remaining held set when a non-modifier key arrives, and unions remembered Control on macOS events that omit `ctrlKey`.
+- Validation: `pnpm check` passed; `pnpm test` passed twice (249/249 across 23 files, shortcut suite 26); `pnpm build` passed.
+- Unfinished: D-018 remains open; live Groq/Bailian/`zh`/Windows smokes remain pending. Live GUI refresh of the rebuilt client is needed to exercise the recorder in the visible settings window.
+- Blocked: none.
+- Next: refresh the existing Web UI if a live check of Ctrl+Shift capture is wanted; do not push without authorization.
+- Commit: `1331c13 fix(client): keep two-modifier shortcut chords when capturing`.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
 - Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
