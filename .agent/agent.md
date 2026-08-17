@@ -183,6 +183,16 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: refresh the existing dsh page; do not push without explicit authorization.
 - Commit: `4c2049d fix(client): animate recognition listening indicator`.
 
+## Polishing route diagnosis and local recovery (2026-08-17)
+
+- Completed: traced the live `dshEars/polish` RPC with the active `opencode-go/deepseek-v4-flash` route. The route returned the transcript unchanged when `polishReasoningEffort` was explicitly `off`, while the same route produced punctuation and wording cleanup when the effort was omitted. The active dsh-ears settings had polishing enabled and the route configured, so the Client/Host wiring was present; the no-op came from the route's explicit effort behavior.
+- Recovery: cleared only the local `dsh-ears` `polishReasoningEffort` setting so it uses `Default`; provider, model, ASR settings, and credentials were not changed. A live post-change call returned a polished Chinese sentence.
+- Validation: live RPC comparison against the active Host; `opencode-go/deepseek-v4-flash` with `off` returned the input unchanged, the same route with an empty effort returned `这个句子有点不通顺，请帮我整理一下。`; the route list and reasoning-effort metadata RPCs also succeeded. No credential values were copied into the repository or handoff.
+- Unfinished: explicit reasoning-effort selections on this private OpenAI-compatible route still need an adapter/gateway contract if users want to retain `Off`/`High`/`Max` rather than use the model default.
+- Blocked: none.
+- Next: keep polishing on `Default` for this route; if explicit effort controls are required, add a provider-specific compatibility contract and live smoke before changing the plugin behavior.
+- Commit: pending documentation-only handoff commit.
+
 ## Handoff template
 
 ```text
