@@ -106,6 +106,22 @@ function isModifierToken(token: string): token is ShortcutModifier {
   return (SHORTCUT_MODIFIERS as readonly string[]).includes(token)
 }
 
+function mergeModifiers(
+  left: readonly ShortcutModifier[],
+  right: readonly ShortcutModifier[]
+): readonly ShortcutModifier[] {
+  return SHORTCUT_MODIFIERS.filter((modifier) => left.includes(modifier) || right.includes(modifier))
+}
+
+/** Map a modifier keydown/keyup to its canonical token. */
+export function modifierTokenFromEvent(event: { readonly key?: string; readonly code?: string }): ShortcutModifier | null {
+  if (event.key === 'Control' || event.code === 'ControlLeft' || event.code === 'ControlRight') return 'ctrl'
+  if (event.key === 'Alt' || event.code === 'AltLeft' || event.code === 'AltRight') return 'alt'
+  if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') return 'shift'
+  if (event.key === 'Meta' || event.code === 'MetaLeft' || event.code === 'MetaRight') return 'meta'
+  return null
+}
+
 /** Parse a canonical chord into modifiers and key token; null on malformed input. */
 export function parseShortcut(chord: string): ParsedShortcut | null {
   if (typeof chord !== 'string') return null
@@ -240,9 +256,64 @@ export function shortcutFromEventAndHeld(
 ): string | null {
   const key = KEY_TOKEN_BY_CODE[event.code]
   if (key === undefined) return null
-  const current = modifiersFromEvent(event)
-  const merged = SHORTCUT_MODIFIERS.filter((modifier) => held.includes(modifier) || current.includes(modifier))
-  return canonicalChord({ modifiers: merged, key })
+  return canonicalChord({ modifiers: mergeModifiers(held, modifiersFromEvent(event)), key })
+}
+
+export interface ShortcutRecorderState {
+  readonly held: readonly ShortcutModifier[]
+  readonly peak: readonly ShortcutModifier[]
+}
+
+export const EMPTY_SHORTCUT_RECORDER: ShortcutRecorderState = { held: [], peak: [] }
+
+export type ShortcutRecorderInput = ModifierSourceEvent & {
+  readonly type: 'keydown' | 'keyup'
+  readonly key: string
+  readonly code: string
+  readonly repeat?: boolean
+}
+
+export type ShortcutRecorderDecision =
+  | { kind: 'ignore'; state: ShortcutRecorderState }
+  | { kind: 'cancel'; state: ShortcutRecorderState }
+  | { kind: 'update'; state: ShortcutRecorderState }
+  | { kind: 'commit'; state: ShortcutRecorderState; chord: string }
+
+/**
+ * Advance the shortcut recorder. Modifier-only chords commit the last largest
+ * simultaneous set (`peak`) when every modifier is released — not the last
+ * remaining key — so Ctrl+Shift is not reduced to Shift.
+ */
+export function reduceShortcutRecorder(
+  state: ShortcutRecorderState,
+  event: ShortcutRecorderInput
+): ShortcutRecorderDecision {
+  if (event.type === 'keydown') {
+    if (event.key === 'Escape') return { kind: 'cancel', state: EMPTY_SHORTCUT_RECORDER }
+    if (event.repeat) return { kind: 'ignore', state }
+    if (isModifierKeyEvent(event)) {
+      const token = modifierTokenFromEvent(event)
+      const held = mergeModifiers(
+        mergeModifiers(state.held, modifiersFromEvent(event, true)),
+        token === null ? [] : [token]
+      )
+      const peak = held.length >= state.peak.length ? held : state.peak
+      return { kind: 'update', state: { held, peak } }
+    }
+    const chord = shortcutFromEventAndHeld(event, state.held)
+    if (chord === null) return { kind: 'ignore', state }
+    return { kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord }
+  }
+  if (event.repeat || !isModifierKeyEvent(event)) return { kind: 'ignore', state }
+  const released = modifierTokenFromEvent(event)
+  const held = SHORTCUT_MODIFIERS.filter((modifier) => {
+    if (released !== null && modifier === released) return false
+    return state.held.includes(modifier) || modifiersFromEvent(event).includes(modifier)
+  })
+  if (held.length > 0) return { kind: 'update', state: { held, peak: state.peak } }
+  const chord = shortcutFromModifiers(state.peak)
+  if (chord === null) return { kind: 'ignore', state }
+  return { kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord }
 }
 
 /** True when a keydown event matches the stored chord, with strict modifier equality. */
@@ -260,8 +331,7 @@ export function matchesShortcut(chord: string, event: ModifierSourceEvent & { re
 
 /** True when the pressed key is a modifier key itself. */
 export function isModifierKeyEvent(event: { readonly key: string; readonly code?: string }): boolean {
-  return event.key === 'Control' || event.key === 'Alt' || event.key === 'Shift' || event.key === 'Meta'
-    || (event.code !== undefined && MODIFIER_CODES.has(event.code))
+  return modifierTokenFromEvent(event) !== null
 }
 
 const MODIFIER_LABELS: Readonly<Record<ShortcutModifier, Readonly<Record<'mac' | 'win' | 'linux', string>>>> = {

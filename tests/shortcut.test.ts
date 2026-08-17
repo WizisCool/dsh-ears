@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMPTY_SHORTCUT_RECORDER,
   formatModifierChord,
   formatShortcut,
   isModifierKeyEvent,
   isReservedShortcut,
   isValidStoredShortcut,
   matchesShortcut,
+  modifierTokenFromEvent,
   modifiersFromEvent,
   normalizeShortcut,
   parseShortcut,
+  reduceShortcutRecorder,
   shortcutFromEvent,
   shortcutFromEventAndHeld,
   shortcutRejectReason
 } from '../src/shortcut.js'
+import type { ShortcutRecorderDecision, ShortcutRecorderInput, ShortcutRecorderState } from '../src/shortcut.js'
 
 function keyEvent(code: string, modifiers: Partial<{ ctrl: boolean; alt: boolean; shift: boolean; meta: boolean }> = {}, key = code): { code: string; key: string; ctrlKey: boolean; altKey: boolean; shiftKey: boolean; metaKey: boolean } {
   return {
@@ -200,5 +204,121 @@ describe('shortcut display formatting', () => {
 
   it('falls back to the raw value for malformed chords', () => {
     expect(formatShortcut('not-a-chord', 'win')).toBe('not-a-chord')
+  })
+})
+
+function recorderEvent(
+  type: 'keydown' | 'keyup',
+  code: string,
+  modifiers: Partial<{ ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; repeat: boolean }> = {},
+  key = code
+): ShortcutRecorderInput {
+  return {
+    type,
+    ...keyEvent(code, modifiers, key),
+    repeat: modifiers.repeat
+  }
+}
+
+function playRecorder(events: readonly ShortcutRecorderInput[]): {
+  last: ShortcutRecorderDecision
+  held: ShortcutRecorderState['held']
+} {
+  let state = EMPTY_SHORTCUT_RECORDER
+  let last: ShortcutRecorderDecision = { kind: 'ignore', state }
+  for (const event of events) {
+    last = reduceShortcutRecorder(state, event)
+    state = last.state
+  }
+  return { last, held: state.held }
+}
+
+describe('shortcut recorder capture', () => {
+  it('commits both modifiers after they are released one at a time', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { ctrl: true, shift: true }, 'Shift'),
+      recorderEvent('keyup', 'ShiftLeft', { ctrl: true }, 'Shift'),
+      recorderEvent('keyup', 'ControlLeft', {}, 'Control')
+    ])
+    expect(last).toEqual({ kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord: 'ctrl+shift' })
+  })
+
+  it('keeps the two-modifier chord when the first modifier is released first', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { ctrl: true, shift: true }, 'Shift'),
+      recorderEvent('keyup', 'ControlLeft', { shift: true }, 'Control'),
+      recorderEvent('keyup', 'ShiftLeft', {}, 'Shift')
+    ])
+    expect(last).toEqual({ kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord: 'ctrl+shift' })
+  })
+
+  it('commits a lone modifier when it is released alone', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keyup', 'ControlLeft', {}, 'Control')
+    ])
+    expect(last).toEqual({ kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord: 'ctrl' })
+  })
+
+  it('uses currently held modifiers when a key arrives after one modifier is released', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { ctrl: true, shift: true }, 'Shift'),
+      recorderEvent('keyup', 'ShiftLeft', { ctrl: true }, 'Shift'),
+      recorderEvent('keydown', 'Space', { ctrl: true }, ' ')
+    ])
+    expect(last).toEqual({ kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord: 'ctrl+space' })
+  })
+
+  it('keeps Control across a second modifier when the browser omits ctrlKey', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', {}, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { shift: true }, 'Shift'),
+      recorderEvent('keyup', 'ShiftLeft', {}, 'Shift'),
+      recorderEvent('keyup', 'ControlLeft', {}, 'Control')
+    ])
+    expect(last).toEqual({ kind: 'commit', state: EMPTY_SHORTCUT_RECORDER, chord: 'ctrl+shift' })
+  })
+
+  it('updates live held modifiers while two keys are down', () => {
+    const afterBoth = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { ctrl: true, shift: true }, 'Shift')
+    ])
+    expect(afterBoth.last.kind).toBe('update')
+    expect(afterBoth.held).toEqual(['ctrl', 'shift'])
+
+    const afterOneUp = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ShiftLeft', { ctrl: true, shift: true }, 'Shift'),
+      recorderEvent('keyup', 'ShiftLeft', { ctrl: true }, 'Shift')
+    ])
+    expect(afterOneUp.last.kind).toBe('update')
+    expect(afterOneUp.held).toEqual(['ctrl'])
+  })
+
+  it('cancels on Escape without committing', () => {
+    const { last } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'Escape', { ctrl: true }, 'Escape')
+    ])
+    expect(last).toEqual({ kind: 'cancel', state: EMPTY_SHORTCUT_RECORDER })
+  })
+
+  it('ignores auto-repeat while modifiers are held', () => {
+    const { last, held } = playRecorder([
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true }, 'Control'),
+      recorderEvent('keydown', 'ControlLeft', { ctrl: true, repeat: true }, 'Control')
+    ])
+    expect(last.kind).toBe('ignore')
+    expect(held).toEqual(['ctrl'])
+  })
+
+  it('maps modifier key events to tokens', () => {
+    expect(modifierTokenFromEvent({ key: 'Control', code: 'ControlLeft' })).toBe('ctrl')
+    expect(modifierTokenFromEvent({ key: 'Shift', code: 'ShiftRight' })).toBe('shift')
+    expect(modifierTokenFromEvent({ key: 'a', code: 'KeyA' })).toBeNull()
   })
 })

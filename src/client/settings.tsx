@@ -8,8 +8,8 @@ import { MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLangua
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
-import { formatModifierChord, formatShortcut, isModifierKeyEvent, isReservedShortcut, modifiersFromEvent, shortcutFromEventAndHeld, shortcutFromModifiers, shortcutRejectReason } from '../shortcut.js'
-import type { ShortcutModifier } from '../shortcut.js'
+import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
+import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
 import type { WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
 import { localeEn, type Translate } from './settings-locale.js'
@@ -195,60 +195,47 @@ const SHORTCUT_PLATFORM: 'mac' | 'win' | 'linux' = (() => {
   return 'linux'
 })()
 
+function recorderInput(type: 'keydown' | 'keyup', event: KeyboardEvent): ShortcutRecorderInput {
+  return {
+    type,
+    key: event.key,
+    code: event.code,
+    repeat: event.repeat,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    shiftKey: event.shiftKey,
+    metaKey: event.metaKey,
+    getModifierState: (name) => event.getModifierState(name)
+  }
+}
+
 function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, onReset, t }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onReset: () => void; t: Translate }) {
   const [capturing, setCapturing] = useState(false)
   const [pressedModifiers, setPressedModifiers] = useState<readonly ShortcutModifier[]>([])
-  const lastHeldRef = useRef<readonly ShortcutModifier[]>([])
+  const recorderRef = useRef(EMPTY_SHORTCUT_RECORDER)
   const reason = shortcutRejectReason(value)
   const invalidText = reason === 'typing-key' ? t('shortcutInvalidTypingKey') : reason === 'invalid' ? t('shortcutInvalidFormat') : null
   const reserved = !invalid && isReservedShortcut(value)
   const customized = !capturing && value !== DEFAULT_EARS_SETTINGS.voiceShortcut
   useEffect(() => {
     if (!capturing) return
-    const reset = () => {
-      lastHeldRef.current = []
+    recorderRef.current = EMPTY_SHORTCUT_RECORDER
+    const apply = (event: KeyboardEvent, type: 'keydown' | 'keyup') => {
+      const decision = reduceShortcutRecorder(recorderRef.current, recorderInput(type, event))
+      recorderRef.current = decision.state
+      if (decision.kind === 'ignore') return
+      if (decision.kind === 'update') {
+        setPressedModifiers(decision.state.held)
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
       setPressedModifiers([])
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopPropagation()
-        setCapturing(false)
-        reset()
-        return
-      }
-      if (event.repeat) return
-      if (isModifierKeyEvent(event)) {
-        const held = modifiersFromEvent(event, true)
-        lastHeldRef.current = held
-        setPressedModifiers(held)
-        return
-      }
-      const chord = shortcutFromEventAndHeld(event, lastHeldRef.current)
-      if (chord === null) return
-      event.preventDefault()
-      event.stopPropagation()
-      onChange(chord)
       setCapturing(false)
-      reset()
+      if (decision.kind === 'commit') onChange(decision.chord)
     }
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.repeat) return
-      if (!isModifierKeyEvent(event)) return
-      const next = modifiersFromEvent(event)
-      setPressedModifiers(next)
-      if (next.length > 0) {
-        lastHeldRef.current = next
-        return
-      }
-      const chord = shortcutFromModifiers(lastHeldRef.current)
-      if (chord === null) return
-      event.preventDefault()
-      event.stopPropagation()
-      onChange(chord)
-      setCapturing(false)
-      reset()
-    }
+    const onKeyDown = (event: KeyboardEvent) => apply(event, 'keydown')
+    const onKeyUp = (event: KeyboardEvent) => apply(event, 'keyup')
     window.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('keyup', onKeyUp, true)
     return () => {
