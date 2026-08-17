@@ -65,6 +65,7 @@ describe('settings Remote contract', () => {
         voiceShortcutEnabled: true,
         voiceShortcut: 'ctrl+shift+space',
         voiceSoundsEnabled: true,
+        settingsDisplayName: 'dsh-ears',
         polishingEnabled: true,
         polishProvider: '',
         polishModel: '',

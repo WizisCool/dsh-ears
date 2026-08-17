@@ -721,6 +721,19 @@ describe('EarsSettingsController voice shortcut fields', () => {
     controller.dispose()
   })
 
+  it('defaults the settings display name to dsh-ears and saves the voice label', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().settingsDisplayName.text).toBe('dsh-ears')
+    controller.actions().edit('settingsDisplayName', 'voice')
+    await controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ settingsDisplayName: 'voice' })
+    controller.dispose()
+  })
+
   it('saves valid fields while an invalid shortcut draft stays local', async () => {
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => ({
       ok: true as const,

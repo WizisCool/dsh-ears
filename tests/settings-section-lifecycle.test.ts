@@ -52,6 +52,7 @@ const cardState: EarsCardState = {
   voiceShortcutEnabled: field('on'),
   voiceShortcut: field('ctrl+shift+space'),
   voiceSoundsEnabled: field('on'),
+  settingsDisplayName: field('dsh-ears'),
   polishingEnabled: field('off'),
   polishProvider: field(''),
   polishModel: field(''),

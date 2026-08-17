@@ -10,6 +10,7 @@ export const EarsSettingsSchema = s.object({
   voiceShortcutEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceShortcutEnabled).description('Enable the in-page voice shortcut'),
   voiceShortcut: s.string().default(DEFAULT_EARS_SETTINGS.voiceShortcut).description('In-page voice shortcut'),
   voiceSoundsEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.voiceSoundsEnabled).description('Play a synthesized click for voice input'),
+  settingsDisplayName: s.string().default(DEFAULT_EARS_SETTINGS.settingsDisplayName).description('Settings page display name: dsh-ears or voice'),
   cloudAsrProvider: s.string().default(DEFAULT_EARS_SETTINGS.cloudAsrProvider).description('Active cloud ASR provider: groq, custom, or bailian'),
   groq: s.object({
     apiKey: s.string().role('secret').default('').description('Groq API key (Whisper)'),

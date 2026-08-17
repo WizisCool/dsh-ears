@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
 import type { AsrBackendInfo } from './asr/types.js'
 
@@ -25,6 +25,7 @@ export const earsSettingsSchema = z.object({
   voiceShortcutEnabled: z.boolean(),
   voiceShortcut: z.string(),
   voiceSoundsEnabled: z.boolean(),
+  settingsDisplayName: z.string(),
   polishingEnabled: z.boolean(),
   polishProvider: z.string(),
   polishModel: z.string(),
@@ -49,6 +50,7 @@ export const earsSettingsPatchSchema = z.object({
   voiceShortcutEnabled: z.boolean().optional(),
   voiceShortcut: z.string().optional(),
   voiceSoundsEnabled: z.boolean().optional(),
+  settingsDisplayName: z.enum(SETTINGS_DISPLAY_NAME_IDS).optional(),
   polishingEnabled: z.boolean().optional(),
   polishProvider: z.string().optional(),
   polishModel: z.string().optional(),

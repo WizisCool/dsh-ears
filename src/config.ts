@@ -15,6 +15,9 @@ export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
 export const MAX_CLOUD_API_KEY_LENGTH = 512
 export const MAX_POLISH_PROMPT_LENGTH = 4000
 
+export const SETTINGS_DISPLAY_NAME_IDS = ['dsh-ears', 'voice'] as const
+export type SettingsDisplayNameId = typeof SETTINGS_DISPLAY_NAME_IDS[number]
+
 export interface EarsSettings {
   asrBackend: AsrBackendId | string
   localWhisperModel: WhisperModelId | string
@@ -32,6 +35,7 @@ export interface EarsSettings {
   voiceShortcutEnabled: boolean
   voiceShortcut: string
   voiceSoundsEnabled: boolean
+  settingsDisplayName: SettingsDisplayNameId | string
   polishingEnabled: boolean
   polishProvider: string
   polishModel: string
@@ -56,6 +60,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
   voiceSoundsEnabled: true,
+  settingsDisplayName: 'dsh-ears',
   polishingEnabled: false,
   polishProvider: '',
   polishModel: '',
@@ -140,4 +145,9 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')
   if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
+  if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
+}
+
+export function settingsPageLabel(id: string, labels: { plugin: string; voice: string }): string {
+  return id === 'voice' ? labels.voice : labels.plugin
 }
