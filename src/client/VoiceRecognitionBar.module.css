@@ -70,6 +70,12 @@
   box-shadow: 0 0 0 3px var(--dsw-alias-state-business-tertiary);
 }
 
+.root[data-state='starting'] .indicator,
+.root[data-state='recording'] .indicator {
+  will-change: transform, opacity, box-shadow;
+  animation: listening-pulse 1200ms ease-in-out infinite;
+}
+
 .label {
   flex: none;
   color: var(--dsw-alias-label-primary);
@@ -135,6 +141,21 @@
   opacity: 0.4;
 }
 
+@keyframes listening-pulse {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(0.86);
+    box-shadow: 0 0 0 3px var(--dsw-alias-state-business-tertiary);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 5px var(--dsw-alias-state-business-tertiary);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -146,6 +167,11 @@
   .collapse,
   .spinner {
     transition: none;
+    animation: none;
+  }
+
+  .root[data-state='starting'] .indicator,
+  .root[data-state='recording'] .indicator {
     animation: none;
   }
 

@@ -5,8 +5,8 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: D-027 voice recognition surface is complete: a session-scoped standalone `conversation.input.dock` card sits immediately before dsh's queued-message dock, so it remains above pending messages and closest to the composer. It uses a real analyser waveform, native Task/Goal geometry, an authoritative stop action, delayed grid-row/opacity exit, and the composer microphone remains visible throughout capture and processing. The settings page still uses D-026's staged Save/Discard model and D-024's per-field validation. D-019 is closed; D-018 remains open.
-- Latest code commit: `2b3b8a4 feat(client): add native voice recognition dock`.
+- Current work: D-027 voice recognition surface is complete: a session-scoped standalone `conversation.input.dock` card sits immediately before dsh's queued-message dock, so it remains above pending messages and closest to the composer. It uses a real analyser waveform, native Task/Goal geometry, an authoritative stop action, delayed grid-row/opacity exit, a restrained animated listening dot with reduced-motion support, and the composer microphone remains visible throughout capture and processing. The settings page still uses D-026's staged Save/Discard model and D-024's per-field validation. D-019 is closed; D-018 remains open.
+- Latest code commit: pending listening-indicator refinement commit.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; all post-audit work (UI fixes, Whisper hardening, microphone gating, cloud provider presets, per-field settings model) is local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -173,6 +173,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: refresh the existing `http://127.0.0.1:3080` page to load the rebuilt client; do not push or publish without authorization.
 - Commit: `2b3b8a4 feat(client): add native voice recognition dock`.
+
+## Listening indicator refinement (D-027)
+
+- Completed: added a restrained `listening-pulse` animation to the recognition card's left status dot while `starting` or `recording`; the animation changes only transform, opacity, and the local ring and is disabled for `prefers-reduced-motion: reduce`. Updated the D-027 decision and Unreleased changelog.
+- Validation: `./node_modules/.bin/vitest run` passed (130/130 tests across 15 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; the final Impeccable detector returned `[]`; `git diff --check` passed. Clean Chrome smoke confirmed `listening-pulse` at `1.2s` with infinite iteration in normal motion and `animationName: none` / `0s` under reduced motion, with no runtime exceptions.
+- Unfinished: the existing `http://127.0.0.1:3080` GUI needs a refresh to load the rebuilt client; no watcher is running. Real microphone/vendor Web Speech and live Host ASR remain environment-dependent; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: refresh the existing dsh page; do not push without explicit authorization.
+- Commit: pending listening-indicator refinement commit.
 
 ## Handoff template
 
