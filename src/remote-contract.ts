@@ -22,7 +22,8 @@ export const earsSettingsSchema = z.object({
   polishingEnabled: z.boolean(),
   polishProvider: z.string(),
   polishModel: z.string(),
-  polishReasoningEffort: z.string()
+  polishReasoningEffort: z.string(),
+  polishPrompt: z.string()
 })
 
 export const earsSettingsPatchSchema = z.object({
@@ -39,7 +40,8 @@ export const earsSettingsPatchSchema = z.object({
   polishingEnabled: z.boolean().optional(),
   polishProvider: z.string().optional(),
   polishModel: z.string().optional(),
-  polishReasoningEffort: z.string().optional()
+  polishReasoningEffort: z.string().optional(),
+  polishPrompt: z.string().optional()
 })
 
 export const earsSettingsViewSchema = z.object({

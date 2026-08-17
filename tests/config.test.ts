@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
   it('accepts HTTP(S) endpoints without embedded credentials', () => {
@@ -16,6 +16,13 @@ describe('dsh-ears settings validation', () => {
   it('bounds the inline cloud ASR API key length', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+  })
+
+  it('defaults the custom polish prompt to empty (built-in prompt) and bounds it trim-based at 4000 units', () => {
+    expect(DEFAULT_EARS_SETTINGS.polishPrompt).toBe('')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishPrompt: 'p'.repeat(MAX_POLISH_PROMPT_LENGTH) })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishPrompt: ` ${'p'.repeat(MAX_POLISH_PROMPT_LENGTH)} ` })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, polishPrompt: 'p'.repeat(MAX_POLISH_PROMPT_LENGTH + 1) })).toThrow('polish prompt')
   })
 
   it('validates the endpoint value per field, independent of the selected backend', () => {

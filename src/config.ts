@@ -12,6 +12,7 @@ export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 't
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
 
 export const MAX_CLOUD_API_KEY_LENGTH = 512
+export const MAX_POLISH_PROMPT_LENGTH = 4000
 
 export interface EarsSettings {
   asrBackend: AsrBackendId | string
@@ -28,6 +29,7 @@ export interface EarsSettings {
   polishProvider: string
   polishModel: string
   polishReasoningEffort: string
+  polishPrompt: string
 }
 
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
@@ -44,7 +46,8 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   polishingEnabled: false,
   polishProvider: '',
   polishModel: '',
-  polishReasoningEffort: ''
+  polishReasoningEffort: '',
+  polishPrompt: ''
 })
 
 export interface PolishRoute {
@@ -88,4 +91,5 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
+  if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
 }

@@ -11,6 +11,11 @@ describe('settings Remote contract', () => {
     })
   })
 
+  it('accepts an empty custom polish prompt as the explicit-clear state', () => {
+    expect(earsSettingsPatchSchema.parse({ polishPrompt: '' })).toEqual({ polishPrompt: '' })
+    expect(earsSettingsPatchSchema.parse({ polishPrompt: 'Polish like a friend.' })).toEqual({ polishPrompt: 'Polish like a friend.' })
+  })
+
   it('accepts cloud provider and write-only key patch fields', () => {
     expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'groq', cloudAsrApiKey: 'gsk_test' })).toEqual({
       cloudAsrProvider: 'groq',
@@ -52,7 +57,8 @@ describe('settings Remote contract', () => {
         polishingEnabled: true,
         polishProvider: '',
         polishModel: '',
-        polishReasoningEffort: ''
+        polishReasoningEffort: '',
+        polishPrompt: ''
       },
       cloudAsrApiKeyConfigured: false,
       overridden: []

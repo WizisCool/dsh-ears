@@ -16,5 +16,6 @@ export const EarsSettingsSchema = s.object({
   polishingEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.polishingEnabled),
   polishProvider: s.string().default(DEFAULT_EARS_SETTINGS.polishProvider),
   polishModel: s.string().default(DEFAULT_EARS_SETTINGS.polishModel),
-  polishReasoningEffort: s.string().default(DEFAULT_EARS_SETTINGS.polishReasoningEffort)
+  polishReasoningEffort: s.string().default(DEFAULT_EARS_SETTINGS.polishReasoningEffort),
+  polishPrompt: s.string().default(DEFAULT_EARS_SETTINGS.polishPrompt)
 })

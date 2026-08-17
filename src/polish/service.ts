@@ -14,7 +14,7 @@ import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
-import { POLISH_SYSTEM_PROMPT, polishUserText } from './prompts.js'
+import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
 const MAX_POLISHED_CHARACTERS = 24_000
@@ -244,7 +244,7 @@ export class PolishService extends TypertRemoteService {
         ...prepared.config,
         ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
         messages: [message],
-        system: POLISH_SYSTEM_PROMPT,
+        system: resolvePolishSystemPrompt((this.settings?.get() ?? DEFAULT_EARS_SETTINGS).polishPrompt),
         signal: timeout.signal
       }), MAX_POLISHED_CHARACTERS)
 
