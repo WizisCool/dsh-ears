@@ -6,14 +6,23 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: `16144d8 fix(client): keep Control when capturing chords on macOS`.
+- Latest commit: `f10ff39 refactor(host): extract whisper discovery and progress helpers` on `sleeping` (review/fix/split branch; not pushed).
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`; local-only until the maintainer authorizes another push.
+- Branch: `sleeping` (from `master` at `68f5549`); local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
 - Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
 - Tooling note: `pnpm` 11.19.0 is on PATH and matches `packageManager`. Use `pnpm check`, `pnpm test`, and `pnpm build` as in `.agent/workflow.md`. Historical validation lines that invoke `./node_modules/.bin/*` remain accurate for those sessions.
+
+## Sleeping-branch review and split (2026-08-18)
+
+- Completed: reviewed Host ASR/polish, settings auto-save, voice capture/session, Whisper lifecycle, and Host/Client Remote parity on `sleeping`. Fixed two shipped defects: the Host cloud model-list failure cache is now keyed by provider+credential (a corrected Groq key no longer reuses a 401 for 30s), and the composer no longer silently starts Web Speech for an unknown stored backend. Extracted independently testable units: `voice-capture.ts`, `settings-fields.ts`, `settings-locale.ts`, `whisper-discovery.ts`, `whisper-progress.ts`, `polish/route.ts`. Added shipped-function tests for unknown-backend gating, click/start/stop decisions, abandoned pending capture, Web Speech interim fallback, field validity, polish route selection, no-retry save, Whisper single-flight download, and shebang reads.
+- Validation: `pnpm check` passed; `pnpm test` passed twice with the same count (240/240 across 23 files); `pnpm build` passed (Host ESM, Client factory bundle ~311.95 kB, declarations); `git diff --cached --check` passed after each commit. Secret scan of `master..HEAD` found only placeholder `gsk_old`/`gsk_new` test keys.
+- Unfinished: D-018 remains open; live Groq/Bailian/`zh`/Windows smokes remain pending. No live GUI smoke in this session (no replacement `dsh web` started). Settings controller (~774) and MicrophoneButton (~489) still own I/O and React wiring after the decision helpers were extracted.
+- Blocked: none.
+- Next: refresh/restart the existing Web UI only if a live check of the unknown-backend gate or model-list retry is wanted; do not push without authorization.
+- Commits: `ba1c715 fix(host): retry cloud model listing after the API key changes`, `530fb8f fix(client): do not start Web Speech for an unknown ASR backend`, `ae7b7bd test(client): cover a rejected settings save without a retry loop`, `3516e5d refactor(client): extract settings field validation`, `919b5c3 refactor(client): extract settings locale dictionaries`, `f10ff39 refactor(host): extract whisper discovery and progress helpers`.
 
 ## Completed audit and hardening
 
