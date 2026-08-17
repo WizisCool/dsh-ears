@@ -48,7 +48,7 @@ Open `Settings → dsh-ear` in dsh. The page opens on a **General** tab and prov
 - per-provider cloud API keys, plus Groq's live model list, Bailian's HTTPS host and typed model name, or a custom transcription endpoint;
 - polishing toggle, dsh provider/model route, and an optional custom polish system prompt (leave blank to use the built-in default). The prompt row offers a live `n/4000` character counter, a Reset-to-default action, and a read-only "View default" peek at the shipped prompt.
 
-The API key field is write-only: the value is stored on the dsh Host with a `role('secret')` field (the same mechanism as the shipped web-search plugin), never returned to the browser, and only a configured/unconfigured state is shown. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.
+Each cloud provider's API key is write-only and stored on the dsh Host under its own settings group (`groq`, `customOpenAi`, `bailian`) with a `role('secret')` field. The browser never receives the value, only a configured/unconfigured state. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.
 
 ## Local development
 
