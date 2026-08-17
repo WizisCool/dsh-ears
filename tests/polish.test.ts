@@ -87,6 +87,30 @@ describe('PolishService', () => {
     await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).resolves.toBe('保留这段内容')
   })
 
+  it('still line-breaks a glued 第一/第二 transcript when the model returns prose', async () => {
+    const context = createContext({
+      prepareCall: vi.fn(async () => ({
+        config: {},
+        stream: async function* () {
+          yield { type: 'text-delta', text: '第一，帮我看一下项目下的 Security Key。第二，帮我梳理一下项目结构。' }
+        }
+      }))
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '第一帮我看一下项目下的Security Key第二帮我梳理一下项目结构',
+      'provider',
+      'model',
+      '',
+      new AbortController().signal
+    )).resolves.toBe([
+      '1. 帮我看一下项目下的 Security Key',
+      '2. 帮我梳理一下项目结构'
+    ].join('\n'))
+  })
+
   it('does not report cloud ASR as available without a model', async () => {
     const context = createContext({}, {
       ...DEFAULT_EARS_SETTINGS,
@@ -204,6 +228,8 @@ describe('PolishService', () => {
     expect(POLISH_SYSTEM_PROMPT).toContain('3. 上线时间')
     expect(POLISH_SYSTEM_PROMPT).toContain('这个需求主要有三点一是登录态过期')
     expect(POLISH_SYSTEM_PROMPT).toContain('3. 接口超时也得看一下')
+    expect(POLISH_SYSTEM_PROMPT).toContain('第一帮我看一下项目下的Security Key第二帮我梳理一下项目结构')
+    expect(POLISH_SYSTEM_PROMPT).toContain('2. 帮我梳理一下项目结构')
   })
 
   it('requires silent ASR repair and forbids meta preambles', () => {

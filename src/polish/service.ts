@@ -14,6 +14,7 @@ import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
+import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
@@ -224,6 +225,8 @@ export class PolishService extends TypertRemoteService {
     if (raw === '' || provider.trim() === '' || model.trim() === '') return raw
     if (raw.length > MAX_TRANSCRIPT_CHARACTERS) return raw
     if (signal.aborted) return raw
+    const storedPrompt = (this.settings?.get() ?? DEFAULT_EARS_SETTINGS).polishPrompt
+    const finish = (text: string): string => storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text
 
     const timeout = new AbortController()
     const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)
@@ -244,13 +247,13 @@ export class PolishService extends TypertRemoteService {
         ...prepared.config,
         ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
         messages: [message],
-        system: resolvePolishSystemPrompt((this.settings?.get() ?? DEFAULT_EARS_SETTINGS).polishPrompt),
+        system: resolvePolishSystemPrompt(storedPrompt),
         signal: timeout.signal
       }), MAX_POLISHED_CHARACTERS)
 
-      return output === '' ? raw : output
+      return finish(output === '' ? raw : output)
     } catch {
-      return raw
+      return finish(raw)
     } finally {
       clearTimeout(timer)
       signal.removeEventListener('abort', forwardAbort)
