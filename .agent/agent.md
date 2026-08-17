@@ -5,15 +5,16 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: D-027 voice recognition surface is complete: a session-scoped standalone `conversation.input.dock` card sits immediately before dsh's queued-message dock, so it remains above pending messages and closest to the composer. It uses a real analyser waveform, native Task/Goal geometry, an authoritative stop action, delayed grid-row/opacity exit, a restrained animated listening dot with reduced-motion support, and the composer microphone remains visible throughout capture and processing. The settings page still uses D-026's staged Save/Discard model and D-024's per-field validation. D-019 is closed; D-018 remains open.
+- Current work: first-release product surface is implemented through D-029. The composer microphone, session-scoped `conversation.input.dock` recognition card, dedicated `dsh-ear` settings page (General / Recognition / Polishing), Web Speech + Local Whisper + Groq/Custom cloud ASR, dsh-owned polishing with a customizable prompt, and the D-026 staged Save/Discard model are all in tree. D-019 is closed; D-018 remains open.
 - Latest code commit: `f93a801 fix(client): polish native settings layout`.
+- Latest commit: `c6cbd91 docs: update latest settings handoff`.
 - Target compatibility: dsh `0.1.0-rc.6`, Node `^22.19.0 || >=24.0.0`.
-- Branch: `master`; all post-audit work (UI fixes, Whisper hardening, microphone gating, cloud provider presets, per-field settings model) is local-only until the maintainer authorizes another push.
+- Branch: `master`, 8 commits ahead of `origin/master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
 - Latest hardening commits: `e6ab7ae refactor(host): make whisper model lifecycle disposable with failure caching`, `570b7fa feat(host): add whisper download completion markers`, `6e169f4 test(host): cover whisper model lifecycle with a fake python interpreter`, `3ba38ea feat(host): gate local whisper transcription on model readiness`, `0538b75 fix(host): carry whisper stderr tail into transcription errors`, `1f9da53 fix(host): resolve windows python and py launchers via PATHEXT`.
 - Repository strategy: MIT license and private GitHub repository `WizisCool/dsh-ears` are recorded; npm publishing, tags, and public visibility remain gated.
 - Repository language: English-first for source, docs, context, comments, and commit messages.
-- Tooling note: `pnpm` is not on this shell's PATH (corepack is too old for pnpm 11); use the local bins — `./node_modules/.bin/tsc --noEmit -p tsconfig.json`, `./node_modules/.bin/vitest run`, `./node_modules/.bin/tsdown`, `./node_modules/.bin/tsc -p tsconfig.build.json`.
+- Tooling note: `pnpm` 11.19.0 is on PATH and matches `packageManager`. Use `pnpm check`, `pnpm test`, and `pnpm build` as in `.agent/workflow.md`. Historical validation lines that invoke `./node_modules/.bin/*` remain accurate for those sessions.
 
 ## Completed audit and hardening
 
@@ -246,6 +247,26 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: refresh the existing Web UI and inspect General, Recognition, and Polishing tabs at desktop and narrow widths; do not start a replacement server or push without authorization.
 - Commits: `eaead54 fix(client): preserve provider settings across switches`; `f93a801 fix(client): polish native settings layout`.
+
+## Repository onboarding record (2026-08-18)
+
+- Completed: reread the required documents in repository order (`PLAN.md`, `.agent/agent.md`, `.agent/context.md`, `.agent/decisions.md`, `.agent/workflow.md`), reviewed `README.md` / `CHANGELOG.md` / `CONTRIBUTING.md`, traced Host (`src/index.ts` → `PolishService`) and Client (`src/client/index.ts` slots, Remote child scope, settings controller, voice session/flow) entries, and confirmed the current Remote RPC surface and test inventory. No business code changed.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (165/165 tests across 16 files). Working tree is clean at `c6cbd91`.
+- Runtime note: an existing `dsh web` process is running (`pid 87253`, dsh `0.1.0-rc.6`). No `pnpm run dev:web`, `pnpm dev:watch`, or `tsdown --watch` process is active. Client changes need a rebuild plus refresh of the existing page; Host, settings registration, or Remote changes additionally require restarting that existing `dsh web` process. Do not start a replacement server by default.
+- Unfinished: D-018, the live rc.6 Groq/Web and Groq `zh` transcription smokes, Windows smoke, a live polish check of the new multilingual default/custom prompt, and a visual refresh of the latest settings layout remain pending. npm publishing, release tags, and public visibility remain gated.
+- Document drift (not cleaned in this onboarding): `README.md` still says 111 tests / 12 files; `.agent/context.md` still has a stale sentence treating an incomplete polish pair as invalid instead of dormant (D-024); `CHANGELOG.md` "Changed" still mentions the superseded auto-save footer.
+- Blocked: none.
+- Next: take one maintainer-selected atomic plugin task; verify every affected dsh API against the installed rc.6 declarations/implementation before editing; preserve the Host/browser credential boundary and Remote descriptor parity; then run the smallest relevant type/test/build/live-smoke set.
+- Commit: no task commit created; onboarding was performed from baseline `c6cbd91 docs: update latest settings handoff`.
+
+## Tooling correction record (2026-08-18)
+
+- Completed: confirmed this machine has a working `pnpm` 11.19.0 on PATH that matches `packageManager`. Replaced the stale Status tooling note that told later agents to avoid `pnpm` and call `./node_modules/.bin/*` because corepack was too old.
+- Validation: `pnpm --version` returned `11.19.0`. Public docs (`README.md`, `CONTRIBUTING.md`, `.agent/workflow.md`) already document the `pnpm` scripts; no change there. Historical handoff validation lines that invoked local bins are left as written.
+- Unfinished: none for this docs correction. D-018, live Groq/Web and Groq `zh` transcription smokes, Windows smoke, and the pending live polish/settings visual checks remain open from earlier work.
+- Blocked: none.
+- Next: use `pnpm check` / `pnpm test` / `pnpm build` for subsequent plugin work.
+- Commit: `docs: restore pnpm as the documented toolchain`.
 
 ## Handoff template
 
