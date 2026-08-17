@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { ASR_BACKEND_IDS } from '../config.js'
+import { ASR_BACKEND_IDS, effectiveRecordingSeconds } from '../config.js'
 import type { AsrBackendId, EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
@@ -310,7 +310,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       session.start()
       setState('recording')
-      armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => void stopRecording())
+      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
     } catch {
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null

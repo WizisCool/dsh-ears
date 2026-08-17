@@ -21,6 +21,11 @@ describe('settings Remote contract', () => {
       cloudAsrProvider: 'groq',
       cloudAsrApiKey: 'gsk_test'
     })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'bailian', cloudAsrBailianApiKey: 'sk_test' })).toEqual({
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianApiKey: 'sk_test'
+    })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrCustomApiKey: '' })).toEqual({ cloudAsrCustomApiKey: '' })
     expect(earsSettingsPatchSchema.parse({ cloudAsrApiKey: '' })).toEqual({ cloudAsrApiKey: '' })
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
   })
@@ -48,7 +53,10 @@ describe('settings Remote contract', () => {
         localWhisperModel: 'tiny',
         cloudAsrProvider: 'groq',
         cloudAsrApiKey: '',
+        cloudAsrCustomApiKey: '',
+        cloudAsrBailianApiKey: '',
         cloudAsrEndpoint: '',
+        cloudAsrBailianHost: '',
         cloudAsrModel: '',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
@@ -61,6 +69,8 @@ describe('settings Remote contract', () => {
         polishPrompt: ''
       },
       cloudAsrApiKeyConfigured: false,
+      cloudAsrCustomApiKeyConfigured: false,
+      cloudAsrBailianApiKeyConfigured: false,
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
   })

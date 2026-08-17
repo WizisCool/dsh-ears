@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_EARS_SETTINGS, isHttpEndpoint } from '../src/config.js'
 import {
   CLOUD_ASR_PROVIDERS,
+  bailianGenerationUrl,
+  cloudAsrCredentialFor,
   cloudAsrEndpointFor,
   cloudAsrModelFor,
   cloudProviderEntry,
@@ -20,8 +22,11 @@ describe('cloud ASR provider registry', () => {
   it('registers unique provider ids with the shared protocol', () => {
     const ids = CLOUD_ASR_PROVIDERS.map((entry) => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(CLOUD_ASR_PROVIDERS.every((entry) => entry.protocol === 'openai-compatible')).toBe(true)
+    expect(cloudProviderEntry('groq')?.protocol).toBe('openai-compatible')
+    expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
+    expect(cloudProviderEntry('bailian')?.protocol).toBe('dashscope-asr')
     expect(isKnownCloudProvider('groq')).toBe(true)
+    expect(isKnownCloudProvider('bailian')).toBe(true)
     expect(isKnownCloudProvider('custom')).toBe(true)
     expect(isKnownCloudProvider('unknown')).toBe(false)
   })
@@ -87,5 +92,46 @@ describe('cloud ASR runtime readiness', () => {
 
   it('rejects embedded credentials in a custom endpoint', () => {
     expect(isHttpEndpoint('https://user:pass@asr.example.test/audio/transcriptions')).toBe(false)
+  })
+
+  it('keeps Groq, custom, and Bailian API keys on separate fields', () => {
+    const mixed = settings({
+      cloudAsrProvider: 'bailian',
+      cloudAsrApiKey: 'gsk_groq',
+      cloudAsrCustomApiKey: 'sk_custom',
+      cloudAsrBailianApiKey: 'sk_bailian'
+    })
+    expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'groq' })).toBe('gsk_groq')
+    expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'custom' })).toBe('sk_custom')
+    expect(cloudAsrCredentialFor(mixed)).toBe('sk_bailian')
+  })
+
+  it('builds the DashScope generation URL from a Bailian origin', () => {
+    expect(bailianGenerationUrl('https://ws-test.cn-beijing.maas.aliyuncs.com/')).toBe(
+      'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+    )
+    expect(cloudAsrEndpointFor(settings({
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com'
+    }))).toContain('/api/v1/services/aigc/multimodal-generation/generation')
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
+      cloudAsrModel: 'fun-asr-flash',
+      cloudAsrBailianApiKey: 'sk_test'
+    }))).toBe(true)
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
+      cloudAsrModel: 'fun-asr-flash',
+      cloudAsrApiKey: 'gsk_other',
+      cloudAsrBailianApiKey: ''
+    }))).toBe(false)
+    expect(isCloudConfigurationValid(settings({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'http://ws-test.cn-beijing.maas.aliyuncs.com',
+      cloudAsrModel: 'qwen3-asr-flash'
+    }))).toBe(false)
   })
 })

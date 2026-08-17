@@ -5,8 +5,9 @@ export const SETTINGS_NAMESPACE = 'dsh-ears'
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'bailian', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
+export const BAILIAN_MAX_RECORDING_SECONDS = 300
 
 export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
@@ -19,7 +20,10 @@ export interface EarsSettings {
   localWhisperModel: WhisperModelId | string
   cloudAsrProvider: CloudAsrProviderId | string
   cloudAsrApiKey: string
+  cloudAsrCustomApiKey: string
+  cloudAsrBailianApiKey: string
   cloudAsrEndpoint: string
+  cloudAsrBailianHost: string
   cloudAsrModel: string
   language: string
   maxRecordingSeconds: number
@@ -37,7 +41,10 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   localWhisperModel: 'tiny',
   cloudAsrProvider: 'groq',
   cloudAsrApiKey: '',
+  cloudAsrCustomApiKey: '',
+  cloudAsrBailianApiKey: '',
   cloudAsrEndpoint: '',
+  cloudAsrBailianHost: '',
   cloudAsrModel: '',
   language: 'zh-CN',
   maxRecordingSeconds: 120,
@@ -82,14 +89,40 @@ export function isValidRecordingLimit(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 1 && value <= 600
 }
 
+/** Bailian public hosts must be HTTPS; loopback may use HTTP, matching custom endpoints. */
+export function isBailianAsrHost(value: string): boolean {
+  if (value.trim() === '') return false
+  try {
+    const url = new URL(value.trim())
+    if (url.username !== '' || url.password !== '') return false
+    const host = url.hostname.toLowerCase()
+    const loopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+    if (loopback) return url.protocol === 'https:' || url.protocol === 'http:'
+    return url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+export function effectiveRecordingSeconds(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'maxRecordingSeconds'>): number {
+  const limit = settings.maxRecordingSeconds
+  if (settings.asrBackend === 'cloud-openai' && settings.cloudAsrProvider === 'bailian') {
+    return Math.min(limit, BAILIAN_MAX_RECORDING_SECONDS)
+  }
+  return limit
+}
+
 export function validateEarsSettings(settings: EarsSettings): void {
   if (!(ASR_BACKEND_IDS as readonly string[]).includes(settings.asrBackend)) throw new Error('Unknown dsh-ears ASR backend')
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
   if (settings.cloudAsrApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears cloud ASR API key is too long')
+  if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom cloud ASR API key is too long')
+  if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
   if (settings.language.trim() === '') throw new Error('dsh-ears recognition language is required')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
+  if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
 }

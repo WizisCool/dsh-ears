@@ -135,6 +135,8 @@ describe('EarsSettingsController settings lifecycle', () => {
           writable: true,
           settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
           cloudAsrApiKeyConfigured: false,
+          cloudAsrCustomApiKeyConfigured: false,
+          cloudAsrBailianApiKeyConfigured: false,
           overridden: []
         }
       })
@@ -149,6 +151,8 @@ describe('EarsSettingsController settings lifecycle', () => {
           writable: true,
           settings: { ...DEFAULT_EARS_SETTINGS, language: 'ja-JP' },
           cloudAsrApiKeyConfigured: false,
+          cloudAsrCustomApiKeyConfigured: false,
+          cloudAsrBailianApiKeyConfigured: false,
           overridden: []
         }
       })
@@ -523,6 +527,11 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().clearApiKey()
       controller.actions().save()
       expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: '' })
+
+      controller.actions().setCustomApiKey('sk_custom')
+      controller.actions().setBailianApiKey('sk_bailian')
+      controller.actions().save()
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ cloudAsrCustomApiKey: 'sk_custom', cloudAsrBailianApiKey: 'sk_bailian' }))
     } finally {
       controller.dispose()
     }
@@ -630,6 +639,8 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     writable: true,
     settings: DEFAULT_EARS_SETTINGS,
     cloudAsrApiKeyConfigured: false,
+    cloudAsrCustomApiKeyConfigured: false,
+    cloudAsrBailianApiKeyConfigured: false,
     overridden: []
   }
   return {
@@ -663,6 +674,8 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     writable: true,
     settings,
     cloudAsrApiKeyConfigured: settings.cloudAsrApiKey.trim() !== '',
+    cloudAsrCustomApiKeyConfigured: settings.cloudAsrCustomApiKey.trim() !== '',
+    cloudAsrBailianApiKeyConfigured: settings.cloudAsrBailianApiKey.trim() !== '',
     overridden: []
   }
 }

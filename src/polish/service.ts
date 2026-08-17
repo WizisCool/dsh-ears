@@ -11,7 +11,8 @@ import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
-import { cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
+import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
+import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
@@ -51,6 +52,8 @@ export class PolishService extends TypertRemoteService {
         writable: false,
         settings: DEFAULT_EARS_SETTINGS,
         cloudAsrApiKeyConfigured: false,
+        cloudAsrCustomApiKeyConfigured: false,
+        cloudAsrBailianApiKeyConfigured: false,
         overridden: []
       }
     }
@@ -62,8 +65,10 @@ export class PolishService extends TypertRemoteService {
     return {
       available: true,
       writable: provider?.writable ?? false,
-      settings: { ...snapshot, cloudAsrApiKey: '' },
+      settings: { ...snapshot, cloudAsrApiKey: '', cloudAsrCustomApiKey: '', cloudAsrBailianApiKey: '' },
       cloudAsrApiKeyConfigured: snapshot.cloudAsrApiKey.trim() !== '',
+      cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
+      cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
       overridden: isRecord(user) ? Object.keys(user) : []
     }
   }
@@ -207,8 +212,19 @@ export class PolishService extends TypertRemoteService {
     if (model === '') throw new Error('The cloud ASR model is not configured')
     const providerEntry = cloudProviderEntry(settings.cloudAsrProvider)
     if (providerEntry === undefined) throw new Error(`Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`)
-    const credential = settings.cloudAsrApiKey.trim()
+    const credential = cloudAsrCredentialFor(settings)
     if (providerEntry.apiKeyRequired && credential === '') throw new Error('The cloud ASR API key is not configured')
+    if (providerEntry.protocol === 'dashscope-asr') {
+      return transcribeDashScopeAsr({
+        audio,
+        mimeType,
+        language: settings.language,
+        endpoint,
+        model,
+        credential,
+        signal
+      })
+    }
     return transcribeOpenAICompatible({
       audio,
       mimeType,

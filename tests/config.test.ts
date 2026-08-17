@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
+import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
   it('accepts HTTP(S) endpoints without embedded credentials', () => {
@@ -16,6 +16,29 @@ describe('dsh-ears settings validation', () => {
   it('bounds the inline cloud ASR API key length', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrCustomApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrBailianApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+  })
+
+  it('requires HTTPS for a public Bailian host and caps Bailian recordings at 300 seconds', () => {
+    expect(isBailianAsrHost('https://ws-test.cn-beijing.maas.aliyuncs.com')).toBe(true)
+    expect(isBailianAsrHost('http://ws-test.cn-beijing.maas.aliyuncs.com')).toBe(false)
+    expect(isBailianAsrHost('http://127.0.0.1:8080')).toBe(true)
+    expect(() => validateEarsSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'http://ws-test.cn-beijing.maas.aliyuncs.com'
+    })).toThrow('Bailian ASR host')
+    expect(effectiveRecordingSeconds({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'bailian',
+      maxRecordingSeconds: 600
+    })).toBe(BAILIAN_MAX_RECORDING_SECONDS)
+    expect(effectiveRecordingSeconds({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'groq',
+      maxRecordingSeconds: 600
+    })).toBe(600)
   })
 
   it('defaults the custom polish prompt to empty (built-in prompt) and bounds it trim-based at 4000 units', () => {

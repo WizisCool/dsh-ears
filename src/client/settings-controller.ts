@@ -1,7 +1,7 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, isBailianAsrHost, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import { shortcutRejectReason } from '../shortcut.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
@@ -31,7 +31,14 @@ export interface EarsCardState {
   cloudAsrApiKey: FieldState
   cloudAsrApiKeyConfigured: boolean
   cloudAsrApiKeyClearPending: boolean
+  cloudAsrCustomApiKey: FieldState
+  cloudAsrCustomApiKeyConfigured: boolean
+  cloudAsrCustomApiKeyClearPending: boolean
+  cloudAsrBailianApiKey: FieldState
+  cloudAsrBailianApiKeyConfigured: boolean
+  cloudAsrBailianApiKeyClearPending: boolean
   cloudAsrEndpoint: FieldState
+  cloudAsrBailianHost: FieldState
   cloudAsrModel: FieldState
   language: FieldState
   maxRecordingSeconds: FieldState
@@ -100,7 +107,7 @@ export class EarsSettingsController {
   private readonly cloudAsrModels = new Map<string, string>()
   private readonly polishModels = new Map<string, string>()
   private readonly polishReasoningEfforts = new Map<string, string>()
-  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, overridden: [] }
+  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrApiKeyConfigured: false, cloudAsrCustomApiKeyConfigured: false, cloudAsrBailianApiKeyConfigured: false, overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
@@ -112,6 +119,8 @@ export class EarsSettingsController {
   private loadFailed = false
   private failed = false
   private clearKeyPending = false
+  private clearCustomKeyPending = false
+  private clearBailianKeyPending = false
   private saveTimer: ReturnType<typeof setTimeout> | undefined
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
@@ -153,6 +162,12 @@ export class EarsSettingsController {
       setApiKey: (text: string) => this.edit('cloudAsrApiKey', text),
       clearApiKey: () => this.clearApiKey(),
       undoClearApiKey: () => this.undoClearApiKey(),
+      setCustomApiKey: (text: string) => this.edit('cloudAsrCustomApiKey', text),
+      clearCustomApiKey: () => this.clearNamedApiKey('custom'),
+      undoClearCustomApiKey: () => this.undoClearNamedApiKey('custom'),
+      setBailianApiKey: (text: string) => this.edit('cloudAsrBailianApiKey', text),
+      clearBailianApiKey: () => this.clearNamedApiKey('bailian'),
+      undoClearBailianApiKey: () => this.undoClearNamedApiKey('bailian'),
       save: () => void this.save(),
       flush: () => void this.save(),
       discard: () => this.discard(),
@@ -518,16 +533,18 @@ export class EarsSettingsController {
       this.drafts.set('cloudAsrModel', this.cloudAsrModelForProvider(text.trim()))
     } else if (field === 'cloudAsrModel') {
       this.rememberCloudAsrModel(this.currentCloudAsrProvider(), text)
-    } else if (field === 'cloudAsrApiKey') {
+    } else if (field === 'cloudAsrApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey') {
       if (text.trim() === '') {
-        this.drafts.delete('cloudAsrApiKey')
+        this.drafts.delete(field)
         this.failed = false
         this.publishCard()
         if (this.hasPersistableDrafts()) this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
         else this.cancelScheduledSave()
         return
       }
-      this.clearKeyPending = false
+      if (field === 'cloudAsrApiKey') this.clearKeyPending = false
+      if (field === 'cloudAsrCustomApiKey') this.clearCustomKeyPending = false
+      if (field === 'cloudAsrBailianApiKey') this.clearBailianKeyPending = false
     }
     this.drafts.set(field, text)
     this.failed = false
@@ -550,8 +567,31 @@ export class EarsSettingsController {
 
   /** Undo a staged clear that has not been submitted yet. */
   private undoClearApiKey(): void {
+    this.undoClearNamedApiKey('groq')
+  }
+
+  private clearNamedApiKey(which: 'groq' | 'custom' | 'bailian'): void {
+    if (this.disposed) return
+    if (which === 'groq') {
+      this.clearKeyPending = true
+      this.drafts.delete('cloudAsrApiKey')
+    } else if (which === 'custom') {
+      this.clearCustomKeyPending = true
+      this.drafts.delete('cloudAsrCustomApiKey')
+    } else {
+      this.clearBailianKeyPending = true
+      this.drafts.delete('cloudAsrBailianApiKey')
+    }
+    this.failed = false
+    this.publishCard()
+    this.scheduleSave(0)
+  }
+
+  private undoClearNamedApiKey(which: 'groq' | 'custom' | 'bailian'): void {
     if (this.disposed || this.saving) return
-    this.clearKeyPending = false
+    if (which === 'groq') this.clearKeyPending = false
+    else if (which === 'custom') this.clearCustomKeyPending = false
+    else this.clearBailianKeyPending = false
     this.failed = false
     if (this.drafts.size === 0) this.cancelScheduledSave()
     this.publishCard()
@@ -566,6 +606,8 @@ export class EarsSettingsController {
     this.resetCloudAsrModels()
     this.resetPolishSelections()
     this.clearKeyPending = false
+    this.clearCustomKeyPending = false
+    this.clearBailianKeyPending = false
     this.failed = false
     this.publishCard()
   }
@@ -605,10 +647,12 @@ export class EarsSettingsController {
       }
     }
     const submittedClear = this.clearKeyPending
-    if (submittedClear) {
-      (patch as Record<string, unknown>).cloudAsrApiKey = ''
-    }
-    if (submittedDrafts.size === 0 && !submittedClear) return
+    const submittedCustomClear = this.clearCustomKeyPending
+    const submittedBailianClear = this.clearBailianKeyPending
+    if (submittedClear) (patch as Record<string, unknown>).cloudAsrApiKey = ''
+    if (submittedCustomClear) (patch as Record<string, unknown>).cloudAsrCustomApiKey = ''
+    if (submittedBailianClear) (patch as Record<string, unknown>).cloudAsrBailianApiKey = ''
+    if (submittedDrafts.size === 0 && !submittedClear && !submittedCustomClear && !submittedBailianClear) return
     this.saving = true
     this.saveQueued = false
     this.failed = false
@@ -617,7 +661,10 @@ export class EarsSettingsController {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
-      const cloudRelevant = submittedClear || submittedDrafts.has('cloudAsrApiKey')
+      const cloudRelevant = submittedClear || submittedCustomClear || submittedBailianClear
+        || submittedDrafts.has('cloudAsrApiKey')
+        || submittedDrafts.has('cloudAsrCustomApiKey')
+        || submittedDrafts.has('cloudAsrBailianApiKey')
       this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
       this.settingsView = result.value
       this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, result.value.settings.cloudAsrModel)
@@ -626,6 +673,8 @@ export class EarsSettingsController {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
       }
       if (submittedClear && this.clearKeyPending) this.clearKeyPending = false
+      if (submittedCustomClear && this.clearCustomKeyPending) this.clearCustomKeyPending = false
+      if (submittedBailianClear && this.clearBailianKeyPending) this.clearBailianKeyPending = false
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
     } catch {
@@ -642,7 +691,7 @@ export class EarsSettingsController {
   }
 
   private hasPersistableDrafts(): boolean {
-    if (this.clearKeyPending) return true
+    if (this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending) return true
     for (const [field, text] of this.drafts.entries()) {
       if (!isInvalid(field, text)) return true
     }
@@ -658,7 +707,10 @@ export class EarsSettingsController {
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
     const cloudAsrApiKey = field('cloudAsrApiKey', this.drafts.get('cloudAsrApiKey') ?? '')
+    const cloudAsrCustomApiKey = field('cloudAsrCustomApiKey', this.drafts.get('cloudAsrCustomApiKey') ?? '')
+    const cloudAsrBailianApiKey = field('cloudAsrBailianApiKey', this.drafts.get('cloudAsrBailianApiKey') ?? '')
     const cloudAsrEndpoint = field('cloudAsrEndpoint', this.drafts.get('cloudAsrEndpoint') ?? current.cloudAsrEndpoint)
+    const cloudAsrBailianHost = field('cloudAsrBailianHost', this.drafts.get('cloudAsrBailianHost') ?? current.cloudAsrBailianHost)
     const cloudAsrModel = field('cloudAsrModel', this.drafts.get('cloudAsrModel') ?? current.cloudAsrModel)
     const language = field('language', this.drafts.get('language') ?? current.language)
     const maxRecordingSeconds = field('maxRecordingSeconds', this.drafts.get('maxRecordingSeconds') ?? String(current.maxRecordingSeconds))
@@ -669,7 +721,7 @@ export class EarsSettingsController {
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
-    const stagedFields = [asrBackend, localWhisperModel, cloudAsrProvider, cloudAsrApiKey, cloudAsrEndpoint, cloudAsrModel, language, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
+    const stagedFields = [asrBackend, localWhisperModel, cloudAsrProvider, cloudAsrApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrEndpoint, cloudAsrBailianHost, cloudAsrModel, language, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -677,7 +729,7 @@ export class EarsSettingsController {
       loadFailed: this.loadFailed,
       saving: this.saving,
       failed: this.failed,
-      dirty: this.drafts.size > 0 || this.clearKeyPending,
+      dirty: this.drafts.size > 0 || this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending,
       invalid: stagedFields.some((candidate) => candidate.invalid),
       asrBackend,
       localWhisperModel,
@@ -685,7 +737,14 @@ export class EarsSettingsController {
       cloudAsrApiKey,
       cloudAsrApiKeyConfigured: this.settingsView.cloudAsrApiKeyConfigured,
       cloudAsrApiKeyClearPending: this.clearKeyPending,
+      cloudAsrCustomApiKey,
+      cloudAsrCustomApiKeyConfigured: this.settingsView.cloudAsrCustomApiKeyConfigured,
+      cloudAsrCustomApiKeyClearPending: this.clearCustomKeyPending,
+      cloudAsrBailianApiKey,
+      cloudAsrBailianApiKeyConfigured: this.settingsView.cloudAsrBailianApiKeyConfigured,
+      cloudAsrBailianApiKeyClearPending: this.clearBailianKeyPending,
       cloudAsrEndpoint,
+      cloudAsrBailianHost,
       cloudAsrModel,
       language,
       maxRecordingSeconds,
@@ -711,10 +770,14 @@ function isInvalid(field: FieldName, text: string): boolean {
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrProvider') return !(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(text)
-  if (field === 'cloudAsrApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
+  if (field === 'cloudAsrApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
   if (field === 'cloudAsrEndpoint') {
     if (text.trim() === '') return false
     return !isHttpEndpoint(text)
+  }
+  if (field === 'cloudAsrBailianHost') {
+    if (text.trim() === '') return false
+    return !isBailianAsrHost(text)
   }
   if (field === 'cloudAsrModel') return false
   if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort' || field === 'polishPrompt') {

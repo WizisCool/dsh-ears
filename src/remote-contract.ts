@@ -13,7 +13,10 @@ export const earsSettingsSchema = z.object({
   localWhisperModel: z.string(),
   cloudAsrProvider: z.string(),
   cloudAsrApiKey: z.string(),
+  cloudAsrCustomApiKey: z.string(),
+  cloudAsrBailianApiKey: z.string(),
   cloudAsrEndpoint: z.string(),
+  cloudAsrBailianHost: z.string(),
   cloudAsrModel: z.string(),
   language: z.string(),
   maxRecordingSeconds: z.number(),
@@ -31,7 +34,10 @@ export const earsSettingsPatchSchema = z.object({
   localWhisperModel: whisperModelSchema.optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
   cloudAsrApiKey: z.string().max(1024).optional(),
+  cloudAsrCustomApiKey: z.string().max(1024).optional(),
+  cloudAsrBailianApiKey: z.string().max(1024).optional(),
   cloudAsrEndpoint: z.string().optional(),
+  cloudAsrBailianHost: z.string().optional(),
   cloudAsrModel: z.string().optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
@@ -49,6 +55,8 @@ export const earsSettingsViewSchema = z.object({
   writable: z.boolean(),
   settings: earsSettingsSchema,
   cloudAsrApiKeyConfigured: z.boolean(),
+  cloudAsrCustomApiKeyConfigured: z.boolean(),
+  cloudAsrBailianApiKeyConfigured: z.boolean(),
   overridden: z.array(z.string())
 })
 
@@ -101,6 +109,8 @@ export type EarsSettingsView = {
   writable: boolean
   settings: EarsSettings
   cloudAsrApiKeyConfigured: boolean
+  cloudAsrCustomApiKeyConfigured: boolean
+  cloudAsrBailianApiKeyConfigured: boolean
   overridden: string[]
 }
 export type { PolishRoute }
