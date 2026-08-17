@@ -53,6 +53,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- The composer microphone and the dsh-ear settings page no longer crash on render: the UI-locale hook now calls `locale.subscribe` as a method instead of passing the unbound function.
 - Clicking the microphone and stopping without speaking no longer shows `请检查配置后重试`. Empty transcripts and `no-speech` just close the bar.
 - Upstream ASR and polish failures stay on the bar as a red `语音识别上游错误：` / `润色上游错误：` line with the raw service code, then dismiss themselves. Configuration problems stay amber.
 - Recognition and polish errors on the status bar now dismiss themselves after a short delay, so a failed attempt no longer occupies the composer. Empty Bailian / cloud transcripts use the same path, with amber `请检查配置后重试` copy instead of a sticky red `语音输入失败，点击重试`.

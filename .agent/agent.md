@@ -6,8 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
-- Latest code commit: pending locale subscribe this-binding fix.
-- Latest commit: `d90bb24 docs: record silent-recording handling and locale-follow language`.
+- Latest code commit: `3c6773b fix(client): keep locale.subscribe bound when reading the UI language`.
+- Latest commit: `3c6773b fix(client): keep locale.subscribe bound when reading the UI language`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -339,7 +339,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Unfinished: refresh the existing Web UI (client-only). D-018 and live smokes remain pending.
 - Blocked: none.
 - Next: refresh `http://127.0.0.1:3080`; no Host restart required for this fix.
-- Commit: this turn’s `fix(client)` commit.
+- Commit: `3c6773b fix(client): keep locale.subscribe bound when reading the UI language`.
 
 ## Silent-recording and locale-follow language (2026-08-18)
 
