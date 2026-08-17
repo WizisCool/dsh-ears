@@ -205,6 +205,60 @@
   cursor: default;
 }
 
+.promptControl {
+  width: 240px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.promptInput {
+  width: 100%;
+  height: auto;
+  min-height: 84px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 20px;
+}
+
+.promptMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.promptCount {
+  margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  margin-right: auto;
+}
+
+.promptCountOver {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.promptDefault {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  padding: 8px 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .statusError {
   margin: 0;
   color: var(--dsw-alias-state-error-primary);
@@ -469,8 +523,13 @@
 
   .selector,
   .textInput,
-  .keyControl {
+  .keyControl,
+  .promptControl {
     width: 100%;
+  }
+
+  .promptMeta {
+    flex-wrap: wrap;
   }
 
   .shortcutControl {

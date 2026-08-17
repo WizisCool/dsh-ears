@@ -4,9 +4,10 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS } from '../config.js'
+import { ASR_BACKEND_IDS, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
+import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { formatModifierChord, formatShortcut, isModifierKeyEvent, isReservedShortcut, modifiersFromEvent, shortcutFromEvent, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier } from '../shortcut.js'
 import type { WhisperModelState } from '../remote-contract.js'
@@ -16,6 +17,7 @@ import styles from './SettingsSection.module.css'
 export const LOCALE_NAMESPACE = 'settings.dshEars'
 
 export const localeZh = {
+  polishPrompt: '润色提示词', polishPromptHint: '自定义润色系统提示词；留空使用内置默认。无论内容如何，输出始终只返回润色后的文本。', promptPlaceholder: '输入自定义润色提示词…', promptViewDefault: '查看默认', promptHideDefault: '收起', promptReset: '恢复默认', promptTooLong: '自定义润色提示词不能超过 4000 个字符',
   voiceStart: '开始语音输入',
   voiceStop: '停止语音输入',
   voiceRecording: '正在识别',
@@ -30,6 +32,7 @@ export const localeZh = {
 } as const
 
 export const localeEn = {
+  polishPrompt: 'Polish prompt', polishPromptHint: 'Custom polish system prompt; leave blank to use the built-in default. Whatever you write, the output is always the polished text only.', promptPlaceholder: 'Type your custom polish prompt…', promptViewDefault: 'View default', promptHideDefault: 'Hide', promptReset: 'Reset to default', promptTooLong: 'The custom polish prompt cannot exceed 4000 characters',
   voiceStart: 'Start voice input',
   voiceStop: 'Stop voice input',
   voiceRecording: 'Listening',
@@ -184,6 +187,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             {state.polishProvider.text !== '' && state.polishModel.text !== '' && (reasoning.status === 'loading' || reasoning.efforts.length > 0) ? (
               <SelectRow label={t('reasoningEffort')} hint={t('reasoningEffortHint')} value={reasoning.efforts.some((effort) => effort.id === state.polishReasoningEffort.text) ? state.polishReasoningEffort.text : ''} options={[['', t('defaultEffort')], ...reasoning.efforts.map((effort) => [effort.id, effort.name] as [string, string])]} disabled={!state.writable || reasoning.status === 'loading'} invalid={state.polishReasoningEffort.invalid} onChange={(value) => props.edit('polishReasoningEffort', value)} />
             ) : null}
+            <PromptRow label={t('polishPrompt')} hint={t('polishPromptHint')} value={state.polishPrompt.text} disabled={!state.writable} invalid={state.polishPrompt.invalid} defaultValue={POLISH_SYSTEM_PROMPT} t={t} onChange={(value) => props.edit('polishPrompt', value)} onReset={() => props.edit('polishPrompt', DEFAULT_EARS_SETTINGS.polishPrompt)} />
           </> : null}
         </div>
       )}
@@ -328,6 +332,34 @@ function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: {
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
       <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-label={label} aria-invalid={invalid} onChange={onChange} />
+    </RowField>
+  )
+}
+
+function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onChange, onReset }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; defaultValue: string; t: Translate; onChange: (value: string) => void; onReset: () => void }) {
+  const [showDefault, setShowDefault] = useState(false)
+  const length = value.trim().length
+  const over = length > MAX_POLISH_PROMPT_LENGTH
+  return (
+    <RowField label={label} hint={over ? t('promptTooLong') : hint} invalid={invalid} alert={over}>
+      <div className={styles.promptControl}>
+        <textarea
+          className={`${styles.textInput} ${styles.promptInput}`}
+          value={value}
+          disabled={disabled}
+          aria-label={label}
+          aria-invalid={invalid}
+          placeholder={t('promptPlaceholder')}
+          spellCheck={false}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <div className={styles.promptMeta}>
+          <p className={`${styles.promptCount} ${over ? styles.promptCountOver : ''}`}>{`${length} / ${MAX_POLISH_PROMPT_LENGTH}`}</p>
+          <button type="button" className={styles.shortcutAction} disabled={disabled} onClick={() => setShowDefault((current) => !current)}>{t(showDefault ? 'promptHideDefault' : 'promptViewDefault')}</button>
+          <button type="button" className={styles.shortcutAction} disabled={disabled || value.trim() === ''} onClick={onReset}>{t('promptReset')}</button>
+        </div>
+        {showDefault ? <pre className={styles.promptDefault}>{defaultValue}</pre> : null}
+      </div>
     </RowField>
   )
 }

@@ -45,7 +45,8 @@ const cardState: EarsCardState = {
   polishingEnabled: field('off'),
   polishProvider: field(''),
   polishModel: field(''),
-  polishReasoningEffort: field('')
+  polishReasoningEffort: field(''),
+  polishPrompt: field('')
 }
 
 describe('EarsSettingsSection lifecycle', () => {

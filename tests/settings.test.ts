@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from '../src/config.js'
 import type { EarsSettings } from '../src/config.js'
 import { EarsSettingsController } from '../src/client/settings-controller.js'
 import { localeEn, localeZh } from '../src/client/settings.js'
@@ -664,6 +664,53 @@ describe('EarsSettingsController voice shortcut fields', () => {
     expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('ctrl+shift+space')
     expect(controller.getCardStore().getSnapshot().voiceShortcutEnabled.text).toBe('on')
     expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(false)
+    controller.dispose()
+  })
+})
+
+describe('EarsSettingsController custom polish prompt', () => {
+  it('stages and saves a custom polish prompt as a plain string', async () => {
+    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishPrompt', 'Polish like a friend.')
+    expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+    await controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ polishPrompt: 'Polish like a friend.' })
+    controller.dispose()
+  })
+
+  it('writes an empty draft as an explicit clear back to the built-in default', async () => {
+    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishPrompt', '')
+    await controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ polishPrompt: '' })
+    controller.dispose()
+  })
+
+  it('flags an over-length prompt invalid and blocks the whole save', async () => {
+    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishPrompt', 'p'.repeat(MAX_POLISH_PROMPT_LENGTH + 1))
+    const over = controller.getCardStore().getSnapshot()
+    expect(over.polishPrompt.invalid).toBe(true)
+    expect(over.invalid).toBe(true)
+
+    controller.actions().edit('polishPrompt', 'p'.repeat(MAX_POLISH_PROMPT_LENGTH))
+    const within = controller.getCardStore().getSnapshot()
+    expect(within.polishPrompt.invalid).toBe(false)
+    expect(within.invalid).toBe(false)
+
+    await controller.actions().save()
+    expect(updateSettings).toHaveBeenCalledWith({ polishPrompt: 'p'.repeat(MAX_POLISH_PROMPT_LENGTH) })
     controller.dispose()
   })
 })
