@@ -51,6 +51,7 @@ const cardState: EarsCardState = {
   maxRecordingSeconds: field('120'),
   voiceShortcutEnabled: field('on'),
   voiceShortcut: field('ctrl+shift+space'),
+  voiceSoundsEnabled: field('on'),
   polishingEnabled: field('off'),
   polishProvider: field(''),
   polishModel: field(''),

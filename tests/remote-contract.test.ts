@@ -64,6 +64,7 @@ describe('settings Remote contract', () => {
         maxRecordingSeconds: 120,
         voiceShortcutEnabled: true,
         voiceShortcut: 'ctrl+shift+space',
+        voiceSoundsEnabled: true,
         polishingEnabled: true,
         polishProvider: '',
         polishModel: '',

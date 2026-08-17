@@ -16,6 +16,7 @@ import type { Translate } from './settings.js'
 import { localeEn } from './settings.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
+import { playClick, playRecognitionChime, resumeSounds, retainSounds } from './sounds.js'
 import { useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 
 type VoiceInputButtonProps = {
@@ -112,6 +113,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   useEffect(() => {
     mountedRef.current = true
+    const releaseSounds = retainSounds()
     return () => {
       mountedRef.current = false
       stopRecordingRef.current = null
@@ -125,6 +127,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
       clearRecordingTimer(recordingTimerRef)
+      releaseSounds()
     }
   }, [voiceSession])
 
@@ -238,6 +241,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       speechSessionRef.current = session
       session.start()
       setState('recording')
+      playListeningChime(settingsRef.current)
       armRecordingTimer(recordingTimerRef, settingsRef.current.maxRecordingSeconds, () => session.stop())
     } catch {
       levelMonitorRef.current?.stop()
@@ -250,6 +254,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const stopRecording = async () => {
     clearRecordingTimer(recordingTimerRef)
     if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null) {
+      playToggleClick(settingsRef.current, 0.4)
       mediaStartCancelledRef.current = true
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
@@ -257,11 +262,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       return
     }
     if (speechSessionRef.current !== null) {
+      playToggleClick(settingsRef.current, 0.4)
       speechSessionRef.current.stop()
       return
     }
     const session = mediaSessionRef.current
     if (session === null) return
+    playToggleClick(settingsRef.current, 0.4)
     mediaSessionRef.current = null
     levelMonitorRef.current?.stop()
     levelMonitorRef.current = null
@@ -323,6 +330,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       mediaStartedAtRef.current = Date.now()
       session.start()
       setState('recording')
+      playListeningChime(settingsRef.current)
       armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
       try {
         levelMonitorRef.current = session.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
@@ -342,17 +350,20 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const prewarmMicrophone = () => {
+    if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
     if (active || busy) return
     if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') return
     warmMicrophone()
   }
 
   const toggle = () => {
+    if (settingsRef.current.voiceSoundsEnabled !== false) resumeSounds()
     if (active) {
       void stopRecording()
       return
     }
     if (busy) return
+    playToggleClick(settingsRef.current, 0.5)
 
     if (normalizeBackend(settingsRef.current.asrBackend) === 'web-speech') {
       void startWebSpeech()
@@ -405,6 +416,16 @@ function clearRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> 
   if (timerRef.current === null) return
   clearTimeout(timerRef.current)
   timerRef.current = null
+}
+
+function playToggleClick(settings: EarsSettings, intensity: number): void {
+  if (settings.voiceSoundsEnabled === false) return
+  playClick(intensity)
+}
+
+function playListeningChime(settings: EarsSettings): void {
+  if (settings.voiceSoundsEnabled === false) return
+  playRecognitionChime()
 }
 
 function normalizeBackend(value: string): AsrBackendId {

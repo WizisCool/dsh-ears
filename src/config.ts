@@ -31,6 +31,7 @@ export interface EarsSettings {
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
+  voiceSoundsEnabled: boolean
   polishingEnabled: boolean
   polishProvider: string
   polishModel: string
@@ -54,6 +55,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
+  voiceSoundsEnabled: true,
   polishingEnabled: false,
   polishProvider: '',
   polishModel: '',

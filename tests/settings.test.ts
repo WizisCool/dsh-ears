@@ -708,6 +708,19 @@ describe('EarsSettingsController voice shortcut fields', () => {
     controller.dispose()
   })
 
+  it('defaults voice sounds on and saves the off switch', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().voiceSoundsEnabled.text).toBe('on')
+    controller.actions().edit('voiceSoundsEnabled', 'off')
+    await controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({ voiceSoundsEnabled: false })
+    controller.dispose()
+  })
+
   it('saves valid fields while an invalid shortcut draft stays local', async () => {
     const updateSettings = vi.fn(async (patch: Record<string, unknown>) => ({
       ok: true as const,

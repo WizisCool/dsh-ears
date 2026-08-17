@@ -7,6 +7,7 @@ import { TYPERT_REMOTE } from '../remote.js'
 import { MicrophoneButton } from './MicrophoneButton.js'
 import { VoiceRecognitionBar } from './VoiceRecognitionBar.js'
 import { releaseWarmedMicrophone } from '../asr/media-recorder.js'
+import { disposeSounds } from './sounds.js'
 import { VoiceInputSession } from './voice-session.js'
 import { EarsSettingsController, EMPTY_WHISPER_STATE, type BackendState, type CloudModelsView, type WhisperModelView } from './settings-controller.js'
 import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, createSnapshotHook, localeEn, localeZh } from './settings.js'
@@ -52,6 +53,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       for (const session of voiceSessions.values()) session.dispose()
       voiceSessions.clear()
       releaseWarmedMicrophone()
+      disposeSounds()
       settingsController.dispose()
     }, 'dsh-ears settings controller lifecycle')
 

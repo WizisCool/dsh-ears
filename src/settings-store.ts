@@ -9,6 +9,7 @@ export type StoredEarsSettings = {
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
+  voiceSoundsEnabled: boolean
   cloudAsrProvider: string
   groq: { apiKey: string; model: string }
   customOpenAi: { apiKey: string; endpoint: string; model: string }
@@ -53,6 +54,7 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
       : DEFAULT_EARS_SETTINGS.maxRecordingSeconds,
     voiceShortcutEnabled: record.voiceShortcutEnabled === false ? false : DEFAULT_EARS_SETTINGS.voiceShortcutEnabled,
     voiceShortcut: text(record.voiceShortcut) || DEFAULT_EARS_SETTINGS.voiceShortcut,
+    voiceSoundsEnabled: record.voiceSoundsEnabled === false ? false : DEFAULT_EARS_SETTINGS.voiceSoundsEnabled,
     polishingEnabled: record.polishingEnabled === true,
     polishProvider: text(record.polishProvider),
     polishModel: text(record.polishModel),
@@ -69,6 +71,7 @@ export function unflattenEarsSettings(settings: EarsSettings): StoredEarsSetting
     maxRecordingSeconds: settings.maxRecordingSeconds,
     voiceShortcutEnabled: settings.voiceShortcutEnabled,
     voiceShortcut: settings.voiceShortcut,
+    voiceSoundsEnabled: settings.voiceSoundsEnabled,
     cloudAsrProvider: settings.cloudAsrProvider,
     groq: { apiKey: settings.cloudAsrGroqApiKey, model: settings.cloudAsrGroqModel },
     customOpenAi: {
