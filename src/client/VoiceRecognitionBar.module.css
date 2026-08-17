@@ -83,6 +83,10 @@
 }
 
 .root[data-state='error'] .label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--dsw-alias-state-warn-label);
 }
 
@@ -95,16 +99,17 @@
 
 .root[data-state='upstream-error'] .label,
 .root[data-state='polish-error'] .label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--dsw-alias-state-error-primary);
 }
 
 .label {
-  min-width: 0;
-  flex: 1 1 auto;
+  flex: none;
   color: var(--dsw-alias-label-primary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .waveform {

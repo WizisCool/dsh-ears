@@ -53,6 +53,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- The live recognition waveform again fills the bar after the status label: a previous overflow tweak had made the label grow and pushed a smaller waveform to the right.
 - The composer microphone and the dsh-ear settings page no longer crash on render: the UI-locale hook now calls `locale.subscribe` as a method instead of passing the unbound function.
 - Clicking the microphone and stopping without speaking no longer shows `请检查配置后重试`. Empty transcripts and `no-speech` just close the bar.
 - Upstream ASR and polish failures stay on the bar as a red `语音识别上游错误：` / `润色上游错误：` line with the raw service code, then dismiss themselves. Configuration problems stay amber.

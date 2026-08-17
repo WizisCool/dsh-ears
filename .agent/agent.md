@@ -6,8 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
-- Latest code commit: `3c6773b fix(client): keep locale.subscribe bound when reading the UI language`.
-- Latest commit: `3c6773b fix(client): keep locale.subscribe bound when reading the UI language`.
+- Latest code commit: pending waveform layout restore.
+- Latest commit: `ff36cf5 docs: record the locale.subscribe render crash`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -331,6 +331,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
+
+## Waveform layout restore (2026-08-18)
+
+- Completed: the recognition-bar status label no longer grows (`flex: none` again), so the live waveform fills the remaining width instead of sitting small and right-shifted. Long error copy still ellipsizes because those states hide the waveform.
+- Validation: `pnpm build` passed.
+- Unfinished: refresh the existing Web UI (client-only). D-018 and live smokes remain pending.
+- Blocked: none.
+- Next: refresh to inspect the waveform; no Host restart.
+- Commit: this turn’s `fix(client)` commit.
 
 ## Locale subscribe crash (2026-08-18)
 
