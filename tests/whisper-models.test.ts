@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { executableSuffixes, parseDownloadProgress, pythonCandidates, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
+import { readShebangInterpreter } from '../src/asr/whisper-discovery.js'
 
 describe('whisper download progress parsing', () => {
   it('extracts percent and sizes from a tqdm line', () => {
@@ -48,6 +49,23 @@ describe('windows executable discovery', () => {
   it('leaves commands with extensions and POSIX probing untouched', () => {
     expect(executableSuffixes('python.exe', 'win32', '.EXE;.CMD')).toEqual([''])
     expect(executableSuffixes('python3', 'darwin', undefined)).toEqual([''])
+  })
+})
+
+describe('whisper shebang discovery', () => {
+  it('reads only the interpreter from a shebang line', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-shebang-'))
+    const script = join(directory, 'whisper')
+    const leftover = join(directory, 'not-a-script')
+    try {
+      await writeFile(script, '#!/usr/bin/env python3\nprint("ok")\n')
+      await writeFile(leftover, 'this is not a shebang\n')
+      await expect(readShebangInterpreter(script)).resolves.toBe('python3')
+      await expect(readShebangInterpreter(leftover)).resolves.toBeUndefined()
+      await expect(readShebangInterpreter(join(directory, 'missing'))).resolves.toBeUndefined()
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 })
 
@@ -191,6 +209,23 @@ describe('whisper model lifecycle', () => {
       expect(state.downloaded).toBe(false)
       expect(state.error).toBeNull()
       await waitForGone(join(cacheDir, 'whisper', 'tiny.pt.dsh-ears-done'))
+    } finally {
+      manager.dispose()
+      await rm(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a second download while another model is still downloading', async () => {
+    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_SLOW: '1' })
+    const manager = new WhisperModels({ env })
+    try {
+      await manager.downloadWhisperModel('tiny', true)
+      await waitForState(manager, (state) => state.downloading)
+      const blocked = await manager.downloadWhisperModel('base', true)
+      expect(blocked.downloading).toBe(true)
+      expect(blocked.error).toBe('Another Whisper model is already downloading.')
+      const tiny = await manager.getWhisperModelState('tiny', true)
+      expect(tiny.downloading).toBe(true)
     } finally {
       manager.dispose()
       await rm(cacheDir, { recursive: true, force: true })

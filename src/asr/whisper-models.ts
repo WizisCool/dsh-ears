@@ -1,8 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { access, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { access, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
+import { executableSuffixes, pathDelimiter, pythonCandidates, readShebangInterpreter } from './whisper-discovery.js'
+import { parseDownloadProgress } from './whisper-progress.js'
+
+export { executableSuffixes, pythonCandidates } from './whisper-discovery.js'
+export { parseDownloadProgress } from './whisper-progress.js'
 
 const STATE_COMMAND_TIMEOUT_MS = 15_000
 const PROBE_COMMAND_TIMEOUT_MS = 5_000
@@ -51,26 +56,6 @@ const EMPTY_STATE: WhisperModelState = Object.freeze({
   totalBytes: null,
   error: null
 })
-
-function pathDelimiter(platform: NodeJS.Platform): string {
-  return platform === 'win32' ? ';' : ':'
-}
-
-export function pythonCandidates(platform: NodeJS.Platform): readonly string[] {
-  return platform === 'win32' ? ['python.exe', 'py.exe'] : ['python3', 'python']
-}
-
-/**
- * Suffixes to try when probing an executable on PATH. Windows launchers such
- * as `py` live on disk as `py.exe`, so extension-less commands are also tried
- * against every PATHEXT entry (defaulting to the Windows list when unset).
- */
-export function executableSuffixes(command: string, platform: NodeJS.Platform, pathext: string | undefined): readonly string[] {
-  if (platform !== 'win32') return ['']
-  if (command.includes('.')) return ['']
-  const extensions = (pathext ?? '.COM;.EXE;.BAT;.CMD').split(';')
-  return ['', ...extensions.filter((extension) => extension !== '')]
-}
 
 export interface WhisperModelsOptions {
   readonly platform?: NodeJS.Platform
@@ -593,45 +578,4 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false
   }
-}
-
-async function readShebangInterpreter(executablePath: string): Promise<string | undefined> {
-  try {
-    const head = (await readFile(executablePath)).subarray(0, 512).toString('utf8')
-    const firstLine = head.split('\n', 1)[0] ?? ''
-    if (!firstLine.startsWith('#!')) return undefined
-    const parts = firstLine.slice(2).trim().split(/\s+/)
-    if (parts.length === 0) return undefined
-    if (parts[0] === 'env' || parts[0].endsWith('/env')) return parts[1]
-    return parts[0]
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Parse tqdm-style download progress text (`42%|██ | 63.2M/150M [...]`).
- * @param text - one stderr chunk; may contain carriage-return updates.
- * @returns the last progress tuple found in the chunk.
- */
-export function parseDownloadProgress(text: string): { percent: number | null; bytes: number | null; totalBytes: number | null } {
-  const lines = text.split(/[\r\n]+/)
-  let percent: number | null = null
-  let bytes: number | null = null
-  let totalBytes: number | null = null
-  for (const line of lines) {
-    const match = /(\d+)%\|[^|]*\|\s*([\d.]+)\s*([KMGT]?)(?:i?B)?\/([\d.]+)\s*([KMGT]?)(?:i?B)?/.exec(line)
-    if (match === null) continue
-    percent = Number(match[1]) / 100
-    bytes = parseSize(match[2], match[3])
-    totalBytes = parseSize(match[4], match[5])
-  }
-  return { percent, bytes, totalBytes }
-}
-
-function parseSize(value: string, unit: string): number | null {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return null
-  const multiplier = unit === 'K' ? 1024 : unit === 'M' ? 1024 * 1024 : unit === 'G' ? 1024 * 1024 * 1024 : unit === 'T' ? 1024 ** 4 : 1
-  return Math.round(number * multiplier)
 }
