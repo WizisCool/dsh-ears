@@ -45,6 +45,10 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - In-page voice-input keyboard shortcut (D-028): default `Ctrl+Shift+Space` on all three platforms starts/stops voice input while the dsh page is focused and the composer is visible without a modal overlay; recording press stops and transcribes, transcribing/polishing presses are ignored, IME composition and key auto-repeat never trigger it, and when the microphone is gated the shortcut focuses the grayed button so its existing bilingual tooltip explains why. The listener lives in the composer microphone and ignores events inside `[role="dialog"]`.
 - Hand-written shortcut module (`src/shortcut.ts`, no third-party dependency, per the D-025 precedent and the keyboard-shortcut research in `.agent/research/voice-dictation-shortcuts.md`): layout-stable `KeyboardEvent.code` key tokens, canonical `ctrl+shift+space` storage, platform-aware display (⌃⌥⇧⌘ on macOS), hard rejection of modifier-only, letter/digit, and bare text-action chords, amber (non-blocking) warnings for browser/OS-reserved chords, Escape to cancel capture, and a Reset-to-default action. Host settings validation enforces the same chord rules on every write.
 
+### Fixed
+
+- The shortcut recorder now gives live feedback while only modifier keys are held: the capture button shows the pressed modifiers (e.g. `Ctrl+Shift+…`), and releasing every modifier without a key shows the inline "modifier-only" error instead of staying silent. Modifier keydowns are no longer invisible; a non-modifier key still completes the capture and Escape still resets and cancels.
+
 ### Changed
 
 - Tab layout: the settings page is now 通用 / General → 识别 / Recognition → 润色 / Polishing, with General as the default landing tab; the Recognition tab keeps only ASR backend/provider/model/key rows.
