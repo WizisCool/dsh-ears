@@ -33,7 +33,9 @@ The final-result backends use the browser `MediaRecorder` and a bounded one-shot
 
 ### Polishing
 
-After transcription, dsh-ears can ask any provider/model route already configured in dsh to clean up the transcript. The plugin stores only `{ provider, model }`; it does not add a provider, API key, base URL, or browser-side LLM request. A failed or cancelled polish leaves the raw transcript usable in the draft.
+After transcription, dsh-ears can ask any provider/model route already configured in dsh to clean up the transcript. The plugin stores only `{ provider, model, polishPrompt }`; it does not add a provider, API key, base URL, or browser-side LLM request. A failed or cancelled polish leaves the raw transcript usable in the draft.
+
+Polishing runs on a built-in multilingual ASR-editing prompt that preserves the transcript's original language and technical/code terminology, resolves spoken self-corrections, formats enumerations as lists, and carries few-shot examples. On the Polishing tab you can replace it with your own system prompt: type a custom prompt, or leave it blank to use the built-in default. The host always appends an invisible output guard — the model returns only the polished text and never answers the transcript — and an over-length custom prompt (more than 4000 characters) blocks the save.
 
 ### Settings
 
@@ -44,7 +46,7 @@ Open `Settings → dsh-ear` in dsh. The page opens on a **General** tab and prov
 - a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible);
 - local Whisper model management;
 - cloud provider API key, endpoint, and model (Groq's model list is fetched live from the provider);
-- polishing toggle and dsh provider/model route.
+- polishing toggle, dsh provider/model route, and an optional custom polish system prompt (leave blank to use the built-in default). The prompt row offers a live `n/4000` character counter, a Reset-to-default action, and a read-only "View default" peek at the shipped prompt.
 
 The API key field is write-only: the value is stored on the dsh Host with a `role('secret')` field (the same mechanism as the shipped web-search plugin), never returned to the browser, and only a configured/unconfigured state is shown. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.
 

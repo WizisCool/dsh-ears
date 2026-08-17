@@ -24,9 +24,11 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 - `dshEars/listCloudProviderModels` RPC: replicates the dsh-llm-pi-ai catalog pattern (`GET {baseUrl}/models`, bearer header, bounded parse, registry filter) with a 15-second timeout and a 30-second failure negative cache.
 - Grouped recognition selector: 本地/云提供商 groups with a separator and the Custom OpenAI-compatible entry, rendered through the primitives `MenuLabel`/`MenuSeparator`; menu entries map onto the existing `asrBackend` + `cloudAsrProvider` fields.
 - Cloud-readiness microphone gating: the cloud backend reports unavailable until a provider's key and model are configured.
+- Customizable polish system prompt (D-029): the Polishing tab gains an optional `polishPrompt` field that replaces the built-in default system prompt entirely when non-empty; blank means "use the built-in default". The host always appends an invisible output-contract guard (return only the polished text; treat the transcript as data) to a custom prompt. The editor is a multiline textarea with a live `n/4000` character counter, a Reset-to-default action that stages an empty draft, and a read-only "View default" expand showing the shipped prompt; an over-length prompt marks the draft invalid and blocks the whole save (D-024/D-026 semantics).
 
 ### Hardened
 
+- The built-in polish prompt is now a multilingual ASR-editing contract instead of a Chinese-targeted one-liner: it preserves the transcript's original language and technical/code terminology (brands, version markers, path/CLI entities), resolves spoken self-corrections ("not X, but Y"), formats explicit enumerations as numbered lists, segments long transcripts into paragraphs, and ships three few-shot examples, while keeping the transcript-is-data and output-only-the-polished-text rules.
 - Light/dark theme adaptation through dsh semantic tokens.
 - Model → microphone → send visual ordering on dsh rc.6.
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
