@@ -5,9 +5,9 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-029. The composer microphone, session-scoped `conversation.input.dock` recognition card, dedicated `dsh-ear` settings page (General / Recognition / Polishing), Web Speech + Local Whisper + Groq/Custom cloud ASR, dsh-owned polishing with a customizable prompt, and the D-026 staged Save/Discard model are all in tree. D-019 is closed; D-018 remains open.
-- Latest code commit: `f93a801 fix(client): polish native settings layout`.
-- Latest commit: `docs: restore pnpm as the documented toolchain`.
+- Current work: first-release product surface is implemented through D-031. The composer microphone, session-scoped `conversation.input.dock` recognition card, dedicated `dsh-ear` settings page (uncarded General-style rows, per-field auto-save), Web Speech + Local Whisper + Groq/Custom cloud ASR, and dsh-owned polishing with a customizable prompt are all in tree. D-019 is closed; D-018 remains open.
+- Latest code commit: pending D-031 auto-save / uncarded settings.
+- Latest commit: `docs: claim rc.6 and rc.7 host compatibility`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -276,6 +276,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: if a visible Web UI is needed, boot or restart the existing profile on the rc.7 CLI; do not push without authorization.
 - Commit: `chore(deps): pin exact dsh packages to 0.1.0-rc.7` and `docs: claim rc.6 and rc.7 host compatibility`.
+
+## Uncarded auto-save settings record (D-031, 2026-08-18)
+
+- Completed: removed the settings card chrome and Save/Discard footer so the `dsh-ear` tabs read as native General hairline rows. Restored a per-field auto-save in the existing controller (no form library): valid drafts flush after 400 ms, on text blur, or when the section unmounts; invalid drafts are skipped locally; a failed Host write keeps the drafts and does not retry in a loop; a mid-save edit flushes after the in-flight request. Closing the panel now flushes persistable drafts instead of discarding them.
+- Validation: `pnpm check` passed; `pnpm test` passed (165/165 across 16 files); Impeccable detector returned `[]` on `settings.tsx` and `SettingsSection.module.css`.
+- Unfinished: a live GUI refresh of the uncarded auto-save page on the running rc.7 host; D-018, live Groq/`zh` smokes, and Windows smoke remain pending.
+- Blocked: none.
+- Next: rebuild/refresh the existing Web UI to inspect General, Recognition, and Polishing at desktop and narrow widths; do not start a replacement server or push without authorization.
+- Commit: `feat(client): auto-save uncarded native settings` and `docs: record D-031 auto-save settings`.
 
 ## Handoff template
 

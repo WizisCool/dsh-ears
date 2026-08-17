@@ -56,6 +56,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Changed
 
+- The `dsh-ear` settings page drops the card wrapper and Save/Discard footer (D-031). Rows match native General: hairline dividers, no card surface. Valid edits auto-save after 400 ms, on blur, or when the panel closes; an invalid draft is skipped and stays local; a failed write keeps the drafts and does not retry in a loop.
 - Compatibility now covers dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6`; the compile/test baseline is the exact `0.1.0-rc.7` packages.
 - Tab layout: the settings page is now 通用 / General → 识别 / Recognition → 润色 / Polishing, with General as the default landing tab; the Recognition tab keeps only ASR backend/provider/model/key rows.
 - The language and recording-limit rows moved from the Recognition tab to the General tab (their validation, defaults, and save semantics are unchanged).
