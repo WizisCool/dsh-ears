@@ -66,11 +66,16 @@ describe('shortcut rejection rules', () => {
     expect(shortcutRejectReason('ctrl+shift+space'.repeat(10))).toBe('invalid')
   })
 
-  it('rejects letters and digits even with modifiers', () => {
+  it('rejects bare and Alt/Option letters and digits but accepts Ctrl/Shift/Meta with them', () => {
     expect(shortcutRejectReason('a')).toBe('typing-key')
-    expect(shortcutRejectReason('ctrl+a')).toBe('typing-key')
-    expect(shortcutRejectReason('ctrl+shift+s')).toBe('typing-key')
-    expect(shortcutRejectReason('ctrl+1')).toBe('typing-key')
+    expect(shortcutRejectReason('1')).toBe('typing-key')
+    expect(shortcutRejectReason('alt+a')).toBe('typing-key')
+    expect(shortcutRejectReason('ctrl+alt+a')).toBe('typing-key')
+    expect(shortcutRejectReason('ctrl+a')).toBeNull()
+    expect(shortcutRejectReason('ctrl+shift+s')).toBeNull()
+    expect(shortcutRejectReason('ctrl+shift+a')).toBeNull()
+    expect(shortcutRejectReason('meta+1')).toBeNull()
+    expect(shortcutRejectReason('ctrl+shift+f5')).toBeNull()
   })
 
   it('rejects bare text-action and punctuation keys but allows them with modifiers', () => {
@@ -93,6 +98,11 @@ describe('reserved shortcut warnings', () => {
     expect(isReservedShortcut('ctrl+tab')).toBe(true)
     expect(isReservedShortcut('meta+space')).toBe(true)
     expect(isReservedShortcut('ctrl+enter')).toBe(true)
+    expect(isReservedShortcut('ctrl+a')).toBe(true)
+    expect(isReservedShortcut('ctrl+1')).toBe(true)
+    expect(isReservedShortcut('meta+c')).toBe(true)
+    expect(isReservedShortcut('ctrl+shift+t')).toBe(true)
+    expect(isReservedShortcut('meta+shift+n')).toBe(true)
   })
 
   it('does not warn for the default or ordinary chords', () => {
@@ -100,6 +110,7 @@ describe('reserved shortcut warnings', () => {
     expect(isReservedShortcut('f9')).toBe(false)
     expect(isReservedShortcut('ctrl+backquote')).toBe(false)
     expect(isReservedShortcut('ctrl+alt+semicolon')).toBe(false)
+    expect(isReservedShortcut('ctrl+shift+a')).toBe(false)
   })
 })
 

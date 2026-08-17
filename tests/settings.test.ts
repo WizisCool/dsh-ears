@@ -615,7 +615,7 @@ describe('EarsSettingsController voice shortcut fields', () => {
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     await controller.refreshSettings()
 
-    controller.actions().edit('voiceShortcut', 'ctrl+a')
+    controller.actions().edit('voiceShortcut', 'alt+a')
     expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
     expect(controller.getCardStore().getSnapshot().invalid).toBe(true)
 
@@ -624,7 +624,7 @@ describe('EarsSettingsController voice shortcut fields', () => {
 
     expect(updateSettings).not.toHaveBeenCalled()
     expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
-    expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('ctrl+a')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('alt+a')
     controller.dispose()
   })
 

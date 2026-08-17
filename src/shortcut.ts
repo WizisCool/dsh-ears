@@ -24,14 +24,32 @@ const TEXT_ACTION_TOKENS = new Set([
   'bracketleft', 'bracketright', 'backslash', 'slash', 'quote', 'intlbackslash'
 ])
 
-/** Reserved browser/OS chords that are allowed but flagged with an amber warning. */
-const RESERVED_CHORDS = new Set([
+/**
+ * Reserved browser/OS chords that are allowed but flagged with an amber
+ * warning. `ctrl+<letter>` and `meta+<letter>` cover browser edit/navigation
+ * and macOS app shortcuts; `ctrl+<digit>`/`meta+<digit>` cover tab switching;
+ * the explicit `ctrl+shift+<letter>` and `meta+shift+<letter>` sets cover the
+ * remaining combos Chrome, Firefox, Edge, and macOS reserve.
+ */
+const RESERVED_CHORDS = new Set<string>([
   'f1', 'f3', 'f4', 'f5', 'f6', 'f10', 'f11', 'f12', 'ctrl+f5',
   'ctrl+space', 'alt+space', 'alt+tab', 'ctrl+tab', 'ctrl+shift+tab',
   'alt+f4', 'ctrl+alt+delete',
-  'meta+space', 'meta+backquote', 'meta+q', 'meta+w', 'meta+t', 'meta+m', 'meta+h',
+  'meta+space', 'meta+backquote',
   'ctrl+enter', 'meta+enter'
 ])
+
+for (let index = 0; index < 26; index += 1) {
+  const letter = String.fromCharCode(97 + index)
+  RESERVED_CHORDS.add(`ctrl+${letter}`)
+  RESERVED_CHORDS.add(`meta+${letter}`)
+}
+for (const letter of 'tnprijksdwqf') RESERVED_CHORDS.add(`ctrl+shift+${letter}`)
+for (const letter of 'nwqacphs') RESERVED_CHORDS.add(`shift+meta+${letter}`)
+for (let index = 0; index <= 9; index += 1) {
+  RESERVED_CHORDS.add(`ctrl+${index}`)
+  RESERVED_CHORDS.add(`meta+${index}`)
+}
 
 export interface ParsedShortcut {
   readonly modifiers: readonly ShortcutModifier[]
@@ -114,11 +132,14 @@ export type ShortcutRejectReason = 'modifier-only' | 'typing-key' | 'invalid'
 
 /**
  * Why a stored chord must be rejected by the settings field (red, blocks save).
- * Letters and digits are always rejected: bare they type, and with modifiers
- * they are browser-reserved edit/browser chords. Bare text-action and
- * punctuation keys are rejected because they act on text; bare F-keys are
- * allowed because they never produce text. Reserved chords are valid here;
- * they only raise `isReservedShortcut` warnings.
+ * Bare character keys (letters, digits, punctuation, and text-action keys
+ * without any modifier) are rejected because they type or act on text, and
+ * Alt/Option+letter/digit chords are rejected because macOS Option+letter
+ * produces special characters (and AltGr layouts behave the same). Letters and
+ * digits WITH Ctrl/Shift/Meta are valid (revised by user feedback after D-028):
+ * they do not type, and browser/OS collisions are surfaced as amber warnings by
+ * `isReservedShortcut` instead of blocking. Bare F-keys are allowed because
+ * they never produce text. Modifier-only chords are rejected.
  */
 export function shortcutRejectReason(chord: string): ShortcutRejectReason | null {
   if (typeof chord !== 'string' || chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
@@ -127,7 +148,10 @@ export function shortcutRejectReason(chord: string): ShortcutRejectReason | null
   if (tokens.every(isModifierToken)) return 'modifier-only'
   const parsed = parseShortcut(chord)
   if (parsed === null) return 'invalid'
-  if (/^[a-z]$/.test(parsed.key) || /^[0-9]$/.test(parsed.key)) return 'typing-key'
+  if (/^[a-z]$/.test(parsed.key) || /^[0-9]$/.test(parsed.key)) {
+    if (parsed.modifiers.length === 0 || parsed.modifiers.includes('alt')) return 'typing-key'
+    return null
+  }
   if (parsed.modifiers.length === 0 && TEXT_ACTION_TOKENS.has(parsed.key)) return 'typing-key'
   return null
 }

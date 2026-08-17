@@ -75,6 +75,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }, [settings])
 
   useEffect(() => {
+    // The hotkey runs on window CAPTURE so it outranks text input: editor
+    // keydown handlers (which bubble and may stopPropagation/preventDefault)
+    // never see a matched combination, so pressing the shortcut inside the
+    // composer cannot be swallowed by the input layer. When the chord does not
+    // match (or the shortcut is disabled/gated), the event is left untouched.
     const onKeyDown = (event: KeyboardEvent) => {
       const current = settingsRef.current
       if (current.voiceShortcutEnabled === false) return
@@ -86,14 +91,15 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       const element = buttonRef.current
       if (element === null || element.offsetParent === null) return
       event.preventDefault()
+      event.stopPropagation()
       if (gateRef.current !== null) {
         if (document.activeElement !== element) element.focus()
         return
       }
       toggleRef.current?.()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [])
 
   useEffect(() => {
