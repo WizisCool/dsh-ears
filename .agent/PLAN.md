@@ -75,7 +75,8 @@ dsh-ears/
 ├── tsdown.client.ts          # dsh client-module bundle preset
 ├── README.md
 ├── AGENTS.md
-├── .agent/
+├── assets/                   # Published plugin icon
+├── .agent/                   # Plan, decisions, handoff, research
 ├── src/
 │   ├── index.ts              # Host plugin entry
 │   ├── client.ts             # Client package entry

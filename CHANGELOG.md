@@ -4,6 +4,10 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ## [Unreleased]
 
+### Changed
+
+- Repository layout: the implementation plan and delivery record live under `.agent/`, and the plugin icon is `assets/dsh-ear.svg`.
+
 ### Added
 
 - A General-tab display-name picker for the settings page: `dsh-ears` (default) or `语音` / `Voice`.

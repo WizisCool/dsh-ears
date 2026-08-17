@@ -4,10 +4,12 @@
 
 ## Reading order
 
-1. `agent.md` — current status and next step.
-2. `context.md` — stable product and architecture context.
-3. `decisions.md` — accepted decisions and their status.
-4. `workflow.md` — collaboration, validation, commit, and security rules.
+1. `PLAN.md` — product scope, milestones, and acceptance criteria.
+2. `agent.md` — current status and next step.
+3. `context.md` — stable product and architecture context.
+4. `decisions.md` — accepted decisions and their status.
+5. `workflow.md` — collaboration, validation, commit, and security rules.
+6. `PROGRESS.md` — historical delivery record (superseded as the live status by `agent.md` and `CHANGELOG.md`).
 
 ## Language
 

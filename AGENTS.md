@@ -4,7 +4,7 @@ This is the repository-level entry point for coding agents. Read it before chang
 
 ## Required reading order
 
-1. `PLAN.md` — product scope, milestones, and acceptance criteria.
+1. `.agent/PLAN.md` — product scope, milestones, and acceptance criteria.
 2. `.agent/agent.md` — current status, active work, and handoff notes.
 3. `.agent/context.md` — stable project context, terminology, and architecture boundaries.
 4. `.agent/decisions.md` — accepted decisions that must not be silently reversed.
