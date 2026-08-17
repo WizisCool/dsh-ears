@@ -34,7 +34,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     }
     const earsT = remoteCtx.locale.bind(LOCALE_NAMESPACE)
     const useUiLocale = (): string => useSyncExternalStore(
-      remoteCtx.locale.subscribe,
+      (listener) => remoteCtx.locale.subscribe(listener),
       () => remoteCtx.locale.getSnapshot().active,
       () => remoteCtx.locale.getSnapshot().active
     )

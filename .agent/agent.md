@@ -6,8 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Current pass: silent recordings no longer look like config errors; upstream ASR/polish failures are red with the raw code; unset recognition language follows the dsh English/中文 setting. D-019 is closed; D-018 remains open.
-- Latest code commit: `cec5eb3 fix(client): classify silent recordings and follow the UI locale`.
-- Latest commit: `cec5eb3 fix(client): classify silent recordings and follow the UI locale`.
+- Latest code commit: pending locale subscribe this-binding fix.
+- Latest commit: `d90bb24 docs: record silent-recording handling and locale-follow language`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -331,6 +331,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat` and `docs` commits.
+
+## Locale subscribe crash (2026-08-18)
+
+- Completed: the settings page and microphone vanished because `useSyncExternalStore` was given unbound `locale.subscribe`, so render threw `Cannot read properties of undefined (reading 'listeners')`. Subscribe is now called as a method.
+- Validation: `pnpm check` passed; `pnpm test` passed (206/206); `pnpm build` passed.
+- Unfinished: refresh the existing Web UI (client-only). D-018 and live smokes remain pending.
+- Blocked: none.
+- Next: refresh `http://127.0.0.1:3080`; no Host restart required for this fix.
+- Commit: this turn’s `fix(client)` commit.
 
 ## Silent-recording and locale-follow language (2026-08-18)
 
