@@ -19,12 +19,14 @@ export interface EarsSettings {
   asrBackend: AsrBackendId | string
   localWhisperModel: WhisperModelId | string
   cloudAsrProvider: CloudAsrProviderId | string
-  cloudAsrApiKey: string
+  cloudAsrGroqApiKey: string
+  cloudAsrGroqModel: string
   cloudAsrCustomApiKey: string
+  cloudAsrCustomEndpoint: string
+  cloudAsrCustomModel: string
   cloudAsrBailianApiKey: string
-  cloudAsrEndpoint: string
   cloudAsrBailianHost: string
-  cloudAsrModel: string
+  cloudAsrBailianModel: string
   language: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
@@ -40,12 +42,14 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   asrBackend: 'web-speech',
   localWhisperModel: 'tiny',
   cloudAsrProvider: 'groq',
-  cloudAsrApiKey: '',
+  cloudAsrGroqApiKey: '',
+  cloudAsrGroqModel: '',
   cloudAsrCustomApiKey: '',
+  cloudAsrCustomEndpoint: '',
+  cloudAsrCustomModel: '',
   cloudAsrBailianApiKey: '',
-  cloudAsrEndpoint: '',
   cloudAsrBailianHost: '',
-  cloudAsrModel: '',
+  cloudAsrBailianModel: '',
   language: 'zh-CN',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
@@ -116,13 +120,13 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(ASR_BACKEND_IDS as readonly string[]).includes(settings.asrBackend)) throw new Error('Unknown dsh-ears ASR backend')
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
-  if (settings.cloudAsrApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears cloud ASR API key is too long')
-  if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom cloud ASR API key is too long')
+  if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
+  if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
   if (settings.language.trim() === '') throw new Error('dsh-ears recognition language is required')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
-  if (settings.cloudAsrEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrEndpoint)) throw new Error('Cloud ASR endpoint must use HTTP or HTTPS without credentials')
+  if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')
   if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
 }

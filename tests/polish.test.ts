@@ -27,8 +27,8 @@ describe('settings registration validate', () => {
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'groq',
-      cloudAsrApiKey: 'gsk_test_key',
-      cloudAsrModel: ''
+      cloudAsrGroqApiKey: 'gsk_test_key',
+      cloudAsrGroqModel: ''
     })).not.toThrow()
   })
 
@@ -37,7 +37,7 @@ describe('settings registration validate', () => {
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
-      cloudAsrEndpoint: ''
+      cloudAsrCustomEndpoint: ''
     })).not.toThrow()
   })
 
@@ -46,8 +46,8 @@ describe('settings registration validate', () => {
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
-      cloudAsrEndpoint: 'not-a-url'
-    })).toThrow('Cloud ASR endpoint')
+      cloudAsrCustomEndpoint: 'not-a-url'
+    })).toThrow('Custom OpenAI-compatible ASR endpoint')
   })
 })
 
@@ -223,8 +223,8 @@ describe('PolishService', () => {
   it('does not report cloud ASR as available without a model', async () => {
     const context = createContext({}, {
       ...DEFAULT_EARS_SETTINGS,
-      cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions',
-      cloudAsrModel: ''
+      cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions',
+      cloudAsrGroqModel: ''
     })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)

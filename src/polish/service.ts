@@ -17,6 +17,7 @@ import type { AsrBackendInfo } from '../asr/types.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
+import { applyFlatSettingsPatch, flattenStoredSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
 const MAX_POLISHED_CHARACTERS = 24_000
@@ -25,7 +26,7 @@ const CLOUD_MODELS_FAILURE_TTL_MS = 30_000
 
 export class PolishService extends TypertRemoteService {
   static inject = ['llm']
-  private settings: SettingsScope<import('../config.js').EarsSettings> | undefined
+  private settings: SettingsScope<Record<string, unknown>> | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
   private cloudModelsFailure: { expiresAt: number; message: string } | undefined
   private readonly whisperModels = new WhisperModels()
@@ -51,22 +52,30 @@ export class PolishService extends TypertRemoteService {
         available: false,
         writable: false,
         settings: DEFAULT_EARS_SETTINGS,
-        cloudAsrApiKeyConfigured: false,
+        cloudAsrGroqApiKeyConfigured: false,
         cloudAsrCustomApiKeyConfigured: false,
         cloudAsrBailianApiKeyConfigured: false,
         overridden: []
       }
     }
 
-    const snapshot = this.settings.get()
+    const snapshot = flattenStoredSettings(this.settings.get())
+    if (storedSettingsNeedRewrite(this.settings.get())) {
+      void this.settings.update(unflattenEarsSettings(snapshot)).catch(() => undefined)
+    }
     const provider = this.ctx.get('settings') as { describe?: (options: { redactSecrets: boolean }) => Array<{ ns: unknown; user?: unknown }>; writable?: boolean } | undefined
     const descriptor = provider?.describe?.({ redactSecrets: true })?.find((item) => String(item.ns) === SETTINGS_NAMESPACE)
     const user = descriptor?.user
     return {
       available: true,
       writable: provider?.writable ?? false,
-      settings: { ...snapshot, cloudAsrApiKey: '', cloudAsrCustomApiKey: '', cloudAsrBailianApiKey: '' },
-      cloudAsrApiKeyConfigured: snapshot.cloudAsrApiKey.trim() !== '',
+      settings: {
+        ...snapshot,
+        cloudAsrGroqApiKey: '',
+        cloudAsrCustomApiKey: '',
+        cloudAsrBailianApiKey: ''
+      },
+      cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
       cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
       cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
       overridden: isRecord(user) ? Object.keys(user) : []
@@ -76,7 +85,7 @@ export class PolishService extends TypertRemoteService {
   async updateSettings(patch: EarsSettingsPatch, signal: AbortSignal): Promise<EarsSettingsView> {
     if (this.settings === undefined) return this.getSettings()
     signal.throwIfAborted()
-    await this.settings.update(patch)
+    await this.settings.update(applyFlatSettingsPatch(this.settings.get(), patch))
     return this.getSettings()
   }
 
@@ -105,7 +114,7 @@ export class PolishService extends TypertRemoteService {
   }
 
   async listAsrBackends(): Promise<AsrBackendInfo[]> {
-    const settings = this.settings?.get() ?? DEFAULT_EARS_SETTINGS
+    const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
     const localAvailable = await this.whisperIsAvailable()
     const cloudAvailable = await this.cloudAsrIsAvailable(settings)
     return [
@@ -131,10 +140,10 @@ export class PolishService extends TypertRemoteService {
   }
 
   async listCloudProviderModels(signal: AbortSignal): Promise<CloudProviderModelsView> {
-    const settings = this.settings?.get() ?? DEFAULT_EARS_SETTINGS
+    const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
     const entry = cloudProviderEntry(settings.cloudAsrProvider)
     if (entry === undefined || entry.baseUrl === undefined) return { status: 'unsupported' }
-    const key = settings.cloudAsrApiKey.trim()
+    const key = cloudAsrCredentialFor(settings)
     if (key === '') return { status: 'no-key' }
     signal.throwIfAborted()
     const now = Date.now()
@@ -239,7 +248,7 @@ export class PolishService extends TypertRemoteService {
   async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string> {
     const raw = transcript.trim()
     if (raw === '' || raw.length > MAX_TRANSCRIPT_CHARACTERS || signal.aborted) return raw
-    const settings = this.settings?.get() ?? DEFAULT_EARS_SETTINGS
+    const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
     const storedPrompt = settings.polishPrompt
     const finish = (text: string): string => storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text
     const requestedProvider = provider.trim()
@@ -312,7 +321,7 @@ export class PolishService extends TypertRemoteService {
 
   private requireSettings() {
     if (this.settings === undefined) throw new Error('dsh-ears settings are unavailable')
-    return this.settings.get()
+    return flattenStoredSettings(this.settings.get())
   }
 
   private async resolveReasoningEffort(provider: string, model: string, requested: string, signal: AbortSignal): Promise<string | undefined> {
@@ -351,8 +360,8 @@ function whisperModel(value: string): WhisperModelId {
 }
 
 /** Host registration validate: field-level integrity only; no cross-field completeness gates (D-024). */
-export function validateSettings(settings: EarsSettings): void {
-  validateEarsSettings(settings)
+export function validateSettings(settings: unknown): void {
+  validateEarsSettings(flattenStoredSettings(settings))
 }
 
 function decodeAudio(value: string): Uint8Array {

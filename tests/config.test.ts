@@ -14,8 +14,8 @@ describe('dsh-ears settings validation', () => {
   })
 
   it('bounds the inline cloud ASR API key length', () => {
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrCustomApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrBailianApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
   })
@@ -54,14 +54,14 @@ describe('dsh-ears settings validation', () => {
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
-      cloudAsrEndpoint: 'not-a-url'
-    })).toThrow('Cloud ASR endpoint')
+      cloudAsrCustomEndpoint: 'not-a-url'
+    })).toThrow('Custom OpenAI-compatible ASR endpoint')
     expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
-      cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions',
-      cloudAsrModel: 'whisper-1'
+      cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions',
+      cloudAsrCustomModel: 'whisper-1'
     })).not.toThrow()
   })
 

@@ -12,12 +12,14 @@ export const earsSettingsSchema = z.object({
   asrBackend: z.string(),
   localWhisperModel: z.string(),
   cloudAsrProvider: z.string(),
-  cloudAsrApiKey: z.string(),
+  cloudAsrGroqApiKey: z.string(),
+  cloudAsrGroqModel: z.string(),
   cloudAsrCustomApiKey: z.string(),
+  cloudAsrCustomEndpoint: z.string(),
+  cloudAsrCustomModel: z.string(),
   cloudAsrBailianApiKey: z.string(),
-  cloudAsrEndpoint: z.string(),
   cloudAsrBailianHost: z.string(),
-  cloudAsrModel: z.string(),
+  cloudAsrBailianModel: z.string(),
   language: z.string(),
   maxRecordingSeconds: z.number(),
   voiceShortcutEnabled: z.boolean(),
@@ -33,12 +35,14 @@ export const earsSettingsPatchSchema = z.object({
   asrBackend: asrBackendSchema.optional(),
   localWhisperModel: whisperModelSchema.optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
-  cloudAsrApiKey: z.string().max(1024).optional(),
+  cloudAsrGroqApiKey: z.string().max(1024).optional(),
+  cloudAsrGroqModel: z.string().optional(),
   cloudAsrCustomApiKey: z.string().max(1024).optional(),
+  cloudAsrCustomEndpoint: z.string().optional(),
+  cloudAsrCustomModel: z.string().optional(),
   cloudAsrBailianApiKey: z.string().max(1024).optional(),
-  cloudAsrEndpoint: z.string().optional(),
   cloudAsrBailianHost: z.string().optional(),
-  cloudAsrModel: z.string().optional(),
+  cloudAsrBailianModel: z.string().optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
@@ -54,7 +58,7 @@ export const earsSettingsViewSchema = z.object({
   available: z.boolean(),
   writable: z.boolean(),
   settings: earsSettingsSchema,
-  cloudAsrApiKeyConfigured: z.boolean(),
+  cloudAsrGroqApiKeyConfigured: z.boolean(),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   overridden: z.array(z.string())
@@ -108,7 +112,7 @@ export type EarsSettingsView = {
   available: boolean
   writable: boolean
   settings: EarsSettings
-  cloudAsrApiKeyConfigured: boolean
+  cloudAsrGroqApiKeyConfigured: boolean
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrBailianApiKeyConfigured: boolean
   overridden: string[]

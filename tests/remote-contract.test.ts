@@ -17,16 +17,16 @@ describe('settings Remote contract', () => {
   })
 
   it('accepts cloud provider and write-only key patch fields', () => {
-    expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'groq', cloudAsrApiKey: 'gsk_test' })).toEqual({
+    expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'groq', cloudAsrGroqApiKey: 'gsk_test' })).toEqual({
       cloudAsrProvider: 'groq',
-      cloudAsrApiKey: 'gsk_test'
+      cloudAsrGroqApiKey: 'gsk_test'
     })
     expect(earsSettingsPatchSchema.parse({ cloudAsrProvider: 'bailian', cloudAsrBailianApiKey: 'sk_test' })).toEqual({
       cloudAsrProvider: 'bailian',
       cloudAsrBailianApiKey: 'sk_test'
     })
     expect(earsSettingsPatchSchema.parse({ cloudAsrCustomApiKey: '' })).toEqual({ cloudAsrCustomApiKey: '' })
-    expect(earsSettingsPatchSchema.parse({ cloudAsrApiKey: '' })).toEqual({ cloudAsrApiKey: '' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrGroqApiKey: '' })).toEqual({ cloudAsrGroqApiKey: '' })
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
   })
 
@@ -52,12 +52,14 @@ describe('settings Remote contract', () => {
         asrBackend: 'web-speech',
         localWhisperModel: 'tiny',
         cloudAsrProvider: 'groq',
-        cloudAsrApiKey: '',
+        cloudAsrGroqApiKey: '',
+        cloudAsrGroqModel: '',
         cloudAsrCustomApiKey: '',
+        cloudAsrCustomEndpoint: '',
+        cloudAsrCustomModel: '',
         cloudAsrBailianApiKey: '',
-        cloudAsrEndpoint: '',
         cloudAsrBailianHost: '',
-        cloudAsrModel: '',
+        cloudAsrBailianModel: '',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
         voiceShortcutEnabled: true,
@@ -68,7 +70,7 @@ describe('settings Remote contract', () => {
         polishReasoningEffort: '',
         polishPrompt: ''
       },
-      cloudAsrApiKeyConfigured: false,
+      cloudAsrGroqApiKeyConfigured: false,
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       overridden: []

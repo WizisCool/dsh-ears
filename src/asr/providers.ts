@@ -66,7 +66,7 @@ export function supportsModelListing(id: string): boolean {
   return cloudProviderEntry(id)?.baseUrl !== undefined
 }
 
-export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrEndpoint' | 'cloudAsrBailianHost'>): string {
+export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost'>): string {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry?.protocol === 'dashscope-asr') {
     const host = settings.cloudAsrBailianHost.trim()
@@ -74,7 +74,7 @@ export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvid
   }
   const baseUrl = entry?.baseUrl
   if (baseUrl !== undefined) return `${baseUrl.replace(/\/+$/, '')}/audio/transcriptions`
-  return settings.cloudAsrEndpoint.trim()
+  return settings.cloudAsrCustomEndpoint.trim()
 }
 
 export function bailianGenerationUrl(host: string): string {
@@ -85,15 +85,20 @@ export function bailianGenerationUrl(host: string): string {
   return url.toString()
 }
 
-export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): string {
+export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): string {
   if (settings.cloudAsrProvider === 'bailian') return settings.cloudAsrBailianApiKey.trim()
   if (settings.cloudAsrProvider === 'custom') return settings.cloudAsrCustomApiKey.trim()
-  return settings.cloudAsrApiKey.trim()
+  return settings.cloudAsrGroqApiKey.trim()
 }
 
-export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrModel'>): string {
-  const model = settings.cloudAsrModel.trim()
-  if (model !== '') return model
+export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel'>): string {
+  const model = settings.cloudAsrProvider === 'bailian'
+    ? settings.cloudAsrBailianModel
+    : settings.cloudAsrProvider === 'custom'
+      ? settings.cloudAsrCustomModel
+      : settings.cloudAsrGroqModel
+  const trimmed = model.trim()
+  if (trimmed !== '') return trimmed
   return cloudProviderEntry(settings.cloudAsrProvider)?.defaultModel ?? ''
 }
 
@@ -103,13 +108,13 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
  * part of validity — a keyless configuration must remain saveable so the key
  * can be entered first; key readiness is a runtime/availability concern.
  */
-export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrModel'>): boolean {
+export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel'>): boolean {
   if (settings.asrBackend !== 'cloud-openai') return true
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false
   if (entry.protocol === 'dashscope-asr') return isBailianAsrHost(settings.cloudAsrBailianHost)
-  if (entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrEndpoint)) return false
+  if (entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) return false
   return true
 }
 
@@ -118,12 +123,12 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
  * against the cloud configuration itself, independent of the backend
  * currently selected, because `listAsrBackends` reports every backend.
  */
-export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrModel' | 'cloudAsrApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): boolean {
+export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false
   if (entry.protocol === 'dashscope-asr' && !isBailianAsrHost(settings.cloudAsrBailianHost)) return false
-  if (entry.protocol !== 'dashscope-asr' && entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrEndpoint)) return false
+  if (entry.protocol !== 'dashscope-asr' && entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) return false
   if (entry.apiKeyRequired && cloudAsrCredentialFor(settings) === '') return false
   return true
 }

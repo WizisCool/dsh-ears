@@ -313,7 +313,7 @@ export const TYPERT = {
         types: [
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',

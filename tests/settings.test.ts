@@ -134,7 +134,7 @@ describe('EarsSettingsController settings lifecycle', () => {
           available: true,
           writable: true,
           settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
-          cloudAsrApiKeyConfigured: false,
+          cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
           overridden: []
@@ -150,7 +150,7 @@ describe('EarsSettingsController settings lifecycle', () => {
           available: true,
           writable: true,
           settings: { ...DEFAULT_EARS_SETTINGS, language: 'ja-JP' },
-          cloudAsrApiKeyConfigured: false,
+          cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
           overridden: []
@@ -291,14 +291,14 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().edit('asrBackend', 'cloud-openai')
       expect(updateSettings).not.toHaveBeenCalled()
 
-      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
+      controller.actions().edit('cloudAsrGroqModel', 'whisper-large-v3-turbo')
       controller.actions().save()
 
       expect(updateSettings).toHaveBeenCalledWith({
         asrBackend: 'cloud-openai',
-        cloudAsrModel: 'whisper-large-v3-turbo'
+        cloudAsrGroqModel: 'whisper-large-v3-turbo'
       })
-      expect(controller.getCardStore().getSnapshot().cloudAsrModel.invalid).toBe(false)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqModel.invalid).toBe(false)
     } finally {
       controller.dispose()
     }
@@ -321,7 +321,7 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().save()
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
-      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
+      controller.actions().edit('cloudAsrGroqModel', 'whisper-large-v3-turbo')
       controller.actions().save()
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
@@ -336,14 +336,16 @@ describe('EarsSettingsController settings lifecycle', () => {
     try {
       await controller.refreshSettings()
       controller.actions().edit('asrBackend', 'cloud-openai')
-      controller.actions().edit('cloudAsrModel', 'whisper-large-v3-turbo')
+      controller.actions().edit('cloudAsrGroqModel', 'whisper-large-v3-turbo')
       controller.actions().edit('cloudAsrProvider', 'custom')
-      expect(controller.getCardStore().getSnapshot().cloudAsrModel.text).toBe('whisper-1')
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqModel.text).toBe('whisper-large-v3-turbo')
+      expect(controller.getCardStore().getSnapshot().cloudAsrCustomModel.text).toBe('')
 
-      controller.actions().edit('cloudAsrModel', 'custom-model')
+      controller.actions().edit('cloudAsrCustomModel', 'custom-model')
       controller.actions().edit('cloudAsrProvider', 'groq')
 
-      expect(controller.getCardStore().getSnapshot().cloudAsrModel.text).toBe('whisper-large-v3-turbo')
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqModel.text).toBe('whisper-large-v3-turbo')
+      expect(controller.getCardStore().getSnapshot().cloudAsrCustomModel.text).toBe('custom-model')
     } finally {
       controller.dispose()
     }
@@ -360,25 +362,24 @@ describe('EarsSettingsController settings lifecycle', () => {
       await controller.refreshSettings()
       controller.actions().edit('asrBackend', 'cloud-openai')
       controller.actions().edit('cloudAsrProvider', 'custom')
-      controller.actions().edit('cloudAsrEndpoint', '')
+      controller.actions().edit('cloudAsrCustomEndpoint', '')
       controller.actions().save()
 
       expect(updateSettings).toHaveBeenCalledTimes(1)
       expect(updateSettings).toHaveBeenCalledWith({
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'custom',
-        cloudAsrModel: 'whisper-1',
-        cloudAsrEndpoint: ''
+        cloudAsrCustomEndpoint: ''
       })
-      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(false)
+      expect(controller.getCardStore().getSnapshot().cloudAsrCustomEndpoint.invalid).toBe(false)
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
-      controller.actions().edit('cloudAsrEndpoint', 'https://asr.example.test/audio/transcriptions')
+      controller.actions().edit('cloudAsrCustomEndpoint', 'https://asr.example.test/audio/transcriptions')
       controller.actions().save()
 
       await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
       expect(updateSettings).toHaveBeenCalledWith({
-        cloudAsrEndpoint: 'https://asr.example.test/audio/transcriptions'
+        cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions'
       })
     } finally {
       controller.dispose()
@@ -427,18 +428,18 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(updateSettings).not.toHaveBeenCalled()
 
       controller.actions().edit('language', 'en-US')
-      controller.actions().edit('cloudAsrEndpoint', 'not-a-url')
+      controller.actions().edit('cloudAsrCustomEndpoint', 'not-a-url')
       controller.actions().save()
       expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
-      expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrCustomEndpoint.invalid).toBe(true)
 
       controller.actions().setApiKey('x'.repeat(513))
       controller.actions().save()
       expect(updateSettings).toHaveBeenCalledTimes(1)
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKey.invalid).toBe(true)
 
       controller.actions().setApiKey('')
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(false)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKey.invalid).toBe(false)
     } finally {
       controller.dispose()
     }
@@ -489,11 +490,11 @@ describe('EarsSettingsController settings lifecycle', () => {
       await controller.refreshSettings()
       controller.actions().setApiKey('gsk_test')
       expect(updateSettings).not.toHaveBeenCalled()
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.text).toBe('gsk_test')
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKey.text).toBe('gsk_test')
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
 
       controller.actions().save()
-      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_test' }))
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ cloudAsrGroqApiKey: 'gsk_test' }))
       expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
 
       controller.actions().setApiKey('')
@@ -510,23 +511,23 @@ describe('EarsSettingsController settings lifecycle', () => {
       await controller.refreshSettings()
       controller.actions().clearApiKey()
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
       expect(updateSettings).not.toHaveBeenCalled()
 
       controller.actions().undoClearApiKey()
       expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(false)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(false)
       controller.actions().clearApiKey()
-      expect(controller.getCardStore().getSnapshot().cloudAsrApiKeyClearPending).toBe(true)
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
 
       controller.actions().setApiKey('gsk_new')
       controller.actions().save()
-      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: 'gsk_new' })
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrGroqApiKey: 'gsk_new' })
 
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
       controller.actions().clearApiKey()
       controller.actions().save()
-      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrApiKey: '' })
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrGroqApiKey: '' })
 
       controller.actions().setCustomApiKey('sk_custom')
       controller.actions().setBailianApiKey('sk_bailian')
@@ -638,7 +639,7 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     available: true,
     writable: true,
     settings: DEFAULT_EARS_SETTINGS,
-    cloudAsrApiKeyConfigured: false,
+    cloudAsrGroqApiKeyConfigured: false,
     cloudAsrCustomApiKeyConfigured: false,
     cloudAsrBailianApiKeyConfigured: false,
     overridden: []
@@ -673,7 +674,7 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     available: true,
     writable: true,
     settings,
-    cloudAsrApiKeyConfigured: settings.cloudAsrApiKey.trim() !== '',
+    cloudAsrGroqApiKeyConfigured: settings.cloudAsrGroqApiKey.trim() !== '',
     cloudAsrCustomApiKeyConfigured: settings.cloudAsrCustomApiKey.trim() !== '',
     cloudAsrBailianApiKeyConfigured: settings.cloudAsrBailianApiKey.trim() !== '',
     overridden: []
