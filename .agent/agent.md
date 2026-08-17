@@ -214,6 +214,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: refresh the existing dsh page to verify the General tab, recorder feedback, modifier+letter chords, capture-priority hotkey behavior, and the aligned recorder row in the visible GUI; do not push or publish without authorization.
 - Commit: `665085e feat(client): add voice-input shortcut recorder on a new General tab`; `d19143d docs: record General tab and voice-input shortcut decision D-028`; `3cd65d8 fix(client): guard shortcut fields against pre-D-028 host views`; `8f9ef44 fix(client): show live modifier feedback in the shortcut recorder`; `463d262 feat(client): allow modifier-letter chords and prioritize hotkey over input`; `ebf1e4c docs: record modifier-letter chords and hotkey-over-input priority`.
 
+## rc.7 upgrade-readiness pin fix (2026-08-17)
+
+- Completed: audited the deepseek-harness rc.6→rc.7 diff (`fb82698709..99f6f02fec`, 106 commits) against every `@deepseek-ai/*` import dsh-ears makes. The only functional changes touch `dsh-client-ui-settings-plugins` (`settings.plugin.item` list→keyed cards + tab-store), `dsh-client-ui-conversation` (Safari soft-wrap reflow, internal), `dsh-llm` (ReplayEnvelope type hardening), and `dsh-client-ui-primitives` (new `useDismissOnOutsidePointer` export) — none affect the APIs/slots dsh-ears consumes (`settings.section` stays `list`; `conversation.input.right`/`dock`; `ctx.llm` calls; ui-primitives symbols). All other depended packages bumped version only; vendored `@deepseek-ai/cordis` stays `4.0.1`. Verified `^0.1.0-rc.6` peer ranges accept `0.1.0-rc.7`. Fixed the one rc.7-host friction point: `@deepseek-ai/dsh-credentials` was the only exact-pinned dsh peer (`0.1.0-rc.6`) while `dsh-api-remotes` peers on it as `^0.1.0-rc.6`; relaxed to `^0.1.0-rc.6`. devDependencies stay exact rc.6 (build baseline); pnpm-lock's `.` importer records only dependencies/devDependencies, so no lockfile change was required.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (153/153 tests across 16 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed (13 files, 249.22 kB, no churn); `git diff --cached --check` passed.
+- Unfinished: the actual rc.7 toolchain move is deferred (baseline stays rc.6). When the environment moves to rc.7: bump exact devDependencies to `0.1.0-rc.7`, run check/test/build, then smoke the plugin on an rc.7 host; peer ranges need no further change. A card migration to `settings.plugin.item` was explicitly declined (feature settings stay on the `settings.section` General page per the official category split).
+- Blocked: none.
+- Next: metadata-only readiness change — no code or runtime behavior changed; no rebuild or GUI refresh needed.
+- Commit: `1749afc chore(deps): relax the dsh-credentials peer range to accept rc.7 hosts`.
+
 ## Handoff template
 
 ```text
