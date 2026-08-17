@@ -50,9 +50,9 @@ const cardState: EarsCardState = {
 }
 
 describe('EarsSettingsSection lifecycle', () => {
-  it('discards drafts when the settings section unmounts', () => {
+  it('flushes pending auto-saves when the settings section unmounts', () => {
     reactMocks.useEffect.mockClear()
-    const discard = vi.fn()
+    const flush = vi.fn()
 
     EarsSettingsSection({
       useEarsCard: (selector) => selector(cardState),
@@ -76,8 +76,7 @@ describe('EarsSettingsSection lifecycle', () => {
       setApiKey: vi.fn(),
       clearApiKey: vi.fn(),
       undoClearApiKey: vi.fn(),
-      save: vi.fn(),
-      discard,
+      flush,
       retryCloudModels: vi.fn(),
       downloadModel: vi.fn(),
       cancelModel: vi.fn(),
@@ -89,6 +88,6 @@ describe('EarsSettingsSection lifecycle', () => {
     const cleanup = lifecycleEffect?.[0]()
     expect(cleanup).toBeTypeOf('function')
     cleanup?.()
-    expect(discard).toHaveBeenCalledOnce()
+    expect(flush).toHaveBeenCalledOnce()
   })
 })

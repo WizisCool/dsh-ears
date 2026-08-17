@@ -11,6 +11,9 @@ import type { EarsRemote } from '../remote.js'
 
 export type FieldName = keyof EarsSettings
 
+/** Debounce for text-like edits. Discrete controls still go through this timer unless flushed. */
+export const SETTINGS_SAVE_DEBOUNCE_MS = 400
+
 interface FieldState { text: string; overridden: boolean; invalid: boolean }
 
 export interface EarsCardState {
@@ -104,10 +107,12 @@ export class EarsSettingsController {
   private whisperView: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE }
   private cloudModelsView: CloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
   private saving = false
+  private saveQueued = false
   private loaded = false
   private loadFailed = false
   private failed = false
   private clearKeyPending = false
+  private saveTimer: ReturnType<typeof setTimeout> | undefined
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
   private whisperPollTimer: ReturnType<typeof setInterval> | undefined
@@ -149,6 +154,7 @@ export class EarsSettingsController {
       clearApiKey: () => this.clearApiKey(),
       undoClearApiKey: () => this.undoClearApiKey(),
       save: () => void this.save(),
+      flush: () => void this.save(),
       discard: () => this.discard(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
@@ -168,6 +174,9 @@ export class EarsSettingsController {
     this.whisperRefreshQueued = false
     if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
     this.retryTimer = undefined
+    if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
+    this.saveTimer = undefined
+    this.saveQueued = false
     this.stopWhisperPolling()
   }
 
@@ -512,7 +521,10 @@ export class EarsSettingsController {
     } else if (field === 'cloudAsrApiKey') {
       if (text.trim() === '') {
         this.drafts.delete('cloudAsrApiKey')
+        this.failed = false
         this.publishCard()
+        if (this.hasPersistableDrafts()) this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
+        else this.cancelScheduledSave()
         return
       }
       this.clearKeyPending = false
@@ -523,28 +535,33 @@ export class EarsSettingsController {
     if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
     if (field === 'cloudAsrProvider' || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
+    this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
   }
 
-  /** Stage the write-only key for clearing; the save action commits it. */
+  /** Stage the write-only key for clearing; auto-save commits it. */
   private clearApiKey(): void {
     if (this.disposed) return
     this.clearKeyPending = true
     this.drafts.delete('cloudAsrApiKey')
     this.failed = false
     this.publishCard()
+    this.scheduleSave(0)
   }
 
-  /** Undo the staged clear without saving. */
+  /** Undo a staged clear that has not been submitted yet. */
   private undoClearApiKey(): void {
-    if (this.disposed) return
+    if (this.disposed || this.saving) return
     this.clearKeyPending = false
     this.failed = false
+    if (this.drafts.size === 0) this.cancelScheduledSave()
     this.publishCard()
   }
 
   /** Drop every staged draft and pending clear, back to the last saved state. */
   private discard(): void {
     if (this.disposed) return
+    this.cancelScheduledSave()
+    this.saveQueued = false
     this.drafts.clear()
     this.resetCloudAsrModels()
     this.resetPolishSelections()
@@ -553,14 +570,32 @@ export class EarsSettingsController {
     this.publishCard()
   }
 
+  private scheduleSave(delay: number): void {
+    if (this.disposed || !this.settingsView.writable) return
+    this.cancelScheduledSave()
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined
+      void this.save()
+    }, delay)
+  }
+
+  private cancelScheduledSave(): void {
+    if (this.saveTimer === undefined) return
+    clearTimeout(this.saveTimer)
+    this.saveTimer = undefined
+  }
+
   private async save(): Promise<void> {
-    if (this.disposed || this.saving || !this.settingsView.writable) return
-    const drafts = [...this.drafts.entries()]
-    if (drafts.length === 0 && !this.clearKeyPending) return
-    if (drafts.some(([field, text]) => isInvalid(field, text))) return
+    this.cancelScheduledSave()
+    if (this.disposed || !this.settingsView.writable) return
+    if (this.saving) {
+      this.saveQueued = true
+      return
+    }
     const patch: EarsSettingsPatch = {}
     const submittedDrafts = new Map<FieldName, string>()
-    for (const [field, text] of drafts) {
+    for (const [field, text] of this.drafts.entries()) {
+      if (isInvalid(field, text)) continue
       const value = field === 'maxRecordingSeconds' && text.trim() === ''
         ? DEFAULT_EARS_SETTINGS.maxRecordingSeconds
         : parseField(field, text)
@@ -569,17 +604,20 @@ export class EarsSettingsController {
         submittedDrafts.set(field, text)
       }
     }
-    if (this.clearKeyPending) {
+    const submittedClear = this.clearKeyPending
+    if (submittedClear) {
       (patch as Record<string, unknown>).cloudAsrApiKey = ''
     }
+    if (submittedDrafts.size === 0 && !submittedClear) return
     this.saving = true
+    this.saveQueued = false
     this.failed = false
     this.publishCard()
     try {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
-      const cloudRelevant = this.clearKeyPending || submittedDrafts.has('cloudAsrApiKey')
+      const cloudRelevant = submittedClear || submittedDrafts.has('cloudAsrApiKey')
       this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
       this.settingsView = result.value
       this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, result.value.settings.cloudAsrModel)
@@ -587,7 +625,7 @@ export class EarsSettingsController {
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
       }
-      if (this.clearKeyPending) this.clearKeyPending = false
+      if (submittedClear && this.clearKeyPending) this.clearKeyPending = false
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
     } catch {
@@ -596,7 +634,19 @@ export class EarsSettingsController {
       this.saving = false
       if (this.disposed) return
       this.publishCard()
+      if (!this.failed && (this.saveQueued || this.hasPersistableDrafts())) {
+        this.saveQueued = false
+        void this.save()
+      }
     }
+  }
+
+  private hasPersistableDrafts(): boolean {
+    if (this.clearKeyPending) return true
+    for (const [field, text] of this.drafts.entries()) {
+      if (!isInvalid(field, text)) return true
+    }
+    return false
   }
 
   private publishCard(): void { this.cardStore.set(this.snapshot()) }

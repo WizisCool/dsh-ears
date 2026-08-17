@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from '../src/config.js'
 import type { EarsSettings } from '../src/config.js'
-import { EarsSettingsController } from '../src/client/settings-controller.js'
+import { EarsSettingsController, SETTINGS_SAVE_DEBOUNCE_MS } from '../src/client/settings-controller.js'
 import { localeEn, localeZh } from '../src/client/settings.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
@@ -115,15 +115,11 @@ describe('EarsSettingsController settings lifecycle', () => {
   })
 
   it('keeps a draft edited while its save request is in flight', async () => {
-    const update = deferred<RemoteResult<EarsSettingsView>>()
-    const savedView: EarsSettingsView = {
-      available: true,
-      writable: true,
-      settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
-      cloudAsrApiKeyConfigured: false,
-      overridden: []
-    }
-    const updateSettings = vi.fn(() => update.promise)
+    const first = deferred<RemoteResult<EarsSettingsView>>()
+    const second = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
@@ -132,10 +128,31 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(updateSettings).toHaveBeenCalledTimes(1)
 
       controller.actions().edit('language', 'ja-JP')
-      update.resolve({ ok: true, value: savedView })
-      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP'))
-
+      first.resolve({
+        ok: true,
+        value: {
+          available: true,
+          writable: true,
+          settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
+          cloudAsrApiKeyConfigured: false,
+          overridden: []
+        }
+      })
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
+      expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP')
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+
+      second.resolve({
+        ok: true,
+        value: {
+          available: true,
+          writable: true,
+          settings: { ...DEFAULT_EARS_SETTINGS, language: 'ja-JP' },
+          cloudAsrApiKeyConfigured: false,
+          overridden: []
+        }
+      })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
     } finally {
       controller.dispose()
     }
@@ -196,7 +213,8 @@ describe('EarsSettingsController settings lifecycle', () => {
     controller.dispose()
   })
 
-  it('stages edits without writing until save is called', async () => {
+  it('stages edits and auto-saves after the debounce window', async () => {
+    vi.useFakeTimers()
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
@@ -208,11 +226,12 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(snapshot.invalid).toBe(false)
       expect(snapshot.failed).toBe(false)
 
-      controller.actions().save()
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS)
       expect(updateSettings).toHaveBeenCalledWith({ polishingEnabled: true })
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
     } finally {
       controller.dispose()
+      vi.useRealTimers()
     }
   })
 
@@ -386,8 +405,11 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
-  it('marks typed-invalid values red immediately and refuses the save', async () => {
-    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))
+  it('marks typed-invalid values red immediately and skips only those fields', async () => {
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => ({
+      ok: true as const,
+      value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, ...patch } as EarsSettings)
+    }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
@@ -400,16 +422,15 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().save()
       expect(updateSettings).not.toHaveBeenCalled()
 
+      controller.actions().edit('language', 'en-US')
       controller.actions().edit('cloudAsrEndpoint', 'not-a-url')
       controller.actions().save()
-      expect(updateSettings).not.toHaveBeenCalled()
+      expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
       expect(controller.getCardStore().getSnapshot().cloudAsrEndpoint.invalid).toBe(true)
 
-      controller.actions().edit('language', 'zh-CN')
-      controller.actions().edit('cloudAsrEndpoint', '')
       controller.actions().setApiKey('x'.repeat(513))
       controller.actions().save()
-      expect(updateSettings).not.toHaveBeenCalled()
+      expect(updateSettings).toHaveBeenCalledTimes(1)
       expect(controller.getCardStore().getSnapshot().cloudAsrApiKey.invalid).toBe(true)
 
       controller.actions().setApiKey('')
@@ -666,8 +687,11 @@ describe('EarsSettingsController voice shortcut fields', () => {
     controller.dispose()
   })
 
-  it('lets an invalid shortcut draft block the whole save and keep every draft', async () => {
-    const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+  it('saves valid fields while an invalid shortcut draft stays local', async () => {
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => ({
+      ok: true as const,
+      value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, ...patch } as EarsSettings)
+    }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     await controller.refreshSettings()
 
@@ -678,9 +702,10 @@ describe('EarsSettingsController voice shortcut fields', () => {
     controller.actions().edit('language', 'en-US')
     await controller.actions().save()
 
-    expect(updateSettings).not.toHaveBeenCalled()
+    expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
     expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
     expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('alt+a')
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
     controller.dispose()
   })
 
@@ -750,7 +775,7 @@ describe('EarsSettingsController custom polish prompt', () => {
     controller.dispose()
   })
 
-  it('flags an over-length prompt invalid and blocks the whole save', async () => {
+  it('flags an over-length prompt invalid and skips it until it is shortened', async () => {
     const updateSettings = vi.fn(async (_patch: object) => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     await controller.refreshSettings()
@@ -759,6 +784,11 @@ describe('EarsSettingsController custom polish prompt', () => {
     const over = controller.getCardStore().getSnapshot()
     expect(over.polishPrompt.invalid).toBe(true)
     expect(over.invalid).toBe(true)
+
+    controller.actions().edit('language', 'en-US')
+    await controller.actions().save()
+    expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
+    expect(controller.getCardStore().getSnapshot().polishPrompt.invalid).toBe(true)
 
     controller.actions().edit('polishPrompt', 'p'.repeat(MAX_POLISH_PROMPT_LENGTH))
     const within = controller.getCardStore().getSnapshot()

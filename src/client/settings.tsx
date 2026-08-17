@@ -28,7 +28,7 @@ export const localeZh = {
   voiceUnavailable: '语音输入不可用',
   voiceUnavailableWebSpeech: '当前浏览器不支持语音输入',
   voiceUnavailableRecorder: '当前浏览器无法录制所选 ASR 后端所需的音频',
-  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。medium 及更大模型需要 GPU 或更快的本地运行时，否则可能超出转录时限。', backendHintGroq: 'Groq 云端 Whisper 转写，需配置 API key。', backendHintCustom: '任意 OpenAI 兼容的 /audio/transcriptions 端点。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', groupLocal: '本地', groupCloud: '云提供商', groqProvider: 'Groq', customProvider: '自定义 OpenAI 兼容', localModel: 'Whisper 模型', whisperDownloaded: '模型已下载', whisperNotDownloaded: '模型未下载，请先下载后再录音使用', whisperDownloading: '下载中', whisperChecking: '检测中…', clickDownload: '点击下载', retryDownload: '重试下载', cancelDownload: '取消下载', deleteModel: '删除模型', confirmDeleteModel: '确认删除？', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudModelGroqHint: '从 Groq 实时获取的转写模型。', cloudModelFetchFailed: '获取模型列表失败。', cloudModelStale: '所选模型不在最新列表中，可能已下线。', retryModels: '重试', cloudKey: 'API key', cloudKeyHint: '只写入不回显；留空保持原值，点击清除可移除。', cloudKeyConfigured: '已配置', cloudKeyNotConfigured: '未配置', cloudKeyClearPending: '保存后清除', clearKey: '清除', undoClearKey: '撤销', save: '保存', discard: '放弃修改', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请选择云端模型并配置 API key。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', groupGeneral: '通用', shortcutEnabled: '语音快捷键', shortcutEnabledHint: '启用后，可在 dsh 页面聚焦时用快捷键开始或停止语音输入。', shortcut: '快捷键', shortcutHint: '在 dsh 页面聚焦时按下此组合开始或停止语音输入。仅当前 dsh 页面生效，不会影响其他应用。', shortcutCapture: '按下组合键…', shortcutCaptureHint: '按下新的组合键…（Esc 取消）', shortcutClear: '恢复默认', shortcutInvalidModifierOnly: '快捷键不能只包含修饰键。', shortcutInvalidTypingKey: '该组合会输入字符：请为字母/数字加上 Ctrl 或 Shift 等修饰键（Alt/Option 组合会输入特殊字符）。', shortcutInvalidFormat: '无效的快捷键组合。', shortcutReserved: '该组合可能与浏览器或系统保留快捷键冲突。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请稍后重试。', saveFailed: '保存失败，修改已保留，再次修改即可重试。'
+  title: 'dsh-ear', nav: 'dsh-ear', description: '配置语音识别和可选的文本润色模型', tabs: '配置分组', groupRecognition: '识别', groupPolishing: '润色', backend: '识别后端', backendHintWebSpeech: '浏览器内置的实时识别；识别服务可能由浏览器厂商提供，并非本地识别。', backendHintLocalWhisper: '停止录音后由 dsh Host 的 whisper 命令转录；模型权重由本机安装管理。medium 及更大模型需要 GPU 或更快的本地运行时，否则可能超出转录时限。', backendHintGroq: 'Groq 云端 Whisper 转写，需配置 API key。', backendHintCustom: '任意 OpenAI 兼容的 /audio/transcriptions 端点。', webSpeechBackend: 'Web Speech', localWhisperBackend: '本地 Whisper', cloudBackend: '云端 ASR', groupLocal: '本地', groupCloud: '云提供商', groqProvider: 'Groq', customProvider: '自定义 OpenAI 兼容', localModel: 'Whisper 模型', whisperDownloaded: '模型已下载', whisperNotDownloaded: '模型未下载，请先下载后再录音使用', whisperDownloading: '下载中', whisperChecking: '检测中…', clickDownload: '点击下载', retryDownload: '重试下载', cancelDownload: '取消下载', deleteModel: '删除模型', confirmDeleteModel: '确认删除？', cloudEndpoint: '转录端点', cloudEndpointHint: '完整的 HTTP(S) /audio/transcriptions 端点；不要把密钥写进 URL。', cloudModel: '云端模型', cloudModelHint: '端点接受的转录模型名称，例如 whisper-1。', cloudModelGroqHint: '从 Groq 实时获取的转写模型。', cloudModelFetchFailed: '获取模型列表失败。', cloudModelStale: '所选模型不在最新列表中，可能已下线。', retryModels: '重试', cloudKey: 'API key', cloudKeyHint: '只写入不回显；留空保持原值，点击清除可移除。', cloudKeyConfigured: '已配置', cloudKeyNotConfigured: '未配置', cloudKeyClearPending: '将清除', clearKey: '清除', undoClearKey: '撤销', backendUnavailable: '当前后端不可用：', localUnavailable: '请在 dsh Host 安装 openai-whisper，并确保 whisper 位于 PATH 中。', cloudUnavailable: '请选择云端模型并配置 API key。', language: '识别语言', languageHint: '浏览器语音识别和 ASR 后端使用的语言。默认使用简体中文。', recordingLimit: '单次录音上限（秒）', recordingLimitHint: '达到上限后会自动停止，范围为 1–600 秒。', groupGeneral: '通用', shortcutEnabled: '语音快捷键', shortcutEnabledHint: '启用后，可在 dsh 页面聚焦时用快捷键开始或停止语音输入。', shortcut: '快捷键', shortcutHint: '在 dsh 页面聚焦时按下此组合开始或停止语音输入。仅当前 dsh 页面生效，不会影响其他应用。', shortcutCapture: '按下组合键…', shortcutCaptureHint: '按下新的组合键…（Esc 取消）', shortcutClear: '恢复默认', shortcutInvalidModifierOnly: '快捷键不能只包含修饰键。', shortcutInvalidTypingKey: '该组合会输入字符：请为字母/数字加上 Ctrl 或 Shift 等修饰键（Alt/Option 组合会输入特殊字符）。', shortcutInvalidFormat: '无效的快捷键组合。', shortcutReserved: '该组合可能与浏览器或系统保留快捷键冲突。', polishing: '文本润色', polishingHint: '将识别后的文本润色、整理。', polishingOn: '开启', polishingOff: '关闭', provider: '模型提供方', providerHint: '选择已接入的模型提供商', model: '模型', modelHint: '选择该 provider 下的模型', reasoningEffort: '推理强度', reasoningEffortHint: '与主界面模型选择器的推理强度一致；留空使用 Default。', defaultEffort: 'Default', providerPlaceholder: '选择提供方', modelPlaceholder: '选择模型', loadingModels: '正在读取 dsh 模型列表…', noModels: '当前没有可用的 dsh 模型，请先在 dsh 中配置模型。', readOnly: '当前 dsh 设置提供方为只读，插件配置无法从此页面保存。请确认 dsh Host 使用可写的用户设置提供方。', loadFailed: '无法读取插件配置，请稍后重试。', saveFailed: '保存失败，修改已保留，再次修改即可重试。'
 } as const
 
 export const localeEn = {
@@ -43,7 +43,7 @@ export const localeEn = {
   voiceUnavailable: 'Voice input unavailable',
   voiceUnavailableWebSpeech: 'Voice input is unavailable in this browser',
   voiceUnavailableRecorder: 'This browser cannot record audio for the selected ASR backend',
-  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation. medium and larger models need a GPU or a faster local runtime, or transcription may exceed its limit.', backendHintGroq: 'Groq-hosted Whisper transcription; requires an API key.', backendHintCustom: 'Any OpenAI-compatible /audio/transcriptions endpoint.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', groupLocal: 'Local', groupCloud: 'Cloud providers', groqProvider: 'Groq', customProvider: 'Custom OpenAI-compatible', localModel: 'Whisper model', whisperDownloaded: 'Model downloaded', whisperNotDownloaded: 'Not downloaded; download it before recording', whisperDownloading: 'Downloading', whisperChecking: 'Checking…', clickDownload: 'Click to download', retryDownload: 'Retry download', cancelDownload: 'Cancel download', deleteModel: 'Delete model', confirmDeleteModel: 'Confirm delete?', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudModelGroqHint: 'Transcription models fetched from Groq.', cloudModelFetchFailed: 'Could not fetch the model list.', cloudModelStale: 'The selected model is not in the latest list; it may be retired.', retryModels: 'Retry', cloudKey: 'API key', cloudKeyHint: 'Write-only; leave blank to keep the stored key, or clear to remove it.', cloudKeyConfigured: 'Configured', cloudKeyNotConfigured: 'Not configured', cloudKeyClearPending: 'Clears on save', clearKey: 'Clear', undoClearKey: 'Undo', save: 'Save', discard: 'Discard', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Choose a cloud model and configure the API key.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', groupGeneral: 'General', shortcutEnabled: 'Voice shortcut', shortcutEnabledHint: 'When enabled, the shortcut starts or stops voice input while the dsh page is focused.', shortcut: 'Keyboard shortcut', shortcutHint: 'Press this combination to start or stop voice input while the dsh page is focused. In-page only; it never affects other applications.', shortcutCapture: 'Press keys…', shortcutCaptureHint: 'Press the new key combination… (Esc to cancel)', shortcutClear: 'Reset to default', shortcutInvalidModifierOnly: 'The shortcut cannot contain only modifier keys.', shortcutInvalidTypingKey: 'This combination produces text: add Ctrl or Shift to letters/digits (Alt/Option combinations type special characters).', shortcutInvalidFormat: 'Invalid shortcut combination.', shortcutReserved: 'This combination may conflict with a browser or system reserved shortcut.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Please try again later.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.'
+  title: 'dsh-ear', nav: 'dsh-ear', description: 'Configure speech recognition and optional text polishing', tabs: 'Configuration groups', groupRecognition: 'Recognition', groupPolishing: 'Polishing', backend: 'Recognition backend', backendHintWebSpeech: 'Browser-provided live recognition; the recognition service may come from the browser vendor rather than running locally.', backendHintLocalWhisper: 'Transcribed by the whisper command on the dsh Host after recording stops; model weights are managed by the local installation. medium and larger models need a GPU or a faster local runtime, or transcription may exceed its limit.', backendHintGroq: 'Groq-hosted Whisper transcription; requires an API key.', backendHintCustom: 'Any OpenAI-compatible /audio/transcriptions endpoint.', webSpeechBackend: 'Web Speech', localWhisperBackend: 'Local Whisper', cloudBackend: 'Cloud ASR', groupLocal: 'Local', groupCloud: 'Cloud providers', groqProvider: 'Groq', customProvider: 'Custom OpenAI-compatible', localModel: 'Whisper model', whisperDownloaded: 'Model downloaded', whisperNotDownloaded: 'Not downloaded; download it before recording', whisperDownloading: 'Downloading', whisperChecking: 'Checking…', clickDownload: 'Click to download', retryDownload: 'Retry download', cancelDownload: 'Cancel download', deleteModel: 'Delete model', confirmDeleteModel: 'Confirm delete?', cloudEndpoint: 'Transcription endpoint', cloudEndpointHint: 'Full HTTP(S) /audio/transcriptions endpoint; never put a key in the URL.', cloudModel: 'Cloud model', cloudModelHint: 'The transcription model accepted by the endpoint, such as whisper-1.', cloudModelGroqHint: 'Transcription models fetched from Groq.', cloudModelFetchFailed: 'Could not fetch the model list.', cloudModelStale: 'The selected model is not in the latest list; it may be retired.', retryModels: 'Retry', cloudKey: 'API key', cloudKeyHint: 'Write-only; leave blank to keep the stored key, or clear to remove it.', cloudKeyConfigured: 'Configured', cloudKeyNotConfigured: 'Not configured', cloudKeyClearPending: 'Will clear', clearKey: 'Clear', undoClearKey: 'Undo', backendUnavailable: 'The selected backend is unavailable: ', localUnavailable: 'Install openai-whisper on the dsh Host and ensure whisper is on PATH.', cloudUnavailable: 'Choose a cloud model and configure the API key.', language: 'Recognition language', languageHint: 'Language used by browser speech recognition and ASR backends. Simplified Chinese is the default.', recordingLimit: 'Recording limit (seconds)', recordingLimitHint: 'Recording stops automatically at the limit, from 1 to 600 seconds.', groupGeneral: 'General', shortcutEnabled: 'Voice shortcut', shortcutEnabledHint: 'When enabled, the shortcut starts or stops voice input while the dsh page is focused.', shortcut: 'Keyboard shortcut', shortcutHint: 'Press this combination to start or stop voice input while the dsh page is focused. In-page only; it never affects other applications.', shortcutCapture: 'Press keys…', shortcutCaptureHint: 'Press the new key combination… (Esc to cancel)', shortcutClear: 'Reset to default', shortcutInvalidModifierOnly: 'The shortcut cannot contain only modifier keys.', shortcutInvalidTypingKey: 'This combination produces text: add Ctrl or Shift to letters/digits (Alt/Option combinations type special characters).', shortcutInvalidFormat: 'Invalid shortcut combination.', shortcutReserved: 'This combination may conflict with a browser or system reserved shortcut.', polishing: 'Text polishing', polishingHint: 'Polish and tidy the recognized text.', polishingOn: 'On', polishingOff: 'Off', provider: 'Provider', providerHint: 'Choose a connected model provider', model: 'Model', modelHint: 'Choose a model under that provider', reasoningEffort: 'Reasoning effort', reasoningEffortHint: 'Same reasoning efforts as the composer model selector; leave empty for Default.', defaultEffort: 'Default', providerPlaceholder: 'Choose provider', modelPlaceholder: 'Choose model', loadingModels: 'Loading dsh model list…', noModels: 'No dsh models are available. Configure a model in dsh first.', readOnly: 'The current dsh settings provider is read-only, so plugin configuration cannot be saved from this page. Make sure the dsh Host uses a writable user settings provider.', loadFailed: 'Could not load the plugin configuration. Please try again later.', saveFailed: 'Save failed. Your changes are kept; edit again to retry.'
 } as const
 
 export type LocaleKey = keyof typeof localeEn
@@ -67,8 +67,7 @@ interface EarsSettingsSectionProps {
   readonly setApiKey: (text: string) => void
   readonly clearApiKey: () => void
   readonly undoClearApiKey: () => void
-  readonly save: () => void
-  readonly discard: () => void
+  readonly flush: () => void
   readonly retryCloudModels: () => void
   readonly downloadModel: () => void
   readonly cancelModel: () => void
@@ -95,12 +94,12 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const cloudModels = props.useEarsCloudModels((snapshot) => snapshot)
   const tabsId = useId()
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const discardRef = useRef(props.discard)
-  discardRef.current = props.discard
+  const flushRef = useRef(props.flush)
+  flushRef.current = props.flush
   const [activeTab, setActiveTab] = useState<'general' | 'recognition' | 'polishing'>('general')
   const t = props.earsT
   useEffect(() => () => {
-    discardRef.current()
+    flushRef.current()
   }, [])
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
@@ -125,7 +124,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     <section className={styles.section}>
       <h2 className={styles.title}>{t('title')}</h2>
       <p className={styles.intro}>{t('description')}</p>
-      {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : null}
+      {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : state.failed ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('saveFailed')}</p> : null}
       <div className={styles.tabs} role="tablist" aria-label={t('tabs')}>
         {tabs.map((tab, index) => {
           const selected = tab.id === activeTab
@@ -153,61 +152,44 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       </div>
       {activeTab === 'general' ? (
         <div id={`${tabsId}-panel-general`} role="tabpanel" aria-labelledby={`${tabsId}-tab-general`} className={styles.panel}>
-          <div className={styles.card}>
-            <SelectRow label={t('shortcutEnabled')} hint={t('shortcutEnabledHint')} value={state.voiceShortcutEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.voiceShortcutEnabled.invalid} onChange={(value) => props.edit('voiceShortcutEnabled', value)} />
-            <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={!state.writable} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />
-            <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} />
-            <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} />
-          </div>
+          <SelectRow label={t('shortcutEnabled')} hint={t('shortcutEnabledHint')} value={state.voiceShortcutEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.voiceShortcutEnabled.invalid} onChange={(value) => props.edit('voiceShortcutEnabled', value)} />
+          <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={!state.writable} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />
+          <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} onBlur={props.flush} />
+          <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} onBlur={props.flush} />
         </div>
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
-          <div className={styles.card}>
-            <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-              if (id === 'groq' || id === 'custom') {
-                props.edit('asrBackend', 'cloud-openai')
-                props.edit('cloudAsrProvider', id)
-                return
-              }
-              props.edit('asrBackend', id)
-            }} />
-            {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
-            {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
-              <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrApiKey.text} configured={state.cloudAsrApiKeyConfigured} clearPending={state.cloudAsrApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} t={t} />
-              <CloudModelRow label={t('cloudModel')} value={state.cloudAsrModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrModel', value)} onRetry={props.retryCloudModels} t={t} />
-            </> : <>
-              <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} />
-              <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrApiKey.text} configured={state.cloudAsrApiKeyConfigured} clearPending={state.cloudAsrApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} t={t} />
-              <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} />
-            </> : null}
-          </div>
+          <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
+            if (id === 'groq' || id === 'custom') {
+              props.edit('asrBackend', 'cloud-openai')
+              props.edit('cloudAsrProvider', id)
+              return
+            }
+            props.edit('asrBackend', id)
+          }} />
+          {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
+          {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrApiKey.text} configured={state.cloudAsrApiKeyConfigured} clearPending={state.cloudAsrApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
+            <CloudModelRow label={t('cloudModel')} value={state.cloudAsrModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrModel', value)} onRetry={props.retryCloudModels} t={t} />
+          </> : <>
+            <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrEndpoint.invalid} onChange={(event) => props.edit('cloudAsrEndpoint', event.target.value)} onBlur={props.flush} />
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrApiKey.text} configured={state.cloudAsrApiKeyConfigured} clearPending={state.cloudAsrApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
+            <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrModel.text} disabled={!state.writable} invalid={state.cloudAsrModel.invalid} onChange={(event) => props.edit('cloudAsrModel', event.target.value)} onBlur={props.flush} />
+          </> : null}
         </div>
       ) : (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
-          <div className={styles.card}>
-            <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
-            {state.polishingEnabled.text === 'on' ? <>
-              <SelectRow label={t('provider')} hint={t('providerHint')} value={state.polishProvider.text} options={providerOptions.map((provider) => [provider.provider, provider.providerName] as [string, string])} placeholder={t('providerPlaceholder')} disabled={!state.writable || routes.status === 'loading'} invalid={state.polishProvider.invalid} onChange={(value) => props.edit('polishProvider', value)} />
-              <SelectRow label={t('model')} hint={routes.status === 'loading' ? t('loadingModels') : modelOptions.length === 0 ? t('noModels') : t('modelHint')} value={modelValueIsKnown ? state.polishModel.text : ''} options={modelOptions.map((model) => [model.model, model.modelName] as [string, string])} placeholder={t('modelPlaceholder')} disabled={!state.writable || state.polishProvider.text === '' || routes.status === 'loading'} invalid={state.polishModel.invalid} onChange={(value) => props.edit('polishModel', value)} />
-              {state.polishProvider.text !== '' && state.polishModel.text !== '' && (reasoning.status === 'loading' || reasoning.efforts.length > 0) ? (
-                <SelectRow label={t('reasoningEffort')} hint={t('reasoningEffortHint')} value={reasoning.efforts.some((effort) => effort.id === state.polishReasoningEffort.text) ? state.polishReasoningEffort.text : ''} options={[['', t('defaultEffort')], ...reasoning.efforts.map((effort) => [effort.id, effort.name] as [string, string])]} disabled={!state.writable || reasoning.status === 'loading'} invalid={state.polishReasoningEffort.invalid} onChange={(value) => props.edit('polishReasoningEffort', value)} />
-              ) : null}
-              <PromptRow label={t('polishPrompt')} hint={t('polishPromptHint')} value={state.polishPrompt.text} disabled={!state.writable} invalid={state.polishPrompt.invalid} defaultValue={POLISH_SYSTEM_PROMPT} t={t} onChange={(value) => props.edit('polishPrompt', value)} onReset={() => props.edit('polishPrompt', DEFAULT_EARS_SETTINGS.polishPrompt)} />
-            </> : null}
-          </div>
+          <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
+          {state.polishingEnabled.text === 'on' ? <>
+            <SelectRow label={t('provider')} hint={t('providerHint')} value={state.polishProvider.text} options={providerOptions.map((provider) => [provider.provider, provider.providerName] as [string, string])} placeholder={t('providerPlaceholder')} disabled={!state.writable || routes.status === 'loading'} invalid={state.polishProvider.invalid} onChange={(value) => props.edit('polishProvider', value)} />
+            <SelectRow label={t('model')} hint={routes.status === 'loading' ? t('loadingModels') : modelOptions.length === 0 ? t('noModels') : t('modelHint')} value={modelValueIsKnown ? state.polishModel.text : ''} options={modelOptions.map((model) => [model.model, model.modelName] as [string, string])} placeholder={t('modelPlaceholder')} disabled={!state.writable || state.polishProvider.text === '' || routes.status === 'loading'} invalid={state.polishModel.invalid} onChange={(value) => props.edit('polishModel', value)} />
+            {state.polishProvider.text !== '' && state.polishModel.text !== '' && (reasoning.status === 'loading' || reasoning.efforts.length > 0) ? (
+              <SelectRow label={t('reasoningEffort')} hint={t('reasoningEffortHint')} value={reasoning.efforts.some((effort) => effort.id === state.polishReasoningEffort.text) ? state.polishReasoningEffort.text : ''} options={[['', t('defaultEffort')], ...reasoning.efforts.map((effort) => [effort.id, effort.name] as [string, string])]} disabled={!state.writable || reasoning.status === 'loading'} invalid={state.polishReasoningEffort.invalid} onChange={(value) => props.edit('polishReasoningEffort', value)} />
+            ) : null}
+            <PromptRow label={t('polishPrompt')} hint={t('polishPromptHint')} value={state.polishPrompt.text} disabled={!state.writable} invalid={state.polishPrompt.invalid} defaultValue={POLISH_SYSTEM_PROMPT} t={t} onChange={(value) => props.edit('polishPrompt', value)} onReset={() => props.edit('polishPrompt', DEFAULT_EARS_SETTINGS.polishPrompt)} onBlur={props.flush} />
+          </> : null}
         </div>
       )}
-      <div className={styles.footer}>
-        {state.failed ? (
-          <div className={styles.footerStatus}>
-            <p className={styles.footerMessage} data-kind="error" role="alert">{t('saveFailed')}</p>
-          </div>
-        ) : null}
-        <div className={styles.footerActions}>
-          <button type="button" className={styles.discardButton} disabled={!state.dirty || state.saving} onClick={props.discard}>{t('discard')}</button>
-          <button type="button" className={styles.saveButton} disabled={!state.dirty || state.invalid || state.saving} onClick={props.save}>{t('save')}</button>
-        </div>
-      </div>
     </section>
   )
 }
@@ -334,15 +316,15 @@ function SelectRow({ label, hint, value, options, entries, placeholder, disabled
   )
 }
 
-function TextRow({ label, hint, value, disabled, invalid, numeric, onChange }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; numeric?: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void }) {
+function TextRow({ label, hint, value, disabled, invalid, numeric, onChange, onBlur }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; numeric?: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void; onBlur?: () => void }) {
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
-      <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-label={label} aria-invalid={invalid} onChange={onChange} />
+      <Input className={styles.textInput} type={numeric ? 'number' : 'text'} value={value} disabled={disabled} aria-label={label} aria-invalid={invalid} onChange={onChange} onBlur={onBlur} />
     </RowField>
   )
 }
 
-function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onChange, onReset }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; defaultValue: string; t: Translate; onChange: (value: string) => void; onReset: () => void }) {
+function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onChange, onReset, onBlur }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; defaultValue: string; t: Translate; onChange: (value: string) => void; onReset: () => void; onBlur?: () => void }) {
   const [showDefault, setShowDefault] = useState(false)
   const length = value.trim().length
   const over = length > MAX_POLISH_PROMPT_LENGTH
@@ -358,6 +340,7 @@ function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onC
           placeholder={t('promptPlaceholder')}
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
         />
         <div className={styles.promptMeta}>
           <p className={`${styles.promptCount} ${over ? styles.promptCountOver : ''}`}>{`${length} / ${MAX_POLISH_PROMPT_LENGTH}`}</p>
@@ -370,7 +353,7 @@ function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onC
   )
 }
 
-function KeyRow({ label, hint, value, configured, clearPending, disabled, invalid, onEdit, onClear, onUndoClear, t }: { label: string; hint: string; value: string; configured: boolean; clearPending: boolean; disabled: boolean; invalid: boolean; onEdit: (text: string) => void; onClear: () => void; onUndoClear: () => void; t: Translate }) {
+function KeyRow({ label, hint, value, configured, clearPending, disabled, invalid, onEdit, onClear, onUndoClear, onBlur, t }: { label: string; hint: string; value: string; configured: boolean; clearPending: boolean; disabled: boolean; invalid: boolean; onEdit: (text: string) => void; onClear: () => void; onUndoClear: () => void; onBlur?: () => void; t: Translate }) {
   const hasAction = configured || clearPending
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
@@ -391,6 +374,7 @@ function KeyRow({ label, hint, value, configured, clearPending, disabled, invali
           aria-invalid={invalid}
           placeholder={clearPending ? t('cloudKeyClearPending') : configured ? t('cloudKeyConfigured') : t('cloudKeyNotConfigured')}
           onChange={(event) => onEdit(event.target.value)}
+          onBlur={onBlur}
         />
         {hasAction ? <button type="button" className={styles.keyAction} disabled={disabled} onClick={clearPending ? onUndoClear : onClear}>{t(clearPending ? 'undoClearKey' : 'clearKey')}</button> : null}
       </div>
