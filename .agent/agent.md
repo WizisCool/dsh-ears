@@ -290,10 +290,11 @@ Final real rc.6 smoke evidence on the latest build:
 
 - Completed: reviewed the built-in polish system prompt against OpenLess Light/Structured (and Typeless's public list/filler/self-edit behavior) and replaced it with a stronger ASR-editing contract. Chinese spoken enumerations are now a mandatory `1. 2. 3.` rewrite with 第一 / 一是 / 然后还有 cues and two Chinese list examples. Also added confidence-tiered ASR repair, anti-meta / anti-narrator output, a no-expand length bound, and a Chinese self-correction + Token example. Did not copy OpenLess persona cards, hotwords, or always-on dual-layer outlines.
 - Validation: `pnpm check` passed; `pnpm exec vitest run tests/polish.test.ts` passed (19/19).
-- Unfinished: a live polish smoke with the new default on a real dsh route; D-018 and Groq/`zh` transcription smokes remain pending.
+- Follow-up: glued `第一帮我…第二帮我…` still came back as one line from the model. Tightened the prompt (two items are enough; 帮我 after 第一 is a list item) and added `applySpokenEnumerationLayout` on the built-in polish path so leftover 第一/第二 prose or a one-line `1. … 2. …` run becomes real numbered lines. `pnpm check`, `tests/enumeration.test.ts` + `tests/polish.test.ts` (26), and `pnpm build` passed.
+- Unfinished: restart the existing `dsh web` to load the new Host bundle, then retry the same utterance; D-018 and Groq/`zh` transcription smokes remain pending.
 - Blocked: none.
-- Next: rebuild/refresh if the settings "View default" prompt should be inspected; do not push without authorization.
-- Commit: `feat(host): strengthen the default polish prompt`.
+- Next: restart `dsh web`; do not push without authorization.
+- Commit: `feat(host): strengthen the default polish prompt` and the enumeration layout follow-up.
 
 ## Handoff template
 
