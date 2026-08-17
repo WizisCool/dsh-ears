@@ -2,7 +2,7 @@
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   color: var(--dsw-alias-label-primary);
 }
 
@@ -15,14 +15,19 @@
 }
 
 .intro {
-  margin: 0;
+  margin: -4px 0 2px;
   color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   line-height: 20px;
 }
 
 .notice {
+  box-sizing: border-box;
   margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-state-warn-label);
   font-size: 12px;
   line-height: 18px;
@@ -31,7 +36,7 @@
 .tabs {
   border-bottom: 1px solid var(--dsw-alias-border-l2);
   align-items: flex-end;
-  gap: 22px;
+  gap: 24px;
   margin-top: 2px;
   display: flex;
 }
@@ -74,20 +79,35 @@
 
 .panel {
   min-width: 0;
-  padding-top: 2px;
+  padding-top: 4px;
+}
+
+.card {
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-3);
 }
 
 .row {
   border-bottom: 1px solid var(--dsw-alias-border-l2);
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
   padding: 16px 0;
   display: flex;
 }
 
-.panel > .row:last-child {
+.card > .row:last-of-type {
   border-bottom: none;
+}
+
+.rowWide {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .rowText {
@@ -99,17 +119,26 @@
   display: flex;
 }
 
+.rowWide .rowText {
+  padding-right: 0;
+}
+
 .rowControl {
+  width: 240px;
   flex: none;
   display: flex;
   justify-content: flex-end;
   align-items: center;
 }
 
+.rowWide .rowControl {
+  width: 100%;
+}
+
 .rowTitle {
   color: var(--dsw-alias-label-primary);
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 22px;
 }
 
@@ -188,6 +217,7 @@
 
 .textInput:focus {
   border-color: var(--dsw-alias-brand-primary);
+  box-shadow: 0 0 0 2px var(--dsw-alias-brand-primary);
   outline: none;
 }
 
@@ -210,14 +240,18 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.rowWide .promptControl {
+  width: 100%;
 }
 
 .promptInput {
   width: 100%;
   height: auto;
-  min-height: 84px;
-  padding: 8px 10px;
+  min-height: 128px;
+  padding: 10px 12px;
   box-sizing: border-box;
   resize: vertical;
   line-height: 20px;
@@ -365,6 +399,7 @@
 .rowDescInline {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -433,13 +468,18 @@
 }
 
 .footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   min-height: 18px;
+  margin-top: 2px;
   border-top: 1px solid var(--dsw-alias-border-l2);
-  padding: 12px 0 4px;
+  background: var(--dsw-alias-bg-layer-1);
+  padding: 12px 0 8px;
 }
 
 .footerStatus {

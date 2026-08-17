@@ -236,6 +236,17 @@ Final real rc.6 smoke evidence on the latest build:
 - Next: rebuild/refresh the running Web UI to verify the prompt row visually; optionally run a live polish with the new default and with a custom prompt to confirm system-prompt selection end to end.
 - Commits: `27eaa7f feat(host): add customizable polish system prompt with a multilingual default`, `2fd8047 feat(client): add the polish prompt row with counter, reset, and view-default`, `a0f4c82 docs: record custom polish prompt decision and updated default prompt`.
 
+## Provider-switch state and settings visual polish (2026-08-18)
+
+- Completed: provider-specific model state is now remembered within the settings session for both cloud ASR providers and dsh polish routes. Switching Groq → Custom → Groq restores the previous Groq model instead of forcing a new selection; switching polishing providers restores each provider's model and reasoning effort. Discard resets the in-memory caches to the persisted settings. Cloud model-list request generations now invalidate even when switching to a provider without model listing, so stale Groq responses cannot replace the newer Custom state.
+- Completed: native settings visual polish in `src/client/settings.tsx` and `src/client/SettingsSection.module.css`: each tab is panelized into a native card, prompt editing is full-width and stacked, row titles/control lanes are more consistent, text-input focus rings are visible, and the footer remains reachable with sticky native-token styling. Existing behavior and staged Save/Discard semantics are unchanged.
+- Regression coverage: `tests/settings.test.ts` now covers cloud provider model restoration, polish provider model/reasoning restoration, and stale cloud model-list invalidation.
+- Validation: `./node_modules/.bin/tsc --noEmit -p tsconfig.json` passed; `./node_modules/.bin/vitest run` passed (165/165 tests across 16 files); `./node_modules/.bin/tsdown && ./node_modules/.bin/tsc -p tsconfig.build.json` passed; `node /Users/junze/.agents/skills/impeccable/scripts/detect.mjs --json src/client/settings.tsx src/client/SettingsSection.module.css` returned `[]`; `git diff --check` passed; the existing `http://127.0.0.1:3080/` returned HTTP 200 and `/plugins/dsh-ears/client.js` was served after rebuild.
+- Unfinished: the visible Web GUI still needs a manual refresh to inspect the updated card/prompt layout; no browser CDP endpoint was available in this session, and no watcher is running. Live Groq/Web and Groq `zh` transcription smokes, D-018, and Windows smoke remain pending.
+- Blocked: none.
+- Next: refresh the existing Web UI and inspect General, Recognition, and Polishing tabs at desktop and narrow widths; do not start a replacement server or push without authorization.
+- Commits: `eaead54 fix(client): preserve provider settings across switches`; `cab3550 fix(client): polish native settings layout`.
+
 ## Handoff template
 
 ```text
