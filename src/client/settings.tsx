@@ -275,7 +275,7 @@ function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, 
   const captureLabel = pressedModifiers.length > 0 ? `${formatModifierChord(pressedModifiers, SHORTCUT_PLATFORM)}${SHORTCUT_PLATFORM === 'mac' ? '' : '+'}…` : t('shortcutCapture')
   return (
     <RowField label={label} hint={displayedHint} invalid={capturing ? modifierOnly : invalid} alert={capturing ? modifierOnly : invalidText !== null} warn={!invalid && reserved && !capturing}>
-      <div className={styles.keyControl}>
+      <div className={styles.shortcutControl}>
         <button
           type="button"
           className={styles.selector}
@@ -287,7 +287,7 @@ function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, 
           <span className={styles.selectorLabel}>{capturing ? captureLabel : formatShortcut(value, SHORTCUT_PLATFORM)}</span>
         </button>
         {!capturing && value !== DEFAULT_EARS_SETTINGS.voiceShortcut ? (
-          <button type="button" className={styles.keyAction} disabled={disabled} onClick={onReset}>{t('shortcutClear')}</button>
+          <button type="button" className={styles.shortcutAction} disabled={disabled} onClick={onReset}>{t('shortcutClear')}</button>
         ) : null}
       </div>
     </RowField>

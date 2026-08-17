@@ -216,6 +216,46 @@
   color: var(--dsw-alias-state-warn-label);
 }
 
+.shortcutControl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+}
+
+.shortcutAction {
+  box-sizing: border-box;
+  height: 24px;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 24px;
+  display: inline-flex;
+  flex: none;
+}
+
+.shortcutAction:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.shortcutAction:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.shortcutAction:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
+  outline: none;
+}
+
 .keyControl {
   position: relative;
   display: flex;
@@ -431,6 +471,21 @@
   .textInput,
   .keyControl {
     width: 100%;
+  }
+
+  .shortcutControl {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .shortcutControl .selector {
+    width: 100%;
+  }
+
+  .shortcutAction {
+    align-self: flex-end;
   }
 
   .footer {
