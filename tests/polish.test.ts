@@ -75,6 +75,52 @@ describe('PolishService', () => {
     }])
   })
 
+  it('uses the stored Host polish route when the client sends an empty pair', async () => {
+    const prepareCall = vi.fn(async () => ({
+      config: {},
+      stream: async function* () {
+        yield { type: 'text-delta', text: '整理后的文本' }
+      }
+    }))
+    const context = createContext({ prepareCall }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'antigravity',
+      polishModel: 'gemini-3.7-flash-high'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    await vi.waitFor(() => expect(context.get('dshEarsPolish')?.getSettings().settings.polishingEnabled).toBe(true))
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      '',
+      '',
+      '',
+      new AbortController().signal
+    )).resolves.toBe('整理后的文本')
+    expect(prepareCall).toHaveBeenCalledWith({
+      provider: 'antigravity',
+      model: 'gemini-3.7-flash-high'
+    }, expect.any(AbortSignal))
+  })
+
+  it('does not call the LLM when Host polishing is off and the client sent no route', async () => {
+    const prepareCall = vi.fn()
+    const context = createContext({ prepareCall })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      '',
+      '',
+      '',
+      new AbortController().signal
+    )).resolves.toBe('原始转写')
+    expect(prepareCall).not.toHaveBeenCalled()
+  })
+
   it('returns the raw transcript when the selected route fails', async () => {
     const context = createContext({
       prepareCall: vi.fn(async () => {

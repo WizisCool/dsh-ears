@@ -65,6 +65,7 @@ export class WebSpeechSession {
   private active = false
   private stopping = false
   private finalText = ''
+  private lastHeard = ''
   private ended = false
   private silent = false
 
@@ -143,10 +144,13 @@ export class WebSpeechSession {
 
     if (finalChunk !== '') {
       this.finalText = appendSpeech(this.finalText, finalChunk)
+      this.lastHeard = this.finalText
       this.options.onFinal(this.finalText)
     }
 
-    this.options.onInterim(appendSpeech(this.finalText, interimChunk))
+    const heard = appendSpeech(this.finalText, interimChunk)
+    if (heard !== '') this.lastHeard = heard
+    this.options.onInterim(heard)
   }
 
   private handleError(event: SpeechRecognitionErrorEventLike): void {
@@ -188,7 +192,7 @@ export class WebSpeechSession {
   private endOnce(): void {
     if (this.ended || this.silent) return
     this.ended = true
-    this.options.onEnd(this.finalText)
+    this.options.onEnd(this.finalText !== '' ? this.finalText : this.lastHeard)
   }
 }
 

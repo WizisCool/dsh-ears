@@ -83,6 +83,31 @@ describe('WebSpeechSession', () => {
     expect(onEnd).toHaveBeenCalledWith('你好')
   })
 
+  it('commits the last interim transcript when stop never receives a final result', () => {
+    const recognitions: FakeRecognition[] = []
+    class Recognition extends FakeRecognition {
+      constructor() {
+        super()
+        recognitions.push(this)
+      }
+    }
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError: vi.fn(),
+      onEnd
+    })
+
+    session.start()
+    recognitions[0].emitResult({ isFinal: false, transcript: '第一帮我看一下项目结构' })
+    session.stop()
+
+    expect(onEnd).toHaveBeenCalledWith('第一帮我看一下项目结构')
+  })
+
   it('reports unsupported environments without constructing a session', () => {
     globalThis.window = {} as Window & typeof globalThis
     expect(isWebSpeechAvailable()).toBe(false)

@@ -34,11 +34,8 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
   const draftAtStop = appendToDraft(options.baseDraft, transcript)
   options.latestDraftRef.current = draftAtStop
   options.actionsRef.current.setDraft(draftAtStop)
-  if (!options.settings.polishingEnabled || options.settings.polishProvider === '' || options.settings.polishModel === '') {
-    options.setState('idle')
-    return
-  }
-
+  // Always ask the Host. Local settings can be stale (DEFAULT / empty pair)
+  // while the Host already has polishing enabled; the Host is authoritative.
   void polishDraft({
     transcript,
     baseDraft: options.baseDraft,

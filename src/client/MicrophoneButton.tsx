@@ -57,6 +57,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const backendInfo = useEarsBackends((value) => value)
   const whisperView = useEarsWhisper((value) => value)
   const settingsRef = useRef(settings)
+  settingsRef.current = settings
   const mountedRef = useRef(true)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const toggleRef = useRef<(() => void) | null>(null)
@@ -69,10 +70,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   useEffect(() => {
     latestDraftRef.current = input.draft
   }, [input.draft])
-
-  useEffect(() => {
-    settingsRef.current = settings
-  }, [settings])
 
   useEffect(() => {
     // The hotkey runs on window CAPTURE so it outranks text input: editor
@@ -216,12 +213,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
           levelMonitorRef.current?.stop()
           levelMonitorRef.current = null
           speechSessionRef.current = null
-          if (failed || text === '') {
+          const transcript = text.trim() !== '' ? text : sessionDraft === baseDraft ? '' : sessionDraft.startsWith(baseDraft) ? sessionDraft.slice(baseDraft.length).trim() : sessionDraft.trim()
+          if (failed || transcript === '') {
             if (!failed) setState('idle')
             return
           }
           commitTranscript({
-            transcript: text,
+            transcript,
             baseDraft,
             expectedDraft: sessionDraft,
             requireUnchanged: true,

@@ -147,6 +147,29 @@ describe('voice draft flow', () => {
     expect(latestDraftRef.current).toBe('original draft recognized text')
   })
 
+  it('asks the Host to polish after a successful transcript even when the local settings look unconfigured', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    const polish = vi.fn(async () => ({ ok: true as const, value: '整理后的文本' }))
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings: DEFAULT_EARS_SETTINGS,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
+    expect(polish).toHaveBeenCalledWith('recognized text', '', '', '', expect.any(AbortSignal))
+    expect(setState).toHaveBeenCalledWith('polishing')
+  })
+
   it('keeps draft spacing predictable', () => {
     expect(appendToDraft('', 'hello')).toBe('hello')
     expect(appendToDraft('hello', 'world')).toBe('hello world')

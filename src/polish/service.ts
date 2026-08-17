@@ -56,8 +56,8 @@ export class PolishService extends TypertRemoteService {
     }
 
     const snapshot = this.settings.get()
-    const provider = this.ctx.get('settings')
-    const descriptor = provider?.describe({ redactSecrets: true }).find((item) => String(item.ns) === SETTINGS_NAMESPACE)
+    const provider = this.ctx.get('settings') as { describe?: (options: { redactSecrets: boolean }) => Array<{ ns: unknown; user?: unknown }>; writable?: boolean } | undefined
+    const descriptor = provider?.describe?.({ redactSecrets: true })?.find((item) => String(item.ns) === SETTINGS_NAMESPACE)
     const user = descriptor?.user
     return {
       available: true,
@@ -222,11 +222,16 @@ export class PolishService extends TypertRemoteService {
 
   async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string> {
     const raw = transcript.trim()
-    if (raw === '' || provider.trim() === '' || model.trim() === '') return raw
-    if (raw.length > MAX_TRANSCRIPT_CHARACTERS) return raw
-    if (signal.aborted) return raw
-    const storedPrompt = (this.settings?.get() ?? DEFAULT_EARS_SETTINGS).polishPrompt
+    if (raw === '' || raw.length > MAX_TRANSCRIPT_CHARACTERS || signal.aborted) return raw
+    const settings = this.settings?.get() ?? DEFAULT_EARS_SETTINGS
+    const storedPrompt = settings.polishPrompt
     const finish = (text: string): string => storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text
+    const requestedProvider = provider.trim()
+    const requestedModel = model.trim()
+    const routeProvider = requestedProvider || settings.polishProvider.trim()
+    const routeModel = requestedModel || settings.polishModel.trim()
+    const enabled = settings.polishingEnabled || (requestedProvider !== '' && requestedModel !== '')
+    if (!enabled || routeProvider === '' || routeModel === '') return finish(raw)
 
     const timeout = new AbortController()
     const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)
@@ -235,10 +240,10 @@ export class PolishService extends TypertRemoteService {
 
     try {
       const prepared = await this.ctx.llm.prepareCall({
-        provider,
-        model
+        provider: routeProvider,
+        model: routeModel
       }, timeout.signal)
-      const effort = await this.resolveReasoningEffort(provider, model, reasoningEffort, timeout.signal)
+      const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
       const message = createUserMessage({
         content: [{ type: 'text', text: polishUserText(raw) }],
         source: { kind: 'user' }
