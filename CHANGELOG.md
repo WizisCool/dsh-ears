@@ -6,6 +6,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Added
 
+- Alibaba Cloud Model Studio (百炼) as a cloud ASR provider: DashScope sync `multimodal-generation` for Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash. Users enter an HTTPS origin, a dedicated API key, and a model name. Recordings on this provider are capped at 300 seconds. Filetrans / realtime remain out of scope.
+- Cloud ASR API keys are now per provider: Groq, custom OpenAI-compatible, and Bailian each store their own `role('secret')` field.
 - Codex-like dsh composer microphone control with live Web Speech input.
 - Native taskbar-style recognition card above the composer: standalone Task/Goal geometry, status, stop action, and a full-width rolling microphone waveform sampled from the active input stream. The card follows dsh's typography and semantic surfaces, stays above queued messages and closest to the composer, preserves the composer microphone throughout the flow, and collapses smoothly before unmounting after completion. Its active listening dot now uses a restrained pulse that respects reduced-motion preferences.
 - Optional dsh-owned transcript polishing using any configured provider/model route.

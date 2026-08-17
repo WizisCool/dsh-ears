@@ -27,7 +27,7 @@ The compatibility promise is intentionally narrow. Other dsh releases are unsupp
 
 - Web Speech: live interim/final transcript updates in the browser.
 - Local Whisper: Host-side `whisper` CLI execution after recording stops.
-- Cloud ASR provider presets: Groq transcription with an inline API key and a live model list, plus a Custom OpenAI-compatible option for arbitrary endpoints. Requests are multipart `file`, `model`, and optional language, bounded by a 120-second request timeout.
+- Cloud ASR provider presets: Groq transcription with an inline API key and a live model list; Alibaba Cloud Model Studio (百炼) via DashScope sync (`qwen3-asr-flash`, `fun-asr-flash`, and the same Flash family; HTTPS origin + key + model name; 300-second recording cap); and a Custom OpenAI-compatible option for arbitrary `/audio/transcriptions` endpoints. Groq and Custom requests are multipart `file`, `model`, and optional language. Each cloud provider stores its own write-only API key. Requests are bounded by a 120-second timeout. Bailian Filetrans / realtime are not included.
 
 The final-result backends use the browser `MediaRecorder` and a bounded one-shot audio RPC. They do not switch backends invisibly during one recording. When the selected backend or Whisper model provably cannot transcribe, the composer microphone grays out with an explanatory tooltip.
 
@@ -43,9 +43,9 @@ Open `Settings → dsh-ear` in dsh. The page opens on a **General** tab and prov
 
 - a voice-input keyboard shortcut: an enable switch plus a recorder to capture any supported combination. The default is `Ctrl+Shift+Space` (same on Windows, Linux, and macOS): press it while the dsh page is focused to start voice input, and press it again to stop and transcribe. The shortcut works only inside the dsh page — a web page cannot register a system-wide hotkey, so it never intercepts other applications. Bare letter/digit/text keys (they would type) and Alt/Option+letter combinations (which type special characters on macOS) are rejected, as are modifier-only chords; letters and digits with Ctrl/Shift/Meta are accepted. Combinations reserved by the browser or OS are flagged with a warning but can still be saved. The shortcut runs at priority over text entry inside the dsh page — pressing it while typing in the composer triggers voice input instead of being swallowed by the input field. When the configured backend cannot record (see Backend notes), the shortcut surfaces the same unavailable hint as the grayed microphone button instead of recording.
 - recognition language and recording limit (moved to the General tab);
-- a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Custom OpenAI-compatible);
+- a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Alibaba Cloud Model Studio / Custom OpenAI-compatible);
 - local Whisper model management;
-- cloud provider API key, endpoint, and model (Groq's model list is fetched live from the provider);
+- per-provider cloud API keys, plus Groq's live model list, Bailian's HTTPS host and typed model name, or a custom transcription endpoint;
 - polishing toggle, dsh provider/model route, and an optional custom polish system prompt (leave blank to use the built-in default). The prompt row offers a live `n/4000` character counter, a Reset-to-default action, and a read-only "View default" peek at the shipped prompt.
 
 The API key field is write-only: the value is stored on the dsh Host with a `role('secret')` field (the same mechanism as the shipped web-search plugin), never returned to the browser, and only a configured/unconfigured state is shown. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.

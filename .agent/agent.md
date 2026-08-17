@@ -5,9 +5,9 @@
 ## Status
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
-- Current work: first-release product surface is implemented through D-031. The built-in default polish system prompt is the maintainer-supplied ASR-cleaning contract. D-019 is closed; D-018 remains open.
-- Latest code commit: pending default-prompt replacement.
-- Latest commit: `docs: record polish bar status and skip-when-off`.
+- Current work: first-release product surface is implemented through D-032 (Bailian DashScope ASR + per-provider cloud keys). D-019 is closed; D-018 remains open.
+- Latest code commit: pending Bailian DashScope commits.
+- Latest commit: `docs: record the default polish prompt replacement`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -313,6 +313,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: restart `dsh web`; do not push without authorization.
 - Commit: this turn’s `feat(host)` and `docs` commits.
+
+## Bailian DashScope ASR record (2026-08-18)
+
+- Completed: added `cloudAsrProvider: 'bailian'` on the 云提供商 menu. Host uses DashScope sync `multimodal-generation` with a Data URL; Qwen3-ASR-Flash vs Fun-ASR-Flash request/response shapes are selected by model name. Settings: HTTPS origin, dedicated secret key, typed model name (empty = not ready). Recording cap 300 seconds. Groq / custom / Bailian keys are separate `role('secret')` fields. Filetrans and realtime are not implemented.
+- Validation: `pnpm check` passed; `pnpm test` passed (193/193 across 18 files).
+- Unfinished: Host + client need a `dsh web` restart and refresh; live Bailian smoke needs the user's key/host/model. D-018, Groq/`zh`, and Windows smokes remain pending.
+- Blocked: none.
+- Next: restart `dsh web`; do not push without authorization.
+- Commit: this turn’s `feat` and `docs` commits.
 
 ## Handoff template
 
