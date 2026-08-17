@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatModifierChord,
   formatShortcut,
-  isModifierOnlyEvent,
+  isModifierKeyEvent,
   isReservedShortcut,
   isValidStoredShortcut,
   matchesShortcut,
+  modifiersFromEvent,
   normalizeShortcut,
   parseShortcut,
   shortcutFromEvent,
@@ -124,11 +126,24 @@ describe('shortcut matching from events', () => {
     expect(shortcutFromEvent(keyEvent('Shift', { shift: true }, 'Shift'))).toBeNull()
   })
 
-  it('detects bare modifier presses for the recorder wait state', () => {
-    expect(isModifierOnlyEvent(keyEvent('Control', { ctrl: true }, 'Control'))).toBe(true)
-    expect(isModifierOnlyEvent(keyEvent('Shift', { ctrl: true, shift: true }, 'Shift'))).toBe(false)
-    expect(isModifierOnlyEvent(keyEvent('Control', { ctrl: true, shift: true }, 'Control'))).toBe(false)
-    expect(isModifierOnlyEvent(keyEvent('KeyA'))).toBe(false)
+  it('identifies modifier key presses and extracts active modifiers', () => {
+    expect(isModifierKeyEvent(keyEvent('Control', {}, 'Control'))).toBe(true)
+    expect(isModifierKeyEvent(keyEvent('Shift', { shift: true }, 'Shift'))).toBe(true)
+    expect(isModifierKeyEvent(keyEvent('Meta', { meta: true }, 'Meta'))).toBe(true)
+    expect(isModifierKeyEvent(keyEvent('KeyA'))).toBe(false)
+    expect(isModifierKeyEvent(keyEvent('F9'))).toBe(false)
+
+    expect(modifiersFromEvent(keyEvent('Space', { ctrl: true, shift: true }))).toEqual(['ctrl', 'shift'])
+    expect(modifiersFromEvent(keyEvent('Space', { meta: true, alt: true }))).toEqual(['alt', 'meta'])
+    expect(modifiersFromEvent(keyEvent('Space'))).toEqual([])
+  })
+
+  it('formats live modifier feedback in canonical order', () => {
+    expect(formatModifierChord(['ctrl', 'shift'], 'win')).toBe('Ctrl+Shift')
+    expect(formatModifierChord(['ctrl', 'shift'], 'linux')).toBe('Ctrl+Shift')
+    expect(formatModifierChord(['ctrl', 'shift'], 'mac')).toBe('⌃⇧')
+    expect(formatModifierChord(['alt', 'meta'], 'mac')).toBe('⌥⌘')
+    expect(formatModifierChord([], 'win')).toBe('')
   })
 })
 

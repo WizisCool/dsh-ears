@@ -7,7 +7,8 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ASR_BACKEND_IDS, WHISPER_MODEL_IDS } from '../config.js'
 import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { formatShortcut, isModifierOnlyEvent, isReservedShortcut, shortcutFromEvent, shortcutRejectReason } from '../shortcut.js'
+import { formatModifierChord, formatShortcut, isModifierKeyEvent, isReservedShortcut, modifiersFromEvent, shortcutFromEvent, shortcutRejectReason } from '../shortcut.js'
+import type { ShortcutModifier } from '../shortcut.js'
 import type { WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, ReasoningEffortsState, RouteHook, RouteState, WhisperModelHook } from './settings-controller.js'
 import styles from './SettingsSection.module.css'
@@ -223,42 +224,67 @@ const SHORTCUT_PLATFORM: 'mac' | 'win' | 'linux' = (() => {
 
 function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, onReset, t }: { label: string; hint: string; value: string; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onReset: () => void; t: Translate }) {
   const [capturing, setCapturing] = useState(false)
+  const [pressedModifiers, setPressedModifiers] = useState<readonly ShortcutModifier[]>([])
+  const [modifierOnly, setModifierOnly] = useState(false)
   const reason = shortcutRejectReason(value)
   const invalidText = reason === 'modifier-only' ? t('shortcutInvalidModifierOnly') : reason === 'typing-key' ? t('shortcutInvalidTypingKey') : reason === 'invalid' ? t('shortcutInvalidFormat') : null
   const reserved = !invalid && isReservedShortcut(value)
   useEffect(() => {
     if (!capturing) return
+    const reset = () => {
+      setPressedModifiers([])
+      setModifierOnly(false)
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
         setCapturing(false)
+        reset()
         return
       }
-      if (event.repeat || isModifierOnlyEvent(event)) return
+      if (event.repeat) return
+      if (isModifierKeyEvent(event)) {
+        setPressedModifiers(modifiersFromEvent(event))
+        return
+      }
       const chord = shortcutFromEvent(event)
       if (chord === null) return
       event.preventDefault()
       event.stopPropagation()
       onChange(chord)
       setCapturing(false)
+      reset()
+    }
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      if (!isModifierKeyEvent(event)) return
+      const next = modifiersFromEvent(event)
+      setPressedModifiers(next)
+      if (next.length === 0) setModifierOnly(true)
     }
     window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+    }
   }, [capturing, onChange])
-  const displayedHint = capturing ? t('shortcutCaptureHint') : invalidText !== null ? invalidText : reserved ? t('shortcutReserved') : hint
+  const capturingHint = modifierOnly ? t('shortcutInvalidModifierOnly') : t('shortcutCaptureHint')
+  const displayedHint = capturing ? capturingHint : invalidText !== null ? invalidText : reserved ? t('shortcutReserved') : hint
+  const captureLabel = pressedModifiers.length > 0 ? `${formatModifierChord(pressedModifiers, SHORTCUT_PLATFORM)}${SHORTCUT_PLATFORM === 'mac' ? '' : '+'}…` : t('shortcutCapture')
   return (
-    <RowField label={label} hint={displayedHint} invalid={invalid} alert={capturing ? undefined : invalidText !== null} warn={!invalid && reserved && !capturing}>
+    <RowField label={label} hint={displayedHint} invalid={capturing ? modifierOnly : invalid} alert={capturing ? modifierOnly : invalidText !== null} warn={!invalid && reserved && !capturing}>
       <div className={styles.keyControl}>
         <button
           type="button"
           className={styles.selector}
           aria-label={label}
-          aria-invalid={invalid}
+          aria-invalid={capturing ? modifierOnly : invalid}
           disabled={disabled}
           onClick={() => setCapturing((current) => !current)}
         >
-          <span className={styles.selectorLabel}>{capturing ? t('shortcutCapture') : formatShortcut(value, SHORTCUT_PLATFORM)}</span>
+          <span className={styles.selectorLabel}>{capturing ? captureLabel : formatShortcut(value, SHORTCUT_PLATFORM)}</span>
         </button>
         {!capturing && value !== DEFAULT_EARS_SETTINGS.voiceShortcut ? (
           <button type="button" className={styles.keyAction} disabled={disabled} onClick={onReset}>{t('shortcutClear')}</button>

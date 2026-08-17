@@ -164,11 +164,19 @@ export function matchesShortcut(chord: string, event: { readonly code: string; r
   return (SHORTCUT_MODIFIERS as readonly ShortcutModifier[]).every((modifier) => has(modifier) === want(modifier))
 }
 
-/** True when the event is a bare modifier press (recorder waits for the next key). */
-export function isModifierOnlyEvent(event: { readonly key: string; readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): boolean {
-  if (event.key !== 'Control' && event.key !== 'Alt' && event.key !== 'Shift' && event.key !== 'Meta') return false
-  const activeCount = [event.ctrlKey, event.altKey, event.shiftKey, event.metaKey].filter(Boolean).length
-  return activeCount === 1
+/** True when the pressed key is a modifier key itself. */
+export function isModifierKeyEvent(event: { readonly key: string }): boolean {
+  return event.key === 'Control' || event.key === 'Alt' || event.key === 'Shift' || event.key === 'Meta'
+}
+
+/** Extract the active modifiers in canonical order (ctrl, alt, shift, meta). */
+export function modifiersFromEvent(event: { readonly ctrlKey: boolean; readonly altKey: boolean; readonly shiftKey: boolean; readonly metaKey: boolean }): readonly ShortcutModifier[] {
+  const modifiers: ShortcutModifier[] = []
+  if (event.ctrlKey) modifiers.push('ctrl')
+  if (event.altKey) modifiers.push('alt')
+  if (event.shiftKey) modifiers.push('shift')
+  if (event.metaKey) modifiers.push('meta')
+  return modifiers
 }
 
 const MODIFIER_LABELS: Readonly<Record<ShortcutModifier, Readonly<Record<'mac' | 'win' | 'linux', string>>>> = {
@@ -208,6 +216,11 @@ const KEY_LABELS: Record<string, string> = {
 }
 
 for (let index = 1; index <= 12; index += 1) KEY_LABELS[`f${index}`] = `F${index}`
+
+/** Render a canonical-order modifier list for live capture feedback (no key yet). */
+export function formatModifierChord(modifiers: readonly ShortcutModifier[], platform: 'mac' | 'win' | 'linux'): string {
+  return modifiers.map((modifier) => MODIFIER_LABELS[modifier][platform]).join(platform === 'mac' ? '' : '+')
+}
 
 /** Render a stored chord for display; platform only changes the primary modifier labels. */
 export function formatShortcut(chord: string, platform: 'mac' | 'win' | 'linux'): string {
