@@ -129,7 +129,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       let disposeSection = registerSection()
       let lastLabel = sectionLabel()
       let disposed = false
-      const unsubscribe = settingsController.getCardStore().subscribe(() => {
+      const syncSectionLabel = () => {
         const nextLabel = sectionLabel()
         if (disposed || nextLabel === lastLabel) return
         lastLabel = nextLabel
@@ -138,10 +138,13 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
           disposeSection()
           disposeSection = registerSection()
         })
-      })
+      }
+      const unsubscribeCard = settingsController.getCardStore().subscribe(syncSectionLabel)
+      const unsubscribeLocale = remoteCtx.locale.subscribe(syncSectionLabel)
       return () => {
         disposed = true
-        unsubscribe()
+        unsubscribeCard()
+        unsubscribeLocale()
         disposeSection()
       }
     })
