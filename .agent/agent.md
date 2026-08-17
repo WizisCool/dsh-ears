@@ -6,8 +6,8 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-031. The composer microphone, session-scoped `conversation.input.dock` recognition card, dedicated `dsh-ear` settings page (uncarded General-style rows, per-field auto-save), Web Speech + Local Whisper + Groq/Custom cloud ASR, and dsh-owned polishing with a customizable prompt are all in tree. D-019 is closed; D-018 remains open.
-- Latest code commit: pending D-031 auto-save / uncarded settings.
-- Latest commit: `docs: claim rc.6 and rc.7 host compatibility`.
+- Latest code commit: pending polish-prompt review.
+- Latest commit: `docs: record D-031 auto-save settings`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master`; local-only until the maintainer authorizes another push.
 - Earlier work kept for context: Groq cloud ASR provider preset (D-023) — inline `role('secret')` API key, Host provider registry, `listCloudProviderModels` RPC, grouped backend/provider selector, cloud-readiness microphone gating — and the rc.6 composer-order fix (model → ContextMeter → microphone → send; the rc.6 settings-section contract exposes no custom nav-icon field, so the left rail keeps dsh's native fallback icon).
@@ -285,6 +285,15 @@ Final real rc.6 smoke evidence on the latest build:
 - Blocked: none.
 - Next: rebuild/refresh the existing Web UI to inspect General, Recognition, and Polishing at desktop and narrow widths; do not start a replacement server or push without authorization.
 - Commit: `feat(client): auto-save uncarded native settings` and `docs: record D-031 auto-save settings`.
+
+## Polish prompt review record (2026-08-18)
+
+- Completed: reviewed the built-in polish system prompt against OpenLess Light/Structured (and Typeless's public list/filler/self-edit behavior) and replaced it with a stronger ASR-editing contract. Chinese spoken enumerations are now a mandatory `1. 2. 3.` rewrite with 第一 / 一是 / 然后还有 cues and two Chinese list examples. Also added confidence-tiered ASR repair, anti-meta / anti-narrator output, a no-expand length bound, and a Chinese self-correction + Token example. Did not copy OpenLess persona cards, hotwords, or always-on dual-layer outlines.
+- Validation: `pnpm check` passed; `pnpm exec vitest run tests/polish.test.ts` passed (19/19).
+- Unfinished: a live polish smoke with the new default on a real dsh route; D-018 and Groq/`zh` transcription smokes remain pending.
+- Blocked: none.
+- Next: rebuild/refresh if the settings "View default" prompt should be inspected; do not push without authorization.
+- Commit: `feat(host): strengthen the default polish prompt`.
 
 ## Handoff template
 

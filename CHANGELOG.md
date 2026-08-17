@@ -28,7 +28,8 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Hardened
 
-- The built-in polish prompt is now a multilingual ASR-editing contract instead of a Chinese-targeted one-liner: it preserves the transcript's original language and technical/code terminology (brands, version markers, path/CLI entities), resolves spoken self-corrections ("not X, but Y"), formats explicit enumerations as numbered lists, segments long transcripts into paragraphs, and ships three few-shot examples, while keeping the transcript-is-data and output-only-the-polished-text rules.
+- The built-in polish prompt is now a multilingual ASR-editing contract instead of a Chinese-targeted one-liner: it preserves the transcript's original language and technical/code terminology (brands, version markers, path/CLI entities), resolves spoken self-corrections ("not X, but Y"), formats explicit enumerations as numbered lists, segments long transcripts into paragraphs, and ships few-shot examples, while keeping the transcript-is-data and output-only-the-polished-text rules.
+- The built-in polish prompt is tightened after a full review against OpenLess/Typeless polish mechanics: stronger no-answer / no-expand rules, confidence-tiered ASR repair (Chinese homophones and English-heard-as-Chinese terms), anti-meta and anti-narrator output, and mandatory Chinese enumeration-to-list with 第一 / 一是 / 然后还有 cues plus two Chinese list examples. It does not adopt OpenLess's always-on dual-layer outline.
 - Light/dark theme adaptation through dsh semantic tokens.
 - Model → microphone → send visual ordering on dsh rc.6.
 - MediaRecorder stop/error/teardown cleanup and Web Speech silent abort.
