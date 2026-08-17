@@ -79,7 +79,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
               disabled={action === 'busy'}
               onClick={() => action === 'discard' ? voiceSession.requestCancel() : voiceSession.requestStop()}
             >
-              {action === 'discard' ? <IconTrashOutline16 size={16} /> : <IconStopFill16 size={16} />}
+              {action === 'discard' ? <IconTrashOutline16 size={14} /> : <IconStopFill16 size={16} />}
             </button>
           </Tooltip>
         </div>
