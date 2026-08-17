@@ -300,14 +300,28 @@
 }
 
 .shortcutControl {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  width: 240px;
   flex: none;
 }
 
+.shortcutControl .selector {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.selectorHasReset {
+  padding-right: 68px;
+}
+
 .shortcutAction {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   box-sizing: border-box;
   height: 24px;
   color: var(--dsw-alias-label-tertiary);
@@ -490,16 +504,5 @@
 
   .shortcutControl {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: stretch;
-  }
-
-  .shortcutControl .selector {
-    width: 100%;
-  }
-
-  .shortcutAction {
-    align-self: flex-end;
   }
 }

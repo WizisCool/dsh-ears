@@ -34,8 +34,9 @@ describe('shortcut parse and normalize', () => {
 
   it('rejects malformed chords', () => {
     expect(parseShortcut('')).toBeNull()
-    expect(parseShortcut('ctrl+')).toBeNull()
-    expect(parseShortcut('ctrl+shift')).toBeNull() // modifier-only
+    expect(parseShortcut('ctrl+')).toEqual({ modifiers: ['ctrl'], key: '' })
+    expect(parseShortcut('ctrl+shift')).toEqual({ modifiers: ['ctrl', 'shift'], key: '' })
+    expect(normalizeShortcut('shift+ctrl')).toBe('ctrl+shift')
     expect(parseShortcut('ctrl+unknown-key')).toBeNull()
     expect(parseShortcut('f13')).toBeNull()
     expect(parseShortcut('ctrl+ctrl+space')).toEqual({ modifiers: ['ctrl'], key: 'space' })
@@ -58,9 +59,10 @@ describe('shortcut rejection rules', () => {
     expect(shortcutRejectReason('ctrl+alt+shift+semicolon')).toBeNull()
   })
 
-  it('rejects modifier-only and invalid chords', () => {
-    expect(shortcutRejectReason('ctrl')).toBe('modifier-only')
-    expect(shortcutRejectReason('shift+meta')).toBe('modifier-only')
+  it('accepts modifier-only chords and rejects malformed ones', () => {
+    expect(shortcutRejectReason('ctrl')).toBeNull()
+    expect(shortcutRejectReason('shift+meta')).toBeNull()
+    expect(isValidStoredShortcut('alt')).toBe(true)
     expect(shortcutRejectReason('')).toBe('invalid')
     expect(shortcutRejectReason('ctrl+unknown-key')).toBe('invalid')
     expect(shortcutRejectReason('ctrl+shift+space'.repeat(10))).toBe('invalid')
@@ -111,6 +113,10 @@ describe('reserved shortcut warnings', () => {
     expect(isReservedShortcut('ctrl+backquote')).toBe(false)
     expect(isReservedShortcut('ctrl+alt+semicolon')).toBe(false)
     expect(isReservedShortcut('ctrl+shift+a')).toBe(false)
+    expect(isReservedShortcut('alt')).toBe(true)
+    expect(isReservedShortcut('meta')).toBe(true)
+    expect(isReservedShortcut('ctrl')).toBe(false)
+    expect(isReservedShortcut('ctrl+shift')).toBe(false)
   })
 })
 
@@ -123,6 +129,10 @@ describe('shortcut matching from events', () => {
     expect(matchesShortcut('f9', keyEvent('F9', { shift: true }))).toBe(false)
     expect(matchesShortcut('ctrl+semicolon', keyEvent('Semicolon', { ctrl: true }))).toBe(true)
     expect(matchesShortcut('ctrl+shift+space', keyEvent('KeyS', { ctrl: true, shift: true }))).toBe(false)
+    expect(matchesShortcut('ctrl', keyEvent('ControlLeft', { ctrl: true }, 'Control'))).toBe(true)
+    expect(matchesShortcut('ctrl+shift', keyEvent('ShiftLeft', { ctrl: true, shift: true }, 'Shift'))).toBe(true)
+    expect(matchesShortcut('ctrl', keyEvent('KeyA', { ctrl: true }))).toBe(false)
+    expect(matchesShortcut('ctrl+shift', keyEvent('ControlLeft', { ctrl: true }, 'Control'))).toBe(false)
   })
 
   it('matches by physical code rather than layout-dependent key labels', () => {
@@ -167,6 +177,8 @@ describe('shortcut display formatting', () => {
     expect(formatShortcut('f9', 'win')).toBe('F9')
     expect(formatShortcut('ctrl+alt+backquote', 'linux')).toBe('Ctrl+Alt+`')
     expect(formatShortcut('meta+arrowleft', 'mac')).toBe('⌘←')
+    expect(formatShortcut('ctrl', 'win')).toBe('Ctrl')
+    expect(formatShortcut('ctrl+shift', 'mac')).toBe('⌃⇧')
   })
 
   it('falls back to the raw value for malformed chords', () => {

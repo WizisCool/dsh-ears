@@ -773,10 +773,10 @@ describe('EarsSettingsController voice shortcut fields', () => {
     controller.dispose()
   })
 
-  it('treats a lone modifier chord as invalid', () => {
+  it('accepts a lone modifier chord', () => {
     const controller = new EarsSettingsController(createRemote())
     controller.actions().edit('voiceShortcut', 'ctrl+shift')
-    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
+    expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(false)
     controller.dispose()
   })
 

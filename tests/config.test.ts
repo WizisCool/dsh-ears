@@ -106,7 +106,7 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+shift+a' })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'a' })).toThrow('voice shortcut')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'alt+a' })).toThrow('voice shortcut')
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+shift' })).toThrow('voice shortcut')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+shift' })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'f9' })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, voiceShortcut: 'ctrl+enter' })).not.toThrow()
   })
