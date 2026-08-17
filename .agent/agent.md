@@ -209,7 +209,7 @@ Final real rc.6 smoke evidence on the latest build:
 - Unfinished: live browser smoke of the General tab recorder and the hotkey on the running dsh web (client bundle rebuilt; the existing `http://127.0.0.1:3080` page needs a refresh; no watcher is running); real microphone/vendor Web Speech and live Host ASR remain environment-dependent; D-018, live Groq/Web and Groq `zh` transcription smokes, and Windows smoke remain pending.
 - Blocked: none.
 - Next: refresh the existing dsh page to verify the General tab layout, the recorder flows, and the `Ctrl+Shift+Space` toggle in the visible GUI; do not push or publish without authorization.
-- Commit: TBD (feat commit, then docs commit).
+- Commit: `665085e feat(client): add voice-input shortcut recorder on a new General tab`; `d19143d docs: record General tab and voice-input shortcut decision D-028`; `3cd65d8 fix(client): guard shortcut fields against pre-D-028 host views`.
 
 ## Handoff template
 
