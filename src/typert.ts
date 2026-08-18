@@ -1,4 +1,4 @@
-import { audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -17,6 +17,25 @@ export const TYPERT = {
         typeSymbol: 'dsh-ears#AsrBackendInfo[]',
         schema: listAsrBackendsResultSchema
       }
+    },
+    {
+      id: 'dsh-ears#dshEars/getAbout',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'getAbout',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#AboutInfo', schema: aboutInfoSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/checkForUpdate',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'checkForUpdate',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#UpdateCheckResult', schema: updateCheckResultSchema }
     },
     {
       id: 'dsh-ears#dshEars/getSettings',
@@ -232,6 +251,20 @@ export const TYPERT = {
         key: 'dshEarsPolish',
         exportName: 'PolishService',
         members: [
+          {
+            kind: 'method',
+            name: 'getAbout',
+            signature: 'getAbout(): AboutInfo',
+            summary: 'Report the installed plugin name, version, license, and compatibility.',
+            jsDoc: '/** Report the installed plugin name, version, license, and compatibility. */'
+          },
+          {
+            kind: 'method',
+            name: 'checkForUpdate',
+            signature: 'checkForUpdate(signal: AbortSignal): Promise<UpdateCheckResult>',
+            summary: 'Compare the installed version with the npm latest dist-tag.',
+            jsDoc: '/** Compare the installed version with the npm latest dist-tag. */'
+          },
           {
             kind: 'method',
             name: 'listAsrBackends',

@@ -83,7 +83,7 @@ describe('settings Remote contract', () => {
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
-    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['listCloudProviderModels', 'polish', 'transcribe', 'updateSettings'])
+    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'listCloudProviderModels', 'polish', 'transcribe', 'updateSettings'])
   })
 
   it('keeps every endpoint wire shape aligned across Host and Client', () => {

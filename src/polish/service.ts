@@ -19,6 +19,8 @@ import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute } from './route.js'
 import { applyFlatSettingsPatch, flattenStoredSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
+import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
+import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
 const MAX_POLISHED_CHARACTERS = 24_000
@@ -178,6 +180,15 @@ export class PolishService extends TypertRemoteService {
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
     return this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+  }
+
+  getAbout(): AboutInfo {
+    return readInstalledAboutInfo()
+  }
+
+  async checkForUpdate(signal: AbortSignal): Promise<UpdateCheckResult> {
+    signal.throwIfAborted()
+    return checkForPluginUpdate({ installed: readInstalledAboutInfo().version, signal })
   }
 
   async listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView> {

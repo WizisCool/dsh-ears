@@ -110,6 +110,19 @@ export const listAsrBackendsResultSchema = z.array(asrBackendInfoSchema)
 export const audioBase64Schema = z.string().min(1).max(33_554_432)
 export const audioMimeTypeSchema = z.string().min(1).max(128)
 export const transcribeResultSchema = z.string()
+export const aboutInfoSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  license: z.string(),
+  dshCompatibility: z.string(),
+  updateCommand: z.string()
+})
+export const updateCheckResultSchema = z.object({
+  status: z.enum(['up-to-date', 'update-available', 'unpublished', 'error']),
+  installed: z.string(),
+  latest: z.string().nullable(),
+  updateCommand: z.string()
+})
 
 export type EarsSettingsPatch = Partial<EarsSettings>
 export type EarsSettingsView = {
@@ -126,3 +139,5 @@ export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
 export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
+export type AboutInfo = z.infer<typeof aboutInfoSchema>
+export type UpdateCheckResult = z.infer<typeof updateCheckResultSchema>
