@@ -6,7 +6,7 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: pending About repo row and thesvg GitHub mark on `master`.
+- Latest commit: pending polish prompt View-default click fix on `master`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
 
