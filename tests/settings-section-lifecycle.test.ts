@@ -20,6 +20,10 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Menu: () => null
 }))
 
+vi.mock('@thesvg/react/Github', () => ({
+  default: () => null
+}))
+
 const field = (text: string) => ({ text, overridden: false, invalid: false })
 const cardState: EarsCardState = {
   available: true,

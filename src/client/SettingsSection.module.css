@@ -134,6 +134,32 @@
   word-break: break-all;
 }
 
+.aboutRepo {
+  min-width: 0;
+  color: var(--dsw-alias-label-primary);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.aboutRepo:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.aboutRepo:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+
+.aboutRepoIcon {
+  flex: none;
+  color: currentColor;
+}
+
 .aboutActions {
   display: flex;
   flex-wrap: wrap;

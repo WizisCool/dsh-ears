@@ -111,7 +111,8 @@ export const audioBase64Schema = z.string().min(1).max(33_554_432)
 export const audioMimeTypeSchema = z.string().min(1).max(128)
 export const transcribeResultSchema = z.string()
 export const aboutInfoSchema = z.object({
-  name: z.string(),
+  repository: z.string(),
+  repositorySlug: z.string(),
   version: z.string(),
   license: z.string(),
   dshCompatibility: z.string(),

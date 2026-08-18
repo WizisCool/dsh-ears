@@ -3,6 +3,7 @@ import type { ChangeEvent, ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import Github from '@thesvg/react/Github'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
@@ -205,14 +206,21 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
           ? t('aboutUnpublished')
           : check.status === 'error'
             ? t('aboutCheckFailed')
-            : t('aboutCheckHint')
+            : ''
   const checkAlert = check.status === 'unpublished' || check.status === 'error'
   return (
     <>
-      <ValueRow label={t('aboutName')} hint={t('aboutNameHint')} value={about?.name ?? '—'} />
-      <ValueRow label={t('aboutVersion')} hint={t('aboutVersionHint')} value={about?.version ?? '—'} />
-      <ValueRow label={t('aboutLicense')} hint={t('aboutLicenseHint')} value={about?.license ?? '—'} />
-      <ValueRow label={t('aboutCompat')} hint={t('aboutCompatHint')} value={about?.dshCompatibility ?? '—'} />
+      <RowField label={t('aboutRepository')} hint="">
+        {about === null ? <span className={styles.aboutValue}>—</span> : (
+          <a className={styles.aboutRepo} href={about.repository} target="_blank" rel="noreferrer">
+            <Github variant="mono" width={16} height={16} className={styles.aboutRepoIcon} aria-hidden="true" />
+            <span>{about.repositorySlug}</span>
+          </a>
+        )}
+      </RowField>
+      <ValueRow label={t('aboutVersion')} value={about?.version ?? '—'} />
+      <ValueRow label={t('aboutLicense')} value={about?.license ?? '—'} />
+      <ValueRow label={t('aboutCompat')} value={about?.dshCompatibility ?? '—'} />
       <RowField label={t('aboutCheck')} hint={checkHint} invalid={checkAlert} alert={checkAlert}>
         <div className={styles.aboutActions}>
           <button
@@ -247,20 +255,22 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
   )
 }
 
-function ValueRow({ label, hint, value }: { label: string; hint: string; value: string }) {
+function ValueRow({ label, value }: { label: string; value: string }) {
   return (
-    <RowField label={label} hint={hint} invalid={false}>
+    <RowField label={label} hint="">
       <span className={styles.aboutValue}>{value}</span>
     </RowField>
   )
 }
 
-function RowField({ label, hint, invalid, alert, warn, wide = false, children }: { label: string; hint: string; invalid: boolean; alert?: boolean; warn?: boolean; wide?: boolean; children: ReactNode }) {
+function RowField({ label, hint, invalid, alert, warn, wide = false, children }: { label: string; hint: string; invalid?: boolean; alert?: boolean; warn?: boolean; wide?: boolean; children: ReactNode }) {
+  const showHint = hint !== ''
+  const markInvalid = invalid === true
   return (
     <div className={`${styles.row} ${wide ? styles.rowWide : ''}`}>
       <div className={styles.rowText}>
         <div className={styles.rowTitle}>{label}</div>
-        <div className={`${styles.rowDesc} ${invalid ? styles.invalid : ''} ${warn ? styles.warning : ''}`} {...(alert === true || invalid ? { role: 'alert' } : {})}>{hint}</div>
+        {showHint ? <div className={`${styles.rowDesc} ${markInvalid ? styles.invalid : ''} ${warn === true ? styles.warning : ''}`} {...(alert === true || markInvalid ? { role: 'alert' } : {})}>{hint}</div> : null}
       </div>
       <div className={styles.rowControl}>{children}</div>
     </div>

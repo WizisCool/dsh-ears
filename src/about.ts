@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const PLUGIN_PACKAGE_NAME = 'dsh-ears'
 export const PLUGIN_LICENSE = 'MIT'
+export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
+export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
 export const DSH_COMPATIBILITY = '0.1.0-rc.6 / 0.1.0-rc.7'
 export const UPDATE_COMMAND = 'dsh plugin --profile web update dsh-ears'
 export const NPM_LATEST_URL = 'https://registry.npmjs.org/dsh-ears/latest'
@@ -17,7 +18,8 @@ const CHECK_TIMEOUT_MS = 15_000
 const MAX_REGISTRY_BYTES = 256 * 1024
 
 export type AboutInfo = {
-  readonly name: string
+  readonly repository: string
+  readonly repositorySlug: string
   readonly version: string
   readonly license: string
   readonly dshCompatibility: string
@@ -35,20 +37,36 @@ export type UpdateCheckResult = {
 
 export function readInstalledAboutInfo(packageJsonPath = resolvePackageJsonPath()): AboutInfo {
   const raw = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
-    name?: unknown
     version?: unknown
     license?: unknown
+    repository?: unknown
   }
-  const name = typeof raw.name === 'string' && raw.name.trim() !== '' ? raw.name.trim() : PLUGIN_PACKAGE_NAME
   const version = typeof raw.version === 'string' && raw.version.trim() !== '' ? raw.version.trim() : '0.0.0'
   const license = typeof raw.license === 'string' && raw.license.trim() !== '' ? raw.license.trim() : PLUGIN_LICENSE
+  const repository = repositoryUrlFromPackage(raw.repository)
   return {
-    name,
+    repository,
+    repositorySlug: repositorySlugFromUrl(repository),
     version,
     license,
     dshCompatibility: DSH_COMPATIBILITY,
     updateCommand: UPDATE_COMMAND
   }
+}
+
+export function repositoryUrlFromPackage(value: unknown): string {
+  const raw = typeof value === 'string'
+    ? value
+    : value !== null && typeof value === 'object' && 'url' in value && typeof value.url === 'string'
+      ? value.url
+      : ''
+  const url = raw.trim().replace(/^git\+/, '').replace(/\.git$/, '')
+  return url !== '' ? url : PLUGIN_REPOSITORY_URL
+}
+
+export function repositorySlugFromUrl(url: string): string {
+  const match = /github\.com\/([^/]+\/[^/]+)/i.exec(url)
+  return match === null ? PLUGIN_REPOSITORY_SLUG : `@${match[1].replace(/\.git$/, '')}`
 }
 
 export function resolvePackageJsonPath(): string {

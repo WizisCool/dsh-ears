@@ -3,21 +3,31 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  PLUGIN_REPOSITORY_SLUG,
+  PLUGIN_REPOSITORY_URL,
   UPDATE_COMMAND,
   checkForPluginUpdate,
   compareReleaseVersions,
   interpretUpdateCheck,
-  readInstalledAboutInfo
+  readInstalledAboutInfo,
+  repositorySlugFromUrl,
+  repositoryUrlFromPackage
 } from '../src/about.js'
 
 describe('installed about info', () => {
   it('reads the package identity from package.json', () => {
     const about = readInstalledAboutInfo()
-    expect(about.name).toBe('dsh-ears')
+    expect(about.repository).toBe(PLUGIN_REPOSITORY_URL)
+    expect(about.repositorySlug).toBe(PLUGIN_REPOSITORY_SLUG)
     expect(about.version).toBe('0.1.0')
     expect(about.license).toBe('MIT')
     expect(about.dshCompatibility).toBe('0.1.0-rc.6 / 0.1.0-rc.7')
     expect(about.updateCommand).toBe(UPDATE_COMMAND)
+  })
+
+  it('normalizes a git repository URL into a GitHub slug', () => {
+    expect(repositoryUrlFromPackage({ url: 'git+https://github.com/WizisCool/dsh-ears.git' })).toBe(PLUGIN_REPOSITORY_URL)
+    expect(repositorySlugFromUrl(PLUGIN_REPOSITORY_URL)).toBe('@WizisCool/dsh-ears')
   })
 
   it('falls back when a package.json field is missing', async () => {
@@ -25,7 +35,8 @@ describe('installed about info', () => {
     const path = join(dir, 'package.json')
     await writeFile(path, '{}\n')
     expect(readInstalledAboutInfo(path)).toEqual({
-      name: 'dsh-ears',
+      repository: PLUGIN_REPOSITORY_URL,
+      repositorySlug: PLUGIN_REPOSITORY_SLUG,
       version: '0.0.0',
       license: 'MIT',
       dshCompatibility: '0.1.0-rc.6 / 0.1.0-rc.7',
