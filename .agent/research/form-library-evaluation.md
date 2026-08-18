@@ -1,5 +1,7 @@
 # Form Library Evaluation — dsh-ears Settings
 
+> ADR evidence for D-025, written against the D-024-era controller. Not a live product spec. Current save model is D-031 auto-save; current validation rules are D-024 as revised. See [`../decisions.md`](../decisions.md).
+
 Evaluation of whether a third-party form library would actually simplify the hand-rolled
 settings machinery in `src/client/settings-controller.ts` + `src/client/settings.tsx`.
 

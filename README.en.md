@@ -115,7 +115,7 @@ While editing, run `pnpm dev:watch` in another terminal. `pnpm dev:config` write
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
 
-Working notes are in [AGENTS.md](./AGENTS.md) and `.agent/`.
+Contributor and architecture notes: [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and [`.agent/`](./.agent/README.md).
 
 ## License
 

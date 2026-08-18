@@ -1,35 +1,35 @@
-# Project Context
+# Project context
 
 ## Purpose
 
-`dsh-ears` is a DeepSeek Harness voice-input plugin. It adds a Codex Desktop-like interaction to the dsh Web UI:
+`dsh-ears` is a DeepSeek Harness voice-input plugin:
 
 ```text
 microphone → transcription → optional dsh LLM polishing → editable draft → manual send
 ```
 
-The user must always remain in control of the final send action.
+The user always remains in control of the final send action.
 
 ## Official dsh documentation
 
-- Site: [https://deepseek-harness.github.io/deepseek-harness/guide/quickstart](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart) (Web UI getting started).
-- Plugin tutorials: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), [插件配置](https://deepseek-harness.github.io/deepseek-harness/develop/basic/config), [打包与安装](https://deepseek-harness.github.io/deepseek-harness/develop/basic/publish), [开发一个 Tool](https://deepseek-harness.github.io/deepseek-harness/develop/basic/tool), [生命周期](https://deepseek-harness.github.io/deepseek-harness/develop/framework/).
-- Source of the same pages: `docs/user/develop/` in [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness).
-- Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config` + Schemastery, `dsh.bundle.patch`, and `dsh plugin add`. dsh-ears additionally uses the browser `dsh.client` half, `settings.section`, `conversation.input.*` slots, and Typert remotes — verify those against the installed packages, not only the basic tutorial.
+- Site: [DeepSeek Harness quickstart](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart)
+- Plugin tutorials: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/), [插件配置](https://deepseek-harness.github.io/deepseek-harness/develop/basic/config), [打包与安装](https://deepseek-harness.github.io/deepseek-harness/develop/basic/publish), [生命周期](https://deepseek-harness.github.io/deepseek-harness/develop/framework/)
+- Source of those pages: `docs/user/develop/` in [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)
+
+Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config` + Schemastery, `dsh.bundle.patch`, and `dsh plugin add`. dsh-ears also uses the browser `dsh.client` half, `settings.section`, `conversation.input.*` slots, and Typert remotes — verify those against the installed packages, not only the basic tutorial.
 
 ## Compatibility
 
-- Supported dsh targets: `0.1.0-rc.6` and `0.1.0-rc.7`.
-- First supported Node range: `^22.19.0 || >=24.0.0`.
-- The repository makes no compatibility claim for another dsh release until it has been tested.
+- Supported dsh targets: `0.1.0-rc.6` and `0.1.0-rc.7` (D-030).
+- Node: `^22.19.0 || >=24.0.0`.
+- No compatibility claim for another dsh release until it has been tested.
 
 ## Product boundaries
 
 - The microphone is a compact dsh toolbar control in the composer.
-- Configuration belongs to a dedicated `settings.section` page in dsh's native settings window.
-- Polishing uses any provider/model route already configured in dsh. The plugin stores the route selection only.
-- The plugin never owns an LLM API key, base URL, provider, or model credential flow.
-- Emotion recognition and emotion UI are intentionally deferred.
+- Configuration belongs to a dedicated `settings.section` page (`dsh-ears`), not a Plugins-page card (D-017 supersedes D-011).
+- Polishing uses any provider/model route already configured in dsh. The plugin stores the route selection and an optional prompt only. It never owns an LLM API key, base URL, or provider credential flow.
+- Emotion recognition and emotion UI are deferred (D-015).
 - No automatic send and no invisible backend switching during one recording.
 
 ## Package faces
@@ -38,9 +38,9 @@ The user must always remain in control of the final send action.
 Host (`exports["."]`)
   ├─ Cordis lifecycle
   ├─ native dsh settings scope
-  ├─ cloud ASR provider registry and write-only role('secret') key storage
+  ├─ cloud ASR provider registry and per-provider write-only role('secret') keys
   ├─ local Whisper CLI adapter
-  ├─ OpenAI-compatible cloud ASR adapter
+  ├─ OpenAI-compatible and DashScope cloud ASR adapters
   ├─ dsh `ctx.llm` route discovery and polishing
   └─ strict Typert Remote descriptors
 
@@ -49,7 +49,7 @@ Browser (`exports["./client"]`)
   ├─ session-scoped `conversation.input.dock` recognition card with live waveform
   ├─ Web Speech live recognition
   ├─ MediaRecorder capture for final ASR backends
-  ├─ dedicated `settings.section` page (nav `dsh-ear`, order 16)
+  ├─ dedicated `settings.section` page (id `dsh-ears`, order 16)
   └─ `inputActions.setDraft()` with stale-result protection
 ```
 
@@ -57,29 +57,44 @@ Browser (`exports["./client"]`)
 
 ### Web Speech
 
-`WebSpeechSession` configures the browser `SpeechRecognition`/`webkitSpeechRecognition` API for the selected language, continuous recognition, interim results, and one alternative. Interim and final text update the editable draft. Errors preserve the draft. Normal stop emits `onEnd` once; component teardown calls a silent abort that cannot write into an unmounted UI.
+`WebSpeechSession` configures the browser `SpeechRecognition` / `webkitSpeechRecognition` API for the selected language, continuous recognition, interim results, and one alternative. Interim and final text update the editable draft. Errors preserve the draft. Teardown uses a silent abort that cannot write into an unmounted UI.
 
 ### Local Whisper
 
-The browser records a bounded one-shot encoded audio payload. The Host writes it to a private `mkdtemp()` directory and invokes the configured `whisper` executable with an argument array. The adapter uses JSON output, enforces time/size limits, forwards cancellation, and removes the directory in `finally`. Model weights remain owned by the user's Host installation.
+The browser records a bounded one-shot encoded audio payload. The Host writes it to a private `mkdtemp()` directory and invokes the configured `whisper` executable with an argument array (never a shell). Model weights stay owned by the user's Host installation.
 
-Model availability is surfaced through `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`: the Host discovers the installed whisper's Python interpreter (whisper CLI shebang first — Homebrew/pipx venvs — then platform-specific PATH probes with a fast `importlib.util.find_spec` check that never imports the heavy module), reports CLI availability and the library-computed cache file, and downloads missing models through `whisper._download` (the library's own URLs/checks) with tqdm-stderr progress parsing. Downloads are single-flight; discovery self-heals after ENOENT so upgraded Homebrew Cellar paths recover on the next query. All helper scripts exit via `os._exit` after flushing output: on Homebrew python + torch + openblas the regular interpreter teardown races libomp against libgomp and can SIGSEGV during exit cleanup (the crash stays inside the isolated child; the plugin's completion-marker logic keeps the download result authoritative). The client reuses the row's hint line as the status: a spinner plus "checking" text while the first (torch-importing) table load runs, then downloaded / not-downloaded text with a click-to-download link, or progress with a cancel link while downloading; a downloaded model additionally shows a danger delete link with a two-step inline confirm. `dshEars/deleteWhisperModel` removes the library-computed cache file (refusing while a download runs), and cancelling a download also removes its partial file. Downloads write a `.dsh-ears-done` completion marker beside the model file: the state query only reports a file as downloaded when the marker is present, reports marker-less files as not downloaded with a re-download hint, and silently drops orphaned markers (D-020, closing D-019). The manager is a per-service, injectable instance disposed with the plugin scope (dispose kills an active download and removes its partial file), and interpreter/model-table discovery failures are negative-cached for 30 seconds. `transcribe()` gates the backend on CLI availability plus a downloaded, marked model before spawning the CLI, so a missing model is rejected instead of auto-downloaded inside the transcription timeout; failed transcriptions carry the whisper stderr tail (bounded). No state dots are rendered. The authoritative `import whisper` model table is loaded once per Host process, so later queries are plain file stats (≈3 s first query, then instant); the client polls every 800 ms while a download runs.
+Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects a missing CLI or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The manager is disposed with the plugin scope. Windows `python.exe` / `py.exe` + PATHEXT probing is implemented but not yet smoke-tested. `medium` and larger models are documented as impractical on the CPU + 120-second path.
 
-### OpenAI-compatible cloud ASR
+### Cloud ASR
 
-The Host sends multipart form data containing `file`, `model`, and optional language to OpenAI-compatible transcription endpoints (Groq and Custom). Alibaba Cloud Model Studio (百炼) is a third registry preset (`dashscope-asr`): the Host POSTs a DashScope sync `multimodal-generation` JSON body with a Data URL to `{origin}/api/v1/services/aigc/multimodal-generation/generation`. Qwen3-ASR-Flash and Fun-ASR-Flash use different request/response shapes; the adapter selects by model name. Filetrans and realtime are not implemented. Each cloud provider has its own write-only `role('secret')` key. Groq fetches its model list from `GET {baseUrl}/models` with the stored Groq key (15-second timeout, 4 MiB bounded parse, registry-declared filter, 30-second failure negative cache) through `dshEars/listCloudProviderModels`; the Custom OpenAI-compatible provider accepts a free endpoint/model. The response must be JSON with a string `text` field. Audio and response sizes are bounded. Embedded URL credentials are rejected. Each provider key lives in the dsh settings file under its own group (`groq`, `customOpenAi`, `bailian`). `getSettings` flattens that file into explicit wire fields (`cloudAsrGroqApiKey`, `cloudAsrCustomApiKey`, `cloudAsrBailianApiKey`), redacts the secrets, and reports only configured booleans. `updateSettings` writes back the grouped shape. Absent=keep / set / empty=clear applies per key. Only the selected provider's bearer header is sent from the Host. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
+A Host-side registry (`src/asr/providers.ts`) owns Groq, Bailian, and Custom:
+
+- Groq: pinned OpenAI-compatible endpoint, live `GET {baseUrl}/models` listing, required inline key.
+- Custom: user HTTP(S) `/audio/transcriptions` endpoint, `whisper-1` default.
+- Bailian (Alibaba Cloud Model Studio): DashScope sync `multimodal-generation` at `{origin}/api/v1/services/aigc/multimodal-generation/generation`. Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash use different request shapes. Filetrans and realtime are not implemented. Recordings cap at 300 seconds.
+
+Each provider has its own write-only `role('secret')` key (D-023, D-032). The Host settings file groups them as `groq`, `customOpenAi`, and `bailian`. The plugin wire uses `cloudAsrGroqApiKey`, `cloudAsrCustomApiKey`, and `cloudAsrBailianApiKey`. `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
+
+This reverses D-014's dsh credential-reference model for the cloud ASR surface. LLM polishing still uses dsh-owned credentials.
 
 ## Draft and polishing flow
 
-`src/client/voice-flow.ts` is pure flow logic shared by the microphone component and tests. Final ASR refuses to overwrite a draft changed while transcription was pending. The recognition bar names each stage on the existing dock card; there is no extra toast. Polishing runs only when the local `polishingEnabled` toggle is on (an empty local provider/model pair still asks the Host, which uses the stored route). The raw transcript is written first; a late result is applied if the composer still holds that raw draft or the pre-transcript base, ignored after a manual edit, and a route failure stays on the bar as `polish-error` while keeping the raw text.
+`src/client/voice-flow.ts` is shared by the microphone and tests. Final ASR refuses to overwrite a draft the user changed while transcription was pending. The recognition bar names each stage on the dock card. Polishing runs only when `polishingEnabled` is on; an empty local provider/model pair still asks the Host, which uses the stored route. An incomplete pair leaves polishing dormant (D-024). The raw transcript is written first. A late polish result applies only if the composer still holds that raw draft or the pre-transcript base. A route failure stays on the bar as `polish-error` and keeps the raw text.
 
 ## Settings
 
-The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser face registers a dedicated `settings.section` page (`dsh-ear`, nav order 16 — between Plugins and Agent presets) styled with the shipped General page's uncarded hairline rows; it splits fields into Plugins-style tabs — General (default landing tab: the voice-input shortcut enable switch and Raycast-style recorder, plus the language and recording-limit rows that moved here), Recognition (grouped backend/provider selector with Local and Cloud-provider groups, Whisper model, cloud key/endpoint/model), Polishing, and About (installed identity and a click-only npm latest check) (toggle plus dsh provider/model route and an optional custom polish prompt) — with roving tabindex and arrow-key navigation. The recognition selector renders one grouped menu (本地: Web Speech / Local Whisper; 云提供商: Groq / Custom OpenAI-compatible) through the primitives `MenuLabel`/`MenuSeparator`; entries map onto the `asrBackend` + `cloudAsrProvider` field pair, the selector's hint text follows the active selection, and each backend's settings persist independently across switches. Fields follow the General/Permissions row pattern (title + hint left, pill `Menu` selector or compact text input right, hairline dividers) and auto-save valid drafts (D-031): a 400 ms debounce, text-field blur, or section unmount flushes persistable fields; an invalid draft is skipped and stays local with a red hint; a Host rejection keeps the drafts with the red saveFailed line and does not retry in a loop. Empty text clears a field on flush (the API key keeps absent=keep with a staged clear action, and an emptied recording limit resets to the default). Validation is per-field and edit-scoped (D-024): a field turns red only when the user has edited it and its own draft fails its own format rule, immediately on edit; untouched fields are never marked invalid and unconfigured-but-valid states render quietly. Red is reserved for genuinely invalid user input and real failures; page-level notices exist only for the load failure (amber, after the single automatic retry), a real save failure, and read-only providers. The first-load alert no longer appears during loading. The Polishing tab follows the page's progressive-disclosure rule: the toggle row is always visible, and the provider/model/reasoning rows appear only after polishing is enabled. The tab shows provider/model display names only, and offers a reasoning-effort picker: the Host resolves the selected route's supported efforts through dsh `resolveModelInfo` (`dshEars/listReasoningEfforts`), stores the choice in `polishReasoningEffort` (empty = model default), and passes a validated effort into the `dshEars/polish` call; effort labels are the adapter's native names (e.g. `Off`, `High`, `Max`) plus an untranslated `Default` entry, matching the composer model selector. Switching the provider restores that provider's remembered model and reasoning-effort drafts. The custom polish prompt row (D-029) closes the group: a blank prompt uses the multilingual built-in default (language/term/code preservation, spoken self-corrections, enumeration-to-list, few-shot examples); a non-empty prompt replaces it entirely with the host-appended invisible output guard (`POLISH_OUTPUT_GUARD`), a live `n/4000` counter flags over-length drafts invalid (those drafts are skipped until shortened), Reset-to-default stages an empty draft, and a read-only 查看默认 / View default expand shows the shipped prompt. Polishing is disabled by default; an incomplete provider/model pair leaves polishing dormant. This page supersedes the former `settings.plugin.item` card (D-017 supersedes D-011).
+The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
 
-The card's editable state comes from the Host `getSettings()` view: `writable` mirrors the dsh settings provider (`settings.writable`; the shipped file provider is always writable). The client controller starts from a fallback view (`available: true, writable: false, loaded: false`) and replaces it after the first successful settings RPC; a failed first fetch shows a dedicated load-failure hint and retries once after 1.5 s — it no longer impersonates the read-only state. Note the operational rule: the browser bundle updates on page refresh, but any Host-side change (wire contracts, service code) requires a `dsh web` restart; until then the strict wire validation fails and the page shows the load-failure hint.
+- **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), language (empty = follow the dsh English/中文 locale), recording limit (default 120 seconds).
+- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Custom), Whisper model lifecycle, per-provider key/endpoint/host/model.
+- **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
+- **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
 
-Host validation and client validation share the helpers in `src/config.ts`; the Host-only `src/config-schema.ts` keeps `schemastery` out of the browser bundle. Credential references follow the dsh POSIX-identifier shape and contain no secret value.
+Save model is per-field auto-save (D-031, supersedes D-026 Save/Discard): a 400 ms debounce, text-field blur, or section unmount flushes persistable fields. An invalid draft is skipped and stays local with a red hint. A Host rejection keeps the drafts, shows `saveFailed`, and does not retry in a loop. Empty text clears a field on flush (API keys keep absent=keep with a staged clear). Validation is per-field and edit-scoped (D-024): untouched fields are never marked invalid; unconfigured-but-valid states render quietly.
+
+The composer microphone reads persisted settings only. Host-side changes (wire contracts, service code) require a `dsh web` restart; the browser bundle updates on refresh.
+
+Host validation and client validation share `src/config.ts`. `src/config-schema.ts` keeps `schemastery` out of the browser bundle.
 
 ## Runtime boundary
 
@@ -95,28 +110,26 @@ Browser Client
                                              └─ configured cloud endpoint
 ```
 
-The client receives `remote.dshEars` through a Cordis child scope created after the Typert contribution is mounted. Controllers and React callbacks receive the concrete namespace rather than retaining an unscoped remote object.
+The client receives `remote.dshEars` through a Cordis child scope created after the Typert contribution is mounted.
 
-## Public-quality target
+## Hardening invariants
 
-The project is intended to become a durable community package. Maintain English-first source/docs/context, narrow compatibility claims, deterministic builds, focused tests, real dsh smoke evidence, security boundaries, and atomic history. Do not add a legal license, push, publish, or create release tags without an explicit release decision.
-
-## Current hardening invariants
-
-- The settings controller auto-saves valid drafts (D-031): validation is per-field and immediate (D-024), an invalid draft is skipped and stays local, a Host rejection keeps the drafts with the saveFailed line and does not retry in a loop, empty text clears a field on flush (the API key keeps absent=keep with a staged clear), and a mid-save edit survives the in-flight write then flushes afterward. Closing the settings section flushes persistable drafts. There is no unified cross-field validity sweep, and the microphone keeps reading persisted settings. Whisper download, cancel, delete, and polling responses are generation-checked so an older response cannot replace a newer operation or model selection.
-- Host final ASR requests are bounded: audio and response sizes remain limited, Cloud ASR has a 120-second request timeout, already-aborted probes/transcribes short-circuit, and unknown backend/model identifiers are rejected rather than mapped to a real default.
-- The polish flow bounds streamed output and checks cancellation again after Remote resolution; a late result from a Remote implementation that ignores cancellation cannot write into an unmounted draft. MediaRecorder start failures release tracks and make the session terminal.
-- Host and Client Remote descriptors must agree on endpoint IDs, parameter wire shapes, codecs, result schemas, and cancellation metadata. The parity test in `tests/remote-contract.test.ts` is the regression guard for the two hand-written descriptor faces.
-- Whisper model downloads are trustworthy only through their `.dsh-ears-done` completion marker; `transcribe()` pre-flights CLI availability and the marked model file, discovery failures are negative-cached for 30 seconds, and the model manager is disposed with the plugin scope. Windows launcher probing (`python.exe`/`py.exe` + PATHEXT) is implemented but not yet smoke-tested; `medium` and larger models are documented as impractical on the CPU + 120-second path.
-- The composer microphone grays itself out (D-021) on positive unavailability signals only: the Host reports the selected backend unavailable, the Whisper model is downloading, or the model file with its marker is missing. Loading/failed/unknown states and all active flow states keep the button enabled so the stop affordance is never gated.
-- The voice-input shortcut (D-028) is in-page only and toggles the same microphone session action: idle press starts, recording press stops, transcribing/polishing presses are ignored, and `event.repeat`/IME composition never triggers it. The listener ignores events inside `[role="dialog"]` (the settings window included), non-visible pages, and hidden conversation views (`offsetParent === null`). A gated microphone turns the press into a focus of the grayed button so the existing bilingual tooltip explains the unavailability; no recording happens. The stored chord is a canonical `ctrl+shift+space`-style string validated on both faces by `src/shortcut.ts`; typing-key, bare-text-action, and modifier-only chords are rejected, browser/OS-reserved chords only warn, and the field can never be empty (Reset restores the default).
+- Settings auto-save valid drafts (D-031). There is no unified cross-field validity sweep and no Save/Discard footer.
+- Host final ASR requests are bounded. Cloud ASR has a 120-second timeout. Unknown backend/model identifiers are rejected.
+- Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
+- Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
+- The composer microphone grays out (D-021) on positive unavailability signals only. Active flow states stay enabled so stop remains reachable. Cloud readiness (key + model, plus Bailian host) is folded into the cloud backend's availability signal.
+- The voice shortcut (D-028) is in-page only. Idle starts, recording stops, transcribing/polishing is ignored. IME composition and key auto-repeat never trigger it. Events inside `[role="dialog"]` and hidden views are ignored. A gated microphone focuses the gray button instead of recording. Stored form is a canonical `ctrl+shift+space`-style string. Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. The field cannot be empty; Reset restores the default.
 
 ## Open protocol boundaries
 
-- `transcribe()` reads recognition settings when the Host RPC begins. Snapshotting backend/model/language in the recording-start request or locking settings during capture are both viable, but neither is silently chosen because it changes the first-release protocol.
-- D-019 (Whisper cache integrity after a Host crash) is closed by the completion sidecar recorded in D-020.
+- `transcribe()` reads recognition settings when the Host RPC begins (D-018). Snapshotting backend/model/language at recording start, or locking settings during capture, is not silently chosen.
+- D-019 is closed by the D-020 completion sidecar.
 
 ## Design research
 
-- `.agent/research/validation-timing-patterns.md` — industry validation-timing/messaging patterns (Ant, Arco, GOV.UK, Material, Fluent, VS Code) that informed D-024's per-field model.
-- `.agent/research/form-library-evaluation.md` — why no third-party form library is adopted (D-025).
+Optional evidence, not a live spec:
+
+- [`.agent/research/validation-timing-patterns.md`](./research/validation-timing-patterns.md) — D-024
+- [`.agent/research/form-library-evaluation.md`](./research/form-library-evaluation.md) — D-025
+- [`.agent/research/voice-dictation-shortcuts.md`](./research/voice-dictation-shortcuts.md) — D-028

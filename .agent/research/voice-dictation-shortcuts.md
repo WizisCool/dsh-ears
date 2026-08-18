@@ -1,5 +1,7 @@
 # Voice and Dictation Shortcuts Research
 
+> ADR evidence for D-028. Not a live product spec. The shipped default is `Ctrl+Shift+Space`; modifier-only chords are valid. See [`../decisions.md`](../decisions.md).
+
 **Scope.** This note surveys in-page voice/dictation shortcuts, native OS defaults, global-hotkey voice applications, shortcut-recorder UI precedents, `hotkeys-js`/Mousetrap adoption and maintenance, and single-/two-key web voice precedents. Primary sources are preferred. Claims that could not be verified from a first-party source are marked **Unverifiable/secondary**.
 
 ## Executive findings

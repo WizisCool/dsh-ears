@@ -115,7 +115,7 @@ pnpm dev:web
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
 
-协作说明在 [AGENTS.md](./AGENTS.md) 和 `.agent/`。
+贡献与架构说明见 [CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENTS.md](./AGENTS.md) 和 [`.agent/`](./.agent/README.md)。
 
 ## License
 

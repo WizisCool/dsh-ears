@@ -1,5 +1,45 @@
 # Architecture Decision Records
 
+Decisions are append-only. Read this status index first. A later ADR that supersedes an earlier one is the live rule; the original body is history and must not be applied as current product law.
+
+## Status index
+
+| ID | Topic | Live status |
+| --- | --- | --- |
+| D-001 | Project identity | Accepted |
+| D-002 | Interaction contract | Accepted |
+| D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
+| D-004 | LLM ownership | Accepted |
+| D-005 | Host/Client packaging | Accepted |
+| D-006 | Compatibility | Extended by D-030. Current: rc.6 and rc.7, not rc.6 only. |
+| D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
+| D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
+| D-009 | Release safety | Accepted. Push, publish, and public visibility stay gated. |
+| D-010 | Codex-style microphone | Accepted; revised by D-027. |
+| D-011 | Plugins-page card | **Superseded by D-017.** Live surface is `settings.section`. |
+| D-012 | Theme and composer order | Accepted |
+| D-013 | Remote invocation scope | Accepted |
+| D-014 | Final ASR backends | Architecture accepted. Cloud key model **reversed by D-023 / D-032** (per-provider `role('secret')`, not dsh credential-references). |
+| D-015 | Emotion deferred | Accepted |
+| D-016 | License and repository | Accepted. MIT; private GitHub; npm/public still gated. |
+| D-017 | Dedicated settings page | Accepted (live) |
+| D-018 | Recording-settings snapshot | **Open** |
+| D-019 | Whisper cache integrity | Closed by D-020 |
+| D-020 | Whisper robustness | Accepted |
+| D-021 | Microphone availability gating | Accepted |
+| D-022 | Click-through to settings | Rejected |
+| D-023 | Cloud provider presets + secret keys | Accepted; extended by D-032 |
+| D-024 | Per-field validate-on-edit | Accepted |
+| D-025 | No third-party form library | Accepted |
+| D-026 | Save/Discard footer | **Superseded by D-031.** Live save model is per-field auto-save. |
+| D-027 | Recognition dock | Accepted |
+| D-028 | Voice-input shortcut | Accepted. Default `Ctrl+Shift+Space`. **Modifier-only chords are valid.** |
+| D-029 | Custom polish prompt | Accepted |
+| D-030 | Dual rc.6 / rc.7 | Accepted (live compatibility) |
+| D-031 | Auto-save uncarded settings | Accepted (live save model) |
+| D-032 | Bailian + per-provider keys | Accepted |
+| D-033 | About tab | Accepted. First public release still waits for an explicit publish go-ahead. |
+
 ## D-001 — Project identity
 
 - Status: accepted
@@ -32,13 +72,15 @@
 
 ## D-006 — Compatibility
 
-- Status: accepted; extended by D-030
-- Decision: The first release is validated only against dsh `0.1.0-rc.6`.
+- Status: accepted; extended by D-030. Do not read the original decision as live — current compatibility is rc.6 and rc.7.
+- Decision (original): The first release is validated only against dsh `0.1.0-rc.6`.
+- Live rule: see D-030.
 
 ## D-007 — Deferred scope
 
-- Status: accepted
-- Decision: Local Whisper, cloud ASR, and emotion UI are deferred. An emotion field may be reserved but cannot be a first-release dependency.
+- Status: partially superseded. Local Whisper and cloud ASR shipped. Emotion UI remains deferred — see D-015.
+- Decision (original): Local Whisper, cloud ASR, and emotion UI are deferred. An emotion field may be reserved but cannot be a first-release dependency.
+- Live rule: Whisper and cloud ASR are first-release backends. Emotion is still out of scope.
 
 ## D-008 — Language and public quality
 
@@ -60,8 +102,8 @@
 
 ## D-011 — Native plugin configuration surface
 
-- Status: accepted
-- Decision: Register `dsh-ears` configuration in dsh's native Plugins settings page through the `settings.plugin.item` list slot.
+- Status: superseded by D-017. Do not register settings on `settings.plugin.item`.
+- Decision (original): Register `dsh-ears` configuration in dsh's native Plugins settings page through the `settings.plugin.item` list slot.
 - Prohibited: a separate Voice settings tab, standalone Voice settings section, or plugin-owned settings page outside the native Plugins surface.
 - Rationale: dsh's Plugins page is the canonical host-plugin configuration surface and keeps plugin settings discoverable and visually consistent.
 
@@ -81,9 +123,10 @@
 
 ## D-014 — Host-side final ASR backends
 
-- Status: accepted
+- Status: accepted for Host/MediaRecorder architecture; cloud credential model reversed by D-023 and D-032.
 - Decision: Keep Web Speech as the live browser backend, and use browser `MediaRecorder` plus one bounded final-result Host RPC for local Whisper and OpenAI-compatible cloud ASR.
-- Decision: Local Whisper runs through a non-shell `spawn` call and private temporary files. Cloud credentials are dsh credential references resolved per operation; the plugin never stores or returns secret values.
+- Decision (original, reversed for keys): Local Whisper runs through a non-shell `spawn` call and private temporary files. Cloud credentials are dsh credential references resolved per operation; the plugin never stores or returns secret values.
+- Live key rule: see D-023 and D-032. Each cloud provider stores a write-only `role('secret')` field. The plugin does not use dsh credential-references for cloud ASR.
 - Prohibited: bundling model weights, browser-side API keys, invisible backend switching during a recording, or an unbounded generic audio stream in the first release.
 - Rationale: This keeps browser UX responsive while preserving Host ownership of processes, credentials, endpoint access, cancellation, and cleanup.
 
@@ -103,7 +146,7 @@
 ## D-017 — Dedicated settings page supersedes the Plugins-page card
 
 - Status: accepted (supersedes D-011)
-- Decision: Register `dsh-ears` configuration as its own `settings.section` page (`dsh-ear`, nav order 16 — between Plugins and Agent presets) instead of the `settings.plugin.item` card inside the Plugins page.
+- Decision: Register `dsh-ears` configuration as its own `settings.section` page (section id `dsh-ears`, nav order 16 — between Plugins and Agent presets) instead of the `settings.plugin.item` card inside the Plugins page. An earlier card title used the nickname `dsh-ear`; the live id, default nav label, and display-name default are `dsh-ears`.
 - Decision: Style the page with the same semantic tokens, card geometry, and field patterns as the shipped Models/General pages so the surface reads as a native settings page.
 - Rationale: The Plugins-page card is dense and cannot grow; a dedicated page provides room for clearer grouped configuration (Recognition, Polishing) and future options while staying inside dsh's canonical settings window.
 
@@ -201,9 +244,9 @@
 - Decision (default): **`Ctrl+Shift+Space` on all three platforms** (no Cmd mapping — macOS `Cmd+`` ` is the system window-cycle grab). The default is typed-key-free, left-hand reachable in one hand (left Ctrl + left Shift + left-thumb Space), free in Chrome/Firefox/Edge on Windows/Linux/macOS, and layout-stable (Space exists on every keyboard, including 60%/65%/68-key compact boards). Bare `Ctrl+Space` is explicitly rejected because it is the Chinese IME toggle on Windows, the input-source switch on macOS, and the autocomplete trigger in IDEs; the Shift escapes the IME grab. Single-key defaults were rejected: F-keys are media keys on macOS by default, are absent on compact keyboards (Fn layer only), and no mainstream web product reserves a bare letter for voice.
 - Decision (trigger semantics): idle press = start recording (same session action as the microphone click), recording press = stop and transcribe, transcribing/polishing press = ignored, `event.repeat` and IME composition ignored. When the D-021 gate blocks the microphone, the shortcut focuses the (gray) microphone button so its existing bilingual tooltip surfaces the reason — no recording happens. Revised (2026-08-17): the hotkey listens on **window capture** and calls `preventDefault` + `stopPropagation` when the chord matches, so it **outranks text input** — editor/composer keydown handlers (which bubble and may swallow or stop the event) never see a matched combination, and pressing the shortcut inside the composer or any text field always wins over the input layer. Non-matching keys, disabled, and gated states leave the event untouched.
 - Decision (activation guard): the listener lives in the composer `MicrophoneButton` and ignores the chord when the event target is inside `[role="dialog"]` (the settings window is `role="dialog" aria-modal="true"`), when the page is not visible, or when the button itself is not laid out (`offsetParent === null`, covering hidden conversation views).
-- Decision (implementation): a **hand-written shared module** (`src/shortcut.ts`, no third-party dependency) implements parse/normalize/validate/match/capture/format and the reserved-combo list; this follows the report's recommendation ("a custom handler may be preferable to adding a dependency for one shortcut") and the D-025 no-dependency precedent, superseding the earlier hotkeys-js preference. Key tokens derive from `KeyboardEvent.code` (layout-stable); the canonical stored form is lower-case plus-joined with fixed modifier order (`ctrl+shift+space`). Settings storage adds `voiceShortcutEnabled` (boolean, default true) and `voiceShortcut` (string, default `ctrl+shift+space`) through the D-026 staged-draft model; host validation rejects malformed and typing-key chords (modifier-only chords are valid as of the 2026-08-18 recorder revision).
+- Decision (implementation): a **hand-written shared module** (`src/shortcut.ts`, no third-party dependency) implements parse/normalize/validate/match/capture/format and the reserved-combo list; this follows the report's recommendation ("a custom handler may be preferable to adding a dependency for one shortcut") and the D-025 no-dependency precedent, superseding the earlier hotkeys-js preference. Key tokens derive from `KeyboardEvent.code` (layout-stable); the canonical stored form is lower-case plus-joined with fixed modifier order (`ctrl+shift+space`). Settings storage adds `voiceShortcutEnabled` (boolean, default true) and `voiceShortcut` (string, default `ctrl+shift+space`) through the D-031 auto-save model; host validation rejects malformed and typing-key chords. Modifier-only chords are valid.
 - Revised (2026-08-18, library re-evaluation): the maintainer asked whether a statically compilable third-party shortcut library should replace the custom module. Re-checked current docs/source for `tinykeys` (ESM, ~650B, `getModifierState` + `KeyboardEvent.code`) and the earlier hotkeys-js/Mousetrap survey. A library would replace only chord matching. Host validation, reserved/typing-key policy, the settings recorder (including `lastHeld` for macOS Control capture), and platform labels stay in-repo. `tinykeys` also defaults to ignoring composer inputs, which contradicts the hotkey-over-input rule, and its `$mod` alias maps to Cmd on Apple, which this decision forbids. **Keep the hand-written module; do not add a shortcut dependency.**
-- Decision (recorder rules): the recorder hard-rejects modifier-only chords and **bare** letter/digit/text-action keys (Space, Enter, punctuation, arrows…) because they type or act on text; it also rejects Alt/Option+letter/digit chords because macOS Option+letter produces special characters (and AltGr layouts behave the same). **Letters and digits with Ctrl/Shift/Meta are valid** (revised at the user's request after initial implementation: the first version rejected them unconditionally on the grounds that they are browser-reserved; the user asked for modifier+character chords and browser collisions are now surfaced as amber warnings instead of blocks). Bare F-keys are allowed because they never produce text. Browser/OS-reserved chords — including generated `ctrl+<letter>`, `meta+<letter>`, `ctrl+<digit>`, `meta+<digit>` and explicit `ctrl+shift+`/`shift+meta+` sets (edit/navigation/tab/app shortcuts), plus F5, Ctrl+Space, Alt+Tab, Cmd+Space, Ctrl+Enter… — are valid but flagged amber without blocking the save. Escape cancels capture; capture events are intercepted with `preventDefault` + `stopPropagation` at the window capture phase so the global shortcut cannot fire while recording, and held modifier keys are shown live inside the capture button so modifier-only input is visible instead of silent. A "Reset to default" action restores `ctrl+shift+space` (an empty shortcut is never a valid state).
+- Decision (recorder rules): the recorder **accepts modifier-only chords** (`Ctrl`, `Ctrl+Shift`, …) by committing the peak simultaneous modifier set when every modifier is released. It still hard-rejects **bare** letter/digit/text-action keys (Space, Enter, punctuation, arrows…) because they type or act on text, and it rejects Alt/Option+letter/digit chords because macOS Option+letter produces special characters (and AltGr layouts behave the same). **Letters and digits with Ctrl/Shift/Meta are valid** (revised after an earlier version rejected them as browser-reserved; collisions are now amber warnings instead of blocks). Bare F-keys are allowed because they never produce text. Browser/OS-reserved chords — including generated `ctrl+<letter>`, `meta+<letter>`, `ctrl+<digit>`, `meta+<digit>` and explicit `ctrl+shift+`/`shift+meta+` sets, plus F5, Ctrl+Space, Alt+Tab, Cmd+Space, Ctrl+Enter… — are valid but flagged amber without blocking the write. Escape cancels capture; capture events are intercepted with `preventDefault` + `stopPropagation` at the window capture phase so the global shortcut cannot fire while recording, and held modifier keys are shown live inside the capture button. A "Reset to default" action restores `ctrl+shift+space` (an empty shortcut is never a valid state).
 - Display: chords render with platform-appropriate labels (mac ⌃⌥⇧⌘ vs Win/Linux Ctrl/Alt/Shift/Win-Super); the default renders identically on all platforms.
 - Rationale: the four-round design grill (default-key constraint evolution: global→in-page, ≤2 keys→left-hand→compact-layout→IME safety) settled that a safe in-page voice chord must be a modifier chord; Ctrl+Shift+Space is the only default simultaneously left-hand, typing-safe, cross-platform, compact-layout-safe, and free of browser/OS/IME conflicts. Moving language and the recording limit to General keeps the Recognition tab focused on ASR backends and matches the user's request to lead with general settings.
 

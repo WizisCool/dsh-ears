@@ -1,5 +1,7 @@
 # Validation Timing & Messaging Patterns — Primary-Source Research
 
+> ADR evidence for D-024. Not a live product spec. See [`../decisions.md`](../decisions.md).
+
 Research backing the dsh-ears settings-page decision to move from a unified
 cross-field validity check to **validate-only-the-edited-field** timing, and to
 show prompts **only for real problems** (invalid input or genuine failures),

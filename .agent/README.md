@@ -1,24 +1,27 @@
-# Agent Context
+# Agent and contributor context
 
-`.agent/` contains the durable context shared across agents and sessions. It is not a secret store and it is not a scratch log.
+`.agent/` holds durable project context. It is not a secret store and it is not a session log.
 
-## Reading order
+## Files
 
-1. `PLAN.md` — product scope, milestones, and acceptance criteria.
-2. `agent.md` — current status and next step.
-3. `context.md` — stable product and architecture context.
-4. `decisions.md` — accepted decisions and their status.
-5. `workflow.md` — collaboration, validation, commit, and security rules.
-6. `PROGRESS.md` — historical delivery record (superseded as the live status by `agent.md` and `CHANGELOG.md`).
+| File | Read when |
+| --- | --- |
+| [`PLAN.md`](./PLAN.md) | Product scope, compatibility, and still-open gates |
+| [`context.md`](./context.md) | Architecture, Host/Client boundary, current settings and ASR surface |
+| [`decisions.md`](./decisions.md) | Append-only ADRs. Start at the status index; superseded IDs are not live law |
+| [`workflow.md`](./workflow.md) | Validation, commit, and security rules |
+| [`research/`](./research/) | Optional evidence behind specific ADRs |
+
+Delivery history lives in [`CHANGELOG.md`](../CHANGELOG.md). Do not add a per-task handoff diary.
 
 ## Language
 
-All context documents are English-first to match the official DeepSeek Harness repository and make future public review easier. Product-facing prompt text may use Chinese when the product requires Chinese recognition and polishing behavior.
+Context documents are English-first. Product-facing prompt text may use Chinese when the product requires Chinese recognition and polishing behavior.
 
 ## Update rules
 
-- Update `agent.md` after every milestone, verification change, blocker, or handoff.
-- Keep `context.md` for stable facts; update it when boundaries or architecture change.
-- Keep `decisions.md` append-only. When a decision is replaced, record the replacement instead of deleting history.
+- Update `context.md` when architecture or a product boundary changes.
+- Keep `decisions.md` append-only. When a decision is replaced, mark the old status and record the replacement. Do not delete history.
+- Update `PLAN.md` when scope, compatibility, or an open gate changes.
 - Update `workflow.md` only when the collaboration contract changes.
 - Never write credentials, private URLs, cookies, user data, or personal absolute paths here.
