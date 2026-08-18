@@ -6,7 +6,7 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: pending README rewrite on `master`.
+- Latest commit: `366a804 docs: rewrite README as a Chinese-first product page`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
 
@@ -16,8 +16,8 @@
 - Validation: relative links in both READMEs resolve to tracked files; install commands match `dsh plugin --profile web add dsh-ears` and the local `$PWD` path; attachment upload returned HTTP 201. No code or runtime change.
 - Unfinished: confirm the inline player on the GitHub repo page after push; first public release still waits for "可以发".
 - Blocked: none.
-- Next: after push, open the GitHub README and play the demo.
-- Commit: pending.
+- Next: open the GitHub README and play the demo.
+- Commit: `366a804 docs: rewrite README as a Chinese-first product page`.
 
 ## About tab and update check (2026-08-18)
 
