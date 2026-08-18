@@ -12,12 +12,12 @@
 
 ## README banner (2026-08-18)
 
-- Completed: dropped the top `assets/dsh-ear.svg` (it vanished on GitHub dark). Hero is now a model-generated white-and-blue banner at `assets/banner.jpg` with the product name painted in: left waveform/mic card, right `dsh-ears` plus `voice input for text-only LLMs`. Layout follows the ModLens wide split. No ImageMagick type overlay.
-- Validation: both READMEs point at `./assets/banner.jpg`; `dsh-ear.svg` is gone from `assets/`; wordmark on the chosen frame reads `dsh-ears`.
+- Completed: dropped `assets/dsh-ear.svg`. Hero is the maintainer-picked frame (ear + blue mic disc + waveform, wordmark `dsh-ears`) cropped to the ModLens size `2172x724` at `assets/banner.jpg`. Model painted the letters; only the canvas was resized.
+- Validation: `sips` reports `2172x724`, matching ModLens `banner.jpg`; wordmark still reads `dsh-ears`.
 - Unfinished: first public release still waits for "可以发".
 - Blocked: none.
-- Next: open the GitHub README and check the banner on the dark theme.
-- Commit: `73eb7dc docs: replace the README ear icon with a product banner`.
+- Next: open the GitHub README and check the 2172x724 banner.
+- Commit: pending push.
 
 ## Public README rewrite (2026-08-18)
 
