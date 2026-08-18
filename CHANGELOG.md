@@ -11,7 +11,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 ### Added
 
 - While the recognition bar is transcribing or polishing, the disabled stop square becomes the same trash icon as an in-progress Goal row. Clicking it discards that voice task, aborts the Host request, and collapses the bar with the existing exit animation.
-- An **关于 / About** tab at the end of the `dsh-ear` settings page: plugin name, installed version, MIT license, and dsh compatibility. Check for updates is click-only; the Host compares npm `latest` and never installs. Until the package is published the check reports that honestly.
+- An **关于 / About** tab at the end of the `dsh-ear` settings page: a jumpable GitHub repo row (`@WizisCool/dsh-ears` with the thesvg.org mark), installed version, MIT license, and dsh compatibility. Identity rows have no hint copy. Check for updates is click-only; the Host compares npm `latest` and never installs. Until the package is published the check reports that honestly.
 - A General-tab display-name picker for the settings page: `dsh-ears` (default) or `语音` / `Voice`.
 - Synthesized voice-input click (no audio files) on start/stop. Toggle is in General, on by default.
 - Alibaba Cloud Model Studio (百炼) as a cloud ASR provider: DashScope sync `multimodal-generation` for Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash. Users enter an HTTPS origin, a dedicated API key, and a model name. Recordings on this provider are capped at 300 seconds. Filetrans / realtime remain out of scope.

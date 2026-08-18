@@ -241,7 +241,7 @@
 ## D-033 — About tab and notify-only update check
 
 - Status: accepted (2026-08-18).
-- Decision: the `dsh-ear` page gains a last **关于 / About** tab. It is identity only: plugin name, installed version (Host-read `package.json`), MIT license, and the verified dsh range (`0.1.0-rc.6 / 0.1.0-rc.7`). No logo, changelog, or repository link. Rows match the uncarded General hairline layout (D-031).
+- Decision: the `dsh-ear` page gains a last **关于 / About** tab. Identity rows have no hint copy: 仓库 (thesvg.org `Github` mark plus `@WizisCool/dsh-ears`, opens the GitHub repo), installed version, MIT license, and the verified dsh range (`0.1.0-rc.6 / 0.1.0-rc.7`). No logo block and no changelog. Rows match the uncarded General hairline layout (D-031).
 - Decision: **Check for updates** runs only when the user clicks. The Host GETs `https://registry.npmjs.org/dsh-ears/latest` with no credentials and compares npm `latest` to the installed version. The browser never contacts the registry. Results: up to date; update available (show the newer version and copy `dsh plugin --profile web update dsh-ears`); unpublished (honest empty channel); or error. Never install, restart, or rewrite the profile. A 404 is not reported as "up to date".
 - Decision: first public release (`0.1.0`, public GitHub repo, `v0.1.0` tag, GitHub Release from CHANGELOG, npm publish) is authorized but **not part of this implementation**. It waits for an explicit "可以发".
 - Rationale: plugin install belongs to `dsh plugin` / pnpm. The settings page can only tell the user what is on npm.

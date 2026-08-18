@@ -6,18 +6,18 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: `5ea9eac feat(client): add the About settings tab` on `master`.
+- Latest commit: pending About repo row and thesvg GitHub mark on `master`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
 
 ## About tab and update check (2026-08-18)
 
-- Completed: last settings tab **关于 / About** (D-033) with name, Host-read version, MIT, dsh rc.6/rc.7, and a click-only Host npm `latest` check. Notify + copy `dsh plugin --profile web update dsh-ears`. 404 is unpublished, not up-to-date. No install. Publish (public repo, npm, tag, Release) is authorized but waits for "可以发".
-- Validation: `pnpm check` passed; `pnpm test` passed twice (260/260 across 24 files); `pnpm build` passed; Impeccable returned `[]` on the settings page.
-- Unfinished: live GUI refresh of the About tab; first public release waits for "可以发".
+- Completed: last settings tab **关于 / About** (D-033). Identity rows have no hint copy. The first row is **仓库** with the thesvg.org `Github` mark and `@WizisCool/dsh-ears`, and it opens the GitHub repo. Also Host-read version, MIT, dsh rc.6/rc.7, and a click-only Host npm `latest` check. Notify + copy `dsh plugin --profile web update dsh-ears`. 404 is unpublished, not up-to-date. No install. Publish waits for "可以发".
+- Validation: `pnpm check` passed; `pnpm test` passed twice (261/261 across 24 files); `pnpm build` passed (client bundles `@thesvg/react` GitHub mark).
+- Unfinished: live GUI refresh of the About tab (Host restart for the `repository` wire fields); first public release waits for "可以发".
 - Blocked: none.
-- Next: refresh the existing Web UI (Host restart needed for the new RPC); do not publish until the user says so.
-- Commit: `3ed5071` / `5ea9eac` / `6717174`.
+- Next: restart `dsh web` and refresh to inspect the repo row; do not publish until the user says so.
+- Commit: pending.
 
 ## Recognition-bar discard action (2026-08-18)
 
