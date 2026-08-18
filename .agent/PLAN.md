@@ -78,7 +78,7 @@ dsh-ears/
 ├── README.md                 # Chinese-first public landing page
 ├── README.en.md              # English sibling
 ├── AGENTS.md
-├── assets/                   # Published plugin icon
+├── assets/                   # README banner
 ├── .agent/                   # Plan, decisions, handoff, research
 ├── src/
 │   ├── index.ts              # Host plugin entry

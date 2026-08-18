@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/dsh-ear.svg" width="88" alt="dsh-ears" />
+  <img src="./assets/banner.jpg" width="100%" alt="dsh-ears" />
 </p>
 
 <h1 align="center">dsh-ears</h1>
