@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@thesvg/react':
+        specifier: ^3.3.1
+        version: 3.3.1(react@18.3.1)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -819,6 +822,12 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@thesvg/react@3.3.1':
+    resolution: {integrity: sha512-5YFVOP02XEyumkW1aTTFy6nfctScJSjPhbswVcA+Bcy0ZF+lmIj4mAg/CqUyw2681fnNSVtsH+T53UNYgDgotg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      react: '>=18'
 
   '@tsdown/css@0.22.14':
     resolution: {integrity: sha512-0NpbgqfhfjaAoLdY3DxjrMo08vKFEtvlybCS42Gtolx8OPoKUdZZDyls0qgNEqea0c7XGjlF0NIE1tIxgU8RqA==}
@@ -2575,6 +2584,10 @@ snapshots:
   '@shikijs/vscode-textmate@10.0.2': {}
 
   '@standard-schema/spec@1.1.0': {}
+
+  '@thesvg/react@3.3.1(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@tsdown/css@0.22.14(postcss@8.5.26)(tsdown@0.22.14)':
     dependencies:
