@@ -75,7 +75,8 @@ dsh-ears/
 ├── tsconfig.build.json        # declaration-only package type build
 ├── tsdown.config.ts          # Host and Client build entry configuration
 ├── tsdown.client.ts          # dsh client-module bundle preset
-├── README.md
+├── README.md                 # Chinese-first public landing page
+├── README.en.md              # English sibling
 ├── AGENTS.md
 ├── assets/                   # Published plugin icon
 ├── .agent/                   # Plan, decisions, handoff, research

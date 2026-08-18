@@ -1,56 +1,100 @@
-# dsh-ears
+<p align="center">
+  <img src="./assets/dsh-ear.svg" width="88" alt="dsh-ears" />
+</p>
 
-![dsh-ear icon](./assets/dsh-ear.svg)
+<h1 align="center">dsh-ears</h1>
 
-An open-source voice-input plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): give the text-only DeepSeek a pair of ears.
+<p align="center"><b>给纯文本 DeepSeek 一对耳朵。</b></p>
 
-The interaction is deliberately close to Codex Desktop:
+<p align="center">
+  <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> 的开源语音输入插件
+</p>
+
+<p align="center">
+  简体中文 ·
+  <a href="./README.en.md">English</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-0.1.0--rc.6%20%2F%20rc.7-1a73e8?style=flat-square" alt="dsh 0.1.0-rc.6 / rc.7"></a>
+  <img src="https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
+</p>
+
+给纯文本 LLM 加一对耳朵：
 
 ```text
-microphone → transcription → optional dsh LLM polishing → editable draft → manual send
+麦克风 → 转写 → 可选润色 → 可编辑草稿 → 手动发送
 ```
 
-The microphone control is registered in dsh's composer. While recognition is active, a standalone native taskbar-style card appears above the input with a full-width rolling microphone waveform and stop action; the transcript remains in dsh's editable draft. During transcription or polishing the stop square becomes a trash control that discards that voice task. Configuration lives in a dedicated `dsh-ear` page in dsh's native settings window; dsh-ears does not add a second settings system. The last **About** tab shows the installed version and can check npm `latest` without installing anything.
+https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
-## Compatibility
+## 功能
 
-- dsh: `0.1.0-rc.6` and `0.1.0-rc.7`
-- Node.js: `^22.19.0 || >=24.0.0`
-- Package manager: pnpm
-- First browser target: a Chromium browser with the required speech or microphone APIs
+录音时，输入框上方会出现一条识别条，有波形和停止按钮。转写或润色还没结束，可以把这次丢掉。
 
-The compatibility promise is intentionally narrow. Other dsh releases are unsupported until they have been tested.
+识别可以用浏览器 Web Speech（边说边出字），也可以用本机 Whisper、Groq、阿里云百炼，或者任意 OpenAI 兼容转写接口。
 
-## Capabilities
+润色可以用任何已经接入 dsh 的模型，提示词能自己改。快捷键默认是 `Ctrl+Shift+Space`。
 
-### Speech recognition
+## 安装
 
-- Web Speech: live interim/final transcript updates in the browser.
-- Local Whisper: Host-side `whisper` CLI execution after recording stops.
-- Cloud ASR provider presets: Groq transcription with an inline API key and a live model list; Alibaba Cloud Model Studio (百炼) via DashScope sync (`qwen3-asr-flash`, `fun-asr-flash`, and the same Flash family; HTTPS origin + key + model name; 300-second recording cap); and a Custom OpenAI-compatible option for arbitrary `/audio/transcriptions` endpoints. Groq and Custom requests are multipart `file`, `model`, and optional language. Each cloud provider stores its own write-only API key. Requests are bounded by a 120-second timeout. Bailian Filetrans / realtime are not included.
+先安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` / `0.1.0-rc.7`）。
+Node.js 需要 `^22.19.0 || >=24.0.0`。
 
-The final-result backends use the browser `MediaRecorder` and a bounded one-shot audio RPC. They do not switch backends invisibly during one recording. When the selected backend or Whisper model provably cannot transcribe, the composer microphone grays out with an explanatory tooltip.
+### 1. 从 npm 安装
 
-### Polishing
+```sh
+dsh plugin --profile web add dsh-ears
+```
 
-After transcription, dsh-ears can ask any provider/model route already configured in dsh to clean up the transcript. The plugin stores only `{ provider, model, polishPrompt }`; it does not add a provider, API key, base URL, or browser-side LLM request. A failed or cancelled polish leaves the raw transcript usable in the draft.
+没有 `dsh` 命令时换成：
 
-Polishing runs on a built-in multilingual ASR-editing prompt that preserves the transcript's original language and technical/code terminology, resolves spoken self-corrections, formats enumerations as lists, and carries few-shot examples. On the Polishing tab you can replace it with your own system prompt: type a custom prompt, or leave it blank to use the built-in default. The host always appends an invisible output guard — the model returns only the polished text and never answers the transcript — and an over-length custom prompt (more than 4000 characters) blocks the save.
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
+```
 
-### Settings
+### 2. 从源码安装
 
-Open `Settings → dsh-ear` in dsh. The page opens on a **General** tab and provides:
+```sh
+git clone https://github.com/WizisCool/dsh-ears.git
+cd dsh-ears
+pnpm install
+pnpm build
+dsh plugin --profile web add "$PWD"
+```
 
-- a voice-input keyboard shortcut: an enable switch plus a recorder to capture any supported combination. The default is `Ctrl+Shift+Space` (same on Windows, Linux, and macOS): press it while the dsh page is focused to start voice input, and press it again to stop and transcribe. The shortcut works only inside the dsh page — a web page cannot register a system-wide hotkey, so it never intercepts other applications. Bare letter/digit/text keys (they would type) and Alt/Option+letter combinations (which type special characters on macOS) are rejected, as are modifier-only chords; letters and digits with Ctrl/Shift/Meta are accepted. Combinations reserved by the browser or OS are flagged with a warning but can still be saved. The shortcut runs at priority over text entry inside the dsh page — pressing it while typing in the composer triggers voice input instead of being swallowed by the input field. When the configured backend cannot record (see Backend notes), the shortcut surfaces the same unavailable hint as the grayed microphone button instead of recording.
-- recognition language and recording limit (moved to the General tab);
-- a grouped recognition selector (Local: Web Speech / Local Whisper; Cloud providers: Groq / Alibaba Cloud Model Studio / Custom OpenAI-compatible);
-- local Whisper model management;
-- per-provider cloud API keys, plus Groq's live model list, Bailian's HTTPS host and typed model name, or a custom transcription endpoint;
-- polishing toggle, dsh provider/model route, and an optional custom polish system prompt (leave blank to use the built-in default). The prompt row offers a live `n/4000` character counter, a Reset-to-default action, and a read-only "View default" peek at the shipped prompt.
+刷新 Web UI，输入框右侧会出现麦克风。
 
-Each cloud provider's API key is write-only and stored on the dsh Host under its own settings group (`groq`, `customOpenAi`, `bailian`) with a `role('secret')` field. The browser never receives the value, only a configured/unconfigured state. The plugin never handles LLM credentials for polishing — that stays inside dsh's own routes.
+## 用法
 
-## Local development
+1. 点麦克风图标，或按 `Ctrl+Shift+Space`（默认）。
+2. 说话。
+3. 再点一次或再按一次快捷键，停止并转写。
+4. 如果开了润色，原文先写进草稿，润色完再替换。你中途改过的字不会被盖掉。
+5. 发送。
+
+后端没配好时麦克风图标会变灰，鼠标悬停能看到原因。
+
+## 识别后端
+
+| 后端 | 怎么工作 | 你需要准备 |
+| --- | --- | --- |
+| Web Speech | 浏览器实时识别，边说边出字 | Chromium。音频可能发给浏览器厂商 |
+| 本地 Whisper | 停录后由 Host 上的 `whisper` CLI 转写 | 本机装好 openai-whisper，并在插件设置页先下载模型。插件不附带权重 |
+| Groq | Host 把录音发到 Groq Whisper | Groq API key |
+| 阿里云百炼 | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key、模型名。单次最长 300 秒 |
+| 自定义 OpenAI 兼容 | 发到你指定的 `/audio/transcriptions` | 端点、key、模型名 |
+
+一次录音不会中途换后端。Whisper 的 `medium` 和更大的模型，靠 CPU 很难在 120 秒里跑完，得有 GPU 或者更快的本机运行时。
+
+## 润色
+
+润色模型来自 `dsh → 设置 → 模型` 里已经接入的那些。插件只存提供方、模型和提示词。LLM 的 key 用的是 dsh 自己的。
+
+默认提示词会去掉口头禅、修 ASR 错字，也会处理「不是 A 是 B」和「第一…第二…」这种说法。留空就用内置的，默认内容在设置里可以看。润色失败或取消，只留下原文。
+
+## 本地开发
 
 ```sh
 pnpm install
@@ -62,43 +106,17 @@ pnpm dev:config
 pnpm dev:web
 ```
 
-For source iteration, run the compiler watcher in another terminal:
+改源码时再开一个终端跑 `pnpm dev:watch`。`pnpm dev:config` 会写出已忽略的 `.dsh/cordis.patch.yml` 做热更新，不会多装一份插件。
 
-```sh
-pnpm dev:watch
-```
+## 文档
 
-`pnpm dev:config` creates the ignored `.dsh/cordis.patch.yml` HMR overlay. It watches the generated `lib/` output and does not add a duplicate plugin loader entry. `cordis.patch.yml` is the small publish-time bundle patch.
+- [CHANGELOG](./CHANGELOG.md)
+- [CONTRIBUTING](./CONTRIBUTING.md)
+- [SECURITY](./SECURITY.md)
+- [LICENSE](./LICENSE)
 
-## Backend notes
+协作说明在 [AGENTS.md](./AGENTS.md) 和 `.agent/`。
 
-Local Whisper must be installed on the dsh Host and available as `whisper` on `PATH`. Model weights belong to that installation; dsh-ears does not bundle or upload them. Download a model from the `Settings → dsh-ear` page before recording: transcription is rejected while the selected model is missing or incomplete instead of silently downloading it mid-recording. `medium` and larger models need a GPU or a faster local runtime to finish within the 120-second transcription limit. Model discovery follows the installed library's own paths (pip, Homebrew, pipx, conda); Windows launcher probing is implemented but has not been smoke-tested on Windows yet. Temporary audio files are created in a private temporary directory and removed after each operation.
+## License
 
-Cloud ASR preset providers (Groq) pin their endpoint in a Host-side registry and fetch their transcription model list from the provider's catalog with the stored key; the Custom OpenAI-compatible provider sends audio to the endpoint configured by the user. Use HTTPS for remote services, do not embed credentials in the URL, and consider the privacy and retention policy of the chosen provider. Localhost/private endpoints are allowed because endpoint configuration is an explicit Host-side administrator action; the plugin does not discover or probe arbitrary endpoints. Groq Chinese (`zh`) recognition is expected through the multilingual Whisper models but is not explicitly listed in Groq's own documentation — verify with a live call.
-
-Web Speech may send audio to a browser-vendor recognition service. “No additional plugin cost” does not mean local-only recognition.
-
-## Verification
-
-The repository currently has 111 focused tests across 12 test files. The verified local dsh smoke path includes:
-
-- dsh Host and browser plugin loading;
-- native `dsh-ear` settings persistence;
-- light/dark composer layout and dsh semantic color tokens;
-- real local Whisper transcription through `dshEars/transcribe`;
-- Web Speech and MediaRecorder lifecycle failure paths.
-
-The hardening suite also covers cross-field settings staging, stale Whisper action responses, late aborted polish results, bounded cloud/polish responses, strict ASR identifiers, and Host/Client Remote descriptor parity.
-
-See [.agent/PLAN.md](./.agent/PLAN.md) for the full implementation plan, [SECURITY.md](./SECURITY.md) for the threat and data-handling boundary, and [.agent/PROGRESS.md](./.agent/PROGRESS.md) for the current delivery record.
-
-## Project documents
-
-- [AGENTS.md](./AGENTS.md) — repository instructions for coding agents.
-- [.agent/PLAN.md](./.agent/PLAN.md) — product scope and milestones.
-- [.agent/agent.md](./.agent/agent.md) — current handoff and verification state.
-- [.agent/context.md](./.agent/context.md) — durable architecture context.
-- [.agent/decisions.md](./.agent/decisions.md) — append-only architecture decisions.
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — contribution and review expectations.
-
-The project is released to the private GitHub repository `WizisCool/dsh-ears` under the MIT license. npm publishing and any public visibility change still require an explicit release decision.
+[MIT](./LICENSE)

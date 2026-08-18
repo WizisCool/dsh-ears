@@ -45,6 +45,7 @@
 - Status: accepted
 - Decision: Source, code comments, repository docs, context docs, issue-ready text, and commit messages are English-first and follow official dsh repository conventions.
 - Runtime prompts may use Chinese when required by the product behavior.
+- Revision (2026-08-18): the public landing page is Chinese-first (`README.md`) with an English sibling (`README.en.md`). Source, comments, context, issues, and commits stay English-first.
 
 ## D-009 — Release safety
 

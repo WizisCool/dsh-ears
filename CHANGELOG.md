@@ -6,6 +6,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Changed
 
+- Public README is now Chinese-first (`README.md`) with an English sibling (`README.en.md`).
 - Repository layout: the implementation plan and delivery record live under `.agent/`, and the plugin icon is `assets/dsh-ear.svg`.
 
 ### Added

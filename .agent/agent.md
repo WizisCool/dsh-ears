@@ -6,9 +6,18 @@
 
 - Stage: M1 package scaffold, M2 microphone, M3 dsh-owned polishing, M4 native settings, M5 final ASR backends/hardening, and the local M6 release-readiness audit are complete.
 - Current work: first-release product surface is implemented through D-032. Shortcut library re-evaluation is closed: keep `src/shortcut.ts`, no third-party matcher. D-019 is closed; D-018 remains open.
-- Latest commit: pending polish prompt View-default click fix on `master`.
+- Latest commit: pending README rewrite on `master`.
 - Target compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`, Node `^22.19.0 || >=24.0.0`.
 - Branch: `master` tracking `origin/master` at merge `5b3be71`. `sleeping` was merged via PR #1 and deleted.
+
+## Public README rewrite (2026-08-18)
+
+- Completed: replaced the academic English `README.md` with a Chinese-first product landing page and an English sibling at `README.en.md`. Maintainer edits kept: shorter copy, npm install first, source install as step 2, no settings table. Demo video is a GitHub user-attachment (`https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41`), not a file in Git. D-008 now records the Chinese-first landing-page exception. User authorized a push to inspect the player on GitHub.
+- Validation: relative links in both READMEs resolve to tracked files; install commands match `dsh plugin --profile web add dsh-ears` and the local `$PWD` path; attachment upload returned HTTP 201. No code or runtime change.
+- Unfinished: confirm the inline player on the GitHub repo page after push; first public release still waits for "可以发".
+- Blocked: none.
+- Next: after push, open the GitHub README and play the demo.
+- Commit: pending.
 
 ## About tab and update check (2026-08-18)
 
