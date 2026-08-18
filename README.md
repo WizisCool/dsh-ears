@@ -10,7 +10,7 @@ The interaction is deliberately close to Codex Desktop:
 microphone → transcription → optional dsh LLM polishing → editable draft → manual send
 ```
 
-The microphone control is registered in dsh's composer. While recognition is active, a standalone native taskbar-style card appears above the input with a full-width rolling microphone waveform and stop action; the transcript remains in dsh's editable draft. During transcription or polishing the stop square becomes a trash control that discards that voice task. Configuration lives in a dedicated `dsh-ear` page in dsh's native settings window; dsh-ears does not add a second settings system.
+The microphone control is registered in dsh's composer. While recognition is active, a standalone native taskbar-style card appears above the input with a full-width rolling microphone waveform and stop action; the transcript remains in dsh's editable draft. During transcription or polishing the stop square becomes a trash control that discards that voice task. Configuration lives in a dedicated `dsh-ear` page in dsh's native settings window; dsh-ears does not add a second settings system. The last **About** tab shows the installed version and can check npm `latest` without installing anything.
 
 ## Compatibility
 
