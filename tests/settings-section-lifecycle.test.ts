@@ -97,7 +97,9 @@ describe('EarsSettingsSection lifecycle', () => {
       retryCloudModels: vi.fn(),
       downloadModel: vi.fn(),
       cancelModel: vi.fn(),
-      deleteModel: vi.fn()
+      deleteModel: vi.fn(),
+      loadAbout: vi.fn(async () => null),
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web update dsh-ears' }))
     })
 
     const lifecycleEffect = reactMocks.useEffect.mock.calls.find(([, dependencies]) => Array.isArray(dependencies) && dependencies.length === 0)

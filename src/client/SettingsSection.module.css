@@ -126,6 +126,22 @@
   align-items: center;
 }
 
+.aboutValue {
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 22px;
+  text-align: right;
+  word-break: break-all;
+}
+
+.aboutActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
 .rowWide .rowControl {
   width: 100%;
 }

@@ -5,7 +5,7 @@ import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.j
 import { cloudAsrModelField, isSettingsFieldInvalid, parseSettingsField, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
-import type { AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, WhisperModelState } from '../remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 
 export type { FieldName } from './settings-fields.js'
@@ -177,7 +177,9 @@ export class EarsSettingsController {
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
-      deleteModel: () => void this.deleteModel()
+      deleteModel: () => void this.deleteModel(),
+      loadAbout: () => this.loadAbout(),
+      checkForUpdate: () => this.checkForUpdate()
     }
   }
 
@@ -393,6 +395,24 @@ export class EarsSettingsController {
     } finally {
       this.finishWhisperMutation(request)
     }
+  }
+
+  async loadAbout(): Promise<AboutInfo | null> {
+    if (this.disposed) return null
+    const result = await this.remote.getAbout()
+    return result.ok ? result.value : null
+  }
+
+  async checkForUpdate(): Promise<UpdateCheckResult> {
+    const fallback: UpdateCheckResult = {
+      status: 'error',
+      installed: '',
+      latest: null,
+      updateCommand: 'dsh plugin --profile web update dsh-ears'
+    }
+    if (this.disposed) return fallback
+    const result = await this.remote.checkForUpdate()
+    return result.ok ? result.value : fallback
   }
 
   private async deleteModel(): Promise<void> {

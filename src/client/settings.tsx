@@ -10,7 +10,7 @@ import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
-import type { WhisperModelState } from '../remote-contract.js'
+import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
 import { localeEn, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
@@ -43,6 +43,8 @@ interface EarsSettingsSectionProps {
   readonly downloadModel: () => void
   readonly cancelModel: () => void
   readonly deleteModel: () => void
+  readonly loadAbout: () => Promise<AboutInfo | null>
+  readonly checkForUpdate: () => Promise<UpdateCheckResult>
 }
 
 
@@ -67,7 +69,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const flushRef = useRef(props.flush)
   flushRef.current = props.flush
-  const [activeTab, setActiveTab] = useState<'general' | 'recognition' | 'polishing'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'recognition' | 'polishing' | 'about'>('general')
   const t = props.earsT
   const uiLocale = props.useUiLocale?.() ?? 'zh'
   useEffect(() => () => {
@@ -88,10 +90,11 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { id: 'bailian', label: t('bailianProvider') },
     { id: 'custom', label: t('customProvider') }
   ]
-  const tabs: Array<{ id: 'general' | 'recognition' | 'polishing'; label: string }> = [
+  const tabs: Array<{ id: 'general' | 'recognition' | 'polishing' | 'about'; label: string }> = [
     { id: 'general', label: t('groupGeneral') },
     { id: 'recognition', label: t('groupRecognition') },
-    { id: 'polishing', label: t('groupPolishing') }
+    { id: 'polishing', label: t('groupPolishing') },
+    { id: 'about', label: t('groupAbout') }
   ]
   return (
     <section className={styles.section}>
@@ -158,7 +161,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrCustomModel.text} disabled={!state.writable} invalid={state.cloudAsrCustomModel.invalid} onChange={(event) => props.edit('cloudAsrCustomModel', event.target.value)} onBlur={props.flush} />
           </> : null}
         </div>
-      ) : (
+      ) : activeTab === 'polishing' ? (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
           <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
           {state.polishingEnabled.text === 'on' ? <>
@@ -170,8 +173,85 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <PromptRow label={t('polishPrompt')} hint={t('polishPromptHint')} value={state.polishPrompt.text} disabled={!state.writable} invalid={state.polishPrompt.invalid} defaultValue={POLISH_SYSTEM_PROMPT} t={t} onChange={(value) => props.edit('polishPrompt', value)} onReset={() => props.edit('polishPrompt', DEFAULT_EARS_SETTINGS.polishPrompt)} onBlur={props.flush} />
           </> : null}
         </div>
+      ) : (
+        <div id={`${tabsId}-panel-about`} role="tabpanel" aria-labelledby={`${tabsId}-tab-about`} className={styles.panel}>
+          <AboutPanel t={t} loadAbout={props.loadAbout} checkForUpdate={props.checkForUpdate} />
+        </div>
       )}
     </section>
+  )
+}
+
+function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout: () => Promise<AboutInfo | null>; checkForUpdate: () => Promise<UpdateCheckResult> }) {
+  const [about, setAbout] = useState<AboutInfo | null>(null)
+  const [check, setCheck] = useState<UpdateCheckResult | { status: 'idle' } | { status: 'checking' }>({ status: 'idle' })
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    void loadAbout().then((value) => {
+      if (!cancelled) setAbout(value)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [loadAbout])
+  const checkHint = check.status === 'checking'
+    ? t('aboutChecking')
+    : check.status === 'up-to-date'
+      ? t('aboutUpToDate')
+      : check.status === 'update-available'
+        ? `${t('aboutUpdateAvailable')} ${check.latest ?? ''}`.trim()
+        : check.status === 'unpublished'
+          ? t('aboutUnpublished')
+          : check.status === 'error'
+            ? t('aboutCheckFailed')
+            : t('aboutCheckHint')
+  const checkAlert = check.status === 'unpublished' || check.status === 'error'
+  return (
+    <>
+      <ValueRow label={t('aboutName')} hint={t('aboutNameHint')} value={about?.name ?? '—'} />
+      <ValueRow label={t('aboutVersion')} hint={t('aboutVersionHint')} value={about?.version ?? '—'} />
+      <ValueRow label={t('aboutLicense')} hint={t('aboutLicenseHint')} value={about?.license ?? '—'} />
+      <ValueRow label={t('aboutCompat')} hint={t('aboutCompatHint')} value={about?.dshCompatibility ?? '—'} />
+      <RowField label={t('aboutCheck')} hint={checkHint} invalid={checkAlert} alert={checkAlert}>
+        <div className={styles.aboutActions}>
+          <button
+            type="button"
+            className={styles.linkButton}
+            disabled={check.status === 'checking'}
+            onClick={() => {
+              setCopied(false)
+              setCheck({ status: 'checking' })
+              void checkForUpdate().then((result) => setCheck(result))
+            }}
+          >
+            {check.status === 'checking' ? t('aboutChecking') : t('aboutCheckAction')}
+          </button>
+          {check.status === 'update-available' ? (
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => {
+                const command = check.updateCommand
+                void navigator.clipboard.writeText(command).then(() => {
+                  setCopied(true)
+                }).catch(() => undefined)
+              }}
+            >
+              {copied ? t('aboutCopied') : t('aboutCopyCommand')}
+            </button>
+          ) : null}
+        </div>
+      </RowField>
+    </>
+  )
+}
+
+function ValueRow({ label, hint, value }: { label: string; hint: string; value: string }) {
+  return (
+    <RowField label={label} hint={hint} invalid={false}>
+      <span className={styles.aboutValue}>{value}</span>
+    </RowField>
   )
 }
 
