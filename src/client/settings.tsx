@@ -414,8 +414,8 @@ function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onC
         />
         <div className={styles.promptMeta}>
           <p className={`${styles.promptCount} ${over ? styles.promptCountOver : ''}`}>{`${length} / ${MAX_POLISH_PROMPT_LENGTH}`}</p>
-          <button type="button" className={styles.shortcutAction} disabled={disabled} onClick={() => setShowDefault((current) => !current)}>{t(showDefault ? 'promptHideDefault' : 'promptViewDefault')}</button>
-          <button type="button" className={styles.shortcutAction} disabled={disabled || value.trim() === ''} onClick={onReset}>{t('promptReset')}</button>
+          <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => setShowDefault((current) => !current)}>{t(showDefault ? 'promptHideDefault' : 'promptViewDefault')}</button>
+          <button type="button" className={styles.linkButton} disabled={disabled || value.trim() === ''} onClick={onReset}>{t('promptReset')}</button>
         </div>
         {showDefault ? <pre className={styles.promptDefault}>{defaultValue}</pre> : null}
       </div>

@@ -61,6 +61,7 @@ All notable changes to dsh-ears are recorded here. The package is not published 
 
 ### Fixed
 
+- The polishing prompt's View default / Reset actions no longer reuse the absolutely positioned shortcut-reset class, which had stacked both buttons and made View default miss its click.
 - The recognition-bar discard control now uses the same 14px `IconTrashOutline16` as the in-progress Goal row, instead of a larger 16px glyph.
 - Capturing a two-modifier shortcut such as `Ctrl+Shift` now keeps both keys. The recorder used to replace the held set on each release, so only the last remaining modifier was saved.
 - Changing the settings display name now updates the left-rail nav as well as the page title. Switching dsh between 中文 and English also retargets the Voice / 语音 label.
