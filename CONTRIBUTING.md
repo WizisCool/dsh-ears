@@ -65,6 +65,20 @@ Before every commit:
 git diff --cached --check
 ```
 
+## Issues and pull requests
+
+Use the GitHub templates:
+
+- [Bug](https://github.com/WizisCool/dsh-ears/issues/new?template=bug.yml) — a shipped behavior is wrong
+- [Feature](https://github.com/WizisCool/dsh-ears/issues/new?template=feature.yml) — new or changed product behavior
+- [New ASR backend](https://github.com/WizisCool/dsh-ears/issues/new?template=backend.yml) — a transcription service that is not a Custom OpenAI-compatible endpoint
+
+English is preferred for issues and required for commits. Chinese is fine in product bug reports.
+
+Do not file a public issue that contains a secret, recording, transcript, or exploit. Use [SECURITY.md](./SECURITY.md) and [private advisories](https://github.com/WizisCool/dsh-ears/security/advisories/new).
+
+PRs should stay on one concern, use Conventional Commits, and name a related issue (`Fixes #NN` or `Related to #NN`) unless the change is a typo or changelog-only edit. The pull request template lists the validation expected before review.
+
 ## Change expectations
 
 - State the goal, scope, and acceptance evidence.

@@ -7,6 +7,7 @@ All notable changes to dsh-ears are recorded here.
 ### Added
 
 - GitHub Actions `publish.yml` publishes tagged `v*` releases to npm with trusted publishing (OIDC). The first `0.1.0` tarball is still created once with a maintainer token so the npm package exists before that trust relationship can be attached.
+- GitHub issue forms (bug, feature, new ASR backend) and a pull request template. Public issues that would contain a secret are steered to private advisories.
 
 ## [0.1.0] - 2026-08-19
 

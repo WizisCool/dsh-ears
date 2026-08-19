@@ -1,0 +1,65 @@
+name: New ASR backend
+description: Propose another transcription service, or a protocol that is not OpenAI-compatible
+title: "feat(asr): "
+labels: [enhancement, backend]
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Groq, Bailian, local Whisper, Web Speech, and a custom OpenAI-compatible `/audio/transcriptions` endpoint already ship.
+
+        If the service speaks that OpenAI-compatible contract, use the Custom backend — no new code is required. Open this issue when the protocol is different, or when a preset (pinned host, model list, key field) is worth first-class settings.
+
+        The browser never receives a cloud ASR key. New providers stay Host-owned.
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider
+      placeholder: Deepgram / Azure Speech / …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol
+      options:
+        - OpenAI-compatible /audio/transcriptions (preset only)
+        - Different HTTP contract
+        - WebSocket / streaming
+        - Local process
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why Custom is not enough
+      description: What a preset or a new adapter would give that the existing Custom backend cannot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: contract
+    attributes:
+      label: Contract
+      description: Auth, endpoint, request/response shape, limits, and a public docs link. No keys.
+      placeholder: |
+        Docs:
+        Auth:
+        Request:
+        Response:
+        Limits:
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: ready
+    attributes:
+      label: Contributor
+      options:
+        - label: I can send a PR with a Host adapter, settings fields, and a smoke test
+        - label: I can only provide docs and a sample request

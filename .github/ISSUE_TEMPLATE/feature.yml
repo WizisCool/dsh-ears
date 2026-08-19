@@ -1,0 +1,62 @@
+name: Feature
+description: A new capability or an intentional change to existing behavior
+title: "feat: "
+labels: [enhancement]
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English is preferred. Check [`.agent/PLAN.md`](https://github.com/WizisCool/dsh-ears/blob/master/.agent/PLAN.md) and the [decision index](https://github.com/WizisCool/dsh-ears/blob/master/.agent/decisions.md) first.
+
+        Emotion recognition is deferred (D-015). New cloud ASR providers belong in the **New ASR backend** template.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: What a user can do afterwards that they cannot do today.
+      placeholder: I can discard an in-flight Groq request from the recognition bar and start a new take immediately.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who hits this, and what they do today instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Concrete checks. Prefer behavior over implementation.
+      placeholder: |
+        - Discard while transcribing aborts the Host RPC and collapses the bar
+        - A later transcript from that take never overwrites the draft
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      multiple: true
+      options:
+        - Composer microphone
+        - Recognition bar
+        - Settings
+        - Host / ASR
+        - Polish
+        - Shortcut
+        - Docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Constraints, rejected alternatives, or links to ADRs.

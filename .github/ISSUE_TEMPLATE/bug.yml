@@ -1,0 +1,105 @@
+name: Bug
+description: Something that already shipped does not work as expected
+title: "bug: "
+labels: [bug]
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English is preferred. Chinese is fine for product reports.
+
+        Do not paste API keys, recordings, transcripts, private endpoints, or personal paths.
+        Report those privately via [Security](https://github.com/WizisCool/dsh-ears/security/advisories/new).
+
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened
+      description: One or two sentences. The actual result, not the whole story.
+      placeholder: After I stop recording, the recognition bar stays on 转写中 and never writes a draft.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+      placeholder: The draft should receive the transcript, or the bar should show an error and dismiss.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Settings → Recognition → Groq, model already selected
+        2. Click the composer microphone
+        3. Speak, then press Ctrl+Shift+Space
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Recognition backend
+      options:
+        - Web Speech
+        - Local Whisper
+        - Groq
+        - Alibaba Cloud Model Studio (Bailian)
+        - Custom OpenAI-compatible
+        - Not sure / not reached
+    validations:
+      required: true
+
+  - type: dropdown
+    id: dsh
+    attributes:
+      label: DeepSeek Harness
+      options:
+        - 0.1.0-rc.6
+        - 0.1.0-rc.7
+        - Other (say which in notes)
+    validations:
+      required: true
+
+  - type: input
+    id: plugin
+    attributes:
+      label: dsh-ears version
+      description: Settings → About, or `from source`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Host OS
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Needed for Web Speech and the composer UI.
+      placeholder: Chrome 139 / Arc / Edge
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Extra notes
+      description: Redacted Host stderr, settings (no keys), or a screenshot of the bar. Strip secrets first.
