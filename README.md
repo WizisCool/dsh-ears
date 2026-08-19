@@ -107,3 +107,7 @@ pnpm dev:web      # 启动 dsh web
 ## License
 
 [MIT](./LICENSE)
+
+## 友链
+
+- [LINUX DO](https://linux.do) — 新的理想型社区
