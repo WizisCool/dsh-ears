@@ -77,7 +77,7 @@ When the selected backend is not ready, the microphone icon grays out. Hovering 
 | --- | --- | --- | --- |
 | Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor | — |
 | Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) | — |
-| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limited](https://console.groq.com/docs/rate-limits) |
+| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
 | Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
 | 🤝 Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |

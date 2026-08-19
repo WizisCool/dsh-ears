@@ -66,7 +66,7 @@ dsh plugin --profile web add "$PWD"
 | --- | --- | --- | --- |
 | Web Speech | 浏览器实时识别，边说边出字 | Chromium 内核浏览器。音频可能经由浏览器厂商处理 | — |
 | 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，在插件设置页下载模型（权重不随插件打包） | — |
-| [Groq](https://console.groq.com) | Host 把录音发给 Groq Whisper API | Groq API key | Always Free，[Rate Limited](https://console.groq.com/docs/rate-limits) |
+| [Groq](https://console.groq.com) | Host 把录音发给 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key、模型名；单次上限 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
 | 自定义 OpenAI 兼容 | POST 到指定的 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 | — |
 | 🤝 贡献新后端 | — | 欢迎 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
