@@ -59,6 +59,19 @@ dsh plugin --profile web add "$PWD"
 
 安装完成后刷新 Web UI，输入框右侧会出现麦克风图标。
 
+## 卸载
+
+```sh
+dsh plugin --profile web remove dsh-ears
+```
+
+如果还没安装 `dsh` CLI：
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
+```
+
+从 npm 或源码安装都用这条命令。卸载后刷新 Web UI，麦克风图标会消失。源码安装时本地仓库不会被删掉，需要的话自行删除。
 
 ## 识别后端
 

@@ -61,6 +61,20 @@ dsh plugin --profile web add "$PWD"
 
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
+## Uninstall
+
+```sh
+dsh plugin --profile web remove dsh-ears
+```
+
+Without the `dsh` CLI installed:
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
+```
+
+Use the same command whether the plugin was added from npm or from a local clone. Refresh the Web UI afterwards; the microphone icon disappears. A cloned repository is not deleted.
+
 ## Usage
 
 1. Click the microphone icon, or press `Ctrl+Shift+Space`.
