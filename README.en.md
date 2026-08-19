@@ -31,7 +31,7 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 During recording, a recognition bar floats above the composer — waveform animation, stop button, the works. If transcription or polishing is still in progress, the trash icon discards the whole take.
 
-Recognition backends include browser-native Web Speech (words appear in real time), local Whisper, Groq, Alibaba Cloud Model Studio, and any OpenAI-compatible transcription endpoint. Polishing runs through whichever model is already wired up in dsh, with a fully customizable prompt. Default shortcut: `Ctrl+Shift+Space`.
+Recognition backends include browser-native Web Speech (words appear in real time), local Whisper, [Groq](https://console.groq.com), [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio), and any OpenAI-compatible transcription endpoint. Polishing runs through whichever model is already wired up in dsh, with a fully customizable prompt. Default shortcut: `Ctrl+Shift+Space`.
 
 ## Install
 
@@ -77,8 +77,8 @@ When the selected backend is not ready, the microphone icon grays out. Hovering 
 | --- | --- | --- |
 | Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor |
 | Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) |
-| Groq | Host sends the recording to the Groq Whisper API | A Groq API key |
-| Alibaba Cloud Model Studio | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s |
+| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s |
 | Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name |
 | 🤝 Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service |
 
