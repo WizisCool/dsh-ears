@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "description": "Voice input plugin for DeepSeek Harness",
   "license": "MIT",
+  "author": "JUNZE",
+  "homepage": "https://github.com/WizisCool/dsh-ears#readme",
+  "bugs": {
+    "url": "https://github.com/WizisCool/dsh-ears/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "voice",
+    "speech-to-text",
+    "whisper",
+    "asr"
+  ],
   "publishConfig": {
     "access": "public"
   },

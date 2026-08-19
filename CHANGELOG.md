@@ -1,10 +1,12 @@
 # Changelog
 
-All notable changes to dsh-ears are recorded here. The package is not published yet.
+All notable changes to dsh-ears are recorded here.
 
 ## [Unreleased]
 
-This is the unpublished first-release surface. Later bullets in the same list supersede earlier ones. The live save model is D-031 auto-save, not D-026 Save/Discard. Cloud ASR keys are per-provider `role('secret')` fields, not dsh credential-references. Modifier-only shortcut chords are valid.
+## [0.1.0] - 2026-08-19
+
+First public release: GitHub `WizisCool/dsh-ears` is public, npm `dsh-ears@0.1.0`. Later bullets in the same list supersede earlier ones. The live save model is D-031 auto-save, not D-026 Save/Discard. Cloud ASR keys are per-provider `role('secret')` fields, not dsh credential-references. Modifier-only shortcut chords are valid.
 
 ### Changed
 

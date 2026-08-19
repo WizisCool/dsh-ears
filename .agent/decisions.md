@@ -14,14 +14,14 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-006 | Compatibility | Extended by D-030. Current: rc.6 and rc.7, not rc.6 only. |
 | D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
-| D-009 | Release safety | Accepted. Push, publish, and public visibility stay gated. |
+| D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
 | D-010 | Codex-style microphone | Accepted; revised by D-027. |
 | D-011 | Plugins-page card | **Superseded by D-017.** Live surface is `settings.section`. |
 | D-012 | Theme and composer order | Accepted |
 | D-013 | Remote invocation scope | Accepted |
 | D-014 | Final ASR backends | Architecture accepted. Cloud key model **reversed by D-023 / D-032** (per-provider `role('secret')`, not dsh credential-references). |
 | D-015 | Emotion deferred | Accepted |
-| D-016 | License and repository | Accepted. MIT; private GitHub; npm/public still gated. |
+| D-016 | License and repository | Accepted. MIT; public GitHub `WizisCool/dsh-ears`; first npm is `0.1.0`. |
 | D-017 | Dedicated settings page | Accepted (live) |
 | D-018 | Recording-settings snapshot | **Open** |
 | D-019 | Whisper cache integrity | Closed by D-020 |
@@ -38,7 +38,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-030 | Dual rc.6 / rc.7 | Accepted (live compatibility) |
 | D-031 | Auto-save uncarded settings | Accepted (live save model) |
 | D-032 | Bailian + per-provider keys | Accepted |
-| D-033 | About tab | Accepted. First public release still waits for an explicit publish go-ahead. |
+| D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
 
 ## D-001 — Project identity
 
@@ -93,6 +93,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 
 - Status: accepted
 - Decision: No push, public-repository conversion, npm publish, or legal license selection is automatic. Each requires an explicit release decision.
+- Revision (2026-08-19): the maintainer authorized the first public release (`0.1.0`, public GitHub, `v0.1.0` tag, GitHub Release, npm publish). Later push, publish, tag, and visibility changes still need an explicit decision.
 
 ## D-010 — Codex-style microphone control
 
@@ -141,7 +142,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Status: accepted
 - Decision: License the project under MIT and release the repository to the private GitHub project `WizisCool/dsh-ears` (2026-08-15).
 - Decision: npm publishing, release tags, and any public visibility change remain gated behind an explicit maintainer release decision.
-- Rationale: The local M6 release-readiness audit passed; MIT is a common permissive license for community packages. Keeping the repository private preserves the D-009 release safety boundary until the maintainer approves a public release.
+- Revision (2026-08-19): the repository is public at `WizisCool/dsh-ears`. The first published npm version is `dsh-ears@0.1.0`.
+- Rationale: The local M6 release-readiness audit passed; MIT is a common permissive license for community packages. Keeping the repository private preserved the D-009 release safety boundary until the maintainer approved a public release.
 
 ## D-017 — Dedicated settings page supersedes the Plugins-page card
 
@@ -288,4 +290,5 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: the `dsh-ear` page gains a last **关于 / About** tab. Identity rows have no hint copy: 仓库 (thesvg.org `Github` mark plus `@WizisCool/dsh-ears`, opens the GitHub repo), installed version, MIT license, and the verified dsh range (`0.1.0-rc.6 / 0.1.0-rc.7`). No logo block and no changelog. Rows match the uncarded General hairline layout (D-031).
 - Decision: **Check for updates** runs only when the user clicks. The Host GETs `https://registry.npmjs.org/dsh-ears/latest` with no credentials and compares npm `latest` to the installed version. The browser never contacts the registry. Results: up to date; update available (show the newer version and copy `dsh plugin --profile web update dsh-ears`); unpublished (honest empty channel); or error. Never install, restart, or rewrite the profile. A 404 is not reported as "up to date".
 - Decision: first public release (`0.1.0`, public GitHub repo, `v0.1.0` tag, GitHub Release from CHANGELOG, npm publish) is authorized but **not part of this implementation**. It waits for an explicit "可以发".
+- Revision (2026-08-19): the maintainer authorized that first public release. The About tab's unpublished 404 path remains for a missing `latest` channel; after `0.1.0` is on npm the check reports up to date or update available.
 - Rationale: plugin install belongs to `dsh plugin` / pnpm. The settings page can only tell the user what is on npm.

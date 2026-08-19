@@ -14,7 +14,7 @@ The implementation supports browser Web Speech, Host-side local Whisper, Groq, A
 
 ## Status
 
-M1–M6 and the first-release product surface through D-033 are implemented. Public npm publish, a public GitHub visibility change, and release tags remain gated (D-009, D-016).
+M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19. Later push, publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
 
 Compatibility: dsh `0.1.0-rc.6` and `0.1.0-rc.7`; Node `^22.19.0 || >=24.0.0`. No other dsh release is claimed until it is tested.
 
@@ -44,7 +44,7 @@ Durable detail lives in [`context.md`](./context.md). Live versus superseded dec
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins. Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
-3. npm publishing, release tags, and any public-visibility change still require an explicit maintainer release decision.
+3. Later npm publishes, release tags, and visibility changes still require an explicit maintainer decision. The first public `0.1.0` is authorized.
 4. Emotion recognition/UI stays deferred (D-015). Additional cloud-provider protocols stay out of first-release scope.
 
 ## dsh integration
