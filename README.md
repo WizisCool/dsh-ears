@@ -64,11 +64,11 @@ dsh plugin --profile web add "$PWD"
 
 | 后端 | 工作方式 | 需要什么 | 免费额度 |
 | --- | --- | --- | --- |
-| Web Speech | 浏览器实时识别，边说边出字 | Chromium 内核浏览器。音频可能经由浏览器厂商处理 | 由浏览器厂商决定 |
-| 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，在插件设置页下载模型（权重不随插件打包） | 本机计算，无云额度 |
-| [Groq](https://console.groq.com) | Host 把录音发给 Groq Whisper API | Groq API key | 免费层按限流使用（非赠送时长包）；Whisper 单文件 ≤ 25 MB。[语音转写](https://console.groq.com/docs/speech-to-text) · [限流](https://console.groq.com/docs/rate-limits) |
-| [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key、模型名；单次上限 300 秒 | 新人每模型约 36,000 秒（10 小时），华北 2（北京），90 天；ASR 需在控制台逐个开通。[新人额度](https://help.aliyun.com/zh/model-studio/new-free-quota) · [价格表](https://help.aliyun.com/zh/model-studio/model-pricing) |
-| 自定义 OpenAI 兼容 | POST 到指定的 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 | 视你的端点而定 |
+| Web Speech | 浏览器实时识别，边说边出字 | Chromium 内核浏览器。音频可能经由浏览器厂商处理 | — |
+| 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，在插件设置页下载模型（权重不随插件打包） | — |
+| [Groq](https://console.groq.com) | Host 把录音发给 Groq Whisper API | Groq API key | Always Free，[Rate Limited](https://console.groq.com/docs/rate-limits) |
+| [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key、模型名；单次上限 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
+| 自定义 OpenAI 兼容 | POST 到指定的 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 | — |
 | 🤝 贡献新后端 | — | 欢迎 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
 
 > 上表额度摘自提供商文档，README 更新可能不及时，请以提供商最新说明为准。

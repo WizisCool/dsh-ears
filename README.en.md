@@ -75,11 +75,11 @@ When the selected backend is not ready, the microphone icon grays out. Hovering 
 
 | Backend | How it works | Requirements | Free allowance |
 | --- | --- | --- | --- |
-| Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor | Set by the browser vendor |
-| Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) | Local compute; no cloud quota |
-| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key | Free tier is rate-limited (not a prepaid hour pack). Whisper files ≤ 25 MB. [Speech to text](https://console.groq.com/docs/speech-to-text) · [Rate limits](https://console.groq.com/docs/rate-limits) |
-| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s | New-user quota is about 36,000 s (10 h) per ASR model in China (Beijing), 90 days. ASR models must be enabled one by one. [New-user quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) · [Pricing](https://www.alibabacloud.com/help/en/model-studio/model-pricing) |
-| Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | Depends on your endpoint |
+| Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor | — |
+| Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) | — |
+| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limited](https://console.groq.com/docs/rate-limits) |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
+| Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
 | 🤝 Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
 
 > Allowances above are copied from provider docs. This README may lag. Use the provider's latest documentation.
