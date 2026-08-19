@@ -21,40 +21,35 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
 
-Give a text-only LLM a pair of ears:
-
 ```text
 microphone → transcription → optional polish → editable draft → manual send
 ```
 
 https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
-## Features
+---
 
-While you talk, a recognition bar appears above the input with a waveform and a stop button. You can throw the take away if transcription or polishing is still running.
+During recording, a recognition bar floats above the composer — waveform animation, stop button, the works. If transcription or polishing is still in progress, the trash icon discards the whole take.
 
-Recognition can be browser Web Speech (words appear as you talk), local Whisper, Groq, Alibaba Cloud Model Studio, or any OpenAI-compatible transcription endpoint.
-
-Polishing can use any model already connected in dsh. The prompt is yours to edit. The shortcut defaults to `Ctrl+Shift+Space`.
+Recognition backends include browser-native Web Speech (words appear in real time), local Whisper, Groq, Alibaba Cloud Model Studio, and any OpenAI-compatible transcription endpoint. Polishing runs through whichever model is already wired up in dsh, with a fully customizable prompt. Default shortcut: `Ctrl+Shift+Space`.
 
 ## Install
 
-Install [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) first (`0.1.0-rc.6` / `0.1.0-rc.7`).
-Node.js `^22.19.0 || >=24.0.0`.
+Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` or `rc.7`), Node.js `^22.19.0 || >=24.0.0`.
 
-### 1. Install from npm
+**From npm:**
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-If you don't have a `dsh` command:
+Without the `dsh` CLI installed:
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
 ```
 
-### 2. Install from source
+**From source:**
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
@@ -64,35 +59,36 @@ pnpm build
 dsh plugin --profile web add "$PWD"
 ```
 
-Refresh the Web UI. The microphone shows up on the right of the composer.
+After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
 ## Usage
 
-1. Click the microphone icon, or press `Ctrl+Shift+Space` (the default).
-2. Speak.
-3. Click again, or press the shortcut again, to stop and transcribe.
-4. If polishing is on, the raw transcript is written first and replaced when polish finishes. Edits you make in between stay.
-5. Send.
+1. Click the microphone icon, or press `Ctrl+Shift+Space`.
+2. Start speaking.
+3. Press the shortcut again (or click again) to stop recording and begin transcription.
+4. With polishing enabled, the raw transcript lands in the draft first and gets replaced once polishing finishes — any manual edits made in between are preserved.
+5. Review and send.
 
-If the selected backend is not ready, the microphone icon is grey. Hover it to see why.
+When the selected backend is not ready, the microphone icon grays out. Hovering it shows the reason.
 
 ## Recognition backends
 
-| Backend | How it works | What you need |
+| Backend | How it works | Requirements |
 | --- | --- | --- |
-| Web Speech | Live recognition in the browser | Chromium. Audio may go to the browser vendor |
-| Local Whisper | Host runs the `whisper` CLI after you stop | Install openai-whisper and download a model from the plugin settings page first. Weights are not bundled |
-| Groq | Host sends the recording to Groq Whisper | A Groq API key |
-| Alibaba Cloud Model Studio | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 seconds |
-| Custom OpenAI-compatible | POST to your `/audio/transcriptions` endpoint | Endpoint, key, and model name |
+| Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor |
+| Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) |
+| Groq | Host sends the recording to the Groq Whisper API | A Groq API key |
+| Alibaba Cloud Model Studio | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s |
+| Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name |
+| 🤝 Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service |
 
-A recording keeps the backend you started with. Whisper `medium` and larger models usually miss a 120-second CPU budget; use a GPU or a faster local runtime.
+> Whisper `medium` and larger models rarely finish within 120 s on CPU alone. A GPU or a faster local runtime is recommended.
 
 ## Polishing
 
-Pick a polish model from the ones already added in `dsh → Settings → Models`. The plugin only stores the provider, model, and prompt. The LLM key is the one dsh already has.
+The polish model is picked from models already configured in `dsh → Settings → Models`. The plugin only persists the provider, model name, and prompt; the LLM key comes from dsh's existing configuration.
 
-The default prompt drops fillers, fixes likely ASR mistakes, and handles spoken self-corrections plus explicit enumerations. Leave it blank to use the built-in prompt; you can read that default in settings. If polish fails or is cancelled, only the original transcript is kept.
+The default prompt removes fillers, fixes common ASR errors, resolves spoken self-corrections ("not A — actually B"), and formats explicit enumerations. Leaving the prompt blank activates the built-in default, which can be reviewed in the settings page. When polishing fails or is cancelled, the raw transcript is kept as-is.
 
 ## Local development
 
@@ -102,11 +98,11 @@ dsh plugin --profile web add "$PWD"
 pnpm check
 pnpm test
 pnpm build
-pnpm dev:config
-pnpm dev:web
+pnpm dev:config   # build and write the HMR overlay
+pnpm dev:web      # start dsh web
 ```
 
-While editing, run `pnpm dev:watch` in another terminal. `pnpm dev:config` writes the ignored `.dsh/cordis.patch.yml` overlay for HMR. It does not add another plugin entry.
+Run `pnpm dev:watch` in a second terminal during development. `pnpm dev:config` writes `.dsh/cordis.patch.yml` (git-ignored) for HMR and does not register an additional plugin entry.
 
 ## Docs
 
@@ -115,7 +111,7 @@ While editing, run `pnpm dev:watch` in another terminal. `pnpm dev:config` write
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
 
-Contributor and architecture notes: [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and [`.agent/`](./.agent/README.md).
+Contributor guide and architecture notes: [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), [`.agent/`](./.agent/README.md).
 
 ## License
 
