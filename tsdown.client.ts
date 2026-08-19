@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { basename, dirname, resolve as resolvePath } from 'node:path'
+import { basename, dirname, relative, resolve as resolvePath } from 'node:path'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
 
@@ -39,13 +39,15 @@ export function clientBundle(id: string, entry: string): UserConfig {
         name: 'dsh-css-modules-inline',
         resolveId(source: string, importer: string | undefined) {
           if (!source.endsWith('.module.css')) return null
-          const absolutePath = importer === undefined ? source : resolvePath(dirname(importer), source)
-          return CSS_VIRTUAL_PREFIX + absolutePath + CSS_VIRTUAL_SUFFIX
+          const absolutePath = importer === undefined ? resolvePath(source) : resolvePath(dirname(importer), source)
+          const relativePath = relative(process.cwd(), absolutePath).split('\\').join('/')
+          return CSS_VIRTUAL_PREFIX + relativePath + CSS_VIRTUAL_SUFFIX
         },
         async load(virtualId: string) {
           if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
 
-          const filePath = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+          const relativePath = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+          const filePath = resolvePath(process.cwd(), relativePath)
           this.addWatchFile(filePath)
           const source = await readFile(filePath)
           const result = transform({
