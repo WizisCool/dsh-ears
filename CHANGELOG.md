@@ -4,6 +4,10 @@ All notable changes to dsh-ears are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions `publish.yml` publishes tagged `v*` releases to npm with trusted publishing (OIDC). The first `0.1.0` tarball is still created once with a maintainer token so the npm package exists before that trust relationship can be attached.
+
 ## [0.1.0] - 2026-08-19
 
 First public release: GitHub `WizisCool/dsh-ears` is public, npm `dsh-ears@0.1.0`. Later bullets in the same list supersede earlier ones. The live save model is D-031 auto-save, not D-026 Save/Discard. Cloud ASR keys are per-provider `role('secret')` fields, not dsh credential-references. Modifier-only shortcut chords are valid.

@@ -75,6 +75,25 @@ git diff --cached --check
 - Conventional Commits, for example `feat(client): add web speech draft updates`.
 - Do not push, publish a package, create tags, or change repository visibility without explicit authorization.
 
+## Release
+
+Later versions publish from GitHub Actions, not from a laptop.
+
+1. Bump `version` in `package.json` and cut `CHANGELOG.md`.
+2. Commit on `master` and push.
+3. Tag `vX.Y.Z` and push the tag. That runs [`.github/workflows/publish.yml`](./.github/workflows/publish.yml).
+
+The workflow authenticates to npm with OIDC. It does not use an `NPM_TOKEN` secret. After the first package exists on npm, attach the trusted publisher on the package settings page:
+
+- Provider: GitHub Actions
+- Organization or user: `WizisCool`
+- Repository: `dsh-ears`
+- Workflow filename: `publish.yml` (filename only, no path)
+- Environment: leave empty
+- Allowed action: `npm publish`
+
+Do not commit npm tokens or a project `.npmrc` that contains a token.
+
 ## Security
 
 Do not commit API keys, tokens, cookies, private endpoints, user data, certificates, `.env` files, or personal machine paths. Cloud ASR keys are Host-owned `role('secret')` fields and must never appear in the browser, Git, logs, or tests as real values. See [`SECURITY.md`](./SECURITY.md).
