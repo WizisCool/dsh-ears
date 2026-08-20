@@ -10,6 +10,10 @@ All notable changes to dsh-ears are recorded here.
 - GitHub issue forms (bug, feature, new ASR backend) and a pull request template. Public issues that would contain a secret are steered to private advisories.
 - README backend table lists Groq and Model Studio free-allowance notes with links to the provider docs.
 
+### Changed
+
+- Compatibility extended to dsh `0.1.0-rc.8` (D-034): the compile/test baseline moves to the exact rc.8 packages, the `react` peer widens to `^18.2.0 || ^19.0.0`, and the About tab range reports rc.6 / rc.7 / rc.8. No source change was needed beyond the range constant and a lowercase `@thesvg/react/github` import for case-sensitive CI.
+
 ## [0.1.0] - 2026-08-19
 
 First public release: GitHub `WizisCool/dsh-ears` is public, npm `dsh-ears@0.1.0`. Later bullets in the same list supersede earlier ones. The live save model is D-031 auto-save, not D-026 Save/Discard. Cloud ASR keys are per-provider `role('secret')` fields, not dsh credential-references. Modifier-only shortcut chords are valid.

@@ -263,9 +263,9 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 
 ## D-030 — Dual host compatibility for rc.6 and rc.7
 
-- Status: accepted (extends D-006).
+- Status: accepted (extends D-006); extended by D-034.
 - Decision: dsh-ears is compatible with dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6` so either host satisfies them. The compile/test baseline is the exact `0.1.0-rc.7` packages. No source-level rc fork is introduced: the slots and Host APIs the plugin consumes (`settings.section`, `conversation.input.right` / `dock`, `ctx.llm`, the used ui-primitives symbols) are unchanged across this pair.
-- Prohibited: claiming any later dsh rc, or tightening peers to `^0.1.0-rc.7` in a way that rejects an rc.6 host.
+- Prohibited: tightening peers to `^0.1.0-rc.7` in a way that rejects an rc.6 host, or claiming a dsh rc before it is tested. (D-034 later claims rc.8 after verification; the peer-range floor stays rc.6.)
 - Rationale: the rc.6→rc.7 audit found only additive or unrelated host changes; the user asked to keep both hosts working after the local CLI moved to rc.7.
 
 ## D-031 — Flat native settings rows with per-field auto-save
@@ -292,3 +292,11 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: first public release (`0.1.0`, public GitHub repo, `v0.1.0` tag, GitHub Release from CHANGELOG, npm publish) is authorized but **not part of this implementation**. It waits for an explicit "可以发".
 - Revision (2026-08-19): the maintainer authorized that first public release. The About tab's unpublished 404 path remains for a missing `latest` channel; after `0.1.0` is on npm the check reports up to date or update available.
 - Rationale: plugin install belongs to `dsh plugin` / pnpm. The settings page can only tell the user what is on npm.
+
+## D-034 — Triple host compatibility for rc.6, rc.7, and rc.8
+
+- Status: accepted (2026-08-20); extends D-030.
+- Decision: dsh-ears is compatible with dsh `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`. Peer ranges stay `^0.1.0-rc.6` — the semver range `>=0.1.0-rc.6 <0.2.0` covers all three, verified empirically with no plugin-caused peer conflicts on an rc.8 host install. The `react` peer widens to `^18.2.0 || ^19.0.0` because the rc.8 host moved to React 19 (react-dom 19.2.8); the live rc.8 boot confirmed the client bundle renders, and rc.6/rc.7 hosts stay on React 18. The compile/test baseline moves to the exact `0.1.0-rc.8` packages. The About tab range constant (`src/about.ts`) now reports `0.1.0-rc.6 / 0.1.0-rc.7 / 0.1.0-rc.8`.
+- Decision: `src/client/settings.tsx` imports `@thesvg/react/github` (lowercase) because the package export `./*` maps case-sensitively to `dist/*.js`; the capitalized form resolved on the maintainer's case-insensitive Mac but fails on Linux CI.
+- Prohibited: tightening peers to `^0.1.0-rc.8` (rejects rc.6/rc.7 hosts) or claiming any later rc.
+- Rationale: the rc.7→rc.8 audit found only additive or unrelated host changes (multimodal image requests, profile-bundle subagents, Windows PTY work, the SQLite storage rewrite). The consumed surfaces — `settings.section`, `conversation.input.right` / `dock`, `createUserMessage`, `settingsNamespace`, `TypertRemoteService`, `createSnapshotStore`, and the used ui-primitives symbols — are unchanged or additively extended on rc.8. rc.8 moved plugin settings onto the plugin's own registered page, which dsh-ears already uses. A live rc.8 boot (isolated `DSH_HOME`; rc.8 storage is incompatible with rc.6) verified the `dsh.client.inject` bundle manifest, the composer microphone, and the dedicated settings page. A bare rc.8 install reproduces an upstream `unmet peer react` warning (rc.8's own React 18 peers vs react-dom 19.2.8) without dsh-ears present.

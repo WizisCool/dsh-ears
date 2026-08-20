@@ -20,7 +20,7 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 
 ## Compatibility
 
-- Supported dsh targets: `0.1.0-rc.6` and `0.1.0-rc.7` (D-030).
+- Supported dsh targets: `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8` (D-034).
 - Node: `^22.19.0 || >=24.0.0`.
 - No compatibility claim for another dsh release until it has been tested.
 
