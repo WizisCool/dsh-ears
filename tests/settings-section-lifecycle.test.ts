@@ -20,7 +20,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   Menu: () => null
 }))
 
-vi.mock('@thesvg/react/Github', () => ({
+vi.mock('@thesvg/react/github', () => ({
   default: () => null
 }))
 
