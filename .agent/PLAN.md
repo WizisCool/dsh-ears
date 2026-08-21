@@ -14,9 +14,9 @@ The implementation supports browser Web Speech, Host-side local Whisper, Groq, A
 
 ## Status
 
-M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19. Later push, publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
+M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19; the rc.8 compatibility patch (`0.1.1`, D-034) followed on 2026-08-20. Later push, publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
 
-Compatibility: dsh `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`; Node `^22.19.0 || >=24.0.0`. No other dsh release is claimed until it is tested.
+Compatibility: dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035); Node `^22.19.0 || >=24.0.0`. No other dsh release is claimed until it is tested.
 
 ## Architecture
 
@@ -92,4 +92,4 @@ dsh-ears/
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Installed `@deepseek-ai/dsh-*` packages at `0.1.0-rc.8` (peer range `^0.1.0-rc.6`)
+- Installed `@deepseek-ai/dsh-*` packages at `0.1.1-rc.2` (peer ranges accept every published dsh release; D-035)

@@ -20,8 +20,9 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 
 ## Compatibility
 
-- Supported dsh targets: `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8` (D-034).
+- Supported dsh targets: `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035).
 - Node: `^22.19.0 || >=24.0.0`.
+- All `@deepseek-ai/dsh-*` peer dependencies are `*`: installation never fails on an unlisted host, while compatibility claims remain documentation-scoped (About tab plus these files). The compile/test baseline tracks the newest tested host.
 - No compatibility claim for another dsh release until it has been tested.
 
 ## Product boundaries

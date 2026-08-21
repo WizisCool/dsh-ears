@@ -11,7 +11,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
 | D-004 | LLM ownership | Accepted |
 | D-005 | Host/Client packaging | Accepted |
-| D-006 | Compatibility | Extended by D-030. Current: rc.6 and rc.7, not rc.6 only. |
+| D-006 | Compatibility | Extended by D-030, D-034, and D-035. Current: `rc.6` through `0.1.1-rc.2`. |
 | D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
 | D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
@@ -35,10 +35,12 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-027 | Recognition dock | Accepted |
 | D-028 | Voice-input shortcut | Accepted. Default `Ctrl+Shift+Space`. **Modifier-only chords are valid.** |
 | D-029 | Custom polish prompt | Accepted |
-| D-030 | Dual rc.6 / rc.7 | Accepted (live compatibility) |
+| D-030 | Dual rc.6 / rc.7 | Accepted; extended by D-034 and D-035. |
 | D-031 | Auto-save uncarded settings | Accepted (live save model) |
 | D-032 | Bailian + per-provider keys | Accepted |
 | D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
+| D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
+| D-035 | dsh 0.1.1 compatibility and open peers | Accepted (live compatibility and peer policy) |
 
 ## D-001 — Project identity
 
@@ -263,9 +265,9 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 
 ## D-030 — Dual host compatibility for rc.6 and rc.7
 
-- Status: accepted (extends D-006); extended by D-034.
+- Status: accepted (extends D-006); extended by D-034 and D-035.
 - Decision: dsh-ears is compatible with dsh `0.1.0-rc.6` and `0.1.0-rc.7`. Peer ranges stay `^0.1.0-rc.6` so either host satisfies them. The compile/test baseline is the exact `0.1.0-rc.7` packages. No source-level rc fork is introduced: the slots and Host APIs the plugin consumes (`settings.section`, `conversation.input.right` / `dock`, `ctx.llm`, the used ui-primitives symbols) are unchanged across this pair.
-- Prohibited: tightening peers to `^0.1.0-rc.7` in a way that rejects an rc.6 host, or claiming a dsh rc before it is tested. (D-034 later claims rc.8 after verification; the peer-range floor stays rc.6.)
+- Prohibited: tightening peers to `^0.1.0-rc.7` in a way that rejects an rc.6 host, or claiming a dsh rc before it is tested. (D-034 later claims rc.8 after verification; D-035 later opens the peers entirely and claims through `0.1.1-rc.2` after verification.)
 - Rationale: the rc.6→rc.7 audit found only additive or unrelated host changes; the user asked to keep both hosts working after the local CLI moved to rc.7.
 
 ## D-031 — Flat native settings rows with per-field auto-save
@@ -300,3 +302,17 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: `src/client/settings.tsx` imports `@thesvg/react/github` (lowercase) because the package export `./*` maps case-sensitively to `dist/*.js`; the capitalized form resolved on the maintainer's case-insensitive Mac but fails on Linux CI.
 - Prohibited: tightening peers to `^0.1.0-rc.8` (rejects rc.6/rc.7 hosts) or claiming any later rc.
 - Rationale: the rc.7→rc.8 audit found only additive or unrelated host changes (multimodal image requests, profile-bundle subagents, Windows PTY work, the SQLite storage rewrite). The consumed surfaces — `settings.section`, `conversation.input.right` / `dock`, `createUserMessage`, `settingsNamespace`, `TypertRemoteService`, `createSnapshotStore`, and the used ui-primitives symbols — are unchanged or additively extended on rc.8. rc.8 moved plugin settings onto the plugin's own registered page, which dsh-ears already uses. A live rc.8 boot (isolated `DSH_HOME`; rc.8 storage is incompatible with rc.6) verified the `dsh.client.inject` bundle manifest, the composer microphone, and the dedicated settings page. A bare rc.8 install reproduces an upstream `unmet peer react` warning (rc.8's own React 18 peers vs react-dom 19.2.8) without dsh-ears present.
+
+## D-035 — dsh 0.1.1 compatibility and open peer ranges
+
+- Status: accepted (2026-08-21); extends D-006, D-030, and D-034.
+- Decision: the supported dsh set is everything published so far: `0.1.0-rc.6` through `0.1.1-rc.2` (rc.6, rc.7, rc.8, `0.1.1-rc.1`, `0.1.1-rc.2`). dsh ships quickly, so every future dsh release requires an audit before this set grows; the set is stated in docs and in the About tab, never implied by peer ranges.
+- Decision: all `@deepseek-ai/dsh-*` peer dependencies become `*`, revising D-034's "peer ranges stay `^0.1.0-rc.6`" floor. Peer ranges now express install acceptance only, decoupled from compatibility claims: installation must not fail on a newly released host while its audit is still pending. D-006's "no claim until tested" rule stays fully in force — it lives in README badges, `.agent/PLAN.md`, `.agent/context.md`, and the About tab's verified-range row (`DSH_COMPATIBILITY`). `@deepseek-ai/cordis` (`^4.0.1`), `@deepseek-ai/schemastery` (`^3.18.1`), and `react` (`^18.2.0 || ^19.0.0`) keep their ranges.
+- Evidence (2026-08-21 audit of rc.7 → `0.1.1-rc.2`, on top of D-034's rc.8 audit):
+  - The dsh CLI main package's `lib/` is byte-identical across rc.7, rc.8, `0.1.1-rc.1`, and `0.1.1-rc.2`; only config presets, READMEs, and dependency re-pins differ.
+  - The sub-packages the plugin consumes directly — `dsh-settings` and `dsh-typert-protocol` — are identical between rc.7 and `0.1.1-rc.2`.
+  - The remaining consumed packages (`dsh-api-remotes`, `dsh-client-runtime`, `dsh-client-locale`, `dsh-client-ui-conversation`, `dsh-client-ui-primitives`, `dsh-client-ui-settings`, `dsh-client-ui-settings-plugins`, `dsh-client-ui-slots`, `dsh-credentials`, `dsh-llm`) changed additively only (new exports, new types, comment revisions); no consumed symbol changed shape.
+  - With devDependencies at exact `0.1.1-rc.2`, `pnpm check` and the full unit suite pass with zero source changes; the maintainer's browser smoke on the local `0.1.1-rc.2` CLI passed the full mic → transcript → polish flow.
+- Decision: the compile/test baseline moves to the exact `0.1.1-rc.2` packages (D-030/D-034 precedent repeated): devDependencies always track the newest tested host so CI catches regressions first. The release-age exemption file gains the rc.2 set alongside rc.8.
+- Prohibited: claiming an untested future dsh release before its audit; reintroducing a single prerelease caret floor that silently rejects newer tuples.
+- Rationale: node-semver prerelease matching rejects any version whose `[major, minor, patch]` tuple has no prerelease comparator, so `^0.1.0-rc.6` accepts rc.6/rc.7/rc.8 (tuple `0.1.0`) but silently refuses every `0.1.1-*` host — published `0.1.1` failed peer resolution there. A caret-OR list would fix that today but break installation again at the next dsh release until another plugin release ships; the maintainer chose install-always over install-gating, accepting that untested future hosts may load the plugin before an audit runs.
