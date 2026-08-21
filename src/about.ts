@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 export const PLUGIN_LICENSE = 'MIT'
 export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
 export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
-export const DSH_COMPATIBILITY = '0.1.0-rc.6 / 0.1.0-rc.7 / 0.1.0-rc.8'
+export const DSH_COMPATIBILITY = '0.1.0-rc.6 - 0.1.1-rc.2'
 export const UPDATE_COMMAND = 'dsh plugin --profile web update dsh-ears'
 export const NPM_LATEST_URL = 'https://registry.npmjs.org/dsh-ears/latest'
 

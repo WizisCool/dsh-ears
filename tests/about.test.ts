@@ -21,7 +21,7 @@ describe('installed about info', () => {
     expect(about.repositorySlug).toBe(PLUGIN_REPOSITORY_SLUG)
     expect(about.version).toBe('0.1.1')
     expect(about.license).toBe('MIT')
-    expect(about.dshCompatibility).toBe('0.1.0-rc.6 / 0.1.0-rc.7 / 0.1.0-rc.8')
+    expect(about.dshCompatibility).toBe('0.1.0-rc.6 - 0.1.1-rc.2')
     expect(about.updateCommand).toBe(UPDATE_COMMAND)
   })
 
@@ -39,7 +39,7 @@ describe('installed about info', () => {
       repositorySlug: PLUGIN_REPOSITORY_SLUG,
       version: '0.0.0',
       license: 'MIT',
-      dshCompatibility: '0.1.0-rc.6 / 0.1.0-rc.7 / 0.1.0-rc.8',
+      dshCompatibility: '0.1.0-rc.6 - 0.1.1-rc.2',
       updateCommand: UPDATE_COMMAND
     })
   })
