@@ -2,7 +2,24 @@
 
 All notable changes to dsh-ears are recorded here.
 
-## [Unreleased]
+## [0.1.2] - 2026-08-21
+
+Compatibility release for every dsh published since the first release, including the `0.1.1-*` line. No product behavior changes.
+
+### Fixed
+
+- Peer dependencies on all `@deepseek-ai/dsh-*` packages are now `*` (D-035). node-semver prerelease matching made the D-034-era `^0.1.0-rc.6` floor reject every dsh `0.1.1-*` host — the tuple has no matching prerelease comparator — so the published plugin failed peer resolution on current releases. Installation no longer fails on an unlisted host while its audit is pending; compatibility claims stay documentation-scoped.
+- The About tab reports the verified range as `0.1.0-rc.6 - 0.1.1-rc.2`.
+
+### Changed
+
+- Compatibility covers dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-035), extending D-034's rc.8 set with `0.1.1-rc.1` and `0.1.1-rc.2`. The rc.7 → `0.1.1-rc.2` audit found only additive host changes; `pnpm check`, the full unit suite, and a browser smoke on the local rc.2 CLI pass with zero source changes beyond this release's constants.
+- The compile/test baseline moved to exact `0.1.1-rc.2` devDependencies, and the release-age exemptions gain the rc.2 set alongside rc.8.
+- README badges and prerequisites, contributor docs, and `.agent` context state the same verified range.
+
+## [0.1.1] - 2026-08-20
+
+dsh rc.8 compatibility release (D-034).
 
 ### Added
 
