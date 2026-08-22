@@ -51,6 +51,26 @@ export const EARS_ERROR_CODES = {
 export type EarsErrorCode = (typeof EARS_ERROR_CODES)[keyof typeof EARS_ERROR_CODES]
 export type EarsErrorParams = Readonly<Record<string, string | number>>
 
+const MAX_ERROR_TEXT_LENGTH = 800
+
+export function sanitizeEarsErrorText(value: string): string {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/([?&](?:api[-_]?key|token|secret|password|authorization)=)[^&\s]*/gi, '$1[redacted]')
+    .replace(/([a-z][a-z\d+.-]*:\/\/)([^/\s:@]+):([^/\s@]+)@/gi, '$1[redacted]@')
+    .trim()
+    .slice(0, MAX_ERROR_TEXT_LENGTH)
+}
+
+export function sanitizeEarsErrorParams(params: EarsErrorParams | undefined): EarsErrorParams | undefined {
+  if (params === undefined) return undefined
+  return Object.fromEntries(Object.entries(params).map(([key, value]) => [
+    key,
+    typeof value === 'string' ? sanitizeEarsErrorText(value) : value
+  ])) as EarsErrorParams
+}
+
 export class EarsError extends Error {
   readonly code: EarsErrorCode
   readonly params: EarsErrorParams | undefined

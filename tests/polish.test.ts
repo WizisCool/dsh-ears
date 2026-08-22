@@ -390,6 +390,27 @@ describe('PolishService', () => {
     expect(remoteTextResultSchema.parse(result)).toEqual(result)
   })
 
+  it('sanitizes and caps string params in Remote business errors', async () => {
+    const provider = `https://user:secret@example.test/${'x'.repeat(1200)}`
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: provider,
+      cloudAsrGroqModel: 'future-model'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const result = await service.transcribe('AQ==', 'audio/wav', new AbortController().signal)
+    if (result.status !== 'error' || result.params === undefined) throw new Error('Expected a structured Remote error')
+    expect(result.params).toHaveProperty('provider')
+    expect(result.params.provider).toHaveLength(800)
+    expect(result.params.provider).toContain('https://[redacted]@example.test/')
+    expect(result.params.provider).not.toContain('secret')
+  })
+
   it('does not update settings when the request is already aborted', async () => {
     const update = vi.fn(async () => undefined)
     const context = new Context()

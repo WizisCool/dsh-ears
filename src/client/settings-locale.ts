@@ -406,7 +406,10 @@ export function localizedErrorText(t: Translate, code: string | undefined | null
   if (code === undefined || code === null) return fallback
   const key = ERROR_LOCALE_KEYS[code as EarsErrorCode]
   if (key === undefined) return fallback
-  if (params === undefined && /\{\w+\}/.test(localeZh[key])) return fallback
+  const template = localeZh[key]
+  for (const match of template.matchAll(/\{(\w+)\}/g)) {
+    if (params === undefined || !Object.prototype.hasOwnProperty.call(params, match[1])) return fallback
+  }
   return t(key, params)
 }
 

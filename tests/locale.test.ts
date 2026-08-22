@@ -31,6 +31,16 @@ describe('dsh-ears locale dictionaries', () => {
       .toBe('safe fallback')
   })
 
+  it('falls back when a localized error template has only partial params', () => {
+    const t = ((key: string, params?: Record<string, unknown>) => {
+      const template = localeZh[key as keyof typeof localeZh] ?? key
+      return template.replace(/\{(\w+)\}/g, (match, name: string) => params !== undefined && name in params ? String(params[name]) : match)
+    }) as Translate
+
+    expect(localizedErrorText(t, EARS_ERROR_CODES.asrHttpFailed, 'safe fallback', { detail: 'request failed' }))
+      .toBe('safe fallback')
+  })
+
   it('uses current shortcut, Bailian, and polishing hints without terminal full stops', () => {
     expect(localeZh.shortcutEnabledHint).toBe('设置语音输入的快捷键')
     expect(localeZh.shortcutHint).toBe('使用按键开始或停止语音输入')

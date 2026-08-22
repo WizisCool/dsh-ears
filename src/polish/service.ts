@@ -21,7 +21,7 @@ import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute } from './route.js'
 import { applyFlatSettingsPatch, flattenStoredSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
-import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
+import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
@@ -170,9 +170,9 @@ export class PolishService extends TypertRemoteService {
       return { status: 'ok', models }
     } catch (error) {
       if (signal.aborted) throw error
-      const message = error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed'
+      const message = sanitizeEarsErrorText(error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed')
       const errorCode = earsErrorCode(error) ?? EARS_ERROR_CODES.cloudModelsListFailed
-      const errorParams = earsErrorParams(error)
+      const errorParams = sanitizeEarsErrorParams(earsErrorParams(error))
       this.cloudModelsFailure = { key: cacheKey, expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message, errorCode, ...(errorParams === undefined ? {} : { errorParams }) }
       return {
         status: 'error',
@@ -185,19 +185,19 @@ export class PolishService extends TypertRemoteService {
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.getWhisperModelState(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.getWhisperModelState(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async downloadWhisperModel(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async cancelWhisperModelDownload(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   getAbout(): AboutInfo {
@@ -409,22 +409,17 @@ function toRemoteTextFailure(error: unknown, signal: AbortSignal, fallbackCode: 
   if (error instanceof TypertLookupFailure) throw error
   const knownCode = earsErrorCode(error)
   const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
-  const diagnostic = sanitizeRemoteDiagnostic(rawMessage)
+  const diagnostic = sanitizeEarsErrorText(rawMessage)
   const message = knownCode === undefined
     ? diagnostic === '' ? fallbackMessage : `${fallbackMessage}: ${diagnostic}`
     : diagnostic === '' ? fallbackMessage : diagnostic
-  const params = earsErrorParams(error) ?? (knownCode === undefined && diagnostic !== '' ? { detail: diagnostic } : undefined)
+  const params = sanitizeEarsErrorParams(earsErrorParams(error) ?? (knownCode === undefined && diagnostic !== '' ? { detail: diagnostic } : undefined))
   return remoteTextFailure(knownCode ?? fallbackCode, message, params)
 }
 
-function sanitizeRemoteDiagnostic(value: string): string {
-  return value
-    .replace(/\s+/g, ' ')
-    .replace(/\bBearer\s+\S+/gi, 'Bearer [redacted]')
-    .replace(/([?&](?:api[-_]?key|token|secret|password|authorization)=)[^&\s]*/gi, '$1[redacted]')
-    .replace(/([a-z][a-z\d+.-]*:\/\/)([^/\s:@]+):([^/\s@]+)@/gi, '$1[redacted]@')
-    .trim()
-    .slice(0, 800)
+function sanitizeWhisperModelState(state: WhisperModelState): WhisperModelState {
+  const errorParams = sanitizeEarsErrorParams(state.errorParams)
+  return errorParams === undefined ? state : { ...state, errorParams }
 }
 
 function asrBackend(value: string): AsrBackendId {
