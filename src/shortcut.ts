@@ -172,7 +172,7 @@ export type ShortcutRejectReason = 'typing-key' | 'invalid'
  * Alt/Option+letter/digit chords are rejected because macOS Option+letter
  * produces special characters (and AltGr layouts behave the same). Letters and
  * digits WITH Ctrl/Shift/Meta are valid. Bare F-keys are allowed. Modifier-only
- * chords are valid (user-requested). Browser/OS collisions stay amber warnings.
+ * chords are valid. Browser/OS collisions stay amber warnings.
  */
 export function shortcutRejectReason(chord: string): ShortcutRejectReason | null {
   if (typeof chord !== 'string' || chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
