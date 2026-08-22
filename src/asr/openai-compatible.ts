@@ -1,3 +1,5 @@
+import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 1 * 1024 * 1024
 const REQUEST_TIMEOUT_MS = 120_000
@@ -13,12 +15,12 @@ export interface OpenAICompatibleTranscriptionOptions {
 }
 
 export async function transcribeOpenAICompatible(options: OpenAICompatibleTranscriptionOptions): Promise<string> {
-  if (options.audio.byteLength === 0) throw new Error('The recorded audio is empty')
-  if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new Error('The recorded audio is too large')
+  if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
+  if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   options.signal.throwIfAborted()
   const endpoint = validateEndpoint(options.endpoint)
   const model = options.model.trim()
-  if (model === '') throw new Error('The cloud ASR model is not configured')
+  if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The cloud ASR model is not configured')
 
   const form = new FormData()
   form.set('file', new Blob([new Uint8Array(options.audio)], { type: options.mimeType || 'application/octet-stream' }), fileName(options.mimeType))
@@ -30,7 +32,7 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   const credential = options.credential?.trim()
   if (credential) headers.Authorization = `Bearer ${credential}`
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(new Error('Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => timeout.abort(new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
   const forwardAbort = () => timeout.abort(options.signal.reason)
   options.signal.addEventListener('abort', forwardAbort, { once: true })
   try {
@@ -45,11 +47,11 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
     try {
       parsed = JSON.parse(body)
     } catch {
-      if (!response.ok) throw new Error(`Cloud ASR request failed with HTTP ${response.status}`)
-      throw new Error('Cloud ASR returned invalid JSON')
+      if (!response.ok) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, `Cloud ASR request failed with HTTP ${response.status}`, { status: response.status })
+      throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, 'Cloud ASR returned invalid JSON')
     }
-    if (!response.ok) throw new Error(openAiCompatibleErrorDetail(parsed, response.status))
-    if (!isRecord(parsed) || typeof parsed.text !== 'string') throw new Error('Cloud ASR returned no transcript')
+    if (!response.ok) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, openAiCompatibleErrorDetail(parsed, response.status), { status: response.status })
+    if (!isRecord(parsed) || typeof parsed.text !== 'string') throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Cloud ASR returned no transcript')
     return parsed.text.trim()
   } finally {
     clearTimeout(timer)
@@ -58,18 +60,23 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
 }
 
 function validateEndpoint(value: string): string {
-  const url = new URL(value.trim())
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Cloud ASR endpoint must use HTTP or HTTPS')
-  if (url.username !== '' || url.password !== '') throw new Error('Cloud ASR endpoint must not contain credentials')
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  if (url.username !== '' || url.password !== '') throw new EarsError(EARS_ERROR_CODES.asrEndpointHasCredentials, 'Cloud ASR endpoint must not contain credentials')
   return url.toString()
 }
 
 async function readBoundedText(response: Response): Promise<string> {
   const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
+  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
   if (response.body === null) {
     const body = await response.text()
-    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
+    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
     return body
   }
 
@@ -83,7 +90,7 @@ async function readBoundedText(response: Response): Promise<string> {
       total += next.value.byteLength
       if (total > MAX_RESPONSE_BYTES) {
         await reader.cancel()
-        throw new Error('Cloud ASR response is too large')
+        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
       }
       chunks.push(next.value)
     }

@@ -1,10 +1,14 @@
 import { useSyncExternalStore } from 'react'
 import type { VoiceInputState } from './voice-flow.js'
 
+export type VoiceStateDetailParams = Readonly<Record<string, string | number>>
+
 export type VoiceInputSessionSnapshot = {
   readonly state: VoiceInputState
   readonly levels: readonly number[]
   readonly detail: string
+  readonly detailCode?: string
+  readonly detailParams?: VoiceStateDetailParams
 }
 
 type Listener = () => void
@@ -18,6 +22,14 @@ const NOTICE_STATES = new Set<VoiceInputState>(['error', 'polish-error', 'upstre
 const DISCARDABLE_STATES = new Set<VoiceInputState>(['transcribing', 'polishing'])
 
 export type RecognitionBarAction = 'stop' | 'discard' | 'busy'
+
+export type VoiceStateSetter = (state: VoiceInputState, detail?: string, detailCode?: string, detailParams?: VoiceStateDetailParams) => void
+
+export function createVoiceStateSetter(session: VoiceInputSession): VoiceStateSetter {
+  return (state, detail, detailCode, detailParams) => {
+    session.setState(state, detail, detailCode, detailParams)
+  }
+}
 
 /** Recording keeps the stop square; transcribe/polish swap it for discard. */
 export function recognitionBarAction(state: VoiceInputState): RecognitionBarAction {
@@ -59,12 +71,20 @@ export class VoiceInputSession {
     return () => this.cancelListeners.delete(listener)
   }
 
-  setState(state: VoiceInputState, detail = ''): void {
+  setState(state: VoiceInputState, detail = '', detailCode?: string, detailParams?: VoiceStateDetailParams): void {
     const nextDetail = NOTICE_STATES.has(state) ? detail : ''
-    if (this.snapshot.state === state && this.snapshot.detail === nextDetail) return
+    const nextDetailCode = NOTICE_STATES.has(state) ? detailCode : undefined
+    const nextDetailParams = NOTICE_STATES.has(state) ? detailParams : undefined
+    if (this.snapshot.state === state && this.snapshot.detail === nextDetail && this.snapshot.detailCode === nextDetailCode && this.snapshot.detailParams === nextDetailParams) return
     this.clearErrorTimer()
     const resetLevels = state === 'starting' || state === 'idle' || NOTICE_STATES.has(state)
-    this.snapshot = { state, levels: resetLevels ? [] : this.snapshot.levels, detail: nextDetail }
+    this.snapshot = {
+      state,
+      levels: resetLevels ? [] : this.snapshot.levels,
+      detail: nextDetail,
+      ...(nextDetailCode === undefined ? {} : { detailCode: nextDetailCode }),
+      ...(nextDetailParams === undefined ? {} : { detailParams: nextDetailParams })
+    }
     this.emit()
     if (NOTICE_STATES.has(state)) {
       this.errorTimer = setTimeout(() => {

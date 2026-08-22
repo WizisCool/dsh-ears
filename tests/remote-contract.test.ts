@@ -1,7 +1,48 @@
 import { describe, expect, it } from 'vitest'
-import { earsSettingsPatchSchema, earsSettingsViewSchema } from '../src/remote-contract.js'
+import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, remoteTextResultSchema, whisperModelStateSchema } from '../src/remote-contract.js'
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
+
+describe('structured error Remote contracts', () => {
+  it('accepts optional error codes and interpolation parameters', () => {
+    expect(whisperModelStateSchema.parse({
+      cliAvailable: true,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: 'The installed whisper does not know the model "tiny".',
+      errorCode: 'whisper.modelUnknown',
+      errorParams: { model: 'tiny' }
+    })).toMatchObject({ errorCode: 'whisper.modelUnknown', errorParams: { model: 'tiny' } })
+    expect(cloudProviderModelsViewSchema.parse({
+      status: 'error',
+      models: [],
+      error: 'Cloud model listing failed with HTTP 500',
+      errorCode: 'cloudModels.httpFailed',
+      errorParams: { status: 500 }
+    })).toMatchObject({ errorCode: 'cloudModels.httpFailed', errorParams: { status: 500 } })
+    expect(asrBackendInfoSchema.parse({
+      id: 'web-speech',
+      name: 'Web Speech',
+      available: false,
+      detail: 'Browser-provided live recognition; availability depends on the browser.',
+      detailCode: 'backend.webSpeechUnavailable'
+    })).toMatchObject({ detailCode: 'backend.webSpeechUnavailable' })
+    expect(remoteTextResultSchema.parse({
+      status: 'error',
+      code: 'asr.providerUnknown',
+      message: 'Unknown dsh-ears cloud ASR provider: future-provider',
+      params: { provider: 'future-provider' }
+    })).toEqual({
+      status: 'error',
+      code: 'asr.providerUnknown',
+      message: 'Unknown dsh-ears cloud ASR provider: future-provider',
+      params: { provider: 'future-provider' }
+    })
+  })
+})
 
 describe('settings Remote contract', () => {
   it('accepts an empty provider/model pair as the no-polish state', () => {

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { IconLoadingOutline16, IconStopFill16, IconTrashOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from './settings.js'
-import { localeEn } from './settings.js'
+import { fallbackTranslate, type Translate } from './settings-locale.js'
 import { recognitionBarAction, useVoiceInputSession, VOICE_WAVEFORM_SLOTS, type VoiceInputSession } from './voice-session.js'
+import { statusLabel } from './voice-error.js'
 import styles from './VoiceRecognitionBar.module.css'
 
 type VoiceRecognitionBarProps = {
@@ -18,13 +18,15 @@ type DisplayState = {
   readonly state: 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error' | 'upstream-error'
   readonly levels: readonly number[]
   readonly detail: string
+  readonly detailCode?: string
+  readonly detailParams?: Readonly<Record<string, string | number>>
 }
 
 const EXIT_DURATION_MS = 180
 
 export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceRecognitionBarProps) {
-  const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
-  const { state, levels, detail } = useVoiceInputSession(voiceSession)
+  const t = slotT ?? earsT ?? fallbackTranslate
+  const { state, levels, detail, detailCode, detailParams } = useVoiceInputSession(voiceSession)
   const active = isVisibleState(state)
   const [phase, setPhase] = useState<PresentationPhase>(active ? 'visible' : 'hidden')
   const rootRef = useRef<HTMLDivElement>(null)
@@ -32,8 +34,8 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
   const lastDisplayRef = useRef<DisplayState>({ state: 'recording', levels: [], detail: '' })
 
   useEffect(() => {
-    if (active) lastDisplayRef.current = { state, levels, detail }
-  }, [active, state, levels, detail])
+    if (active) lastDisplayRef.current = { state, levels, detail, ...(detailCode === undefined ? {} : { detailCode }), ...(detailParams === undefined ? {} : { detailParams }) }
+  }, [active, state, levels, detail, detailCode, detailParams])
 
   useEffect(() => {
     if (active) {
@@ -55,7 +57,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
 
   if (phase === 'hidden') return null
 
-  const display = active ? { state, levels, detail } : lastDisplayRef.current
+  const display = active ? { state, levels, detail, ...(detailCode === undefined ? {} : { detailCode }), ...(detailParams === undefined ? {} : { detailParams }) } : lastDisplayRef.current
   const processing = display.state === 'transcribing' || display.state === 'polishing'
   const label = statusLabel(display, t)
   const notice = display.state === 'error' || display.state === 'polish-error' || display.state === 'upstream-error'
@@ -98,16 +100,6 @@ function Waveform({ levels }: { readonly levels: readonly number[] }) {
       })}
     </span>
   )
-}
-
-function statusLabel(display: DisplayState, t: Translate): string {
-  if (display.state === 'starting') return t('voiceStarting')
-  if (display.state === 'recording') return t('voiceRecording')
-  if (display.state === 'transcribing') return t('voiceTranscribing')
-  if (display.state === 'polishing') return t('voicePolishing')
-  if (display.state === 'upstream-error') return `${t('voiceUpstreamAsr')}${display.detail || t('voiceError')}`
-  if (display.state === 'polish-error') return `${t('voiceUpstreamPolish')}${display.detail || t('voicePolishFailed')}`
-  return t('voiceError')
 }
 
 function isVisibleState(state: string): state is DisplayState['state'] {

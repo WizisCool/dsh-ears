@@ -56,7 +56,12 @@ describe('EarsSettingsController Whisper state', () => {
 
     expect(controller.getWhisperStore().getSnapshot()).toEqual({
       status: 'ready',
-      state: { ...INITIAL_WHISPER_STATE, error: 'Whisper service unavailable' }
+      state: {
+        ...INITIAL_WHISPER_STATE,
+        error: 'Whisper service unavailable',
+        errorCode: 'whisper.stateQueryFailed',
+        errorParams: { detail: 'Whisper service unavailable' }
+      }
     })
     controller.dispose()
   })
@@ -682,8 +687,8 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     downloadWhisperModel: async () => ({ ok: true, value: INITIAL_WHISPER_STATE }),
     cancelWhisperModelDownload: async () => ({ ok: true, value: INITIAL_WHISPER_STATE }),
     deleteWhisperModel: async () => ({ ok: true, value: INITIAL_WHISPER_STATE }),
-    transcribe: async () => ({ ok: true, value: '' }),
-    polish: async () => ({ ok: true, value: '' }),
+    transcribe: async () => ({ ok: true, value: { status: 'ok', text: '' } }),
+    polish: async () => ({ ok: true, value: { status: 'ok', text: '' } }),
     ...overrides
   } as EarsRemote
 }

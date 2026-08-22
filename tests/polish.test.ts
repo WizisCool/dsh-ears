@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
 import { PolishService, validateSettings } from '../src/polish/service.js'
 import { resolvePolishRoute } from '../src/polish/route.js'
+import { remoteTextResultSchema } from '../src/remote-contract.js'
 import { unflattenEarsSettings } from '../src/settings-store.js'
 
 vi.mock('../src/asr/local-whisper.js', () => ({
@@ -134,7 +137,7 @@ describe('PolishService', () => {
       '',
       '',
       new AbortController().signal
-    )).resolves.toBe('整理后的文本')
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
     expect(prepareCall).toHaveBeenCalledWith({
       provider: 'antigravity',
       model: 'gemini-3.7-flash-high'
@@ -153,7 +156,7 @@ describe('PolishService', () => {
       '',
       '',
       new AbortController().signal
-    )).resolves.toBe('原始转写')
+    )).resolves.toEqual({ status: 'ok', text: '原始转写' })
     expect(prepareCall).not.toHaveBeenCalled()
   })
 
@@ -182,7 +185,7 @@ describe('PolishService', () => {
       'model',
       'medium',
       new AbortController().signal
-    )).resolves.toBe('整理后的文本')
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
     expect(prepareCall).toHaveBeenCalledTimes(2)
     expect(stream).toHaveBeenCalledTimes(2)
     expect(stream.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'medium' })
@@ -198,7 +201,25 @@ describe('PolishService', () => {
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).rejects.toThrow('route unavailable')
+    await expect(context.get('dshEarsPolish')?.polish('  保留这段内容  ', 'provider', 'model', '', new AbortController().signal)).resolves.toEqual({
+      status: 'error',
+      code: EARS_ERROR_CODES.polishUnexpected,
+      message: 'The dsh LLM polishing request failed: route unavailable',
+      params: { detail: 'route unavailable' }
+    })
+  })
+
+  it('preserves TypertLookupFailure as a lookup-policy boundary error', async () => {
+    const lookupFailure = new TypertLookupFailure({ code: 'lookup-policy', message: 'lookup rejected', details: {} })
+    const context = createContext({
+      prepareCall: vi.fn(async () => {
+        throw lookupFailure
+      })
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish('保留这段内容', 'provider', 'model', '', new AbortController().signal)).rejects.toBe(lookupFailure)
   })
 
   it('retries polish without reasoning effort when the first result is unchanged', async () => {
@@ -226,7 +247,7 @@ describe('PolishService', () => {
       'model',
       'medium',
       new AbortController().signal
-    )).resolves.toBe('整理后的文本')
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
     expect(prepareCall).toHaveBeenCalledTimes(2)
     expect(stream.mock.calls[0]?.[0]).toMatchObject({ reasoningEffort: 'medium' })
     expect(stream.mock.calls[1]?.[0]).not.toHaveProperty('reasoningEffort')
@@ -250,10 +271,13 @@ describe('PolishService', () => {
       'model',
       '',
       new AbortController().signal
-    )).resolves.toBe([
-      '1. 帮我看一下项目下的 Security Key',
-      '2. 帮我梳理一下项目结构'
-    ].join('\n'))
+    )).resolves.toEqual({
+      status: 'ok',
+      text: [
+        '1. 帮我看一下项目下的 Security Key',
+        '2. 帮我梳理一下项目结构'
+      ].join('\n')
+    })
   })
 
   it('retries cloud model listing after the API key changes instead of reusing the failure cache', async () => {
@@ -282,7 +306,9 @@ describe('PolishService', () => {
     await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
       status: 'error',
       models: [],
-      error: 'Cloud model listing failed with HTTP 401'
+      error: 'Cloud model listing failed with HTTP 401',
+      errorCode: 'cloudModels.httpFailed',
+      errorParams: { status: 401 }
     })
     await service.updateSettings({ cloudAsrGroqApiKey: 'gsk_new' }, new AbortController().signal)
     await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
@@ -306,6 +332,16 @@ describe('PolishService', () => {
     expect(backends?.find((backend) => backend.id === 'cloud-openai')?.available).toBe(false)
   })
 
+  it('does not attach an unavailable code to available Web Speech', async () => {
+    const context = createContext()
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    const webSpeech = (await context.get('dshEarsPolish')?.listAsrBackends())?.find((backend) => backend.id === 'web-speech')
+    expect(webSpeech).toMatchObject({ available: true })
+    expect(webSpeech).not.toHaveProperty('detailCode')
+  })
+
   it('honors an aborted transcription before decoding the payload', async () => {
     const context = createContext({})
     const fiber = await context.plugin(PolishService)
@@ -323,8 +359,35 @@ describe('PolishService', () => {
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).rejects.toThrow('Unknown dsh-ears ASR backend')
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({
+      status: 'error',
+      code: EARS_ERROR_CODES.asrUnexpected,
+      message: 'The ASR request failed: Unknown dsh-ears ASR backend: future-backend',
+      params: { detail: 'Unknown dsh-ears ASR backend: future-backend' }
+    })
     await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
+  })
+
+  it('returns an EarsError code and params in the Remote business result', async () => {
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'future-provider',
+      cloudAsrGroqModel: 'future-model'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const result = await service.transcribe('AQ==', 'audio/wav', new AbortController().signal)
+    expect(result).toEqual({
+      status: 'error',
+      code: EARS_ERROR_CODES.asrProviderUnknown,
+      message: 'Unknown dsh-ears cloud ASR provider: future-provider',
+      params: { provider: 'future-provider' }
+    })
+    expect(remoteTextResultSchema.parse(result)).toEqual(result)
   })
 
   it('does not update settings when the request is already aborted', async () => {
@@ -352,7 +415,7 @@ describe('PolishService', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(context.get('dshEarsPolish')?.polish('保留这段内容', 'provider', 'model', '', controller.signal)).resolves.toBe('保留这段内容')
+    await expect(context.get('dshEarsPolish')?.polish('保留这段内容', 'provider', 'model', '', controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
     expect(prepareCall).not.toHaveBeenCalled()
   })
 
@@ -368,7 +431,11 @@ describe('PolishService', () => {
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', '', new AbortController().signal)).rejects.toThrow('too large')
+    await expect(context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', '', new AbortController().signal)).resolves.toEqual({
+      status: 'error',
+      code: EARS_ERROR_CODES.polishTooLarge,
+      message: 'The dsh LLM polishing response is too large'
+    })
   })
 
   it('passes the polish timeout signal to reasoning metadata lookup', async () => {
@@ -387,9 +454,13 @@ describe('PolishService', () => {
     fibers.push(fiber)
     try {
       const pending = context.get('dshEarsPolish')?.polish('保留原文', 'provider', 'model', 'high', new AbortController().signal)
-      const rejected = expect(pending).rejects.toThrow('timed out')
+      const result = expect(pending).resolves.toEqual({
+        status: 'error',
+        code: EARS_ERROR_CODES.polishTimedOut,
+        message: 'The dsh LLM polishing request timed out'
+      })
       await vi.advanceTimersByTimeAsync(20_000)
-      await rejected
+      await result
       expect(resolveModelInfo).toHaveBeenCalledWith('provider', 'model', expect.any(AbortSignal))
     } finally {
       vi.useRealTimers()

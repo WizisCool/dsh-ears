@@ -1,3 +1,5 @@
+import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+
 const MAX_ENCODED_BYTES = 10 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 1 * 1024 * 1024
 const REQUEST_TIMEOUT_MS = 120_000
@@ -58,7 +60,7 @@ export function dashscopeRequestBody(model: string, dataUri: string, mimeType: s
 }
 
 export function extractDashScopeTranscript(parsed: unknown): string {
-  if (!isRecord(parsed)) throw new Error('Cloud ASR returned invalid JSON')
+  if (!isRecord(parsed)) throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, 'Cloud ASR returned invalid JSON')
   const output = parsed.output
   if (isRecord(output)) {
     const direct = firstText(output.text)
@@ -89,7 +91,7 @@ export function extractDashScopeTranscript(parsed: unknown): string {
     }
   }
   const message = typeof parsed.message === 'string' ? parsed.message.trim() : ''
-  if (message !== '') throw new Error(message)
+  if (message !== '') throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, message)
   return ''
 }
 
@@ -97,16 +99,16 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
   if (options.audio.byteLength === 0) return ''
   options.signal.throwIfAborted()
   const model = options.model.trim()
-  if (model === '') throw new Error('The cloud ASR model is not configured')
+  if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The cloud ASR model is not configured')
   const credential = options.credential.trim()
-  if (credential === '') throw new Error('The cloud ASR API key is not configured')
+  if (credential === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'The cloud ASR API key is not configured')
   const endpoint = validateEndpoint(options.endpoint)
   const mime = (options.mimeType.split(';', 1)[0] ?? 'audio/webm').trim() || 'audio/webm'
   const dataUri = `data:${mime};base64,${Buffer.from(options.audio).toString('base64')}`
-  if (Buffer.byteLength(dataUri) > MAX_ENCODED_BYTES) throw new Error('The recorded audio is too large for Bailian ASR')
+  if (Buffer.byteLength(dataUri) > MAX_ENCODED_BYTES) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large for Bailian ASR')
 
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(new Error('Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => timeout.abort(new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
   const forwardAbort = () => timeout.abort(options.signal.reason)
   options.signal.addEventListener('abort', forwardAbort, { once: true })
   try {
@@ -125,11 +127,11 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
     try {
       parsed = JSON.parse(body)
     } catch {
-      throw new Error('Cloud ASR returned invalid JSON')
+      throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, 'Cloud ASR returned invalid JSON')
     }
     if (!response.ok) {
       if (isDashScopeEmptyAudioError(parsed, response.status)) return ''
-      throw new Error(dashScopeErrorDetail(parsed, response.status))
+      throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, dashScopeErrorDetail(parsed, response.status), { status: response.status })
     }
     return extractDashScopeTranscript(parsed)
   } finally {
@@ -139,9 +141,14 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
 }
 
 function validateEndpoint(value: string): string {
-  const url = new URL(value.trim())
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Cloud ASR endpoint must use HTTP or HTTPS')
-  if (url.username !== '' || url.password !== '') throw new Error('Cloud ASR endpoint must not contain credentials')
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  if (url.username !== '' || url.password !== '') throw new EarsError(EARS_ERROR_CODES.asrEndpointHasCredentials, 'Cloud ASR endpoint must not contain credentials')
   return url.toString()
 }
 
@@ -216,10 +223,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function readBoundedText(response: Response): Promise<string> {
   const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
+  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
   if (response.body === null) {
     const body = await response.text()
-    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new Error('Cloud ASR response is too large')
+    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
     return body
   }
   const reader = response.body.getReader()
@@ -232,7 +239,7 @@ async function readBoundedText(response: Response): Promise<string> {
       total += next.value.byteLength
       if (total > MAX_RESPONSE_BYTES) {
         await reader.cancel()
-        throw new Error('Cloud ASR response is too large')
+        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
       }
       chunks.push(next.value)
     }

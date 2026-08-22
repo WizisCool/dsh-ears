@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { effectiveRecognitionLanguage, effectiveRecordingSeconds } from '../config.js'
+import { isEarsErrorCode } from '../errors.js'
 import type { EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
@@ -9,16 +10,15 @@ import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
-import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecording, remoteFailureDetail } from './voice-error.js'
-import { commitTranscript, updateDraft, type VoiceInputState } from './voice-flow.js'
+import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecording, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
+import { commitTranscript, updateDraft } from './voice-flow.js'
 import { matchesShortcut } from '../shortcut.js'
-import type { Translate } from './settings.js'
-import { localeEn } from './settings.js'
+import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
 import { resolveCaptureBackend, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
-import { useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
+import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -37,15 +37,11 @@ type VoiceInputButtonProps = {
   readonly earsT?: Translate
 }
 
-type ButtonState = VoiceInputState
-
 export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, voiceSession, useUiLocale, t: slotT, earsT }: VoiceInputButtonProps) {
-  const t = slotT ?? earsT ?? ((key: string) => localeEn[key as keyof typeof localeEn] ?? key)
+  const t = slotT ?? earsT ?? fallbackTranslate
   const voiceSnapshot = useVoiceInputSession(voiceSession)
   const state = voiceSnapshot.state
-  const setState = (nextState: ButtonState) => {
-    voiceSession.setState(nextState)
-  }
+  const setState = createVoiceStateSetter(voiceSession)
   const speechSessionRef = useRef<WebSpeechSession | null>(null)
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
   const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
@@ -317,12 +313,16 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         applyVoiceFailure(voiceSession, 'asr', result.error)
         return
       }
-      if (result.value.trim() === '') {
+      if (result.value.status === 'error') {
+        applyVoiceFailure(voiceSession, 'asr', result.value)
+        return
+      }
+      if (result.value.text.trim() === '') {
         setState('idle')
         return
       }
       commitTranscript({
-        transcript: result.value,
+        transcript: result.value.text,
         baseDraft,
         requireUnchanged: true,
         settings: settingsRef.current,
@@ -401,16 +401,17 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
   toggleRef.current = toggle
 
+  const failureDetail = localizedErrorText(t, voiceSnapshot.detailCode, voiceSnapshot.detail || (state === 'polish-error' ? t('voicePolishFailed') : t('voiceError')), voiceSnapshot.detailParams)
   const tooltipLabel = busy
     ? t('voiceBusy')
     : active
       ? t('voiceStop')
       : state === 'polish-error'
-        ? `${t('voiceUpstreamPolish')}${voiceSnapshot.detail || t('voicePolishFailed')}`
+        ? t('voiceUpstreamPolish', { detail: failureDetail || t('voicePolishFailed') })
         : state === 'upstream-error'
-          ? `${t('voiceUpstreamAsr')}${voiceSnapshot.detail || t('voiceError')}`
+          ? t('voiceUpstreamAsr', { detail: failureDetail })
           : state === 'error'
-            ? t('voiceError')
+            ? failureDetail
             : t('voiceStart')
   const ariaLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : t('voiceStart')
 
@@ -452,32 +453,35 @@ function playToggleClick(settings: EarsSettings, intensity: number): void {
 }
 
 function applyVoiceFailure(session: VoiceInputSession, source: 'asr' | 'polish', error: unknown): void {
-  const detail = remoteFailureDetail({
-    code: error !== null && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined,
-    message: error !== null && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : failureMessage(error)
-  })
-  const kind = classifyVoiceFailure(detail)
+  const code = error !== null && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined
+  const message = error !== null && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : failureMessage(error)
+  const detail = remoteFailureDetail({ code, message })
+  const detailCode = isEarsErrorCode(code) ? code : undefined
+  const detailParams = remoteFailureParams(error)
+  const kind = classifyVoiceFailure(detail, code)
   if (kind === 'empty') {
     session.setState('idle')
     return
   }
   if (kind === 'config') {
-    session.setState('error')
+    session.setState('error', '', detailCode, detailParams)
     return
   }
-  session.setState(source === 'polish' ? 'polish-error' : 'upstream-error', detail)
+  session.setState(source === 'polish' ? 'polish-error' : 'upstream-error', detail, detailCode, detailParams)
 }
 
 function micUnavailableTooltip(reason: MicUnavailableReason, backends: readonly AsrBackendInfo[], t: Translate): string {
   if (reason.kind === 'model-not-downloaded') return t('whisperNotDownloaded')
   if (reason.kind === 'model-downloading') {
-    const percent = reason.percent === null ? '' : ` ${String(Math.max(0, Math.min(100, Math.round(reason.percent * 100))))}%`
-    return `${t('whisperDownloading')}${percent}`
+    if (reason.percent === null) return t('whisperDownloading')
+    const percent = Math.max(0, Math.min(100, Math.round(reason.percent * 100)))
+    return t('whisperDownloadingProgress', { percent })
   }
   const info = backends.find((candidate) => candidate.id === reason.backendId)
-  if (reason.backendId === 'local-whisper') return `${t('backendUnavailable')}${t('localUnavailable')}`
-  if (reason.backendId === 'cloud-openai') return `${t('backendUnavailable')}${t('cloudUnavailable')}`
-  return `${t('backendUnavailable')}${info?.detail ?? ''}`
+  if (reason.backendId === 'local-whisper') return t('backendUnavailable', { detail: t('localUnavailable') })
+  if (reason.backendId === 'cloud-openai') return t('backendUnavailable', { detail: t('cloudUnavailable') })
+  const detail = localizedErrorText(t, info?.detailCode, info?.detail ?? t('voiceUnavailableWebSpeech'), info?.detailParams)
+  return t('backendUnavailable', { detail })
 }
 
 function MicrophoneIcon() {

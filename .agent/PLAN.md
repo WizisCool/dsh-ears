@@ -38,6 +38,7 @@ Durable detail lives in [`context.md`](./context.md). Live versus superseded dec
 - Voice shortcut default `Ctrl+Shift+Space` (D-028). Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. Reserved browser/OS chords warn amber.
 - Cloud ASR keys are per-provider Host `role('secret')` fields (D-023, D-032). The browser never reads a key value.
 - Custom polish system prompt on the Polishing tab (D-029). Blank uses the built-in ASR-cleaning contract.
+- Runtime settings and voice-error copy is registered in Chinese and English under `settings.dshEars`. Host voice business failures cross the strict Remote boundary as stable code/message/parameter result values, and the browser localizes them in the microphone tooltip and recognition card.
 - About tab: identity rows and a click-only Host npm `latest` check that never installs (D-033).
 
 ## Open gates

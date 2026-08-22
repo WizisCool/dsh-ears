@@ -1,3 +1,4 @@
+import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 import { AudioLevelMonitor, VOICE_AUDIO_CONSTRAINTS } from './audio-level.js'
 
 export interface RecordedAudio {
@@ -113,7 +114,7 @@ export class MediaRecorderSession {
       if (this.closed || event.data.size === 0) return
       this.totalBytes += event.data.size
       if (this.totalBytes > MAX_AUDIO_BYTES) {
-        this.recordingError ??= new Error('The recorded audio is too large')
+        this.recordingError ??= new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
         this.closed = true
         queueMicrotask(() => {
           void this.stop().catch(() => undefined)
@@ -125,7 +126,7 @@ export class MediaRecorderSession {
   }
 
   static async create(): Promise<MediaRecorderSession> {
-    if (!isMediaRecorderAvailable()) throw new Error('Media recording is unavailable in this browser')
+    if (!isMediaRecorderAvailable()) throw new EarsError(EARS_ERROR_CODES.browserMediaUnavailable, 'Media recording is unavailable in this browser')
     const stream = await acquireMicrophone()
     try {
       const mimeType = supportedMimeType()

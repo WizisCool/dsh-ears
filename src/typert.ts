@@ -1,4 +1,4 @@
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -105,7 +105,7 @@ export const TYPERT = {
         }
       ],
       cancellation: { parameter: 'signal' },
-      result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
     },
     {
       id: 'dsh-ears#dshEars/listReasoningEfforts',
@@ -236,8 +236,8 @@ export const TYPERT = {
       cancellation: { parameter: 'signal' },
       result: {
         mode: 'strict',
-        typeSymbol: 'string',
-        schema: textSchema
+        typeSymbol: 'dsh-ears#RemoteTextResult',
+        schema: remoteTextResultSchema
       }
     }
   ],
@@ -331,19 +331,23 @@ export const TYPERT = {
           {
             kind: 'method',
             name: 'transcribe',
-            signature: 'transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string>',
+            signature: 'transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<RemoteTextResult>',
             summary: 'Transcribe one recorded audio payload through the selected ASR backend.',
             jsDoc: '/** Transcribe one recorded audio payload through the selected ASR backend. */'
           },
           {
             kind: 'method',
             name: 'polish',
-            signature: 'polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string>',
+            signature: 'polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult>',
             summary: 'Polish one transcript through a selected dsh route.',
             jsDoc: '/** Polish one transcript through a selected dsh route. */'
           }
         ],
         types: [
+          {
+            name: 'RemoteTextResult',
+            declaration: "export type RemoteTextResult = { status: 'ok'; text: string } | { status: 'error'; code: string; message: string; params?: Record<string, string | number> }"
+          },
           {
             name: 'EarsSettingsView',
             declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; overridden: string[] }'
@@ -354,7 +358,7 @@ export const TYPERT = {
           },
           {
             name: 'AsrBackendInfo',
-            declaration: 'export interface AsrBackendInfo { id: AsrBackendId; name: string; available: boolean; detail: string }'
+            declaration: 'export interface AsrBackendInfo { id: AsrBackendId; name: string; available: boolean; detail: string; detailCode?: string; detailParams?: Record<string, string | number> }'
           },
           {
             name: 'PolishRoute',
@@ -370,11 +374,11 @@ export const TYPERT = {
           },
           {
             name: 'WhisperModelState',
-            declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null }'
+            declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
           },
           {
             name: 'CloudProviderModelsView',
-            declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; error?: string }"
+            declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; error?: string; errorCode?: string; errorParams?: Record<string, string | number> }"
           }
         ]
       }
