@@ -211,7 +211,7 @@ export function isDashScopeEmptyAudioError(parsed: unknown, status: number): boo
   const detail = `${code} ${message}`.toLowerCase()
   if (CONFIG_ERROR_CODES.some((marker) => detail.includes(marker))) return false
   if (EMPTY_AUDIO_MARKERS.some((marker) => detail.includes(marker))) return true
-  return code === '' && message === ''
+  return false
 }
 
 function firstText(value: unknown): string | undefined {
