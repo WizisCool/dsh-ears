@@ -35,3 +35,39 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: npm publish --access public --provenance
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract changelog notes
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          version = "${{ github.ref_name }}".removeprefix("v")
+          match = re.search(
+              rf"(?m)^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text,
+              re.S,
+          )
+          if match is None:
+              raise SystemExit(f"no changelog section found for {version}")
+          body = match.group(1).strip()
+          if not body:
+              raise SystemExit(f"empty changelog section for {version}")
+          pathlib.Path("release-notes.md").write_text(
+              body + "\n\nPublished to npm via trusted publishing (SLSA provenance).\n"
+          )
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: release-notes.md
