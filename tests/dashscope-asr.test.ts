@@ -146,6 +146,26 @@ describe('transcribeDashScopeAsr', () => {
     })
   })
 
+  it('classifies a 400 response with an empty body as an HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 400 }
+    })
+  })
+
   it('classifies a non-2xx response with invalid JSON as an HTTP failure', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream unavailable', {
       status: 502,
