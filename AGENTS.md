@@ -57,6 +57,7 @@ tests/                    Vitest suites next to the shipped modules
 ## Engineering
 
 - Prefer the smallest change that completes one independently verifiable task.
+- Fix defects at the root cause; replace faulty logic with the correct logic rather than patching over it.
 - Verify dsh APIs against the [official docs](https://deepseek-harness.github.io/deepseek-harness/guide/quickstart) and the installed `@deepseek-ai/dsh-*` packages. Plugin path: [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/). Do not guess an API from memory.
 - Follow official DeepSeek Harness package shape, naming, lifecycle, and TypeScript style where they apply.
 - English for source, comments, public documentation, context, issue-ready text, and commit messages. Runtime product prompts may be Chinese when the product requires Chinese output.
