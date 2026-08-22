@@ -22,34 +22,32 @@
 </p>
 
 ```text
-microphone → transcription → optional polish → editable draft → manual send
+A voice-input plugin for DeepSeek Harness that supports multiple ASR backends and polishing through dsh's own LLM route.
 ```
 
 https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-During recording, a recognition bar floats above the composer — waveform animation, stop button, the works. If transcription or polishing is still in progress, the trash icon discards the whole take.
-
-Recognition backends include browser-native Web Speech (words appear in real time), local Whisper, [Groq](https://console.groq.com), [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio), and any OpenAI-compatible transcription endpoint. Polishing runs through whichever model is already wired up in dsh, with a fully customizable prompt. Default shortcut: `Ctrl+Shift+Space`.
+While recording, a recognition bar appears above the composer with a waveform and stop button. If transcription or polishing is still running, click the trash icon to discard the take.
 
 ## Install
 
-Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` through `0.1.1-rc.2`), Node.js `^22.19.0 || >=24.0.0`.
+Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` through `0.1.1-rc.2`) and Node.js `^22.19.0 || >=24.0.0`.
 
-**From npm:**
+**Install from npm:**
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-Without the `dsh` CLI installed:
+If the `dsh` CLI is not installed:
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
 ```
 
-**From source:**
+**Install from source:**
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
@@ -61,50 +59,60 @@ dsh plugin --profile web add "$PWD"
 
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
+## Update
+
+Update to the latest version:
+
+```sh
+dsh plugin --profile web update dsh-ears
+```
+
+Refresh the Web UI after the update.
+
 ## Uninstall
 
 ```sh
 dsh plugin --profile web remove dsh-ears
 ```
 
-Without the `dsh` CLI installed:
+If the `dsh` CLI is not installed:
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ```
 
-Use the same command whether the plugin was added from npm or from a local clone. Refresh the Web UI afterwards; the microphone icon disappears. A cloned repository is not deleted.
+The same command works for npm and local installs. Refresh the Web UI afterwards; the microphone icon disappears. A local clone is not deleted.
 
 ## Usage
 
 1. Click the microphone icon, or press `Ctrl+Shift+Space`.
 2. Start speaking.
-3. Press the shortcut again (or click again) to stop recording and begin transcription.
-4. With polishing enabled, the raw transcript lands in the draft first and gets replaced once polishing finishes — any manual edits made in between are preserved.
+3. Press the shortcut again, or click the microphone, to stop recording and start transcription.
+4. With polishing enabled, the raw transcript appears in the draft first. The plugin replaces it with the polished text when polishing finishes, while preserving manual edits made in the meantime.
 5. Review and send.
 
-When the selected backend is not ready, the microphone icon grays out. Hovering it shows the reason.
+If the selected backend is not ready, the microphone icon is disabled. Hover over it to see why.
 
 ## Recognition backends
 
 | Backend | How it works | Requirements | Free allowance |
 | --- | --- | --- | --- |
-| Web Speech | Live in-browser recognition, words appear in real time | A Chromium-based browser. Audio may be routed through the browser vendor | — |
-| Local Whisper | Host runs the `whisper` CLI after recording stops | openai-whisper installed locally; download a model from the plugin settings page (weights are not bundled) | — |
-| [Groq](https://console.groq.com) | Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
-| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope sync transcription (Flash family) | HTTPS origin, API key, and model name. Recordings cap at 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
-| Custom OpenAI-compatible | POST to a given `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
-| 🤝 Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
+| Web Speech | Live in-browser recognition; words appear as you speak | A Chromium-based browser. Audio may be routed through the browser vendor | — |
+| Local Whisper | The Host runs the `whisper` CLI after recording stops | `openai-whisper` installed locally; download a model from the plugin settings page (weights are not bundled) | — |
+| [Groq](https://console.groq.com) | The Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription (Flash family) | HTTPS origin, API key, and model name. Recordings are limited to 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
+| Custom OpenAI-compatible | Sends a request to the specified `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
+| Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
 
-> Allowances above are copied from provider docs. This README may lag. Use the provider's latest documentation.
+> The allowances above come from provider documentation and may change. Check the provider's current documentation.
 
 > Whisper `medium` and larger models rarely finish within 120 s on CPU alone. A GPU or a faster local runtime is recommended.
 
 ## Polishing
 
-The polish model is picked from models already configured in `dsh → Settings → Models`. The plugin only persists the provider, model name, and prompt; the LLM key comes from dsh's existing configuration.
+Choose the polish model from the models configured in `dsh → Settings → Models`. The plugin stores only the provider, model name, and prompt; the LLM key comes from dsh's existing configuration.
 
-The default prompt removes fillers, fixes common ASR errors, resolves spoken self-corrections ("not A — actually B"), and formats explicit enumerations. Leaving the prompt blank activates the built-in default, which can be reviewed in the settings page. When polishing fails or is cancelled, the raw transcript is kept as-is.
+The default prompt removes filler words, fixes common ASR errors, handles spoken self-corrections ("not A, actually B"), and formats explicit enumerations. Leave the prompt blank to use the built-in default, which you can review in the settings page. If polishing fails or is cancelled, the raw transcript is kept as-is.
 
 ## Local development
 
@@ -118,7 +126,7 @@ pnpm dev:config   # build and write the HMR overlay
 pnpm dev:web      # start dsh web
 ```
 
-Run `pnpm dev:watch` in a second terminal during development. `pnpm dev:config` writes `.dsh/cordis.patch.yml` (git-ignored) for HMR and does not register an additional plugin entry.
+Run `pnpm dev:watch` in a second terminal while developing. `pnpm dev:config` writes `.dsh/cordis.patch.yml` (git-ignored) for HMR and does not register the plugin twice.
 
 ## Docs
 
@@ -127,7 +135,7 @@ Run `pnpm dev:watch` in a second terminal during development. `pnpm dev:config` 
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
 
-Contributor guide and architecture notes: [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), [`.agent/`](./.agent/README.md).
+See [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and [`.agent/`](./.agent/README.md) for the contributor guide and architecture notes.
 
 ## License
 

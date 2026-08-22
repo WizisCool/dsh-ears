@@ -22,26 +22,24 @@
 </p>
 
 ```text
-麦克风 → 转写 → 可选润色 → 可编辑草稿 → 手动发送
+DeepSeek Harness 语音输入插件：支持多种 ASR 后端，并通过 dsh 自身的 LLM 路径完成润色。
 ```
 
 https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-识别后端支持浏览器原生 Web Speech、本机 Whisper、[Groq](https://console.groq.com)、[阿里云百炼](https://www.aliyun.com/product/bailian)，以及任意 OpenAI 兼容转写接口。润色可以选择 dsh 里已经接好的任何模型，提示词可以自定义。默认快捷键 `Ctrl+Shift+Space`。
-
 ## 安装
 
-前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` 至 `0.1.1-rc.2`），Node.js `^22.19.0 || >=24.0.0`。
+前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` 至 `0.1.1-rc.2`）和 Node.js `^22.19.0 || >=24.0.0`。
 
-**从 npm 安装：**
+**通过 npm 安装：**
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-如果还没安装 `dsh` CLI：
+尚未安装 `dsh` CLI 时：
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
@@ -57,7 +55,17 @@ pnpm build
 dsh plugin --profile web add "$PWD"
 ```
 
-安装完成后刷新 Web UI，输入框右侧会出现麦克风图标。
+安装完成后刷新 Web UI，输入框右侧会显示麦克风图标。
+
+## 更新
+
+更新到最新版本：
+
+```sh
+dsh plugin --profile web update dsh-ears
+```
+
+更新完成后刷新 Web UI。
 
 ## 卸载
 
@@ -65,34 +73,34 @@ dsh plugin --profile web add "$PWD"
 dsh plugin --profile web remove dsh-ears
 ```
 
-如果还没安装 `dsh` CLI：
+尚未安装 `dsh` CLI 时：
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ```
 
-从 npm 或源码安装都用这条命令。卸载后刷新 Web UI，麦克风图标会消失。源码安装时本地仓库不会被删掉，需要的话自行删除。
+无论通过 npm 还是源码安装，都使用这条命令。卸载后刷新 Web UI，麦克风图标会消失。源码仓库不会被删除；如有需要，请手动删除。
 
 ## 识别后端
 
 | 后端 | 工作方式 | 需要什么 | 免费额度 |
 | --- | --- | --- | --- |
 | Web Speech | 浏览器实时识别，边说边出字 | Chromium 内核浏览器。音频可能经由浏览器厂商处理 | — |
-| 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，在插件设置页下载模型（权重不随插件打包） | — |
-| [Groq](https://console.groq.com) | Host 把录音发给 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
-| [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key、模型名；单次上限 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
-| 自定义 OpenAI 兼容 | POST 到指定的 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 | — |
-| 🤝 贡献新后端 | — | 欢迎 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
+| 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，并在插件设置页下载模型（权重不随插件打包） | — |
+| [Groq](https://console.groq.com) | Host 将录音发送到 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
+| [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key 和模型名；单次录音最长 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
+| 自定义 OpenAI 兼容 | 向指定的 `/audio/transcriptions` 端点发送请求 | 端点地址、API key 和模型名 | — |
+| 贡献新后端 | — | 欢迎通过 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
 
-> 上表额度摘自提供商文档，README 更新可能不及时，请以提供商最新说明为准。
+> 表中的额度来自提供商文档，可能随时变化，请以提供商的最新说明为准。
 
-> Whisper `medium` 及以上的模型纯靠 CPU 很难在 120 秒内跑完，建议配合 GPU 或更快的本地运行时。
+> Whisper `medium` 及以上模型仅靠 CPU 通常难以在 120 秒内完成转写，建议使用 GPU 或更快的本地运行时。
 
 ## 润色
 
-润色模型从 `dsh → 设置 → 模型` 里已接入的列表中选取。插件只保存提供方、模型名和提示词，LLM key 复用 dsh 已有的配置。
+润色模型从 `dsh → 设置 → 模型` 中已经配置的模型里选择。插件只保存提供方、模型名和提示词；LLM key 直接复用 dsh 的现有配置。
 
-默认提示词会去口头禅、修 ASR 错字，也能处理「不是 A 是 B」的自我纠正和「第一…第二…」的口头列举。留空则使用内置默认提示词，内容可在设置页查看。润色失败或取消时保留原始转写。
+默认提示词会删除口头禅、修正常见的 ASR 错字，还能处理「不是 A，是 B」这类自我纠正和「第一……第二……」这类口头列举。提示词留空时使用内置默认值，具体内容可在设置页查看。润色失败或取消时，插件会保留原始转写结果。
 
 ## 本地开发
 
@@ -102,11 +110,11 @@ dsh plugin --profile web add "$PWD"
 pnpm check
 pnpm test
 pnpm build
-pnpm dev:config   # 生成热更新配置
+pnpm dev:config   # 构建并生成 HMR 配置
 pnpm dev:web      # 启动 dsh web
 ```
 
-开发时另开终端跑 `pnpm dev:watch`。`pnpm dev:config` 会写出 `.dsh/cordis.patch.yml`（已在 .gitignore 中）用于 HMR，不会多注册插件。
+开发时，在另一个终端运行 `pnpm dev:watch`。`pnpm dev:config` 会写出 `.dsh/cordis.patch.yml`（已在 `.gitignore` 中）用于 HMR，不会重复注册插件。
 
 ## 文档
 
@@ -115,7 +123,7 @@ pnpm dev:web      # 启动 dsh web
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
 
-贡献指南与架构说明：[CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENTS.md](./AGENTS.md)、[`.agent/`](./.agent/README.md)。
+贡献指南和架构说明见：[CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENTS.md](./AGENTS.md)、[`.agent/`](./.agent/README.md)。
 
 ## License
 
