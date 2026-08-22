@@ -2,6 +2,22 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.1.3] - 2026-08-23
+
+Structured error handling and localized settings copy release.
+
+### Added
+
+- Stable structured error codes, messages, and interpolation parameters across the Host, Remote, and browser client surfaces.
+- Chinese and English localization coverage for settings, voice states, backend availability, and structured errors.
+- Regression coverage for Remote contracts, localized interpolation, voice flows, DashScope failure classification, and Whisper lifecycle errors.
+
+### Changed
+
+- DashScope and other ASR failures now preserve actionable HTTP/status details while distinguishing empty-audio results from upstream failures.
+- Host diagnostics crossing the Remote boundary sanitize credentials and cap string values, including Whisper model state errors and cloud model listing failures.
+- Voice error presentation falls back safely when a localized template lacks required interpolation parameters.
+
 ## [0.1.2] - 2026-08-21
 
 Compatibility release for every dsh published since the first release, including the `0.1.1-*` line. No product behavior changes.
