@@ -1,6 +1,8 @@
 import type { EarsSettings } from '../config.js'
+import { isEarsErrorCode } from '../errors.js'
 import type { EarsRemote } from '../remote.js'
-import { classifyVoiceFailure, failureMessage, remoteFailureDetail } from './voice-error.js'
+import { classifyVoiceFailure, failureMessage, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
+import type { VoiceStateDetailParams } from './voice-session.js'
 
 export type VoiceInputState = 'idle' | 'starting' | 'recording' | 'transcribing' | 'polishing' | 'error' | 'polish-error' | 'upstream-error'
 
@@ -15,7 +17,7 @@ export interface CommitTranscriptOptions {
   requireUnchanged: boolean
   settings: EarsSettings
   remote: EarsRemote
-  setState: (state: VoiceInputState, detail?: string) => void
+  setState: (state: VoiceInputState, detail?: string, detailCode?: string, detailParams?: VoiceStateDetailParams) => void
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
@@ -75,7 +77,7 @@ export interface PolishDraftOptions {
   model: string
   reasoningEffort: string
   remote: EarsRemote
-  setState: (state: VoiceInputState, detail?: string) => void
+  setState: (state: VoiceInputState, detail?: string, detailCode?: string, detailParams?: VoiceStateDetailParams) => void
   latestDraftRef: { current: string }
   actionsRef: { current: DraftActions }
   polishAbortRef: { current: AbortController | null }
@@ -97,10 +99,20 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
     }
 
     if (!result.ok) {
-      options.setState('polish-error', remoteFailureDetail(result.error))
+      const detailCode = isEarsErrorCode(result.error.code) ? result.error.code : undefined
+      const detail = remoteFailureDetail(result.error)
+      if (detailCode === undefined) options.setState('polish-error', detail)
+      else options.setState('polish-error', detail, detailCode)
       return
     }
-    const text = result.value.trim() !== '' ? result.value.trim() : options.transcript
+    if (result.value.status === 'error') {
+      const detailCode = isEarsErrorCode(result.value.code) ? result.value.code : undefined
+      const detail = remoteFailureDetail(result.value)
+      if (detailCode === undefined) options.setState('polish-error', detail)
+      else options.setState('polish-error', detail, detailCode, result.value.params)
+      return
+    }
+    const text = result.value.text.trim() !== '' ? result.value.text.trim() : options.transcript
     const nextDraft = appendToDraft(options.baseDraft, text)
     options.latestDraftRef.current = nextDraft
     options.actionsRef.current.setDraft(nextDraft)
@@ -112,7 +124,11 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
       options.setState('idle')
       return
     }
-    options.setState('polish-error', remoteFailureDetail({ message }))
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof error.code === 'string' && isEarsErrorCode(error.code) ? error.code : undefined
+    const detail = remoteFailureDetail({ message })
+    const detailParams = remoteFailureParams(error)
+    if (code === undefined) options.setState('polish-error', detail)
+    else options.setState('polish-error', detail, code, detailParams)
   } finally {
     if (options.polishAbortRef.current === controller) options.polishAbortRef.current = null
   }

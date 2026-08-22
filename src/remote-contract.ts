@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
+import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
 
 const asrBackendSchema = z.enum(ASR_BACKEND_IDS)
@@ -76,7 +77,6 @@ export const polishRouteSchema = z.object({
 })
 
 export const listRoutesResultSchema = z.array(polishRouteSchema)
-export const polishResultSchema = z.string()
 export const reasoningEffortInfoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -86,6 +86,8 @@ export const reasoningEffortsViewSchema = z.object({
   efforts: z.array(reasoningEffortInfoSchema),
   defaultEffort: z.string().optional()
 })
+const errorParamsSchema = z.record(z.string(), z.union([z.string(), z.number()]))
+
 export const whisperModelStateSchema = z.object({
   cliAvailable: z.boolean(),
   downloaded: z.boolean(),
@@ -93,23 +95,60 @@ export const whisperModelStateSchema = z.object({
   progress: z.number().nullable(),
   bytes: z.number().nullable(),
   totalBytes: z.number().nullable(),
-  error: z.string().nullable()
+  error: z.string().nullable(),
+  errorCode: z.string().optional(),
+  errorParams: errorParamsSchema.optional()
 })
 export const cloudProviderModelsViewSchema = z.object({
   status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
   models: z.array(z.string()).optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  errorCode: z.string().optional(),
+  errorParams: errorParamsSchema.optional()
 })
 export const asrBackendInfoSchema = z.object({
   id: asrBackendSchema,
   name: z.string(),
   available: z.boolean(),
-  detail: z.string()
+  detail: z.string(),
+  detailCode: z.string().optional(),
+  detailParams: errorParamsSchema.optional()
 })
 export const listAsrBackendsResultSchema = z.array(asrBackendInfoSchema)
 export const audioBase64Schema = z.string().min(1).max(33_554_432)
 export const audioMimeTypeSchema = z.string().min(1).max(128)
-export const transcribeResultSchema = z.string()
+export const remoteTextResultSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('ok'),
+    text: z.string()
+  }),
+  z.object({
+    status: z.literal('error'),
+    code: z.string(),
+    message: z.string(),
+    params: errorParamsSchema.optional()
+  })
+])
+export const transcribeResultSchema = remoteTextResultSchema
+export const polishResultSchema = remoteTextResultSchema
+
+export type RemoteTextResult = z.infer<typeof remoteTextResultSchema>
+export type RemoteTextSuccess = Extract<RemoteTextResult, { status: 'ok' }>
+export type RemoteTextFailure = Extract<RemoteTextResult, { status: 'error' }>
+
+export function remoteTextSuccess(text: string): RemoteTextSuccess {
+  return { status: 'ok', text }
+}
+
+export function remoteTextFailure(code: EarsErrorCode, message: string, params?: EarsErrorParams): RemoteTextFailure {
+  return {
+    status: 'error',
+    code,
+    message,
+    ...(params === undefined ? {} : { params })
+  }
+}
+
 export const aboutInfoSchema = z.object({
   repository: z.string(),
   repositorySlug: z.string(),

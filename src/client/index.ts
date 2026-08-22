@@ -42,12 +42,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     )
 
     remoteCtx.effect(() => {
-      const disposeZh = remoteCtx.locale.register(LOCALE_NAMESPACE, 'zh', localeZh)
-      const disposeEn = remoteCtx.locale.register(LOCALE_NAMESPACE, 'en', localeEn)
-      return () => {
-        disposeZh()
-        disposeEn()
-      }
+      const disposeLocale = remoteCtx.locale.register(LOCALE_NAMESPACE, { zh: localeZh, en: localeEn })
+      return disposeLocale
     }, 'dsh-ears locale')
 
     remoteCtx.effect(() => () => {

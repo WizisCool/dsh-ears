@@ -3,6 +3,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import { isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 
@@ -55,6 +56,27 @@ describe('local Whisper backend', () => {
         signal: new AbortController().signal,
         command
       })).rejects.toThrow('model not found')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves the timeout error code when Whisper is aborted by its deadline', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
+    const command = join(directory, 'fake-whisper.mjs')
+    await writeFile(command, '#!/usr/bin/env node\nsetInterval(() => {}, 1000)\n')
+    await chmod(command, 0o755)
+    try {
+      const pending = transcribeWithWhisper({
+        audio: Uint8Array.from([1, 2, 3]),
+        mimeType: 'audio/webm',
+        language: 'en-US',
+        model: 'tiny',
+        signal: new AbortController().signal,
+        command,
+        timeoutMs: 10
+      })
+      await expect(pending).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
     } finally {
       await rm(directory, { recursive: true, force: true })
     }

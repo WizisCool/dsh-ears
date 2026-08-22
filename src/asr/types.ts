@@ -5,6 +5,8 @@ export interface AsrBackendInfo {
   name: string
   available: boolean
   detail: string
+  detailCode?: string
+  detailParams?: Readonly<Record<string, string | number>>
 }
 
 export interface AudioPayload {

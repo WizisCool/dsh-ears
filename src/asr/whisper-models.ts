@@ -3,6 +3,7 @@ import { access, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
+import { EARS_ERROR_CODES, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import { executableSuffixes, pathDelimiter, pythonCandidates, readShebangInterpreter } from './whisper-discovery.js'
 import { parseDownloadProgress } from './whisper-progress.js'
 
@@ -23,6 +24,8 @@ export interface WhisperModelState {
   bytes: number | null
   totalBytes: number | null
   error: string | null
+  errorCode?: EarsErrorCode
+  errorParams?: EarsErrorParams
 }
 
 interface DownloadHandle {
@@ -32,6 +35,8 @@ interface DownloadHandle {
   bytes: number | null
   totalBytes: number | null
   error: string | null
+  errorCode?: EarsErrorCode
+  errorParams?: EarsErrorParams
   finished: boolean
   cancelRequested?: boolean
   child?: ChildProcess
@@ -54,7 +59,9 @@ const EMPTY_STATE: WhisperModelState = Object.freeze({
   progress: null,
   bytes: null,
   totalBytes: null,
-  error: null
+  error: null,
+  errorCode: undefined,
+  errorParams: undefined
 })
 
 export interface WhisperModelsOptions {
@@ -132,30 +139,22 @@ export class WhisperModels {
     }
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
-      return {
-        cliAvailable,
-        downloaded: false,
-        downloading: false,
-        progress: null,
-        bytes: null,
-        totalBytes: null,
-        error: cliAvailable ? 'Cannot inspect model state: no whisper-capable Python interpreter was found on the dsh Host.' : null
-      }
+      return cliAvailable
+        ? errorState(cliAvailable, 'Cannot inspect model state: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
+        : { ...EMPTY_STATE, cliAvailable }
     }
     try {
       const table = await this.resolveModelTable(python)
       const file = table.files.get(model)
       if (file === undefined) {
-        return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The installed whisper does not know the model "${model}".` }
+        return errorState(cliAvailable, `The installed whisper does not know the model "${model}".`, EARS_ERROR_CODES.whisperModelUnknown, { model })
       }
       const filePath = join(table.root, file)
       try {
         const info = await stat(filePath)
-        // A model file without the dsh-ears completion marker may be a partial
-        // download from a killed process; treat it as not downloaded so the
-        // user can re-download instead of transcribing with a broken file.
+        // A model file without the dsh-ears completion marker is not trusted.
         if (!await fileExists(markerPath(filePath))) {
-          return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The model file exists but was not downloaded by dsh-ears; download it again to verify.` }
+          return errorState(cliAvailable, 'The model file exists but was not downloaded by dsh-ears; download it again to verify.', EARS_ERROR_CODES.whisperModelUnverified)
         }
         return { cliAvailable, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: info.size, error: null }
       } catch {
@@ -172,7 +171,9 @@ export class WhisperModels {
         progress: null,
         bytes: null,
         totalBytes: null,
-        error: error instanceof Error ? error.message : 'Whisper model state query failed'
+        error: error instanceof Error ? error.message : 'Whisper model state query failed',
+        errorCode: EARS_ERROR_CODES.whisperStateQueryFailed,
+        errorParams: { detail: error instanceof Error ? error.message : 'Whisper model state query failed' }
       }
     }
   }
@@ -182,12 +183,14 @@ export class WhisperModels {
     if (!(WHISPER_MODEL_IDS as readonly string[]).includes(model)) return { ...EMPTY_STATE, cliAvailable }
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
-      return { ...EMPTY_STATE, cliAvailable, error: cliAvailable ? 'Cannot download models: no whisper-capable Python interpreter was found on the dsh Host.' : 'openai-whisper is not installed on the dsh Host.' }
+      return cliAvailable
+        ? errorState(cliAvailable, 'Cannot download models: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
+        : errorState(cliAvailable, 'openai-whisper is not installed on the dsh Host.', EARS_ERROR_CODES.whisperNotInstalled)
     }
     const handle = this.activeDownload
     if (handle !== undefined && !handle.finished) {
       if (handle.model === model) return stateFromHandle(handle, cliAvailable)
-      return { ...stateFromHandle(handle, cliAvailable), error: 'Another Whisper model is already downloading.' }
+      return { ...stateFromHandle(handle, cliAvailable), error: 'Another Whisper model is already downloading.', errorCode: EARS_ERROR_CODES.whisperAlreadyDownloading }
     }
     this.activeDownload = {
       model,
@@ -196,6 +199,8 @@ export class WhisperModels {
       bytes: null,
       totalBytes: null,
       error: null,
+      errorCode: undefined,
+      errorParams: undefined,
       finished: false
     }
     void this.runDownload(python, model).catch(() => undefined)
@@ -213,7 +218,10 @@ export class WhisperModels {
       try {
         await this.removeModelArtifacts(handle.python, model)
       } catch (error) {
-        handle.error = `Whisper download cancellation cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+        const detail = error instanceof Error ? error.message : String(error)
+        handle.error = `Whisper download cancellation cleanup failed: ${detail}`
+        handle.errorCode = EARS_ERROR_CODES.whisperCancelCleanupFailed
+        handle.errorParams = { detail }
       }
       handle.finished = true
       if (handle.error !== null) return stateFromHandle(handle, cliAvailable)
@@ -226,17 +234,19 @@ export class WhisperModels {
     if (!(WHISPER_MODEL_IDS as readonly string[]).includes(model)) return { ...EMPTY_STATE, cliAvailable }
     const handle = this.activeDownload
     if (handle !== undefined && handle.model === model && !handle.finished) {
-      return { ...stateFromHandle(handle, cliAvailable), error: 'The model is still downloading.' }
+      return { ...stateFromHandle(handle, cliAvailable), error: 'The model is still downloading.', errorCode: EARS_ERROR_CODES.whisperStillDownloading }
     }
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
-      return { ...EMPTY_STATE, cliAvailable, error: 'Cannot delete models: no whisper-capable Python interpreter was found on the dsh Host.' }
+      return cliAvailable
+        ? errorState(cliAvailable, 'Cannot delete models: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
+        : errorState(cliAvailable, 'openai-whisper is not installed on the dsh Host.', EARS_ERROR_CODES.whisperNotInstalled)
     }
     try {
       const table = await this.resolveModelTable(python)
       const file = table.files.get(model)
       if (file === undefined) {
-        return { cliAvailable, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: `The installed whisper does not know the model "${model}".` }
+        return errorState(cliAvailable, `The installed whisper does not know the model "${model}".`, EARS_ERROR_CODES.whisperModelUnknown, { model })
       }
       const filePath = join(table.root, file)
       await rm(filePath, { force: true })
@@ -250,7 +260,9 @@ export class WhisperModels {
         progress: null,
         bytes: null,
         totalBytes: null,
-        error: error instanceof Error ? error.message : 'Whisper model deletion failed'
+        error: error instanceof Error ? error.message : 'Whisper model deletion failed',
+        errorCode: EARS_ERROR_CODES.whisperDeleteFailed,
+        errorParams: { detail: error instanceof Error ? error.message : 'Whisper model deletion failed' }
       }
     }
   }
@@ -289,13 +301,20 @@ export class WhisperModels {
             handle.finished = true
             return
           }
-          handle.error = `${message}; incomplete model cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+          const cleanupDetail = error instanceof Error ? error.message : String(error)
+          handle.error = `${message}; incomplete model cleanup failed: ${cleanupDetail}`
+          handle.errorCode = EARS_ERROR_CODES.whisperDownloadCleanupFailed
+          handle.errorParams = { detail: cleanupDetail }
         }
         if (handle.cancelRequested) {
           handle.finished = true
           return
         }
-        if (handle.error === null) handle.error = message
+        if (handle.error === null) {
+          handle.error = message
+          handle.errorCode = EARS_ERROR_CODES.whisperDownloadFailed
+          handle.errorParams = { detail: message }
+        }
         handle.finished = true
       })()
     }
@@ -358,7 +377,10 @@ export class WhisperModels {
       await writeFile(markerPath(join(table.root, file)), model, 'utf8')
     } catch (error) {
       if (!handle.cancelRequested) {
-        handle.error = `Whisper download completed but the completion marker could not be written: ${error instanceof Error ? error.message : String(error)}`
+        const detail = error instanceof Error ? error.message : String(error)
+        handle.error = `Whisper download completed but the completion marker could not be written: ${detail}`
+        handle.errorCode = EARS_ERROR_CODES.whisperMarkerWriteFailed
+        handle.errorParams = { detail }
       }
       handle.progress = 1
       handle.finished = true
@@ -559,7 +581,23 @@ function stateFromHandle(handle: DownloadHandle, cliAvailable: boolean): Whisper
     progress: handle.progress,
     bytes: handle.bytes,
     totalBytes: handle.totalBytes,
-    error: handle.error
+    error: handle.error,
+    ...(handle.errorCode === undefined ? {} : { errorCode: handle.errorCode }),
+    ...(handle.errorParams === undefined ? {} : { errorParams: handle.errorParams })
+  }
+}
+
+function errorState(cliAvailable: boolean, error: string, errorCode: EarsErrorCode, errorParams?: EarsErrorParams): WhisperModelState {
+  return {
+    cliAvailable,
+    downloaded: false,
+    downloading: false,
+    progress: null,
+    bytes: null,
+    totalBytes: null,
+    error,
+    errorCode,
+    ...(errorParams === undefined ? {} : { errorParams })
   }
 }
 

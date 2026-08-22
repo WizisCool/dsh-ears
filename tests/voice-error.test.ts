@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import { classifyVoiceFailure, isTrivialRecording, remoteFailureDetail } from '../src/client/voice-error.js'
 
 describe('voice failure classification', () => {
@@ -7,16 +8,19 @@ describe('voice failure classification', () => {
     expect(classifyVoiceFailure('ASR returned no transcript')).toBe('empty')
     expect(classifyVoiceFailure('The recorded audio is empty')).toBe('empty')
     expect(classifyVoiceFailure('Speech recognition failed (no-speech)')).toBe('empty')
-    expect(classifyVoiceFailure('internal: Cloud ASR request failed with HTTP 400')).toBe('empty')
+    expect(classifyVoiceFailure('internal: Cloud ASR request failed with HTTP 400', EARS_ERROR_CODES.asrHttpFailed)).toBe('upstream')
+    expect(classifyVoiceFailure('The local Whisper operation was aborted', EARS_ERROR_CODES.asrRequestTimedOut)).toBe('upstream')
+    expect(classifyVoiceFailure('anything', EARS_ERROR_CODES.asrAudioEmpty)).toBe('empty')
+    expect(classifyVoiceFailure('anything', EARS_ERROR_CODES.asrNoTranscript)).toBe('empty')
     expect(isTrivialRecording(100, 2000)).toBe(true)
     expect(isTrivialRecording(4000, 120)).toBe(true)
     expect(isTrivialRecording(4000, 800)).toBe(false)
   })
 
   it('treats missing keys and hosts as configuration issues', () => {
-    expect(classifyVoiceFailure('The cloud ASR API key is not configured')).toBe('config')
-    expect(classifyVoiceFailure('The cloud ASR model is not configured')).toBe('config')
-    expect(classifyVoiceFailure('Bailian ASR host must use HTTPS without credentials')).toBe('config')
+    expect(classifyVoiceFailure('The cloud ASR API key is not configured', EARS_ERROR_CODES.asrApiKeyNotConfigured)).toBe('config')
+    expect(classifyVoiceFailure('The cloud ASR model is not configured', EARS_ERROR_CODES.asrModelNotConfigured)).toBe('config')
+    expect(classifyVoiceFailure('Bailian ASR host must use HTTPS without credentials', EARS_ERROR_CODES.asrEndpointInvalid)).toBe('config')
   })
 
   it('treats upstream service codes as upstream failures', () => {

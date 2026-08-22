@@ -1,6 +1,6 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Context } from '@deepseek-ai/cordis'
-import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -14,12 +14,14 @@ import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
 import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
-import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView } from '../remote-contract.js'
+import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
+import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, RemoteTextResult } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute } from './route.js'
 import { applyFlatSettingsPatch, flattenStoredSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
+import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
@@ -31,7 +33,7 @@ export class PolishService extends TypertRemoteService {
   static inject = ['llm']
   private settings: SettingsScope<Record<string, unknown>> | undefined
   private whisperAvailability: { expiresAt: number; value: Promise<boolean> } | undefined
-  private cloudModelsFailure: { key: string; expiresAt: number; message: string } | undefined
+  private cloudModelsFailure: { key: string; expiresAt: number; message: string; errorCode: EarsErrorCode; errorParams?: EarsErrorParams } | undefined
   private readonly whisperModels = new WhisperModels()
 
   constructor(ctx: Context) {
@@ -131,13 +133,15 @@ export class PolishService extends TypertRemoteService {
         id: 'local-whisper',
         name: 'Local Whisper',
         available: localAvailable,
-        detail: localAvailable ? 'Whisper CLI detected on the dsh Host.' : 'Install openai-whisper and put whisper on PATH.'
+        detail: localAvailable ? 'Whisper CLI detected on the dsh Host.' : 'Install openai-whisper and put whisper on PATH.',
+        ...(localAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendLocalUnavailable })
       },
       {
         id: 'cloud-openai',
         name: 'Cloud ASR',
         available: cloudAvailable,
-        detail: cloudAvailable ? 'Cloud transcription is configured.' : 'Choose a cloud model and configure the API key.'
+        detail: cloudAvailable ? 'Cloud transcription is configured.' : 'Choose a cloud model and configure the API key.',
+        ...(cloudAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendCloudUnavailable })
       }
     ]
   }
@@ -152,7 +156,13 @@ export class PolishService extends TypertRemoteService {
     const now = Date.now()
     const cacheKey = `${entry.id}\0${key}`
     if (this.cloudModelsFailure !== undefined && this.cloudModelsFailure.key === cacheKey && this.cloudModelsFailure.expiresAt > now) {
-      return { status: 'error', models: [], error: this.cloudModelsFailure.message }
+      return {
+        status: 'error',
+        models: [],
+        error: this.cloudModelsFailure.message,
+        errorCode: this.cloudModelsFailure.errorCode,
+        ...(this.cloudModelsFailure.errorParams === undefined ? {} : { errorParams: this.cloudModelsFailure.errorParams })
+      }
     }
     try {
       const models = await fetchCloudProviderModels(entry, key, signal)
@@ -160,26 +170,34 @@ export class PolishService extends TypertRemoteService {
       return { status: 'ok', models }
     } catch (error) {
       if (signal.aborted) throw error
-      const message = error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed'
-      this.cloudModelsFailure = { key: cacheKey, expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message }
-      return { status: 'error', models: [], error: message }
+      const message = sanitizeEarsErrorText(error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed')
+      const errorCode = earsErrorCode(error) ?? EARS_ERROR_CODES.cloudModelsListFailed
+      const errorParams = sanitizeEarsErrorParams(earsErrorParams(error))
+      this.cloudModelsFailure = { key: cacheKey, expiresAt: now + CLOUD_MODELS_FAILURE_TTL_MS, message, errorCode, ...(errorParams === undefined ? {} : { errorParams }) }
+      return {
+        status: 'error',
+        models: [],
+        error: message,
+        errorCode,
+        ...(errorParams === undefined ? {} : { errorParams })
+      }
     }
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.getWhisperModelState(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.getWhisperModelState(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async downloadWhisperModel(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.downloadWhisperModel(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async cancelWhisperModelDownload(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.cancelWhisperModelDownload(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
-    return this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable())
+    return sanitizeWhisperModelState(await this.whisperModels.deleteWhisperModel(whisperModel(model), await this.whisperIsAvailable()))
   }
 
   getAbout(): AboutInfo {
@@ -210,101 +228,124 @@ export class PolishService extends TypertRemoteService {
     }
   }
 
-  async transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<string> {
-    const settings = this.requireSettings()
-    signal.throwIfAborted()
-    const audio = decodeAudio(audioBase64)
-    const language = effectiveRecognitionLanguage(settings.language, hostUiLocale(this.ctx))
-    const backend = asrBackend(settings.asrBackend)
-    if (backend === 'web-speech') throw new Error('Web Speech recordings are transcribed in the browser')
-    if (backend === 'local-whisper') {
-      const model = whisperModel(settings.localWhisperModel)
-      const cliAvailable = await this.whisperIsAvailable()
-      const state = await this.whisperModels.getWhisperModelState(model, cliAvailable)
-      validateWhisperTranscription(state)
-      return transcribeWithWhisper({
-        audio,
-        mimeType,
-        language,
-        model,
-        signal
-      })
-    }
+  async transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<RemoteTextResult> {
+    try {
+      signal.throwIfAborted()
+      const settings = this.requireSettings()
+      const audio = decodeAudio(audioBase64)
+      const language = effectiveRecognitionLanguage(settings.language, hostUiLocale(this.ctx))
+      const backend = asrBackend(settings.asrBackend)
+      if (backend === 'web-speech') throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Web Speech recordings are transcribed in the browser')
+      if (backend === 'local-whisper') {
+        const model = whisperModel(settings.localWhisperModel)
+        const cliAvailable = await this.whisperIsAvailable()
+        const state = await this.whisperModels.getWhisperModelState(model, cliAvailable)
+        validateWhisperTranscription(state)
+        const text = await transcribeWithWhisper({
+          audio,
+          mimeType,
+          language,
+          model,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
 
-    const endpoint = cloudAsrEndpointFor(settings)
-    const model = cloudAsrModelFor(settings)
-    if (model === '') throw new Error('The cloud ASR model is not configured')
-    const providerEntry = cloudProviderEntry(settings.cloudAsrProvider)
-    if (providerEntry === undefined) throw new Error(`Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`)
-    const credential = cloudAsrCredentialFor(settings)
-    if (providerEntry.apiKeyRequired && credential === '') throw new Error('The cloud ASR API key is not configured')
-    if (providerEntry.protocol === 'dashscope-asr') {
-      return transcribeDashScopeAsr({
+      const endpoint = cloudAsrEndpointFor(settings)
+      const model = cloudAsrModelFor(settings)
+      if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The cloud ASR model is not configured')
+      const providerEntry = cloudProviderEntry(settings.cloudAsrProvider)
+      if (providerEntry === undefined) throw new EarsError(EARS_ERROR_CODES.asrProviderUnknown, `Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`, { provider: settings.cloudAsrProvider })
+      const credential = cloudAsrCredentialFor(settings)
+      if (providerEntry.apiKeyRequired && credential === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'The cloud ASR API key is not configured')
+      if (providerEntry.protocol === 'dashscope-asr') {
+        const text = await transcribeDashScopeAsr({
+          audio,
+          mimeType,
+          language,
+          endpoint,
+          model,
+          credential,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
+      const text = await transcribeOpenAICompatible({
         audio,
         mimeType,
         language,
         endpoint,
         model,
-        credential,
+        credential: credential === '' ? undefined : credential,
         signal
       })
+      signal.throwIfAborted()
+      return remoteTextSuccess(text)
+    } catch (error) {
+      return toRemoteTextFailure(error, signal, EARS_ERROR_CODES.asrUnexpected, 'The ASR request failed')
     }
-    return transcribeOpenAICompatible({
-      audio,
-      mimeType,
-      language,
-      endpoint,
-      model,
-      credential: credential === '' ? undefined : credential,
-      signal
-    })
   }
 
-  async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<string> {
-    const raw = transcript.trim()
-    if (raw === '' || raw.length > MAX_TRANSCRIPT_CHARACTERS || signal.aborted) return raw
-    const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
-    const storedPrompt = settings.polishPrompt
-    const finish = (text: string): string => storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text
-    const route = resolvePolishRoute(settings, provider, model)
-    if (route === null) return finish(raw)
-    const routeProvider = route.provider
-    const routeModel = route.model
-
-    const timeout = new AbortController()
-    const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)
-    const forwardAbort = () => timeout.abort(signal.reason)
-    signal.addEventListener('abort', forwardAbort, { once: true })
-
-    const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
-    if (signal.aborted) return finish(raw)
-    if (timeout.signal.aborted) throw new Error('The dsh LLM polishing request timed out')
+  async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult> {
     try {
-      const first = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, effort, timeout.signal)
-      if (effort !== undefined && first.trim() === raw && !timeout.signal.aborted && !signal.aborted) {
-        try {
-          return finish(await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal))
-        } catch {
-          if (signal.aborted) return finish(raw)
-          return finish(first)
-        }
-      }
-      return finish(first)
-    } catch (error) {
-      if (signal.aborted) return finish(raw)
-      if (timeout.signal.aborted) throw new Error('The dsh LLM polishing request timed out')
-      if (effort === undefined) {
-        throw error instanceof Error ? error : new Error('The dsh LLM route did not complete polishing')
-      }
+      signal.throwIfAborted()
+      const raw = transcript.trim()
+      if (raw === '' || raw.length > MAX_TRANSCRIPT_CHARACTERS) return remoteTextSuccess(raw)
+      const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : flattenStoredSettings(this.settings.get())
+      const storedPrompt = settings.polishPrompt
+      const finish = (text: string): RemoteTextResult => remoteTextSuccess(storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text)
+      const route = resolvePolishRoute(settings, provider, model)
+      if (route === null) return finish(raw)
+      const routeProvider = route.provider
+      const routeModel = route.model
+
+      const timeout = new AbortController()
+      const timer = setTimeout(() => timeout.abort(), POLISH_TIMEOUT_MS)
+      const forwardAbort = () => timeout.abort(signal.reason)
+      signal.addEventListener('abort', forwardAbort, { once: true })
+
       try {
-        return finish(await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal))
-      } catch {
-        if (signal.aborted) return finish(raw)
-        throw new Error('The dsh LLM route did not complete polishing')
+        const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
+        signal.throwIfAborted()
+        if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.polishTimedOut, 'The dsh LLM polishing request timed out')
+        try {
+          const first = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, effort, timeout.signal)
+          signal.throwIfAborted()
+          if (effort !== undefined && first.trim() === raw && !timeout.signal.aborted && !signal.aborted) {
+            try {
+              const retry = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal)
+              signal.throwIfAborted()
+              return finish(retry)
+            } catch (error) {
+              signal.throwIfAborted()
+              if (error instanceof TypertLookupFailure) throw error
+              return finish(first)
+            }
+          }
+          return finish(first)
+        } catch (error) {
+          signal.throwIfAborted()
+          if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.polishTimedOut, 'The dsh LLM polishing request timed out')
+          if (error instanceof TypertLookupFailure) throw error
+          if (effort === undefined) throw error
+          try {
+            const retry = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal)
+            signal.throwIfAborted()
+            return finish(retry)
+          } catch (error) {
+            signal.throwIfAborted()
+            if (error instanceof TypertLookupFailure) throw error
+            throw new EarsError(EARS_ERROR_CODES.polishRouteFailed, 'The dsh LLM route did not complete polishing')
+          }
+        }
+      } finally {
+        clearTimeout(timer)
+        signal.removeEventListener('abort', forwardAbort)
       }
-    } finally {
-      clearTimeout(timer)
-      signal.removeEventListener('abort', forwardAbort)
+    } catch (error) {
+      return toRemoteTextFailure(error, signal, EARS_ERROR_CODES.polishUnexpected, 'The dsh LLM polishing request failed')
     }
   }
 
@@ -328,12 +369,12 @@ export class PolishService extends TypertRemoteService {
       system: resolvePolishSystemPrompt(storedPrompt),
       signal
     }), MAX_POLISHED_CHARACTERS)
-    if (output === '') throw new Error('The dsh LLM route returned no polished text')
+    if (output === '') throw new EarsError(EARS_ERROR_CODES.polishNoText, 'The dsh LLM route returned no polished text')
     return output
   }
 
   private requireSettings() {
-    if (this.settings === undefined) throw new Error('dsh-ears settings are unavailable')
+    if (this.settings === undefined) throw new EarsError(EARS_ERROR_CODES.polishSettingsUnavailable, 'dsh-ears settings are unavailable')
     return flattenStoredSettings(this.settings.get())
   }
 
@@ -344,7 +385,8 @@ export class PolishService extends TypertRemoteService {
       const info = await this.ctx.llm.resolveModelInfo(provider, model, signal)
       const efforts = info.reasoning?.efforts ?? []
       return efforts.some((candidate) => candidate.id === effort) ? effort : undefined
-    } catch {
+    } catch (error) {
+      if (error instanceof TypertLookupFailure) throw error
       return undefined
     }
   }
@@ -359,6 +401,30 @@ export class PolishService extends TypertRemoteService {
 
   private async cloudAsrIsAvailable(settings: EarsSettings): Promise<boolean> {
     return isCloudAsrReady(settings)
+  }
+}
+
+function toRemoteTextFailure(error: unknown, signal: AbortSignal, fallbackCode: EarsErrorCode, fallbackMessage: string): RemoteTextResult {
+  if (signal.aborted) signal.throwIfAborted()
+  if (error instanceof TypertLookupFailure) throw error
+  const knownCode = earsErrorCode(error)
+  const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  const diagnostic = sanitizeEarsErrorText(rawMessage)
+  const message = knownCode === undefined
+    ? diagnostic === '' ? fallbackMessage : `${fallbackMessage}: ${diagnostic}`
+    : diagnostic === '' ? fallbackMessage : diagnostic
+  const params = sanitizeEarsErrorParams(earsErrorParams(error) ?? (knownCode === undefined && diagnostic !== '' ? { detail: diagnostic } : undefined))
+  return remoteTextFailure(knownCode ?? fallbackCode, message, params)
+}
+
+function sanitizeWhisperModelState(state: WhisperModelState): WhisperModelState {
+  const error = state.error === null || state.error === undefined ? state.error : sanitizeEarsErrorText(state.error)
+  const errorParams = sanitizeEarsErrorParams(state.errorParams)
+  if (error === state.error && errorParams === undefined) return state
+  return {
+    ...state,
+    ...(error === undefined ? {} : { error }),
+    ...(errorParams === undefined ? {} : { errorParams })
   }
 }
 
@@ -378,10 +444,10 @@ export function validateSettings(settings: unknown): void {
 }
 
 function decodeAudio(value: string): Uint8Array {
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) throw new Error('The recorded audio is not valid base64')
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) throw new EarsError(EARS_ERROR_CODES.asrAudioInvalid, 'The recorded audio is not valid base64')
   const audio = Buffer.from(value, 'base64')
-  if (audio.byteLength === 0) throw new Error('The recorded audio is empty')
-  if (audio.byteLength > 24 * 1024 * 1024) throw new Error('The recorded audio is too large')
+  if (audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
+  if (audio.byteLength > 24 * 1024 * 1024) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   return new Uint8Array(audio)
 }
 
@@ -407,18 +473,18 @@ async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: nu
   for await (const chunk of stream) {
     if (chunk.type === 'text-delta') {
       text += chunk.text
-      if (text.length > maxCharacters) throw new Error('The dsh LLM polishing response is too large')
+      if (text.length > maxCharacters) throw new EarsError(EARS_ERROR_CODES.polishTooLarge, 'The dsh LLM polishing response is too large')
       sawDelta = true
       continue
     }
 
     if (chunk.type === 'finish' && (chunk.reason.kind === 'error' || chunk.reason.kind === 'aborted')) {
-      throw new Error('The dsh LLM route did not complete polishing')
+      throw new EarsError(EARS_ERROR_CODES.polishRouteFailed, 'The dsh LLM route did not complete polishing')
     }
 
     if (!sawDelta && chunk.type === 'block-end' && chunk.block.type === 'text') {
       text += chunk.block.text
-      if (text.length > maxCharacters) throw new Error('The dsh LLM polishing response is too large')
+      if (text.length > maxCharacters) throw new EarsError(EARS_ERROR_CODES.polishTooLarge, 'The dsh LLM polishing response is too large')
     }
   }
 

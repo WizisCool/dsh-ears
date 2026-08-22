@@ -193,6 +193,7 @@ describe('whisper model lifecycle', () => {
       const state = await manager.getWhisperModelState('tiny', true)
       expect(state.downloaded).toBe(false)
       expect(state.error).toContain('not downloaded by dsh-ears')
+      expect(state.errorCode).toBe('whisper.modelUnverified')
     } finally {
       manager.dispose()
       await rm(cacheDir, { recursive: true, force: true })
@@ -224,6 +225,7 @@ describe('whisper model lifecycle', () => {
       const blocked = await manager.downloadWhisperModel('base', true)
       expect(blocked.downloading).toBe(true)
       expect(blocked.error).toBe('Another Whisper model is already downloading.')
+      expect(blocked.errorCode).toBe('whisper.alreadyDownloading')
       const tiny = await manager.getWhisperModelState('tiny', true)
       expect(tiny.downloading).toBe(true)
     } finally {
@@ -258,6 +260,7 @@ describe('whisper model lifecycle', () => {
       const done = await waitForState(manager, (state) => !state.downloading)
       expect(done.downloaded).toBe(false)
       expect(done.error).toContain('RuntimeError: boom')
+      expect(done.errorCode).toBe('whisper.downloadFailed')
       await waitForGone(join(cacheDir, 'whisper', 'tiny.pt'))
     } finally {
       manager.dispose()
@@ -310,10 +313,12 @@ describe('whisper model lifecycle', () => {
     try {
       const first = await manager.downloadWhisperModel('tiny', false)
       expect(first.error).toContain('openai-whisper is not installed')
+      expect(first.errorCode).toBe('whisper.notInstalled')
       expect(await probeCount()).toBe(1)
 
       const second = await manager.downloadWhisperModel('tiny', false)
       expect(second.error).toContain('openai-whisper is not installed')
+      expect(second.errorCode).toBe('whisper.notInstalled')
       expect(await probeCount()).toBe(1)
 
       await new Promise((resolve) => setTimeout(resolve, 250))

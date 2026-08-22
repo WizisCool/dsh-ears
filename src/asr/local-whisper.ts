@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 import type { WhisperModelId } from '../config.js'
 import type { WhisperModelState } from './whisper-models.js'
 
@@ -19,9 +20,9 @@ const MAX_STDERR_TAIL = 800
  * timeout (D-018-adjacent behavior the first release does not want).
  */
 export function validateWhisperTranscription(state: WhisperModelState): void {
-  if (!state.cliAvailable) throw new Error('Local Whisper is unavailable: no whisper CLI was found on the dsh Host.')
-  if (state.error !== null) throw new Error(`The Whisper model state could not be verified: ${state.error}`)
-  if (!state.downloaded) throw new Error('The Whisper model is not downloaded. Download it on the dsh-ear settings page before recording.')
+  if (!state.cliAvailable) throw new EarsError(EARS_ERROR_CODES.whisperNotInstalled, 'Local Whisper is unavailable: no whisper CLI was found on the dsh Host.')
+  if (state.error !== null) throw new EarsError(EARS_ERROR_CODES.whisperStateQueryFailed, `The Whisper model state could not be verified: ${state.error}`, { detail: state.error })
+  if (!state.downloaded) throw new EarsError(EARS_ERROR_CODES.whisperModelNotDownloaded, 'The Whisper model is not downloaded. Download it on the dsh-ear settings page before recording.')
 }
 
 export interface LocalWhisperOptions {
@@ -31,6 +32,7 @@ export interface LocalWhisperOptions {
   readonly model: WhisperModelId
   readonly signal: AbortSignal
   readonly command?: string
+  readonly timeoutMs?: number
 }
 
 export async function isWhisperAvailable(command = 'whisper', signal?: AbortSignal): Promise<boolean> {
@@ -51,8 +53,8 @@ export async function isWhisperAvailable(command = 'whisper', signal?: AbortSign
 }
 
 export async function transcribeWithWhisper(options: LocalWhisperOptions): Promise<string> {
-  if (options.audio.byteLength === 0) throw new Error('The recorded audio is empty')
-  if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new Error('The recorded audio is too large')
+  if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
+  if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   options.signal.throwIfAborted()
 
   const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-whisper-'))
@@ -60,7 +62,7 @@ export async function transcribeWithWhisper(options: LocalWhisperOptions): Promi
   const inputPath = join(directory, `recording${extension}`)
   const outputPath = join(directory, 'recording.json')
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(), TRANSCRIPTION_TIMEOUT_MS)
+  const timer = setTimeout(() => timeout.abort(new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Local Whisper transcription request timed out')), options.timeoutMs ?? TRANSCRIPTION_TIMEOUT_MS)
   const forwardAbort = () => timeout.abort(options.signal.reason)
   options.signal.addEventListener('abort', forwardAbort, { once: true })
 
@@ -81,8 +83,11 @@ export async function transcribeWithWhisper(options: LocalWhisperOptions): Promi
     ], { signal: timeout.signal })
 
     const parsed = JSON.parse(await readFile(outputPath, 'utf8')) as { text?: unknown }
-    if (typeof parsed.text !== 'string') throw new Error('Whisper returned no transcript')
+    if (typeof parsed.text !== 'string') throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Whisper returned no transcript')
     return parsed.text.trim()
+  } catch (error) {
+    if (timeout.signal.reason instanceof EarsError) throw timeout.signal.reason
+    throw error
   } finally {
     clearTimeout(timer)
     options.signal.removeEventListener('abort', forwardAbort)

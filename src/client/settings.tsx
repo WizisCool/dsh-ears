@@ -13,7 +13,7 @@ import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReserve
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
 import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
-import { localeEn, type Translate } from './settings-locale.js'
+import { localeEn, localizedErrorText, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
 
 export { LOCALE_NAMESPACE, localeEn, localeZh } from './settings-locale.js'
@@ -201,7 +201,7 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
     : check.status === 'up-to-date'
       ? t('aboutUpToDate')
       : check.status === 'update-available'
-        ? `${t('aboutUpdateAvailable')} ${check.latest ?? ''}`.trim()
+        ? t('aboutUpdateAvailable', { version: check.latest ?? '' }).trim()
         : check.status === 'unpublished'
           ? t('aboutUnpublished')
           : check.status === 'error'
@@ -246,7 +246,7 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
                 }).catch(() => undefined)
               }}
             >
-              {copied ? t('aboutCopied') : t('aboutCopyCommand')}
+              {copied ? t('copied') : t('aboutCopyCommand')}
             </button>
           ) : null}
         </div>
@@ -413,8 +413,8 @@ function PromptRow({ label, hint, value, disabled, invalid, defaultValue, t, onC
           onBlur={onBlur}
         />
         <div className={styles.promptMeta}>
-          <p className={`${styles.promptCount} ${over ? styles.promptCountOver : ''}`}>{`${length} / ${MAX_POLISH_PROMPT_LENGTH}`}</p>
-          <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => setShowDefault((current) => !current)}>{t(showDefault ? 'promptHideDefault' : 'promptViewDefault')}</button>
+          <p className={`${styles.promptCount} ${over ? styles.promptCountOver : ''}`}>{t('promptCount', { count: length, max: MAX_POLISH_PROMPT_LENGTH })}</p>
+          <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => setShowDefault((current) => !current)}>{t(showDefault ? 'collapse' : 'promptViewDefault')}</button>
           <button type="button" className={styles.linkButton} disabled={disabled || value.trim() === ''} onClick={onReset}>{t('promptReset')}</button>
         </div>
         {showDefault ? <pre className={styles.promptDefault}>{defaultValue}</pre> : null}
@@ -458,11 +458,12 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   }
   const view = models.view
   if (view.status === 'error') {
+    const errorText = localizedErrorText(t, view.errorCode, view.error ?? t('cloudModelFetchFailed'), view.errorParams)
     return (
-      <RowField label={label} hint={view.error ?? t('cloudModelFetchFailed')} invalid alert>
+      <RowField label={label} hint={errorText} invalid alert>
         <div className={styles.rowDescInline}>
-          <span>{t('cloudModelFetchFailed')}</span>
-          <button type="button" className={styles.linkButton} disabled={disabled} onClick={onRetry}>{t('retryModels')}</button>
+          <span>{errorText}</span>
+          <button type="button" className={styles.linkButton} disabled={disabled} onClick={onRetry}>{t('retry')}</button>
         </div>
       </RowField>
     )
@@ -522,8 +523,9 @@ function whisperCheckingContent(t: Translate): ReactNode {
 
 function whisperStatusContent(modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void, onCancelDownload: () => void, onDeleteModel: () => void): ReactNode {
   if (modelState.error !== null) {
+    const errorText = localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
     return <>
-      <span>{modelState.error}</span>
+      <span>{errorText}</span>
       {modelState.downloading
         ? <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
         : modelState.downloaded
@@ -533,7 +535,7 @@ function whisperStatusContent(modelState: WhisperModelState, t: Translate, writa
   }
   if (modelState.downloading) {
     const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
-    return <><span>{t('whisperDownloading')}{percent === null ? '' : ` ${String(percent)}%`}</span><button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button></>
+    return <><span>{percent === null ? t('whisperDownloading') : t('whisperDownloadingProgress', { percent })}</span><button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button></>
   }
   if (modelState.downloaded) {
     return <WhisperDownloadedActions modelState={modelState} t={t} writable={writable} onDeleteModel={onDeleteModel} />

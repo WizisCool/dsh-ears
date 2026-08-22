@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, textSchema, transcribeResultSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
-import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -19,8 +19,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     downloadWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
     cancelWhisperModelDownload: (model: string) => Promise<RemoteResult<WhisperModelState>>
     deleteWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
-    transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
-    polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+    transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
   }
 
   interface TypertRemoteMap {
@@ -36,8 +36,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/downloadWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/cancelWhisperModelDownload': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/deleteWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
-    'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
-    'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+    'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
   }
 
   interface TypertRemoteNamespaceMap {
@@ -148,7 +148,7 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         }
       ],
       cancellation: { parameter: 'signal' },
-      result: { mode: 'strict', typeSymbol: 'string', schema: transcribeResultSchema }
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
     },
     {
       id: 'dsh-ears#dshEars/listReasoningEfforts',
@@ -263,8 +263,8 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
       cancellation: { parameter: 'signal' },
       result: {
         mode: 'strict',
-        typeSymbol: 'string',
-        schema: textSchema
+        typeSymbol: 'dsh-ears#RemoteTextResult',
+        schema: remoteTextResultSchema
       }
     }
   ]

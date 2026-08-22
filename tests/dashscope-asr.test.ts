@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import { audioFormatFromMime, dashScopeErrorDetail, dashscopeRequestBody, extractDashScopeTranscript, isDashScopeEmptyAudioError, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 
 describe('DashScope ASR request shape', () => {
@@ -62,9 +63,9 @@ describe('DashScope ASR response parsing', () => {
     expect(extractDashScopeTranscript({ output: {} })).toBe('')
   })
 
-  it('treats opaque or no-speech HTTP 400s as empty audio', () => {
-    expect(isDashScopeEmptyAudioError({}, 400)).toBe(true)
-    expect(isDashScopeEmptyAudioError({ request_id: 'abc' }, 400)).toBe(true)
+  it('treats only explicit no-speech HTTP 400s as empty audio', () => {
+    expect(isDashScopeEmptyAudioError({}, 400)).toBe(false)
+    expect(isDashScopeEmptyAudioError({ request_id: 'abc' }, 400)).toBe(false)
     expect(isDashScopeEmptyAudioError({ code: 'InvalidParameter', message: 'audio too short' }, 400)).toBe(true)
     expect(isDashScopeEmptyAudioError({ error: { message: 'No valid speech detected' } }, 400)).toBe(true)
     expect(isDashScopeEmptyAudioError({ code: 'InvalidApiKey', message: 'Invalid API-key provided.' }, 400)).toBe(false)
@@ -108,8 +109,8 @@ describe('transcribeDashScopeAsr', () => {
     expect(body.input.messages[0].content[0].type).toBe('input_audio')
   })
 
-  it('returns an empty transcript when qwen-audio rejects silent audio with HTTP 400', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ request_id: 'silent' }), {
+  it('returns an empty transcript when qwen-audio reports an explicit silent-audio marker', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: 'InvalidParameter', message: 'audio too short' }), {
       status: 400,
       headers: { 'content-type': 'application/json' }
     })))
@@ -123,6 +124,83 @@ describe('transcribeDashScopeAsr', () => {
       credential: 'sk_test',
       signal: new AbortController().signal
     })).resolves.toBe('')
+  })
+
+  it('classifies an opaque non-2xx response as an HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ request_id: 'opaque' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 400 }
+    })
+  })
+
+  it('classifies a 400 response with an empty body as an HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', {
+      status: 400,
+      headers: { 'content-type': 'application/json' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 400 }
+    })
+  })
+
+  it('classifies a non-2xx response with invalid JSON as an HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream unavailable', {
+      status: 502,
+      headers: { 'content-type': 'text/plain' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 502 }
+    })
+  })
+
+  it('keeps successful invalid JSON as an invalid response', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not-json', {
+      status: 200,
+      headers: { 'content-type': 'text/plain' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
   })
 
   it('still surfaces a configuration HTTP 400', async () => {

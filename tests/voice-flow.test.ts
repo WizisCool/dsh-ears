@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { EARS_ERROR_CODES } from '../src/errors.js'
+import type { RemoteTextResult } from '../src/remote-contract.js'
 import { appendToDraft, commitTranscript, updateDraft } from '../src/client/voice-flow.js'
+import { createVoiceStateSetter, VoiceInputSession } from '../src/client/voice-session.js'
 
 describe('voice draft flow', () => {
   it('does not overwrite a manual edit made while final ASR is pending', () => {
@@ -52,8 +55,8 @@ describe('voice draft flow', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
     const latestDraftRef = { current: 'original draft' }
-    let resolvePolish: ((result: { ok: boolean; value?: string }) => void) | undefined
-    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: string }>((resolve) => {
+    let resolvePolish: ((result: { ok: boolean; value?: RemoteTextResult }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: RemoteTextResult }>((resolve) => {
       resolvePolish = resolve
     }))
     const remote = { polish } as never
@@ -74,7 +77,7 @@ describe('voice draft flow', () => {
     expect(setState).toHaveBeenCalledWith('polishing')
 
     latestDraftRef.current = 'manual edit'
-    resolvePolish?.({ ok: true, value: 'polished text' })
+    resolvePolish?.({ ok: true, value: { status: 'ok', text: 'polished text' } })
     await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('idle'))
 
     expect(setDraft).toHaveBeenCalledTimes(1)
@@ -85,8 +88,8 @@ describe('voice draft flow', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
     const latestDraftRef = { current: 'original draft' }
-    let resolvePolish: ((result: { ok: boolean; value?: string }) => void) | undefined
-    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: string }>((resolve) => {
+    let resolvePolish: ((result: { ok: boolean; value?: RemoteTextResult }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: RemoteTextResult }>((resolve) => {
       resolvePolish = resolve
     }))
     const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
@@ -103,7 +106,7 @@ describe('voice draft flow', () => {
       polishAbortRef: { current: null }
     })
     latestDraftRef.current = 'original draft'
-    resolvePolish?.({ ok: true, value: 'polished text' })
+    resolvePolish?.({ ok: true, value: { status: 'ok', text: 'polished text' } })
     await vi.waitFor(() => expect(setDraft).toHaveBeenLastCalledWith('original draft polished text'))
     expect(setState).toHaveBeenLastCalledWith('idle')
   })
@@ -129,6 +132,44 @@ describe('voice draft flow', () => {
     await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('polish-error', 'unavailable'))
     expect(setDraft).toHaveBeenCalledTimes(1)
     expect(setDraft).toHaveBeenCalledWith('original draft recognized text')
+  })
+
+  it('forwards polish error details and params into the voice session snapshot', async () => {
+    const session = new VoiceInputSession()
+    const setDraft = vi.fn()
+    const latestDraftRef = { current: 'original draft' }
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: false,
+      settings,
+      remote: {
+        polish: vi.fn(async () => ({
+          ok: true as const,
+          value: {
+            status: 'error' as const,
+            code: EARS_ERROR_CODES.polishUnexpected,
+            message: 'The polishing request failed: route unavailable',
+            params: { detail: 'route unavailable' }
+          }
+        }))
+      } as never,
+      setState: createVoiceStateSetter(session),
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    await vi.waitFor(() => expect(session.getSnapshot().state).toBe('polish-error'))
+    expect(session.getSnapshot()).toMatchObject({
+      state: 'polish-error',
+      detail: 'The polishing request failed: route unavailable',
+      detailCode: EARS_ERROR_CODES.polishUnexpected,
+      detailParams: { detail: 'route unavailable' }
+    })
+    session.dispose()
   })
 
   it('does not start polishing after the voice task is discarded', () => {
@@ -216,7 +257,7 @@ describe('voice draft flow', () => {
     })
     await vi.waitFor(() => expect(polishAbortRef.current).not.toBeNull())
     polishAbortRef.current?.abort()
-    resolvePolish?.({ ok: true, value: 'late polished text' })
+    resolvePolish?.({ ok: true, value: { status: 'ok', text: 'late polished text' } })
     await Promise.resolve()
 
     expect(setDraft).toHaveBeenCalledTimes(1)
@@ -227,7 +268,7 @@ describe('voice draft flow', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
     const latestDraftRef = { current: 'original draft' }
-    const polish = vi.fn(async () => ({ ok: true as const, value: '整理后的文本' }))
+    const polish = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, text: '整理后的文本' } }))
 
     commitTranscript({
       transcript: 'recognized text',

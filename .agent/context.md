@@ -82,6 +82,8 @@ This reverses D-014's dsh credential-reference model for the cloud ASR surface. 
 
 `src/client/voice-flow.ts` is shared by the microphone and tests. Final ASR refuses to overwrite a draft the user changed while transcription was pending. The recognition bar names each stage on the dock card. Polishing runs only when `polishingEnabled` is on; an empty local provider/model pair still asks the Host, which uses the stored route. An incomplete pair leaves polishing dormant (D-024). The raw transcript is written first. A late polish result applies only if the composer still holds that raw draft or the pre-transcript base. A route failure stays on the bar as `polish-error` and keeps the raw text.
 
+Host `transcribe()` and `polish()` return the strict `RemoteTextResult` union: `{ status: 'ok', text }` for completed work or `{ status: 'error', code, message, params? }` for a business failure. Business failures are result values because the Remote gateway normalizes arbitrary thrown errors; caller cancellation and `TypertLookupFailure` remain thrown so gateway cancellation and lookup policy stay authoritative. The browser carries recognized error codes and interpolation parameters through `VoiceInputSession`, then localizes the microphone tooltip and recognition card from the active `settings.dshEars` catalog. Unknown codes or missing interpolation data fall back to the supplied diagnostic or the generic voice error.
+
 ## Settings
 
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
@@ -90,6 +92,8 @@ The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The brows
 - **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Custom), Whisper model lifecycle, per-provider key/endpoint/host/model.
 - **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
 - **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
+
+Setting-row descriptions (`*Hint` locale keys) omit terminal full stops in both locale dictionaries for visual consistency. Internal punctuation remains when a hint contains multiple clauses; error, validation, and status messages retain their sentence punctuation.
 
 Save model is per-field auto-save (D-031, supersedes D-026 Save/Discard): a 400 ms debounce, text-field blur, or section unmount flushes persistable fields. An invalid draft is skipped and stays local with a red hint. A Host rejection keeps the drafts, shows `saveFailed`, and does not retry in a loop. Empty text clears a field on flush (API keys keep absent=keep with a staged clear). Validation is per-field and edit-scoped (D-024): untouched fields are never marked invalid; unconfigured-but-valid states render quietly.
 
