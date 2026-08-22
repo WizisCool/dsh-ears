@@ -368,6 +368,37 @@ describe('PolishService', () => {
     await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
   })
 
+  it('sanitizes and caps Whisper model state errors', async () => {
+    const context = createContext()
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const whisperModels = {
+      getWhisperModelState: vi.fn(async () => ({
+        cliAvailable: true,
+        downloaded: false,
+        downloading: false,
+        progress: null,
+        bytes: null,
+        totalBytes: null,
+        error: `https://user:secret@example.test/${'x'.repeat(900)}`,
+        errorCode: EARS_ERROR_CODES.whisperStateQueryFailed,
+        errorParams: { detail: 'Whisper state query failed' }
+      })),
+      dispose: vi.fn()
+    }
+    const serviceInternals = service as unknown as { whisperModels: typeof whisperModels }
+    serviceInternals.whisperModels = whisperModels
+
+    const state = await service.getWhisperModelState('tiny')
+    expect(state.error).toHaveLength(800)
+    expect(state.error).toContain('https://[redacted]@example.test/')
+    expect(state.error).not.toContain('secret')
+    expect(state.errorParams).toEqual({ detail: 'Whisper state query failed' })
+  })
+
   it('returns an EarsError code and params in the Remote business result', async () => {
     const context = createContext({}, {
       ...DEFAULT_EARS_SETTINGS,

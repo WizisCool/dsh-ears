@@ -418,8 +418,14 @@ function toRemoteTextFailure(error: unknown, signal: AbortSignal, fallbackCode: 
 }
 
 function sanitizeWhisperModelState(state: WhisperModelState): WhisperModelState {
+  const error = state.error === null || state.error === undefined ? state.error : sanitizeEarsErrorText(state.error)
   const errorParams = sanitizeEarsErrorParams(state.errorParams)
-  return errorParams === undefined ? state : { ...state, errorParams }
+  if (error === state.error && errorParams === undefined) return state
+  return {
+    ...state,
+    ...(error === undefined ? {} : { error }),
+    ...(errorParams === undefined ? {} : { errorParams })
+  }
 }
 
 function asrBackend(value: string): AsrBackendId {
