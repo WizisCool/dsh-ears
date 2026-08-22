@@ -127,6 +127,9 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
     try {
       parsed = JSON.parse(body)
     } catch {
+      if (!response.ok) {
+        throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, dashScopeErrorDetail(undefined, response.status), { status: response.status })
+      }
       throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, 'Cloud ASR returned invalid JSON')
     }
     if (!response.ok) {

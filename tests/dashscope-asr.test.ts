@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import { audioFormatFromMime, dashScopeErrorDetail, dashscopeRequestBody, extractDashScopeTranscript, isDashScopeEmptyAudioError, isQwen3AsrFlashModel, transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 
 describe('DashScope ASR request shape', () => {
@@ -123,6 +124,43 @@ describe('transcribeDashScopeAsr', () => {
       credential: 'sk_test',
       signal: new AbortController().signal
     })).resolves.toBe('')
+  })
+
+  it('classifies a non-2xx response with invalid JSON as an HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream unavailable', {
+      status: 502,
+      headers: { 'content-type': 'text/plain' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 502 }
+    })
+  })
+
+  it('keeps successful invalid JSON as an invalid response', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not-json', {
+      status: 200,
+      headers: { 'content-type': 'text/plain' }
+    })))
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      model: 'qwen-audio-3.0-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
   })
 
   it('still surfaces a configuration HTTP 400', async () => {
