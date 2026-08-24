@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { executableSuffixes, parseDownloadProgress, pythonCandidates, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
+import { executableSuffixes, parseDownloadProgress, pythonCandidates, whisperPlatformId, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
 import { readShebangInterpreter } from '../src/asr/whisper-discovery.js'
 
 describe('whisper download progress parsing', () => {
@@ -32,6 +32,15 @@ describe('whisper download progress parsing', () => {
 
   it('returns nulls for text without a progress tuple', () => {
     expect(parseDownloadProgress('some warning line\n')).toEqual({ percent: null, bytes: null, totalBytes: null })
+  })
+})
+
+describe('whisper platform id', () => {
+  it('collapses Node platforms onto the wire-facing ids', () => {
+    expect(whisperPlatformId('win32')).toBe('windows')
+    expect(whisperPlatformId('darwin')).toBe('macos')
+    expect(whisperPlatformId('linux')).toBe('linux')
+    expect(whisperPlatformId('freebsd')).toBe('linux')
   })
 })
 
@@ -304,6 +313,21 @@ describe.skipIf(process.platform === 'win32')('whisper model lifecycle', () => {
     expect(state.downloading).toBe(false)
     expect(state.downloaded).toBe(false)
     await rm(cacheDir, { recursive: true, force: true })
+  })
+
+  it('reports a detected interpreter without whisper as whisper-missing', async () => {
+    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_NO_SPEC: '1' })
+    const manager = new WhisperModels({ env })
+    try {
+      const state = await manager.getWhisperModelState('tiny', false)
+      expect(state.cliAvailable).toBe(false)
+      expect(state.error).toBeNull()
+      expect(state.environment).toBe('whisper-missing')
+      expect(state.platform).toBe(whisperPlatformId(process.platform))
+    } finally {
+      manager.dispose()
+      await rm(cacheDir, { recursive: true, force: true })
+    }
   })
 
   it('negative-caches interpreter discovery failures and re-probes after the TTL', async () => {

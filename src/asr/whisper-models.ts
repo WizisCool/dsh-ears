@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { access, rm, stat, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
-import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
+import { WHISPER_MODEL_IDS, type WhisperEnvironmentId, type WhisperModelId, type WhisperPlatformId } from '../config.js'
 import { EARS_ERROR_CODES, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import { executableSuffixes, pathDelimiter, pythonCandidates, readShebangInterpreter } from './whisper-discovery.js'
 import { parseDownloadProgress } from './whisper-progress.js'
@@ -26,6 +26,10 @@ export interface WhisperModelState {
   error: string | null
   errorCode?: EarsErrorCode
   errorParams?: EarsErrorParams
+  /** Host operating system, reported so the client can tailor setup guidance. */
+  platform?: WhisperPlatformId
+  /** Why the environment cannot manage models; present only while it is broken. */
+  environment?: WhisperEnvironmentId
 }
 
 interface DownloadHandle {
@@ -64,6 +68,13 @@ const EMPTY_STATE: WhisperModelState = Object.freeze({
   error: null
 })
 
+/** Collapse Node's platform set onto the wire-facing ids the client guides for. */
+export function whisperPlatformId(platform: NodeJS.Platform): WhisperPlatformId {
+  if (platform === 'win32') return 'windows'
+  if (platform === 'darwin') return 'macos'
+  return 'linux'
+}
+
 export interface WhisperModelsOptions {
   readonly platform?: NodeJS.Platform
   readonly env?: NodeJS.ProcessEnv
@@ -84,6 +95,9 @@ export class WhisperModels {
   private discoveredPython: string | undefined
   private discoveringPython: Promise<string | undefined> | undefined
   private pythonFailure: FailureEntry | undefined
+  // Survives the negative-cache window so a failed probe can still report
+  // whether a Python interpreter (or whisper CLI) exists at all.
+  private pythonFoundOnLastProbe = false
   private modelTable: ModelTable | undefined
   private modelTablePromise: Promise<ModelTable> | undefined
   private tableFailure: FailureEntry | undefined
@@ -124,6 +138,7 @@ export class WhisperModels {
     this.discoveredPython = undefined
     this.discoveringPython = undefined
     this.pythonFailure = undefined
+    this.pythonFoundOnLastProbe = false
     this.modelTable = undefined
     this.modelTablePromise = undefined
     this.tableFailure = undefined
@@ -139,9 +154,13 @@ export class WhisperModels {
     }
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
+      // Report what the probe saw so the client can render OS-specific setup
+      // guidance instead of a bare disabled download button.
+      const environment: WhisperEnvironmentId = this.pythonFoundOnLastProbe ? 'whisper-missing' : 'python-missing'
+      const platform = whisperPlatformId(this.platform)
       return cliAvailable
-        ? errorState(cliAvailable, 'Cannot inspect model state: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
-        : { ...EMPTY_STATE, cliAvailable }
+        ? { ...errorState(cliAvailable, 'Cannot inspect model state: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound), platform, environment }
+        : { ...EMPTY_STATE, cliAvailable, platform, environment }
     }
     try {
       const table = await this.resolveModelTable(python)
@@ -415,12 +434,16 @@ export class WhisperModels {
     const promise = (async () => {
       const cliPath = await this.resolveExecutable(this.platform === 'win32' ? 'whisper.exe' : 'whisper')
       if (cliPath !== undefined) {
+        this.pythonFoundOnLastProbe = true
         const interpreter = await readShebangInterpreter(cliPath)
         if (interpreter !== undefined && await this.hasWhisperSpec(interpreter)) return interpreter
       }
       for (const candidate of pythonCandidates(this.platform)) {
         const path = await this.resolveExecutable(candidate)
-        if (path !== undefined && await this.hasWhisperSpec(path)) return path
+        if (path !== undefined) {
+          this.pythonFoundOnLastProbe = true
+          if (await this.hasWhisperSpec(path)) return path
+        }
       }
       return undefined
     })()
@@ -576,6 +599,7 @@ export class WhisperModels {
     this.discoveredPython = undefined
     this.discoveringPython = undefined
     this.pythonFailure = undefined
+    this.pythonFoundOnLastProbe = false
     this.modelTable = undefined
     this.modelTablePromise = undefined
     this.tableFailure = undefined

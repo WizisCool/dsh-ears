@@ -16,6 +16,17 @@ describe('structured error Remote contracts', () => {
       errorCode: 'whisper.modelUnknown',
       errorParams: { model: 'tiny' }
     })).toMatchObject({ errorCode: 'whisper.modelUnknown', errorParams: { model: 'tiny' } })
+    expect(whisperModelStateSchema.parse({
+      cliAvailable: false,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: null,
+      platform: 'windows',
+      environment: 'python-missing'
+    })).toMatchObject({ platform: 'windows', environment: 'python-missing' })
     expect(cloudProviderModelsViewSchema.parse({
       status: 'error',
       models: [],

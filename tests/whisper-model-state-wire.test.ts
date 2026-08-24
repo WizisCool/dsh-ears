@@ -1,6 +1,6 @@
 import { dirname } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
+import { WhisperModels, whisperPlatformId, type WhisperModelState } from '../src/asr/whisper-models.js'
 import { whisperModelStateSchema } from '../src/remote-contract.js'
 
 /**
@@ -49,6 +49,20 @@ describe('whisper model state wire safety', () => {
       manager.dispose()
       const disposed = await manager.getWhisperModelState('tiny', false)
       expect(() => assertGatewayWireSafe(disposed)).not.toThrow()
+    } finally {
+      manager.dispose()
+    }
+  })
+
+  it('reports the host platform and a python-missing diagnosis when nothing was found', async () => {
+    const manager = new WhisperModels({ env: { ...process.env, PATH: dirname(process.execPath) } })
+    try {
+      for (const cliAvailable of [false, true]) {
+        const state = await manager.getWhisperModelState('tiny', cliAvailable)
+        expect(state.platform).toBe(whisperPlatformId(process.platform))
+        expect(state.environment).toBe('python-missing')
+        expect(() => assertGatewayWireSafe(state)).not.toThrow()
+      }
     } finally {
       manager.dispose()
     }

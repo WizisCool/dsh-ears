@@ -12,6 +12,13 @@ export const BAILIAN_MAX_RECORDING_SECONDS = 300
 export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
 
+export const WHISPER_PLATFORM_IDS = ['windows', 'macos', 'linux'] as const
+export type WhisperPlatformId = typeof WHISPER_PLATFORM_IDS[number]
+
+/** Why the local Whisper environment is unusable; absent from the wire when the environment works. */
+export const WHISPER_ENVIRONMENT_IDS = ['python-missing', 'whisper-missing'] as const
+export type WhisperEnvironmentId = typeof WHISPER_ENVIRONMENT_IDS[number]
+
 export const MAX_CLOUD_API_KEY_LENGTH = 512
 export const MAX_POLISH_PROMPT_LENGTH = 4000
 

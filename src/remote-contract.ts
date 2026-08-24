@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ENVIRONMENT_IDS, WHISPER_MODEL_IDS, WHISPER_PLATFORM_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -97,7 +97,9 @@ export const whisperModelStateSchema = z.object({
   totalBytes: z.number().nullable(),
   error: z.string().nullable(),
   errorCode: z.string().optional(),
-  errorParams: errorParamsSchema.optional()
+  errorParams: errorParamsSchema.optional(),
+  platform: z.enum(WHISPER_PLATFORM_IDS).optional(),
+  environment: z.enum(WHISPER_ENVIRONMENT_IDS).optional()
 })
 export const cloudProviderModelsViewSchema = z.object({
   status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
@@ -177,6 +179,7 @@ export type EarsSettingsView = {
 export type { PolishRoute }
 export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
+export type { WhisperEnvironmentId, WhisperPlatformId } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
 export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
