@@ -121,7 +121,13 @@ const FAKE_PYTHON_SCRIPT = [
   ''
 ].join('\n')
 
-describe('whisper model lifecycle', () => {
+/**
+ * The fake python is a POSIX shebang script; native Windows cannot spawn it
+ * (CreateProcess requires a real PE executable), so the spawn-based lifecycle
+ * suite runs only where the kernel handles the shebang. Platform-independent
+ * coverage remains in the discovery and progress-parsing suites.
+ */
+describe.skipIf(process.platform === 'win32')('whisper model lifecycle', () => {
   let binDir: string
   let baseEnv: NodeJS.ProcessEnv
 
