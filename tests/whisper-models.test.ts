@@ -92,6 +92,7 @@ const FAKE_PYTHON_SCRIPT = [
   '}',
   "if (script.includes('print(json.dumps')) {",
   "  if (process.env.FAKE_WHISPER_BAD_TABLE === '1') { process.stdout.write('not json\\n'); process.exit(0) }",
+  "  if (process.env.FAKE_WHISPER_NULL_TABLE === '1') { process.stdout.write('null\\n'); process.exit(0) }",
   "  process.stdout.write(JSON.stringify({ root: root, files: { tiny: 'tiny.pt', base: 'base.pt' } }) + '\\n')",
   '  process.exit(0)',
   '}',
@@ -357,6 +358,19 @@ describe.skipIf(process.platform === 'win32')('whisper model lifecycle', () => {
       const second = await manager.getWhisperModelState('tiny', true)
       expect(second.error).toBe(first.error)
       expect(await probeCount()).toBe(afterFirst)
+    } finally {
+      manager.dispose()
+      await rm(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a null model table with a controlled state error', async () => {
+    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_NULL_TABLE: '1' })
+    const manager = new WhisperModels({ env })
+    try {
+      const state = await manager.getWhisperModelState('tiny', true)
+      expect(state.error).toContain('unreadable model table')
+      expect(state.errorCode).toBe('whisper.stateQueryFailed')
     } finally {
       manager.dispose()
       await rm(cacheDir, { recursive: true, force: true })

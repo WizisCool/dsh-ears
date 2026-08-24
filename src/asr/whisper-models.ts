@@ -468,21 +468,25 @@ export class WhisperModels {
     ].join('\n')
     const promise = (async () => {
       const output = await this.runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
-      let parsed: { root?: unknown; files?: unknown }
+      let parsed: unknown
       try {
-        parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
+        parsed = JSON.parse(output.trim())
       } catch {
         throw new Error('The installed whisper returned an unreadable model table')
       }
-      if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
+      if (parsed === null || typeof parsed !== 'object') {
+        throw new Error('The installed whisper returned an unreadable model table')
+      }
+      const { root, files: rawFiles } = parsed as { root?: unknown; files?: unknown }
+      if (typeof root !== 'string' || typeof rawFiles !== 'object' || rawFiles === null) {
         throw new Error('Could not read the installed whisper model table')
       }
       const files = new Map<string, string>()
-      for (const [name, file] of Object.entries(parsed.files as Record<string, unknown>)) {
+      for (const [name, file] of Object.entries(rawFiles as Record<string, unknown>)) {
         if (typeof file === 'string') files.set(name, file)
       }
       if (files.size === 0) throw new Error('The installed whisper exposes no models')
-      return { root: parsed.root, files }
+      return { root, files }
     })()
     this.modelTablePromise = promise
     try {
