@@ -2,6 +2,7 @@ node_modules/
 dist/
 lib/
 .dsh/
+.pi/
 .DS_Store
 .env
 .env.*
