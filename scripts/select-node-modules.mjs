@@ -1,9 +1,12 @@
-import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ACTIVE_DIRECTORY = 'node_modules'
 const MARKER_FILE = '.dsh-ears-platform'
+const PLATFORM_LOCK_FILE = 'node_modules.platform.lock'
+const LOCK_RETRY_MS = 25
+const LOCK_TIMEOUT_MS = 30_000
 const SUPPORTED_PLATFORMS = new Set(['win32', 'linux'])
 
 export function platformDirectory(platform = process.platform) {
@@ -54,15 +57,34 @@ async function assertManagedDirectory(path, expectedPlatform) {
   }
 }
 
-/**
- * Select the platform-specific dependency tree as the active node_modules
- * directory. Existing trees are moved aside rather than deleted, so switching
- * between Windows and WSL preserves each platform's native packages and
- * command shims.
- */
-export async function selectNodeModules(root = process.cwd(), platform = process.platform) {
-  const selectedPlatform = platformDirectory(platform)
-  const projectRoot = resolve(root)
+function isAlreadyExists(error) {
+  return error instanceof Error && 'code' in error && error.code === 'EEXIST'
+}
+
+async function withPlatformSelectionLock(root, callback) {
+  const lockPath = join(root, PLATFORM_LOCK_FILE)
+  const deadline = Date.now() + LOCK_TIMEOUT_MS
+  let lock
+  while (lock === undefined) {
+    try {
+      lock = await open(lockPath, 'wx')
+    } catch (error) {
+      if (!isAlreadyExists(error)) throw error
+      if (Date.now() >= deadline) {
+        throw new Error(`Could not acquire the platform selection lock at ${lockPath}`)
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS))
+    }
+  }
+  try {
+    return await callback()
+  } finally {
+    await lock.close().catch(() => undefined)
+    await rm(lockPath, { force: true })
+  }
+}
+
+async function selectNodeModulesUnlocked(projectRoot, selectedPlatform) {
   const activePath = join(projectRoot, ACTIVE_DIRECTORY)
   const selectedPath = join(projectRoot, `${ACTIVE_DIRECTORY}.${selectedPlatform}`)
   const activeInfo = await inspect(activePath)
@@ -116,6 +138,18 @@ export async function selectNodeModules(root = process.cwd(), platform = process
     throw error
   }
   return { platform: selectedPlatform, changed: true, initialized: false }
+}
+
+/**
+ * Select the platform-specific dependency tree as the active node_modules
+ * directory. Existing trees are moved aside rather than deleted, so switching
+ * between Windows and WSL preserves each platform's native packages and
+ * command shims.
+ */
+export async function selectNodeModules(root = process.cwd(), platform = process.platform) {
+  const selectedPlatform = platformDirectory(platform)
+  const projectRoot = resolve(root)
+  return withPlatformSelectionLock(projectRoot, () => selectNodeModulesUnlocked(projectRoot, selectedPlatform))
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1])

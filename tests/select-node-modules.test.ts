@@ -51,4 +51,18 @@ describe('platform-specific node_modules selection', () => {
     expect(result).toMatchObject({ platform: 'linux', initialized: true })
     await expect(readFile(join(root, 'node_modules', '.dsh-ears-platform'), 'utf8')).resolves.toBe('linux\n')
   })
+
+  it('serializes concurrent conflicting selections', async () => {
+    const root = await testRoot()
+    const selections = Array.from({ length: 12 }, (_, index) =>
+      selectNodeModules(root, index % 2 === 0 ? 'win32' : 'linux'),
+    )
+
+    await expect(Promise.all(selections)).resolves.toHaveLength(selections.length)
+
+    const activePlatform = (await readFile(join(root, 'node_modules', '.dsh-ears-platform'), 'utf8')).trim()
+    expect(['win32', 'linux']).toContain(activePlatform)
+    const preservedPlatform = activePlatform === 'win32' ? 'linux' : 'win32'
+    await expect(readFile(join(root, `node_modules.${preservedPlatform}`, '.dsh-ears-platform'), 'utf8')).resolves.toBe(`${preservedPlatform}\n`)
+  })
 })
