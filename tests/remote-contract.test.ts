@@ -38,7 +38,7 @@ describe('structured error Remote contracts', () => {
       id: 'web-speech',
       name: 'Web Speech',
       available: false,
-      detail: 'Browser-provided live recognition; availability depends on the browser.',
+      detail: 'Browser-provided live recognition; availability depends on the browser',
       detailCode: 'backend.webSpeechUnavailable'
     })).toMatchObject({ detailCode: 'backend.webSpeechUnavailable' })
     expect(remoteTextResultSchema.parse({

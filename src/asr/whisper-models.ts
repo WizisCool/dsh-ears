@@ -159,7 +159,7 @@ export class WhisperModels {
       const environment: WhisperEnvironmentId = this.pythonFoundOnLastProbe ? 'whisper-missing' : 'python-missing'
       const platform = whisperPlatformId(this.platform)
       return cliAvailable
-        ? { ...errorState(cliAvailable, 'Cannot inspect model state: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound), platform, environment }
+        ? { ...errorState(cliAvailable, 'Cannot inspect model state: no whisper-capable Python interpreter was found', EARS_ERROR_CODES.whisperPythonNotFound), platform, environment }
         : { ...EMPTY_STATE, cliAvailable, platform, environment }
     }
     try {
@@ -203,8 +203,8 @@ export class WhisperModels {
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
       return cliAvailable
-        ? errorState(cliAvailable, 'Cannot download models: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
-        : errorState(cliAvailable, 'openai-whisper is not installed on the dsh Host.', EARS_ERROR_CODES.whisperNotInstalled)
+        ? errorState(cliAvailable, 'Cannot download models: no whisper-capable Python interpreter was found', EARS_ERROR_CODES.whisperPythonNotFound)
+        : errorState(cliAvailable, 'openai-whisper is not installed', EARS_ERROR_CODES.whisperNotInstalled)
     }
     const handle = this.activeDownload
     if (handle !== undefined && !handle.finished) {
@@ -258,8 +258,8 @@ export class WhisperModels {
     const python = await this.resolveWhisperPython()
     if (python === undefined) {
       return cliAvailable
-        ? errorState(cliAvailable, 'Cannot delete models: no whisper-capable Python interpreter was found on the dsh Host.', EARS_ERROR_CODES.whisperPythonNotFound)
-        : errorState(cliAvailable, 'openai-whisper is not installed on the dsh Host.', EARS_ERROR_CODES.whisperNotInstalled)
+        ? errorState(cliAvailable, 'Cannot delete models: no whisper-capable Python interpreter was found', EARS_ERROR_CODES.whisperPythonNotFound)
+        : errorState(cliAvailable, 'openai-whisper is not installed', EARS_ERROR_CODES.whisperNotInstalled)
     }
     try {
       const table = await this.resolveModelTable(python)
@@ -456,7 +456,7 @@ export class WhisperModels {
         return result
       }
       this.pythonFailure = {
-        message: 'No whisper-capable Python interpreter was found on the dsh Host.',
+        message: 'No whisper-capable Python interpreter was found',
         until: Date.now() + this.failureCacheTtlMs
       }
       return undefined

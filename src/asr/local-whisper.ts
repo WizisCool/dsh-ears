@@ -20,9 +20,9 @@ const MAX_STDERR_TAIL = 800
  * timeout (D-018-adjacent behavior the first release does not want).
  */
 export function validateWhisperTranscription(state: WhisperModelState): void {
-  if (!state.cliAvailable) throw new EarsError(EARS_ERROR_CODES.whisperNotInstalled, 'Local Whisper is unavailable: no whisper CLI was found on the dsh Host.')
+  if (!state.cliAvailable) throw new EarsError(EARS_ERROR_CODES.whisperNotInstalled, 'Local Whisper is unavailable: no whisper CLI was found')
   if (state.error !== null) throw new EarsError(EARS_ERROR_CODES.whisperStateQueryFailed, `The Whisper model state could not be verified: ${state.error}`, { detail: state.error })
-  if (!state.downloaded) throw new EarsError(EARS_ERROR_CODES.whisperModelNotDownloaded, 'The Whisper model is not downloaded. Download it on the dsh-ear settings page before recording.')
+  if (!state.downloaded) throw new EarsError(EARS_ERROR_CODES.whisperModelNotDownloaded, 'The Whisper model is not downloaded, download it on the dsh-ears settings page before recording')
 }
 
 export interface LocalWhisperOptions {

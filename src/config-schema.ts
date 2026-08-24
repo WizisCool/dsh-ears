@@ -26,7 +26,7 @@ export const EarsSettingsSchema = s.object({
     host: s.string().default('').description('HTTPS DashScope origin'),
     model: s.string().default('').description('Sync Flash model id')
   }).description('Alibaba Cloud Model Studio (Bailian) ASR').collapse(),
-  polishingEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.polishingEnabled).description('Enable Host LLM polishing'),
+  polishingEnabled: s.boolean().default(DEFAULT_EARS_SETTINGS.polishingEnabled).description('Enable LLM polishing'),
   polishProvider: s.string().default(DEFAULT_EARS_SETTINGS.polishProvider).description('dsh polish provider id'),
   polishModel: s.string().default(DEFAULT_EARS_SETTINGS.polishModel).description('dsh polish model id'),
   polishReasoningEffort: s.string().default(DEFAULT_EARS_SETTINGS.polishReasoningEffort).description('Polish reasoning effort, empty for default'),

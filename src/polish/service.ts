@@ -127,20 +127,20 @@ export class PolishService extends TypertRemoteService {
         id: 'web-speech',
         name: 'Web Speech',
         available: true,
-        detail: 'Browser-provided live recognition; availability depends on the browser.'
+        detail: 'Browser-provided live recognition; availability depends on the browser'
       },
       {
         id: 'local-whisper',
         name: 'Local Whisper',
         available: localAvailable,
-        detail: localAvailable ? 'Whisper CLI detected on the dsh Host.' : 'Install openai-whisper and put whisper on PATH.',
+        detail: localAvailable ? 'Whisper CLI detected on this computer' : 'Install openai-whisper and put whisper on PATH.',
         ...(localAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendLocalUnavailable })
       },
       {
         id: 'cloud-openai',
         name: 'Cloud ASR',
         available: cloudAvailable,
-        detail: cloudAvailable ? 'Cloud transcription is configured.' : 'Choose a cloud model and configure the API key.',
+        detail: cloudAvailable ? 'Cloud transcription is configured' : 'Choose a cloud model and configure the API key',
         ...(cloudAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendCloudUnavailable })
       }
     ]
