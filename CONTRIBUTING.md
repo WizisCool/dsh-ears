@@ -15,6 +15,7 @@ After a clone, start here. Product scope and still-open gates are in [`.agent/PL
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
 cd dsh-ears
+pnpm use:platform
 pnpm install
 pnpm check
 pnpm test
@@ -28,6 +29,21 @@ dsh plugin --profile web add "$PWD"
 ```
 
 On Windows, run this from PowerShell or Git Bash — `cmd.exe` does not expand `$PWD`; use `"%CD%"` from cmd.
+
+## Cross-platform installs
+
+The checkout keeps native dependency trees in separate directories: `node_modules.win32` for Windows and `node_modules.linux` for WSL. The active tree is exposed as `node_modules`, so each platform keeps its own native packages and command shims.
+
+After switching between PowerShell and WSL:
+
+```sh
+pnpm use:platform
+pnpm install
+```
+
+Run `pnpm use:platform` before the first install on a fresh clone and after stopping any dev server that still holds the active dependency tree open. The selector preserves the previous platform tree and creates the new platform tree when needed. Both environments use pnpm `11.19.0` from `packageManager`.
+
+Spawn-based local Whisper fixtures are POSIX shebang scripts; native Windows skips those fixture cases while still running discovery, progress-parsing, and Remote wire-safety tests.
 
 If `dsh` is not on `PATH`:
 

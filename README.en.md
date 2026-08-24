@@ -52,6 +52,7 @@ npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
 cd dsh-ears
+pnpm use:platform
 pnpm install
 pnpm build
 dsh plugin --profile web add "$PWD"
@@ -118,6 +119,7 @@ The default prompt removes filler words, fixes common ASR errors, handles spoken
 ## Local development
 
 ```sh
+pnpm use:platform
 pnpm install
 dsh plugin --profile web add "$PWD"
 # Windows cmd: use "%CD%"; PowerShell expands $PWD directly

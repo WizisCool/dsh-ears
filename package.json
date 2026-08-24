@@ -75,6 +75,7 @@
   "scripts": {
     "build": "tsdown && tsc -p tsconfig.build.json",
     "check": "tsc --noEmit -p tsconfig.json",
+    "use:platform": "node scripts/select-node-modules.mjs",
     "dev:watch": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
