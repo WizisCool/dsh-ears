@@ -50,6 +50,7 @@ npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
 cd dsh-ears
+pnpm use:platform
 pnpm install
 pnpm build
 dsh plugin --profile web add "$PWD"
@@ -106,6 +107,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ## 本地开发
 
 ```sh
+pnpm use:platform
 pnpm install
 dsh plugin --profile web add "$PWD"
 # Windows 的 cmd 请使用 "%CD%"；PowerShell 直接使用 $PWD
