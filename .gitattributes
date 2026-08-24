@@ -1,0 +1,7 @@
+# Normalize all text files to LF in the repository and in working trees on
+# every platform (Windows checkouts included). Binary assets stay untouched.
+* text=auto eol=lf
+*.jpg binary
+*.png binary
+*.gif binary
+*.ico binary
