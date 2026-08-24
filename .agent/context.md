@@ -93,7 +93,7 @@ The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The brows
 - **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
 - **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
 
-Setting-row descriptions (`*Hint` locale keys) omit terminal full stops in both locale dictionaries for visual consistency. Internal punctuation remains when a hint contains multiple clauses; error, validation, and status messages retain their sentence punctuation.
+User-facing copy never ends with a full stop in either locale, across hints, errors, statuses, and notices (D-038); multi-sentence strings use commas or semicolons, and internal jargon such as "Host" is avoided. `tests/locale.test.ts` enforces the no-full-stop rule.
 
 Save model is per-field auto-save (D-031, supersedes D-026 Save/Discard): a 400 ms debounce, text-field blur, or section unmount flushes persistable fields. An invalid draft is skipped and stays local with a red hint. A Host rejection keeps the drafts, shows `saveFailed`, and does not retry in a loop. Empty text clears a field on flush (API keys keep absent=keep with a staged clear). Validation is per-field and edit-scoped (D-024): untouched fields are never marked invalid; unconfigured-but-valid states render quietly.
 
@@ -123,6 +123,8 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 - Host final ASR requests are bounded. Cloud ASR has a 120-second timeout. Unknown backend/model identifiers are rejected.
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
 - Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
+- Strict Remote result objects keep optional fields absent rather than explicitly `undefined`; the wire test replays the gateway's JSON-safety check (D-036).
+- Broken Local Whisper environments report `platform` + `environment` diagnostics, which the settings page renders as OS-specific setup guidance with copyable install commands (D-037).
 - The composer microphone grays out (D-021) on positive unavailability signals only. Active flow states stay enabled so stop remains reachable. Cloud readiness (key + model, plus Bailian host) is folded into the cloud backend's availability signal.
 - The voice shortcut (D-028) is in-page only. Idle starts, recording stops, transcribing/polishing is ignored. IME composition and key auto-repeat never trigger it. Events inside `[role="dialog"]` and hidden views are ignored. A gated microphone focuses the gray button instead of recording. Stored form is a canonical `ctrl+shift+space`-style string. Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. The field cannot be empty; Reset restores the default.
 
