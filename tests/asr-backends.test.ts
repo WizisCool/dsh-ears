@@ -23,7 +23,9 @@ describe('local Whisper backend', () => {
     await expect(isWhisperAvailable(process.execPath, controller.signal)).resolves.toBe(false)
   })
 
-  it('writes a private temporary audio file and reads the Whisper JSON result', async () => {
+  // These fixtures are POSIX shebang scripts. Native Windows production
+  // installs use a real whisper.exe, so only the fixture-based cases skip.
+  it.skipIf(process.platform === 'win32')('writes a private temporary audio file and reads the Whisper JSON result', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
     const command = join(directory, 'fake-whisper.mjs')
     await writeFile(command, '#!/usr/bin/env node\nimport { writeFile } from \'node:fs/promises\'\nimport { join } from \'node:path\'\nconst index = process.argv.indexOf(\'--output_dir\')\nawait writeFile(join(process.argv[index + 1], \'recording.json\'), JSON.stringify({ text: \'本地转录结果\' }))\n')
@@ -42,7 +44,7 @@ describe('local Whisper backend', () => {
     }
   })
 
-  it('carries the whisper stderr tail into transcription failures', async () => {
+  it.skipIf(process.platform === 'win32')('carries the whisper stderr tail into transcription failures', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
     const command = join(directory, 'fake-whisper.mjs')
     await writeFile(command, '#!/usr/bin/env node\nprocess.stderr.write(\'Traceback (most recent call last):\\nRuntimeError: model not found\\n\')\nprocess.exit(1)\n')
@@ -61,7 +63,7 @@ describe('local Whisper backend', () => {
     }
   })
 
-  it('preserves the timeout error code when Whisper is aborted by its deadline', async () => {
+  it.skipIf(process.platform === 'win32')('preserves the timeout error code when Whisper is aborted by its deadline', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-test-'))
     const command = join(directory, 'fake-whisper.mjs')
     await writeFile(command, '#!/usr/bin/env node\nsetInterval(() => {}, 1000)\n')

@@ -52,6 +52,8 @@ interface FailureEntry {
   until: number
 }
 
+// Keep optional error fields absent rather than explicitly undefined: the
+// typert gateway checks every own enumerable result property for JSON safety.
 const EMPTY_STATE: WhisperModelState = Object.freeze({
   cliAvailable: false,
   downloaded: false,
@@ -59,9 +61,7 @@ const EMPTY_STATE: WhisperModelState = Object.freeze({
   progress: null,
   bytes: null,
   totalBytes: null,
-  error: null,
-  errorCode: undefined,
-  errorParams: undefined
+  error: null
 })
 
 export interface WhisperModelsOptions {
@@ -468,16 +468,25 @@ export class WhisperModels {
     ].join('\n')
     const promise = (async () => {
       const output = await this.runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
-      const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
-      if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(output.trim())
+      } catch {
+        throw new Error('The installed whisper returned an unreadable model table')
+      }
+      if (parsed === null || typeof parsed !== 'object') {
+        throw new Error('The installed whisper returned an unreadable model table')
+      }
+      const { root, files: rawFiles } = parsed as { root?: unknown; files?: unknown }
+      if (typeof root !== 'string' || typeof rawFiles !== 'object' || rawFiles === null || Array.isArray(rawFiles)) {
         throw new Error('Could not read the installed whisper model table')
       }
       const files = new Map<string, string>()
-      for (const [name, file] of Object.entries(parsed.files as Record<string, unknown>)) {
+      for (const [name, file] of Object.entries(rawFiles as Record<string, unknown>)) {
         if (typeof file === 'string') files.set(name, file)
       }
       if (files.size === 0) throw new Error('The installed whisper exposes no models')
-      return { root: parsed.root, files }
+      return { root, files }
     })()
     this.modelTablePromise = promise
     try {
