@@ -52,6 +52,8 @@ interface FailureEntry {
   until: number
 }
 
+// Keep optional error fields absent rather than explicitly undefined: the
+// typert gateway checks every own enumerable result property for JSON safety.
 const EMPTY_STATE: WhisperModelState = Object.freeze({
   cliAvailable: false,
   downloaded: false,
@@ -59,9 +61,7 @@ const EMPTY_STATE: WhisperModelState = Object.freeze({
   progress: null,
   bytes: null,
   totalBytes: null,
-  error: null,
-  errorCode: undefined,
-  errorParams: undefined
+  error: null
 })
 
 export interface WhisperModelsOptions {
@@ -468,7 +468,12 @@ export class WhisperModels {
     ].join('\n')
     const promise = (async () => {
       const output = await this.runPythonCollect(python, ['-c', script], STATE_COMMAND_TIMEOUT_MS)
-      const parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
+      let parsed: { root?: unknown; files?: unknown }
+      try {
+        parsed = JSON.parse(output.trim()) as { root?: unknown; files?: unknown }
+      } catch {
+        throw new Error('The installed whisper returned an unreadable model table')
+      }
       if (typeof parsed.root !== 'string' || typeof parsed.files !== 'object' || parsed.files === null) {
         throw new Error('Could not read the installed whisper model table')
       }
