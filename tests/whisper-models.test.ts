@@ -93,6 +93,7 @@ const FAKE_PYTHON_SCRIPT = [
   "if (script.includes('print(json.dumps')) {",
   "  if (process.env.FAKE_WHISPER_BAD_TABLE === '1') { process.stdout.write('not json\\n'); process.exit(0) }",
   "  if (process.env.FAKE_WHISPER_NULL_TABLE === '1') { process.stdout.write('null\\n'); process.exit(0) }",
+  "  if (process.env.FAKE_WHISPER_ARRAY_TABLE === '1') { process.stdout.write(JSON.stringify({ root: root, files: [] }) + '\\n'); process.exit(0) }",
   "  process.stdout.write(JSON.stringify({ root: root, files: { tiny: 'tiny.pt', base: 'base.pt' } }) + '\\n')",
   '  process.exit(0)',
   '}',
@@ -370,6 +371,19 @@ describe.skipIf(process.platform === 'win32')('whisper model lifecycle', () => {
     try {
       const state = await manager.getWhisperModelState('tiny', true)
       expect(state.error).toContain('unreadable model table')
+      expect(state.errorCode).toBe('whisper.stateQueryFailed')
+    } finally {
+      manager.dispose()
+      await rm(cacheDir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects an array-valued model table files field', async () => {
+    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_ARRAY_TABLE: '1' })
+    const manager = new WhisperModels({ env })
+    try {
+      const state = await manager.getWhisperModelState('tiny', true)
+      expect(state.error).toContain('Could not read the installed whisper model table')
       expect(state.errorCode).toBe('whisper.stateQueryFailed')
     } finally {
       manager.dispose()

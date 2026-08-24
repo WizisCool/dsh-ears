@@ -478,7 +478,7 @@ export class WhisperModels {
         throw new Error('The installed whisper returned an unreadable model table')
       }
       const { root, files: rawFiles } = parsed as { root?: unknown; files?: unknown }
-      if (typeof root !== 'string' || typeof rawFiles !== 'object' || rawFiles === null) {
+      if (typeof root !== 'string' || typeof rawFiles !== 'object' || rawFiles === null || Array.isArray(rawFiles)) {
         throw new Error('Could not read the installed whisper model table')
       }
       const files = new Map<string, string>()
