@@ -13,6 +13,7 @@ import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReserve
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
 import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
+import { WHISPER_SETUP_PLATFORM_LABELS, whisperSetupSteps, type WhisperSetupStepId } from './whisper-setup.js'
 import { localeEn, localizedErrorText, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
 
@@ -44,6 +45,7 @@ interface EarsSettingsSectionProps {
   readonly downloadModel: () => void
   readonly cancelModel: () => void
   readonly deleteModel: () => void
+  readonly refreshModel: () => void
   readonly loadAbout: () => Promise<AboutInfo | null>
   readonly checkForUpdate: () => Promise<UpdateCheckResult>
 }
@@ -148,7 +150,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             }
             props.edit('asrBackend', id)
           }} />
-          {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
+          {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onRefresh={props.refreshModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
           {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrGroqApiKey.text} configured={state.cloudAsrGroqApiKeyConfigured} clearPending={state.cloudAsrGroqApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrGroqApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
             <CloudModelRow label={t('cloudModel')} value={state.cloudAsrGroqModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrGroqModel', value)} onRetry={props.retryCloudModels} t={t} />
@@ -479,7 +481,7 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   )
 }
 
-function WhisperModelRow({ label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onChange: (value: string) => void; t: Translate }) {
+function WhisperModelRow({ label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onRefresh, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onRefresh: () => void; onChange: (value: string) => void; t: Translate }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
   const labelText = selected === undefined ? value : selected[1]
@@ -491,6 +493,7 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
         <div className={`${styles.rowDesc} ${styles.rowDescInline} ${modelState.error !== null || invalid ? styles.invalid : ''}`} {...(modelState.error !== null || invalid ? { role: 'alert' } : {})}>
           {statusContent}
         </div>
+        {status === 'ready' && modelState.environment !== undefined ? <WhisperSetupGuide modelState={modelState} onRefresh={onRefresh} t={t} /> : null}
       </div>
       <div className={styles.rowControl}>
         <Menu
@@ -542,10 +545,66 @@ function whisperStatusContent(modelState: WhisperModelState, t: Translate, writa
   }
   return (
     <>
-      <span>{t('whisperNotDownloaded')}</span>
+      <span>{whisperEnvironmentDiagnosis(modelState, t) ?? t('whisperNotDownloaded')}</span>
       <button type="button" className={styles.linkButton} disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('clickDownload')}</button>
     </>
   )
+}
+
+function whisperEnvironmentDiagnosis(modelState: WhisperModelState, t: Translate): string | null {
+  if (modelState.environment === 'python-missing') return t('whisperGuidePythonMissing')
+  if (modelState.environment === 'whisper-missing') return t('whisperGuideWhisperMissing')
+  return null
+}
+
+function WhisperSetupGuide({ modelState, onRefresh, t }: { modelState: WhisperModelState; onRefresh: () => void; t: Translate }) {
+  const [open, setOpen] = useState(false)
+  const [copiedStep, setCopiedStep] = useState<WhisperSetupStepId | null>(null)
+  useEffect(() => {
+    if (copiedStep === null) return
+    const timer = setTimeout(() => setCopiedStep(null), 2000)
+    return () => clearTimeout(timer)
+  }, [copiedStep])
+  const steps = whisperSetupSteps(modelState.environment ?? 'python-missing', modelState.platform)
+  const stepTitles: Record<WhisperSetupStepId, string> = { python: t('whisperGuideStepPython'), ffmpeg: t('whisperGuideStepFfmpeg'), whisper: t('whisperGuideStepWhisper') }
+  return (
+    <div className={styles.whisperGuide}>
+      <div className={styles.whisperGuideActions}>
+        <button type="button" className={styles.linkButton} aria-expanded={open} onClick={() => setOpen((current) => !current)}>{open ? t('whisperGuideHide') : t('whisperGuideShow')}</button>
+        <button type="button" className={styles.linkButton} onClick={onRefresh}>{t('whisperGuideRecheck')}</button>
+      </div>
+      {open ? (
+        steps.length === 0 ? (
+          <p className={styles.whisperGuideNote}>{t('whisperGuidePlatformUnknown')}</p>
+        ) : (
+          <ol className={styles.whisperGuideSteps}>
+            {steps.map((step) => (
+              <li key={step.id} className={styles.whisperGuideStep}>
+                <div className={styles.whisperGuideStepTitle}>{stepTitles[step.id]}</div>
+                <div className={styles.whisperGuideCommandRow}>
+                  <code className={styles.whisperGuideCommand}>{step.command}</code>
+                  <button type="button" className={styles.linkButton} onClick={() => {
+                    void copySetupCommand(step.command).then((copied) => {
+                      if (copied) setCopiedStep(step.id)
+                    })
+                  }}>{copiedStep === step.id ? t('whisperGuideCommandCopied') : t('whisperGuideCopyCommand')}</button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )
+      ) : null}
+    </div>
+  )
+}
+
+async function copySetupCommand(command: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(command)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function WhisperDownloadedActions({ modelState, t, writable, onDeleteModel }: { modelState: WhisperModelState; t: Translate; writable: boolean; onDeleteModel: () => void }) {

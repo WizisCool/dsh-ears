@@ -181,6 +181,7 @@ export class EarsSettingsController {
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
       deleteModel: () => void this.deleteModel(),
+      refreshModel: () => void this.refreshWhisperState(),
       loadAbout: () => this.loadAbout(),
       checkForUpdate: () => this.checkForUpdate()
     }
@@ -291,7 +292,7 @@ export class EarsSettingsController {
       this.cloudModelsView = { status: 'ready', view }
     } catch {
       if (this.disposed || request !== this.cloudModelsRequest) return
-      this.cloudModelsView = { status: 'ready', view: { status: 'error', models: [], error: 'Could not fetch the model list.', errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: 'Could not fetch the model list.' } } }
+      this.cloudModelsView = { status: 'ready', view: { status: 'error', models: [], error: 'Could not fetch the model list', errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: 'Could not fetch the model list' } } }
     }
     this.cloudModelsStore.set(this.cloudModelsView)
   }
@@ -342,7 +343,7 @@ export class EarsSettingsController {
           const result = await this.remote.getWhisperModelState(model)
           nextView = result.ok
             ? { status: 'ready', state: result.value }
-            : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state.', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: result.error.message })
+            : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: result.error.message })
         } catch {
           nextView = whisperErrorView(this.whisperView, '', 'Whisper model state query failed', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: 'Whisper model state query failed' })
         }
@@ -371,7 +372,7 @@ export class EarsSettingsController {
       if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download.', EARS_ERROR_CODES.whisperDownloadFailed, { detail: result.error.message })
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download', EARS_ERROR_CODES.whisperDownloadFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
       if (!this.isCurrentWhisperMutation(request, model)) return
@@ -391,7 +392,7 @@ export class EarsSettingsController {
       if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download.', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: result.error.message })
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
       if (!this.isCurrentWhisperMutation(request, model)) return
@@ -429,7 +430,7 @@ export class EarsSettingsController {
       if (!this.isCurrentWhisperMutation(request, model)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model.', EARS_ERROR_CODES.whisperDeleteFailed, { detail: result.error.message })
+        : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model', EARS_ERROR_CODES.whisperDeleteFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
       if (!this.isCurrentWhisperMutation(request, model)) return
