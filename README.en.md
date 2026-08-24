@@ -55,6 +55,7 @@ cd dsh-ears
 pnpm install
 pnpm build
 dsh plugin --profile web add "$PWD"
+# Windows cmd: use "%CD%"; PowerShell expands $PWD directly
 ```
 
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
@@ -119,6 +120,7 @@ The default prompt removes filler words, fixes common ASR errors, handles spoken
 ```sh
 pnpm install
 dsh plugin --profile web add "$PWD"
+# Windows cmd: use "%CD%"; PowerShell expands $PWD directly
 pnpm check
 pnpm test
 pnpm build

@@ -24,6 +24,8 @@ pnpm build
 dsh plugin --profile web add "$PWD"
 ```
 
+On Windows, run this from PowerShell (or use `"%CD%"` in cmd — cmd does not expand `$PWD`).
+
 ## Commands
 
 Scripts live in `package.json`. Use them; do not invent parallel invocations.

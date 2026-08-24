@@ -27,6 +27,8 @@ Load the plugin into the local web profile once:
 dsh plugin --profile web add "$PWD"
 ```
 
+On Windows, run this from PowerShell or Git Bash — `cmd.exe` does not expand `$PWD`; use `"%CD%"` from cmd.
+
 If `dsh` is not on `PATH`:
 
 ```sh

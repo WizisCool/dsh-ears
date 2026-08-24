@@ -53,6 +53,7 @@ cd dsh-ears
 pnpm install
 pnpm build
 dsh plugin --profile web add "$PWD"
+# Windows 的 cmd 请使用 "%CD%"；PowerShell 直接使用 $PWD
 ```
 
 安装完成后刷新 Web UI，输入框右侧会显示麦克风图标。
@@ -107,6 +108,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ```sh
 pnpm install
 dsh plugin --profile web add "$PWD"
+# Windows 的 cmd 请使用 "%CD%"；PowerShell 直接使用 $PWD
 pnpm check
 pnpm test
 pnpm build
