@@ -179,7 +179,14 @@ export class WhisperModels {
 
     const handle = this.activeDownload
     if (handle !== undefined && handle.model === model) {
-      if (!handle.finished || handle.error !== null) return stateFromHandle(handle, runtimeAvailable)
+      if (!handle.finished) return stateFromHandle(handle, runtimeAvailable)
+      // Report a terminal download failure exactly once, then drop the
+      // handle so later queries probe the filesystem again instead of
+      // repeating the stale in-memory failure until a host restart.
+      if (handle.error !== null) {
+        this.activeDownload = undefined
+        return stateFromHandle(handle, runtimeAvailable)
+      }
     }
 
     const definition = this.manifest[model]

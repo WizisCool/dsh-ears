@@ -177,6 +177,30 @@ describe('whisper.cpp model lifecycle', () => {
     streamController?.error(new Error('closed'))
   })
 
+  it('falls back to filesystem probing after reporting a failed download once', async () => {
+    const { manager, cacheDir } = await makeManager(async () => {
+      throw new Error('network unreachable')
+    })
+    await manager.downloadWhisperModel('tiny', true)
+    const failed = await waitForState(manager, (state) => !state.downloading)
+    expect(failed.error).toBe('network unreachable')
+    expect(failed.downloaded).toBe(false)
+
+    await expect(manager.getWhisperModelState('tiny', true)).resolves.toMatchObject({
+      downloaded: false,
+      downloading: false,
+      error: null
+    })
+
+    // A manually recovered and verified model becomes visible without a restart.
+    await writeFile(`${cacheDir}/ggml-tiny.bin`, TEST_BYTES)
+    await writeFile(`${cacheDir}/ggml-tiny.bin.dsh-ears-done`, JSON.stringify({ version: 1, model: 'tiny', sha256: TEST_SHA256, bytes: TEST_BYTES.byteLength }))
+    await expect(manager.getWhisperModelState('tiny', true)).resolves.toMatchObject({
+      downloaded: true,
+      error: null
+    })
+  })
+
   it('deletes the model, marker, and stale partial file', async () => {
     const { manager, cacheDir } = await makeManager()
     await manager.downloadWhisperModel('tiny', true)
