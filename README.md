@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 dsh plugin --profile web add dsh-ears
 ```
 
-## DSH 插件市场
+### DSH 插件市场
 
 `dsh-ears` 已被 [DSH Market](https://github.com/dsh-market/dsh-market) 收录，可在设置 → 插件市场中直接安装、更新和卸载。
 
