@@ -107,7 +107,7 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
       if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Cloud ASR request timed out')
       throw error
     }
-    const body = await readBoundedText(response)
+    const body = await readTencentResponseBody(response, options.signal, timeout.signal)
     let parsed: unknown
     try {
       parsed = JSON.parse(body)
@@ -129,6 +129,16 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
   } finally {
     clearTimeout(timer)
     options.signal.removeEventListener('abort', forwardAbort)
+  }
+}
+
+async function readTencentResponseBody(response: Response, signal: AbortSignal, timeoutSignal: AbortSignal): Promise<string> {
+  try {
+    return await readBoundedText(response)
+  } catch (error) {
+    if (signal.aborted) throw error
+    if (timeoutSignal.aborted) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Cloud ASR request timed out')
+    throw error
   }
 }
 

@@ -359,7 +359,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 
 ## D-040 — Tencent Cloud provider with progressive ASR product selection
 
-- Status: accepted (2026-08-26).
+- Status: accepted (2026-08-25).
 - Decision: expose one cloud provider named Tencent Cloud. Its progressive service selector uses Tencent Cloud's documented product names: `录音文件识别极速版`, `录音文件识别（大模型引擎）`, and `实时语音识别`. The selector persists the service id separately from the provider id.
 - Decision: the current executable service is `录音文件识别极速版`, using its HTTPS synchronous endpoint, `appid` path parameter, `secretid`, `engine_type`, `voice_format`, timestamp query parameters, HMAC-SHA1/Base64 request signature, raw audio body, and `flash_result` response shape.
 - Decision: the product entries for `录音文件识别（大模型引擎）` and `实时语音识别` are reserved in the settings model and remain disabled until their respective request protocols are implemented. The current `dshEars/transcribe` operation remains a bounded recording with one final Host result.

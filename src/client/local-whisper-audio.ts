@@ -71,7 +71,7 @@ export async function normalizeRecordedAudioForLocalWhisper(
     try {
       decoded = await context.decodeAudioData(base64ToArrayBuffer(audio.base64))
     } catch (error) {
-      throw new Error('Failed to decode recorded audio for local Whisper', { cause: error })
+      throw new Error('Failed to decode recorded audio', { cause: error })
     }
     throwIfAborted(options.signal)
 

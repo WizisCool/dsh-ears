@@ -69,4 +69,36 @@ describe('transcribeTencentFlashAsr', () => {
       signal: new AbortController().signal
     })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrHttpFailed })
   })
+
+  it('maps a stalled response body to the shared timeout', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const reader = {
+        read: () => new Promise<never>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+        }),
+        releaseLock: vi.fn()
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        body: { getReader: () => reader }
+      } as unknown as Response
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const pending = transcribeTencentFlashAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      appId: '1250000000',
+      secretId: 'AKIDexample',
+      secretKey: 'secret-key',
+      engineType: '16k_zh',
+      signal: new AbortController().signal
+    })
+    const rejection = expect(pending).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
+    await vi.advanceTimersByTimeAsync(120_000)
+    await rejection
+  })
 })

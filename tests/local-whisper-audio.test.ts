@@ -152,7 +152,7 @@ describe('normalizeRecordedAudioForLocalWhisper', () => {
 
     await expect(normalizeRecordedAudioForLocalWhisper(encodedAudio(), {
       createAudioContext: () => ({ decodeAudioData, close })
-    })).rejects.toThrow('Failed to decode recorded audio for local Whisper')
+    })).rejects.toThrow('Failed to decode recorded audio')
     expect(close).toHaveBeenCalledOnce()
   })
 
