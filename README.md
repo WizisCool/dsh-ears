@@ -42,11 +42,9 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 dsh plugin --profile web add dsh-ears
 ```
 
-尚未安装 `dsh` CLI 时：
+## DSH 插件市场
 
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
-```
+`dsh-ears` 已被 [DSH Market](https://github.com/dsh-market/dsh-market) 收录，可在设置 → 插件市场中直接安装、更新和卸载。
 
 **从源码安装：**
 
@@ -78,17 +76,7 @@ dsh plugin --profile web update dsh-ears
 dsh plugin --profile web remove dsh-ears
 ```
 
-尚未安装 `dsh` CLI 时：
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
-```
-
 这条命令会移除 dsh 中的插件注册，源码目录保持不变。卸载后刷新 Web UI，麦克风图标会消失。
-
-## DSH 插件市场
-
-`dsh-ears` 已被 [DSH Market](https://github.com/dsh-market/dsh-market) 收录，可在设置 → 插件市场中直接安装、更新和卸载。
 
 ## 使用
 

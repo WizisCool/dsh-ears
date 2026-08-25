@@ -42,11 +42,9 @@ Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 dsh plugin --profile web add dsh-ears
 ```
 
-If the `dsh` CLI is not installed:
+## DSH Plugin Market
 
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
-```
+`dsh-ears` is listed in [DSH Market](https://github.com/dsh-market/dsh-market), where it can be installed, updated, and uninstalled directly from Settings → Plugin Market.
 
 **Install from source:**
 
@@ -78,17 +76,7 @@ Refresh the Web UI after the update.
 dsh plugin --profile web remove dsh-ears
 ```
 
-If the `dsh` CLI is not installed:
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
-```
-
 The command removes the dsh plugin registration and leaves a local clone in place. Refresh the Web UI afterwards; the microphone icon disappears.
-
-## DSH Plugin Market
-
-`dsh-ears` is listed in [DSH Market](https://github.com/dsh-market/dsh-market), where it can be installed, updated, and uninstalled directly from Settings → Plugin Market.
 
 ## Usage
 
