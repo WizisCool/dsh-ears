@@ -33,7 +33,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
 }))
 
 const INITIAL_WHISPER_STATE: WhisperModelState = {
-  cliAvailable: true,
+  runtimeAvailable: true,
   downloaded: true,
   downloading: false,
   progress: null,
@@ -106,6 +106,168 @@ describe('EarsSettingsController Whisper state', () => {
     expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(0)
     expect(controller.getWhisperStore().getSnapshot().state.downloading).toBe(false)
     controller.dispose()
+  })
+
+  it('waits for the acceleration setting to persist before querying the Host', async () => {
+    const saved: EarsSettings = { ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'vulkan' }
+    const restartState: WhisperModelState = {
+      ...INITIAL_WHISPER_STATE,
+      runtimeAvailable: false,
+      error: 'Restart dsh to switch Local Whisper acceleration from \"vulkan\" to \"cuda\"',
+      errorCode: 'whisper.restartRequired',
+      errorParams: { loadedVariant: 'vulkan', requestedVariant: 'cuda' }
+    }
+    const getWhisperModelState = vi.fn(async () => ({
+      ok: true as const,
+      value: saved.localWhisperAcceleration === 'cuda' ? restartState : INITIAL_WHISPER_STATE
+    }))
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom({ ...saved }) }
+    })
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom({ ...saved }) }),
+      getWhisperModelState,
+      updateSettings
+    }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      getWhisperModelState.mockClear()
+
+      controller.actions().edit('localWhisperAcceleration', 'cuda')
+
+      expect(getWhisperModelState).not.toHaveBeenCalled()
+      expect(controller.getWhisperStore().getSnapshot().status).toBe('loading')
+
+      controller.actions().save()
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ localWhisperAcceleration: 'cuda' }))
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().state.errorCode).toBe('whisper.restartRequired'))
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('does not query an intermediate acceleration during a rapid switch', async () => {
+    const firstSave = deferred<RemoteResult<EarsSettingsView>>()
+    const secondSave = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn()
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(() => secondSave.promise)
+    const getWhisperModelState = vi.fn(async () => ({ ok: true as const, value: INITIAL_WHISPER_STATE }))
+    const initial = { ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'vulkan' as const }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom(initial) }),
+      getWhisperModelState,
+      updateSettings
+    }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      getWhisperModelState.mockClear()
+
+      controller.actions().edit('localWhisperAcceleration', 'cuda')
+      controller.actions().save()
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(1))
+      controller.actions().edit('localWhisperAcceleration', 'vulkan')
+
+      firstSave.resolve({
+        ok: true,
+        value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'cuda' })
+      })
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
+      expect(getWhisperModelState).not.toHaveBeenCalled()
+      expect(controller.getWhisperStore().getSnapshot().status).toBe('loading')
+
+      secondSave.resolve({ ok: true, value: settingsViewFrom(initial) })
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().status).toBe('ready'))
+      expect(controller.getCardStore().getSnapshot().localWhisperAcceleration.text).toBe('vulkan')
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('does not publish a model mutation result from the acceleration used before a save', async () => {
+    const mutation = deferred<RemoteResult<WhisperModelState>>()
+    const saved: EarsSettings = { ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'vulkan' }
+    const getWhisperModelState = vi.fn(async () => ({ ok: true as const, value: whisperState(2) }))
+    const downloadWhisperModel = vi.fn(() => mutation.promise)
+    const updateSettings = vi.fn(async (patch: Record<string, unknown>) => {
+      Object.assign(saved, patch)
+      return { ok: true as const, value: settingsViewFrom({ ...saved }) }
+    })
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom({ ...saved }) }),
+      getWhisperModelState,
+      downloadWhisperModel,
+      updateSettings
+    }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      getWhisperModelState.mockClear()
+
+      controller.actions().downloadModel()
+      await vi.waitFor(() => expect(downloadWhisperModel).toHaveBeenCalledTimes(1))
+      controller.actions().edit('localWhisperAcceleration', 'cuda')
+      controller.actions().save()
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(1))
+      expect(getWhisperModelState).not.toHaveBeenCalled()
+
+      mutation.resolve({ ok: true, value: whisperState(99) })
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().state.bytes).toBe(2))
+      expect(controller.getWhisperStore().getSnapshot().state.bytes).not.toBe(99)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('keeps a pending acceleration in loading state when an older response arrives', async () => {
+    const oldState = deferred<RemoteResult<WhisperModelState>>()
+    const getWhisperModelState = vi.fn(() => oldState.promise)
+    const controller = new EarsSettingsController(createRemote({ getWhisperModelState }))
+    try {
+      const refresh = controller.refreshWhisperState()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+
+      controller.actions().edit('localWhisperAcceleration', 'cuda')
+      oldState.resolve({ ok: true, value: whisperState(99) })
+      await refresh
+      await Promise.resolve()
+
+      expect(controller.getWhisperStore().getSnapshot()).toMatchObject({
+        status: 'loading',
+        state: { bytes: null }
+      })
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('restores the persisted acceleration state after a failed save is discarded', async () => {
+    const getWhisperModelState = vi.fn(async () => ({ ok: true as const, value: INITIAL_WHISPER_STATE }))
+    const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
+    const controller = new EarsSettingsController(createRemote({ getWhisperModelState, updateSettings }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      getWhisperModelState.mockClear()
+
+      controller.actions().edit('localWhisperAcceleration', 'cuda')
+      controller.actions().save()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().failed).toBe(true))
+      expect(getWhisperModelState).not.toHaveBeenCalled()
+      expect(controller.getWhisperStore().getSnapshot().status).toBe('loading')
+
+      controller.actions().discard()
+      await vi.waitFor(() => expect(getWhisperModelState).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(controller.getWhisperStore().getSnapshot().status).toBe('ready'))
+    } finally {
+      controller.dispose()
+    }
   })
 })
 

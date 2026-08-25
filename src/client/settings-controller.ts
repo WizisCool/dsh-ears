@@ -142,6 +142,7 @@ export class EarsSettingsController {
   private whisperRefreshInFlight = false
   private whisperRefreshQueued = false
   private whisperMutationInFlight = false
+  private whisperAccelerationRevision = 0
 
   constructor(remote: EarsRemote) {
     this.remote = remote
@@ -324,9 +325,15 @@ export class EarsSettingsController {
     if (this.disposed) return
     if (this.whisperMutationInFlight) {
       this.whisperRefreshQueued = true
+      if (this.hasPendingWhisperAcceleration()) this.showPendingWhisperAcceleration()
       return
     }
     this.whisperRequest += 1
+    if (this.hasPendingWhisperAcceleration()) {
+      this.whisperRefreshQueued = false
+      this.showPendingWhisperAcceleration()
+      return
+    }
     if (this.whisperRefreshInFlight) {
       this.whisperRefreshQueued = true
       return
@@ -366,16 +373,17 @@ export class EarsSettingsController {
   private async downloadModel(): Promise<void> {
     if (this.disposed) return
     const model = this.currentWhisperModel()
+    const accelerationRevision = this.whisperAccelerationRevision
     const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.downloadWhisperModel(model)
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download', EARS_ERROR_CODES.whisperDownloadFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model download failed', EARS_ERROR_CODES.whisperDownloadFailed, { detail: 'Whisper model download failed' })
       this.whisperStore.set(this.whisperView)
     } finally {
@@ -386,16 +394,17 @@ export class EarsSettingsController {
   private async cancelModel(): Promise<void> {
     if (this.disposed) return
     const model = this.currentWhisperModel()
+    const accelerationRevision = this.whisperAccelerationRevision
     const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.cancelWhisperModelDownload(model)
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model cancellation failed', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: 'Whisper model cancellation failed' })
       this.whisperStore.set(this.whisperView)
     } finally {
@@ -424,16 +433,17 @@ export class EarsSettingsController {
   private async deleteModel(): Promise<void> {
     if (this.disposed) return
     const model = this.currentWhisperModel()
+    const accelerationRevision = this.whisperAccelerationRevision
     const request = this.beginWhisperMutation()
     try {
       const result = await this.remote.deleteWhisperModel(model)
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = result.ok
         ? { status: 'ready', state: result.value }
         : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model', EARS_ERROR_CODES.whisperDeleteFailed, { detail: result.error.message })
       this.whisperStore.set(this.whisperView)
     } catch {
-      if (!this.isCurrentWhisperMutation(request, model)) return
+      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
       this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model deletion failed', EARS_ERROR_CODES.whisperDeleteFailed, { detail: 'Whisper model deletion failed' })
       this.whisperStore.set(this.whisperView)
     } finally {
@@ -506,6 +516,16 @@ export class EarsSettingsController {
     return (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
   }
 
+  private hasPendingWhisperAcceleration(): boolean {
+    return this.drafts.has('localWhisperAcceleration')
+  }
+
+  private showPendingWhisperAcceleration(): void {
+    this.whisperView = { status: 'loading', state: this.whisperView.state }
+    this.whisperStore.set(this.whisperView)
+    this.stopWhisperPolling()
+  }
+
   private beginWhisperMutation(): number {
     this.whisperRequest += 1
     this.whisperMutationInFlight = true
@@ -513,8 +533,12 @@ export class EarsSettingsController {
     return this.whisperRequest
   }
 
-  private isCurrentWhisperMutation(request: number, model: string): boolean {
-    return !this.disposed && request === this.whisperRequest && model === this.currentWhisperModel()
+  private isCurrentWhisperMutation(request: number, model: string, accelerationRevision: number): boolean {
+    return !this.disposed
+      && request === this.whisperRequest
+      && model === this.currentWhisperModel()
+      && accelerationRevision === this.whisperAccelerationRevision
+      && !this.hasPendingWhisperAcceleration()
   }
 
   private finishWhisperMutation(request: number): void {
@@ -629,6 +653,7 @@ export class EarsSettingsController {
   /** Drop every staged draft and pending clear, back to the last saved state. */
   private discard(): void {
     if (this.disposed) return
+    const refreshWhisper = this.hasPendingWhisperAcceleration()
     this.cancelScheduledSave()
     this.saveQueued = false
     this.drafts.clear()
@@ -639,6 +664,7 @@ export class EarsSettingsController {
     this.clearBailianKeyPending = false
     this.failed = false
     this.publishCard()
+    if (refreshWhisper) void this.refreshWhisperState()
   }
 
   private scheduleSave(delay: number): void {
@@ -694,6 +720,8 @@ export class EarsSettingsController {
         || submittedDrafts.has('cloudAsrGroqApiKey')
         || submittedDrafts.has('cloudAsrCustomApiKey')
         || submittedDrafts.has('cloudAsrBailianApiKey')
+      const whisperAccelerationChanged = submittedDrafts.has('localWhisperAcceleration')
+      if (whisperAccelerationChanged) this.whisperAccelerationRevision += 1
       this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
       this.settingsView = result.value
       this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, cloudAsrModelFor(result.value.settings))
@@ -709,6 +737,7 @@ export class EarsSettingsController {
       if (submittedBailianClear && this.clearBailianKeyPending) this.clearBailianKeyPending = false
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
+      if (whisperAccelerationChanged) void this.refreshWhisperState()
     } catch {
       if (!this.disposed) this.failed = true
     } finally {
