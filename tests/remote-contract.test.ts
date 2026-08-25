@@ -118,6 +118,11 @@ describe('settings Remote contract', () => {
         cloudAsrBailianApiKey: '',
         cloudAsrBailianHost: '',
         cloudAsrBailianModel: '',
+        cloudAsrTencentAppId: '',
+        cloudAsrTencentSecretId: '',
+        cloudAsrTencentSecretKey: '',
+        cloudAsrTencentEngineType: '16k_zh',
+        cloudAsrTencentService: 'flash',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
         voiceShortcutEnabled: true,
@@ -133,6 +138,7 @@ describe('settings Remote contract', () => {
       cloudAsrGroqApiKeyConfigured: false,
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
+      cloudAsrTencentSecretKeyConfigured: false,
       localWhisperAccelerations: ['default'],
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)

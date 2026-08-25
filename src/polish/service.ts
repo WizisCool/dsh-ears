@@ -12,6 +12,7 @@ import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
+import { transcribeTencentFlashAsr } from '../asr/tencent-flash-asr.js'
 import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
@@ -68,6 +69,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrGroqApiKeyConfigured: false,
         cloudAsrCustomApiKeyConfigured: false,
         cloudAsrBailianApiKeyConfigured: false,
+        cloudAsrTencentSecretKeyConfigured: false,
         localWhisperAccelerations: [...this.whisperCapabilities.available],
         overridden: []
       }
@@ -84,11 +86,13 @@ export class PolishService extends TypertRemoteService {
         ...snapshot,
         cloudAsrGroqApiKey: '',
         cloudAsrCustomApiKey: '',
-        cloudAsrBailianApiKey: ''
+        cloudAsrBailianApiKey: '',
+        cloudAsrTencentSecretKey: ''
       },
       cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
       cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
       cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
+      cloudAsrTencentSecretKeyConfigured: snapshot.cloudAsrTencentSecretKey.trim() !== '',
       localWhisperAccelerations: [...this.whisperCapabilities.available],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
@@ -294,6 +298,20 @@ export class PolishService extends TypertRemoteService {
       if (providerEntry === undefined) throw new EarsError(EARS_ERROR_CODES.asrProviderUnknown, `Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`, { provider: settings.cloudAsrProvider })
       const credential = cloudAsrCredentialFor(settings)
       if (providerEntry.apiKeyRequired && credential === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'The cloud ASR API key is not configured')
+      if (providerEntry.protocol === 'tencent') {
+        if (settings.cloudAsrTencentService !== 'flash') throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected Tencent Cloud ASR service is not available yet')
+        const text = await transcribeTencentFlashAsr({
+          audio,
+          mimeType,
+          appId: settings.cloudAsrTencentAppId,
+          secretId: settings.cloudAsrTencentSecretId,
+          secretKey: settings.cloudAsrTencentSecretKey,
+          engineType: model,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
       if (providerEntry.protocol === 'dashscope-asr') {
         const text = await transcribeDashScopeAsr({
           audio,

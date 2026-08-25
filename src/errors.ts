@@ -36,6 +36,7 @@ export const EARS_ERROR_CODES = {
   asrResponseTooLarge: 'asr.responseTooLarge',
   asrUnexpected: 'asr.unexpected',
   asrProviderUnknown: 'asr.providerUnknown',
+  asrServiceUnavailable: 'asr.serviceUnavailable',
   asrUnsupportedBackend: 'asr.unsupportedBackend',
   browserMediaUnavailable: 'browser.mediaUnavailable',
   polishTimedOut: 'polish.timedOut',

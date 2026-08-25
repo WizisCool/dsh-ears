@@ -68,13 +68,14 @@ Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhis
 
 ### Cloud ASR
 
-A Host-side registry (`src/asr/providers.ts`) owns Groq, Bailian, and Custom:
+A Host-side registry (`src/asr/providers.ts`) owns Groq, Bailian, Tencent Cloud, and Custom:
 
 - Groq: pinned OpenAI-compatible endpoint, live `GET {baseUrl}/models` listing, required inline key.
 - Custom: user HTTP(S) `/audio/transcriptions` endpoint, `whisper-1` default.
 - Bailian (Alibaba Cloud Model Studio): DashScope sync `multimodal-generation` at `{origin}/api/v1/services/aigc/multimodal-generation/generation`. Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash use different request shapes. Filetrans and realtime are not implemented. Recordings cap at 300 seconds.
+- Tencent Cloud: one provider entry with a progressive service selector. `录音文件识别极速版` is implemented through the Host-side HTTPS API; `录音文件识别（大模型引擎）` and `实时语音识别` remain disabled reserved entries. AppID, SecretID, SecretKey, `engine_type`, raw audio, HMAC-SHA1/Base64 signing, and `flash_result` are kept inside the Host adapter.
 
-Each provider has its own write-only `role('secret')` key (D-023, D-032). The Host settings file groups them as `groq`, `customOpenAi`, and `bailian`. The plugin wire uses `cloudAsrGroqApiKey`, `cloudAsrCustomApiKey`, and `cloudAsrBailianApiKey`. `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
+Each provider has its own write-only `role('secret')` key (D-023, D-032, D-040). The Host settings file groups them as `groq`, `customOpenAi`, `bailian`, and `tencent`. The plugin wire uses explicit per-provider fields, including `cloudAsrTencentSecretKey`; `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
 
 This reverses D-014's dsh credential-reference model for the cloud ASR surface. LLM polishing still uses dsh-owned credentials.
 
@@ -91,7 +92,7 @@ Persisted Host configuration is organized into four fixed slots: `general`, `rec
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
 
 - **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), language (empty = follow the dsh English/中文 locale), recording limit (default 120 seconds).
-- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Changing acceleration after the first native load requires restarting the dsh Host.
+- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Tencent Cloud / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Tencent Cloud expands to a service selector with `录音文件识别极速版` enabled and the documented big-model and real-time entries disabled. Changing acceleration after the first native load requires restarting the dsh Host.
 - **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
 - **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
 

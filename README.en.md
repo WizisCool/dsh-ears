@@ -92,6 +92,7 @@ If the selected backend is not ready, the microphone icon is disabled. Hover ove
 | Local Whisper | After recording stops, the browser normalizes audio to mono 16 kHz PCM16 WAV and the Host transcribes it through the bundled whisper.node native dependency | The matching native variant is installed with npm; download a whisper.cpp GGML model from settings, where model weights are stored in the local cache | — |
 | [Groq](https://console.groq.com) | The Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription (Flash family) | HTTPS origin, API key, and model name. Recordings are limited to 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
+| [Tencent Cloud](https://intl.cloud.tencent.com/document/product/1118?lang=en) | `Recording File Recognition Flash Edition`: the Host sends a recording to Tencent Cloud's HTTPS ASR API and receives a synchronous result | AppID, SecretID, SecretKey, and `engine_type` | [Service and Billing](https://intl.cloud.tencent.com/document/product/1118/43371) |
 | Custom OpenAI-compatible | Sends a request to the specified `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
 | Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
 

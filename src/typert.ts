@@ -350,11 +350,11 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettings',
-            declaration: 'export interface EarsSettings { asrBackend: string; localWhisperModel: string; localWhisperAcceleration: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; language: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
+            declaration: 'export interface EarsSettings { asrBackend: string; localWhisperModel: string; localWhisperAcceleration: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; language: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
           },
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',

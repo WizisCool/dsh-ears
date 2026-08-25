@@ -332,7 +332,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       setState('transcribing')
       const epoch = voiceSession.captureEpoch()
-      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal })
+      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal, cloudProvider: settingsRef.current.cloudAsrProvider })
       if (!isTranscriptionStillCurrent({
         mounted: mountedRef.current,
         signal: controller.signal,

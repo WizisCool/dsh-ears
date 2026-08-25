@@ -44,6 +44,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
 | D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
+| D-039 | Native whisper.node runtime and fixed configuration slots | Accepted |
+| D-040 | Tencent Cloud product selector | Accepted |
 
 ## D-001 — Project identity
 
@@ -354,3 +356,14 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: runtime diagnostics are short and concrete: the selected native package or acceleration variant is unavailable, or the Host must restart to apply a changed variant. The old Python/FFmpeg/openai-whisper setup guide is deleted.
 - Decision: persisted Host configuration has four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing`. The Remote/browser contract remains flat for compatibility with per-field drafts and auto-save. This is a fixed dsh-ears data shape, not a registry, factory, generic slot interface, or provider framework.
 - Rationale: one native dependency and one concrete Host runtime remove the old TypeScript-to-Python process boundary without introducing a second abstraction layer. Keeping the flat wire avoids coupling this runtime refactor to a client protocol rewrite, while nested Host storage makes ownership and migration legible.
+
+## D-040 — Tencent Cloud provider with progressive ASR product selection
+
+- Status: accepted (2026-08-26).
+- Decision: expose one cloud provider named Tencent Cloud. Its progressive service selector uses Tencent Cloud's documented product names: `录音文件识别极速版`, `录音文件识别（大模型引擎）`, and `实时语音识别`. The selector persists the service id separately from the provider id.
+- Decision: the current executable service is `录音文件识别极速版`, using its HTTPS synchronous endpoint, `appid` path parameter, `secretid`, `engine_type`, `voice_format`, timestamp query parameters, HMAC-SHA1/Base64 request signature, raw audio body, and `flash_result` response shape.
+- Decision: the product entries for `录音文件识别（大模型引擎）` and `实时语音识别` are reserved in the settings model and remain disabled until their respective request protocols are implemented. The current `dshEars/transcribe` operation remains a bounded recording with one final Host result.
+- Decision: AppID, SecretID, selected service, engine type, and SecretKey are Host-owned settings. SecretKey is a Schemastery `role('secret')` field and is never returned through the browser Remote. The browser may edit the non-secret identifiers and receives only a configured boolean for SecretKey.
+- Decision: Tencent recordings are normalized in the browser to mono 16 kHz PCM16 WAV before the final Remote call because the browser capture codec is not the Flash endpoint's stable input contract. Existing Local Whisper audio normalization is reused.
+- Decision: the plugin documents Tencent's published free quota as an account-side benefit, but does not claim guaranteed zero cost or change a user's Tencent billing settings. Users verify quota and billing behavior in Tencent Cloud.
+- Rationale: one provider with a product selector matches Tencent Cloud's product family and leaves the settings shape ready for the documented ASR products. The current synchronous product fits the shipped Host/Client boundary and preserves the existing draft, cancellation, and optional polishing flow.

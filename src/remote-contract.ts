@@ -22,6 +22,11 @@ export const earsSettingsSchema = z.object({
   cloudAsrBailianApiKey: z.string(),
   cloudAsrBailianHost: z.string(),
   cloudAsrBailianModel: z.string(),
+  cloudAsrTencentAppId: z.string(),
+  cloudAsrTencentSecretId: z.string(),
+  cloudAsrTencentSecretKey: z.string(),
+  cloudAsrTencentEngineType: z.string(),
+  cloudAsrTencentService: z.string(),
   language: z.string(),
   maxRecordingSeconds: z.number(),
   voiceShortcutEnabled: z.boolean(),
@@ -48,6 +53,11 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrBailianApiKey: z.string().max(1024).optional(),
   cloudAsrBailianHost: z.string().optional(),
   cloudAsrBailianModel: z.string().optional(),
+  cloudAsrTencentAppId: z.string().optional(),
+  cloudAsrTencentSecretId: z.string().optional(),
+  cloudAsrTencentSecretKey: z.string().max(1024).optional(),
+  cloudAsrTencentEngineType: z.string().optional(),
+  cloudAsrTencentService: z.string().optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
@@ -68,6 +78,7 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrGroqApiKeyConfigured: z.boolean(),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
+  cloudAsrTencentSecretKeyConfigured: z.boolean(),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
@@ -175,6 +186,7 @@ export type EarsSettingsView = {
   cloudAsrGroqApiKeyConfigured: boolean
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrBailianApiKeyConfigured: boolean
+  cloudAsrTencentSecretKeyConfigured: boolean
   localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }

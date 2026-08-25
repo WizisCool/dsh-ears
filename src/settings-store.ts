@@ -39,6 +39,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   ]
   const bailianSlot = asRecord(cloudAsr?.bailian)
   const bailianLegacy = asRecord(record.bailian)
+  const tencentSlot = asRecord(cloudAsr?.tencent)
+  const tencentLegacy = asRecord(record.tencent)
 
   const provider = defaultSlotText(
     ownText(recognition, 'cloudProvider'),
@@ -153,6 +155,33 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'cloudAsrBailianHost')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.bailian.host,
         model: bailianModel
+      },
+      tencent: {
+        appId: firstDefinedText(
+          ownText(tencentSlot, 'appId'),
+          ownText(tencentLegacy, 'appId'),
+          ownText(record, 'cloudAsrTencentAppId')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.appId,
+        secretId: firstDefinedText(
+          ownText(tencentSlot, 'secretId'),
+          ownText(tencentLegacy, 'secretId'),
+          ownText(record, 'cloudAsrTencentSecretId')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.secretId,
+        secretKey: firstDefinedText(
+          ownText(tencentSlot, 'secretKey'),
+          ownText(tencentLegacy, 'secretKey'),
+          ownText(record, 'cloudAsrTencentSecretKey')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.secretKey,
+        engineType: firstDefinedText(
+          ownText(tencentSlot, 'engineType'),
+          ownText(tencentLegacy, 'engineType'),
+          ownText(record, 'cloudAsrTencentEngineType')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.engineType,
+        service: firstDefinedText(
+          ownText(tencentSlot, 'service'),
+          ownText(tencentLegacy, 'service'),
+          ownText(record, 'cloudAsrTencentService')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.service
       }
     },
     polishing: {
@@ -196,6 +225,11 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     cloudAsrBailianApiKey: stored.cloudAsr.bailian.apiKey,
     cloudAsrBailianHost: stored.cloudAsr.bailian.host,
     cloudAsrBailianModel: stored.cloudAsr.bailian.model,
+    cloudAsrTencentAppId: stored.cloudAsr.tencent.appId,
+    cloudAsrTencentSecretId: stored.cloudAsr.tencent.secretId,
+    cloudAsrTencentSecretKey: stored.cloudAsr.tencent.secretKey,
+    cloudAsrTencentEngineType: stored.cloudAsr.tencent.engineType,
+    cloudAsrTencentService: stored.cloudAsr.tencent.service,
     language: stored.recognition.language,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
@@ -245,6 +279,13 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         apiKey: settings.cloudAsrBailianApiKey,
         host: settings.cloudAsrBailianHost,
         model: settings.cloudAsrBailianModel
+      },
+      tencent: {
+        appId: settings.cloudAsrTencentAppId,
+        secretId: settings.cloudAsrTencentSecretId,
+        secretKey: settings.cloudAsrTencentSecretKey,
+        engineType: settings.cloudAsrTencentEngineType,
+        service: settings.cloudAsrTencentService
       }
     },
     polishing: {
@@ -274,6 +315,11 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
     cloudAsrBailianApiKey: ['cloudAsr', 'bailian', 'apiKey'],
     cloudAsrBailianHost: ['cloudAsr', 'bailian', 'host'],
     cloudAsrBailianModel: ['cloudAsr', 'bailian', 'model'],
+    cloudAsrTencentAppId: ['cloudAsr', 'tencent', 'appId'],
+    cloudAsrTencentSecretId: ['cloudAsr', 'tencent', 'secretId'],
+    cloudAsrTencentSecretKey: ['cloudAsr', 'tencent', 'secretKey'],
+    cloudAsrTencentEngineType: ['cloudAsr', 'tencent', 'engineType'],
+    cloudAsrTencentService: ['cloudAsr', 'tencent', 'service'],
     voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
     voiceShortcut: ['general', 'shortcut', 'value'],
     voiceSoundsEnabled: ['general', 'soundsEnabled'],
@@ -331,6 +377,11 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsrBailianApiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsrBailianHost'], field: 'cloudAsrBailianHost' },
     { path: ['cloudAsrBailianModel'], field: 'cloudAsrBailianModel' },
+    { path: ['cloudAsrTencentAppId'], field: 'cloudAsrTencentAppId' },
+    { path: ['cloudAsrTencentSecretId'], field: 'cloudAsrTencentSecretId' },
+    { path: ['cloudAsrTencentSecretKey'], field: 'cloudAsrTencentSecretKey' },
+    { path: ['cloudAsrTencentEngineType'], field: 'cloudAsrTencentEngineType' },
+    { path: ['cloudAsrTencentService'], field: 'cloudAsrTencentService' },
     { path: ['language'], field: 'language' },
     { path: ['maxRecordingSeconds'], field: 'maxRecordingSeconds' },
     { path: ['voiceShortcutEnabled'], field: 'voiceShortcutEnabled' },
@@ -360,6 +411,11 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsr', 'bailian', 'host'], field: 'cloudAsrBailianHost' },
     { path: ['cloudAsr', 'bailian', 'model'], field: 'cloudAsrBailianModel' },
+    { path: ['cloudAsr', 'tencent', 'appId'], field: 'cloudAsrTencentAppId' },
+    { path: ['cloudAsr', 'tencent', 'secretId'], field: 'cloudAsrTencentSecretId' },
+    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
+    { path: ['cloudAsr', 'tencent', 'engineType'], field: 'cloudAsrTencentEngineType' },
+    { path: ['cloudAsr', 'tencent', 'service'], field: 'cloudAsrTencentService' },
     { path: ['polishing', 'enabled'], field: 'polishingEnabled' },
     { path: ['polishing', 'provider'], field: 'polishProvider' },
     { path: ['polishing', 'model'], field: 'polishModel' },
@@ -371,6 +427,7 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
     { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
+    { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['bailian', 'host'], field: 'cloudAsrBailianHost' },
     { path: ['bailian', 'model'], field: 'cloudAsrBailianModel' },
     { path: ['recognition', 'localWhisperAcceleration'], field: 'localWhisperAcceleration' }
@@ -384,9 +441,11 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
+    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' }
+    { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
+    { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' }
   ]
   for (const secret of secrets) {
     if (!secret.set) continue
@@ -416,6 +475,11 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
     && hasPath(record, ['cloudAsr', 'bailian', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'bailian', 'host'])
     && hasPath(record, ['cloudAsr', 'bailian', 'model'])
+    && hasPath(record, ['cloudAsr', 'tencent', 'appId'])
+    && hasPath(record, ['cloudAsr', 'tencent', 'secretId'])
+    && hasPath(record, ['cloudAsr', 'tencent', 'secretKey'])
+    && hasPath(record, ['cloudAsr', 'tencent', 'engineType'])
+    && hasPath(record, ['cloudAsr', 'tencent', 'service'])
     && hasPath(record, ['polishing', 'enabled'])
     && hasPath(record, ['polishing', 'provider'])
     && hasPath(record, ['polishing', 'model'])

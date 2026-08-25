@@ -17,6 +17,8 @@ type AudioContextConstructor = new () => LocalWhisperAudioContext
 
 export interface LocalWhisperAudioOptions {
   readonly signal?: AbortSignal
+  /** Cloud provider selected for the cloud-openai backend. */
+  readonly cloudProvider?: string
   /** Injectable for tests; production uses AudioContext or webkitAudioContext. */
   readonly createAudioContext?: () => LocalWhisperAudioContext
 }
@@ -25,8 +27,9 @@ export interface LocalWhisperAudioOptions {
  * Prepare exactly one of the two MediaRecorder-backed ASR payloads.
  *
  * This explicit branch is deliberately not a backend registry: Local Whisper
- * gets browser-decoded PCM WAV, while Cloud OpenAI receives the same payload
- * object returned by MediaRecorderSession.
+ * gets browser-decoded PCM WAV, while providers that accept the original
+ * MediaRecorder codec keep that payload unchanged. Tencent Cloud's Flash
+ * endpoint receives the same normalized WAV payload as Local Whisper.
  */
 export function prepareRecordedAudioForBackend(
   backend: MediaCaptureBackend,
@@ -34,7 +37,9 @@ export function prepareRecordedAudioForBackend(
   options: LocalWhisperAudioOptions = {}
 ): Promise<RecordedAudioPayload> {
   if (backend === 'local-whisper') return normalizeRecordedAudioForLocalWhisper(audio, options)
-  if (backend === 'cloud-openai') return Promise.resolve(audio)
+  if (backend === 'cloud-openai') {
+    return options.cloudProvider === 'tencent' ? normalizeRecordedAudioForLocalWhisper(audio, options) : Promise.resolve(audio)
+  }
   throw new Error(`Unsupported media capture backend: ${String(backend)}`)
 }
 
@@ -51,9 +56,8 @@ export function isTranscriptionStillCurrent(options: {
  * Decode a browser MediaRecorder payload and convert it to the WAV format
  * expected by the Host-side local Whisper runtime.
  *
- * This is intentionally a concrete path for Local Whisper rather than a
- * general codec/engine abstraction. Cloud backends continue to receive the
- * original MediaRecorder payload unchanged.
+ * This is intentionally a concrete path for Local Whisper and Tencent Cloud
+ * Flash rather than a general codec/engine abstraction.
  */
 export async function normalizeRecordedAudioForLocalWhisper(
   audio: RecordedAudioPayload,

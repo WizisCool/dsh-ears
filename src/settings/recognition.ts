@@ -1,10 +1,14 @@
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'bailian', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'bailian', 'tencent', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
 
 export const BAILIAN_MAX_RECORDING_SECONDS = 300
+export const TENCENT_FLASH_DEFAULT_ENGINE = '16k_zh'
+export const TENCENT_ASR_SERVICE_IDS = ['flash', 'big-model', 'realtime'] as const
+export type TencentAsrServiceId = typeof TENCENT_ASR_SERVICE_IDS[number]
+export const TENCENT_ASR_DEFAULT_SERVICE: TencentAsrServiceId = 'flash'
 
 export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
 export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]

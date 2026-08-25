@@ -407,7 +407,7 @@ describe('PolishService', () => {
       schemaVersion: number
       cloudAsr: { groq: { apiKey: string; model: string } }
     }
-    expect(canonical.schemaVersion).toBe(2)
+    expect(canonical.schemaVersion).toBe(3)
     expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo' })
 
     service.getSettings()
