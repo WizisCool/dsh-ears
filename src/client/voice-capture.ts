@@ -45,6 +45,16 @@ export function shouldAbandonPendingCapture(mounted: boolean, cancelled: boolean
 }
 
 /**
+ * Every media-capture initiation claims the next generation number. A newer
+ * start resets the shared cancel flag, so a still-pending create() that
+ * resolves afterwards would pass the flag check and steal the live session
+ * slot; a capture whose generation is no longer current must abort instead.
+ */
+export function isSupersededMediaCapture(latestGeneration: number, generation: number): boolean {
+  return latestGeneration !== generation
+}
+
+/**
  * Prefer the recognition session's own text. When the browser emits no final
  * result, recover the live draft slice written by interim updates.
  */
