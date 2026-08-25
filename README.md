@@ -36,17 +36,17 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` 至 `0.1.1-rc.2`）和 Node.js `^22.19.0 || >=24.0.0`。
 
-**通过 npm 安装：**
+### 通过 npm 安装
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-### DSH 插件市场
+### [DSH 插件市场](https://github.com/dsh-market/dsh-market)
 
-`dsh-ears` 已被 [DSH Market](https://github.com/dsh-market/dsh-market) 收录，可在设置 → 插件市场中直接安装、更新和卸载。
+可在设置 → 插件市场中直接安装、更新和卸载。
 
-**从源码安装：**
+### 从源码安装
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git

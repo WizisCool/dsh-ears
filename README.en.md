@@ -36,17 +36,17 @@ While recording, a recognition bar appears above the composer with a waveform an
 
 Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` through `0.1.1-rc.2`) and Node.js `^22.19.0 || >=24.0.0`.
 
-**Install from npm:**
+### Install from npm
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-### DSH Plugin Market
+### [DSH Plugin Market](https://github.com/dsh-market/dsh-market)
 
-`dsh-ears` is listed in [DSH Market](https://github.com/dsh-market/dsh-market), where it can be installed, updated, and uninstalled directly from Settings → Plugin Market.
+Install, update, and uninstall dsh-ears directly from Settings → Plugin Market.
 
-**Install from source:**
+### Install from source
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
