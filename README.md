@@ -29,6 +29,8 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
+录音时，输入框上方会显示带波形和停止按钮的识别条。转写或润色进行中，可点击垃圾桶图标丢弃本次录音。
+
 ## 安装
 
 前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` 至 `0.1.1-rc.2`）和 Node.js `^22.19.0 || >=24.0.0`。
@@ -81,7 +83,17 @@ dsh plugin --profile web remove dsh-ears
 npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ```
 
-无论通过 npm 还是源码安装，都使用这条命令。卸载后刷新 Web UI，麦克风图标会消失。源码仓库不会被删除；如有需要，请手动删除。
+这条命令会移除 dsh 中的插件注册，源码目录保持不变。卸载后刷新 Web UI，麦克风图标会消失。
+
+## 使用
+
+1. 点击麦克风图标，或按下 `Ctrl+Shift+Space`
+2. 开始说话
+3. 再次按下快捷键，或点击麦克风，停止录音并开始转写
+4. 开启润色后，原始转写会先写入草稿，润色完成后再更新，期间的手动编辑会被保留
+5. 检查内容后手动发送
+
+如果所选后端尚未就绪，麦克风图标会变灰，悬停即可查看原因。
 
 ## 识别后端
 
@@ -95,16 +107,16 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 | 贡献新后端 | — | 欢迎通过 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
 
 > 表中的额度来自提供商文档，可能随时变化，请以提供商的最新说明为准。
-
-> Local Whisper 不需要预装 Python、Torch、FFmpeg 或 `whisper` CLI，也没有 Python/CLI fallback。浏览器负责把录音转为单声道 16 kHz PCM16 WAV，Host 使用随包提供的 `@fugood/whisper.node` native runtime 和单独下载的 whisper.cpp GGML 模型
 >
-> Recognition 设置中的加速后端为 Default、Vulkan、CUDA，具体可用项取决于平台与安装的 native variant。native runtime 首次加载后切换加速后端需要重启 dsh Host。当前锁定的 `@fugood/whisper.node@1.1.2` Windows x64 CUDA 产物依赖 CUDA 12 的 `cudart64_12.dll` 和 `cublas64_12.dll`；只有 CUDA 13 运行库时该 variant 会显示不可用，并且不会回退到 Default 或 Vulkan。根包会带来更大的 installed size，因为官方 optional platform variants 会按包管理器规则参与安装；npm tarball 不内嵌模型，模型按需下载到本机缓存
+> 本地 Whisper 使用随包提供的 `@fugood/whisper.node` native runtime 和单独下载的 whisper.cpp GGML 模型，浏览器负责把录音转为单声道 16 kHz PCM16 WAV
+>
+> Recognition 设置中的加速后端为 Default、Vulkan、CUDA，具体可用项取决于平台与安装的 native variant。native runtime 首次加载后切换加速后端需要重启 dsh Host。当前锁定的 `@fugood/whisper.node@1.1.2` Windows x64 CUDA 产物需要 CUDA 12 的 `cudart64_12.dll` 和 `cublas64_12.dll`；运行库不匹配时，设置页会将该 variant 显示为不可用，用户可选择其他可用后端。官方 optional platform variants 会参与安装，模型按需下载到本机缓存
 
 ## 本地 Whisper 运行时
 
-本地 Whisper 由两部分组成：npm 包内的 `@fugood/whisper.node` native dependency，以及插件单独下载的 whisper.cpp GGML 模型文件。模型下载使用固定 manifest、校验和、临时文件和完成标记；npm 包本身不携带模型权重。
+本地 Whisper 包含 npm 包内的 `@fugood/whisper.node` native dependency，以及插件单独下载的 whisper.cpp GGML 模型文件。模型下载使用固定 manifest、校验和、临时文件和完成标记，模型权重存储在本机缓存。
 
-浏览器录音会先下混、重采样并编码为单声道 16 kHz PCM16 WAV，Host 不再寻找 Python 解释器、Torch、FFmpeg 或命令行程序。安装异常只会提示 native package 或所选加速后端不可用，不会引导用户安装外部 Python 环境。
+浏览器录音会先下混、重采样并编码为单声道 16 kHz PCM16 WAV，再发送给 Host。设置页会显示 native package 或所选加速后端的状态，并提供模型下载与重新检测入口。
 
 ## 润色
 
@@ -126,7 +138,7 @@ pnpm dev:config   # 构建并生成 HMR 配置
 pnpm dev:web      # 启动 dsh web
 ```
 
-开发时，在另一个终端运行 `pnpm dev:watch`。`pnpm dev:config` 会写出 `.dsh/cordis.patch.yml`（已在 `.gitignore` 中）用于 HMR，不会重复注册插件。
+开发时，在另一个终端运行 `pnpm dev:watch`。`pnpm dev:config` 会写出 `.dsh/cordis.patch.yml`（已在 `.gitignore` 中）用于 HMR，并保持单个插件加载项。
 
 ## 文档
 
