@@ -36,6 +36,18 @@ describe('applySpokenEnumerationLayout', () => {
     expect(applySpokenEnumerationLayout('第一时间把 Security Key 发我')).toBe('第一时间把 Security Key 发我')
   })
 
+  it('keeps chronological narratives as prose instead of corrupting them into lists', () => {
+    const narratives = [
+      '第一天去了海边，第二天去爬山',
+      '第一批货物已经发出，第二批下周到',
+      '第一步需要先注册，第二步登录',
+      '第一年打基础，第二年见成效'
+    ]
+    for (const narrative of narratives) {
+      expect(applySpokenEnumerationLayout(narrative)).toBe(narrative)
+    }
+  })
+
   it('leaves an already multiline numbered list alone', () => {
     const listed = '1. 预算\n2. 接口文档'
     expect(applySpokenEnumerationLayout(listed)).toBe(listed)
