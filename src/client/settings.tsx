@@ -528,7 +528,13 @@ function whisperCheckingContent(t: Translate): ReactNode {
 function whisperStatusContent(modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void, onCancelDownload: () => void, onDeleteModel: () => void): ReactNode {
   if (!modelState.runtimeAvailable) {
     const errorText = modelState.error === null ? t('whisperNativeUnavailable') : localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
-    return <span>{errorText}</span>
+    if (!modelState.downloading) return <span>{errorText}</span>
+    const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
+    return <>
+      <span>{errorText}</span>
+      <span>{percent === null ? t('whisperDownloading') : t('whisperDownloadingProgress', { percent })}</span>
+      <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
+    </>
   }
   if (modelState.error !== null) {
     const errorText = localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)

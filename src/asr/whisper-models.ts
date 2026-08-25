@@ -340,9 +340,12 @@ export class WhisperModels {
             if (chunk.done) break
             if (chunk.value === undefined) continue
             const bytes = Buffer.from(chunk.value)
+            const nextBytes = (handle.bytes ?? 0) + bytes.byteLength
+            if (nextBytes > MAX_MODEL_BYTES) throw new Error('Whisper model is too large')
+            if (nextBytes > definition.bytes) throw new Error(`Whisper model size mismatch: expected ${definition.bytes} bytes, received more`)
             await file.write(bytes)
             hash.update(bytes)
-            handle.bytes = (handle.bytes ?? 0) + bytes.byteLength
+            handle.bytes = nextBytes
             handle.progress = handle.totalBytes === null || handle.totalBytes === 0
               ? 0
               : Math.min(1, handle.bytes / handle.totalBytes)

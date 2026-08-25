@@ -60,6 +60,7 @@ function transcriptionOptions(overrides: Partial<Parameters<typeof transcribeWit
     model: 'tiny' as const,
     signal: new AbortController().signal,
     modelPath: 'C:/models/ggml-tiny.bin',
+    useGpu: false,
     ...overrides
   }
 }

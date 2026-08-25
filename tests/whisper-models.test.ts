@@ -101,6 +101,17 @@ describe('whisper.cpp model lifecycle', () => {
     await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  it('stops a stream when it exceeds the manifest size', async () => {
+    const oversized = Buffer.concat([TEST_BYTES, Buffer.from('extra')])
+    const { manager, cacheDir } = await makeManager(async () => new Response(oversized, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    await manager.downloadWhisperModel('tiny', true)
+    const done = await waitForState(manager, (state) => !state.downloading)
+    expect(done.downloaded).toBe(false)
+    expect(done.error).toContain('size mismatch')
+    expect(done.errorCode).toBe('whisper.downloadFailed')
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
   it('rejects a second model while one download is active', async () => {
     let releaseResponse: ((response: Response) => void) | undefined
     const fetch = vi.fn(async () => await new Promise<Response>((resolve) => { releaseResponse = resolve }))
