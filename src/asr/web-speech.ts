@@ -1,3 +1,5 @@
+import { joinSpacedSegments } from '../text-join.js'
+
 export type WebSpeechState = 'starting' | 'recording' | 'stopped' | 'error'
 
 type SpeechRecognitionAlternativeLike = {
@@ -197,10 +199,7 @@ export class WebSpeechSession {
 }
 
 export function appendSpeech(current: string, next: string): string {
-  if (next === '') return current
-  if (current === '') return next
-  if (/\s$/.test(current) || /^\s/.test(next)) return current + next
-  return `${current} ${next}`
+  return joinSpacedSegments(current, next)
 }
 
 function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | undefined {

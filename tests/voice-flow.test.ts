@@ -401,6 +401,11 @@ describe('voice draft flow', () => {
     expect(appendToDraft('hello', ' world')).toBe('hello world')
   })
 
+  it('appends CJK transcripts without an interposed space', () => {
+    expect(appendToDraft('你好', '世界')).toBe('你好世界')
+    expect(appendToDraft('写完了。', '睡觉')).toBe('写完了。睡觉')
+  })
+
   it('returns the draft written by a live recognition update', () => {
     const setDraft = vi.fn()
     const latestDraftRef = { current: 'original draft' }

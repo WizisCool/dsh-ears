@@ -44,6 +44,11 @@ describe('appendSpeech', () => {
     expect(appendSpeech('hello', ' world')).toBe('hello world')
     expect(appendSpeech('hello', 'world')).toBe('hello world')
   })
+
+  it('joins CJK results without an interposed space', () => {
+    expect(appendSpeech('今天天气', '很好')).toBe('今天天气很好')
+    expect(appendSpeech('结束了。', '明天见')).toBe('结束了。明天见')
+  })
 })
 
 describe('WebSpeechSession', () => {
