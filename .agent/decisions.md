@@ -25,7 +25,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-017 | Dedicated settings page | Accepted (live) |
 | D-018 | Recording-settings snapshot | **Open** |
 | D-019 | Whisper cache integrity | Closed by D-020 |
-| D-020 | Whisper robustness | Accepted |
+| D-020 | Whisper robustness | Partially superseded by D-039; integrity and lifecycle rules remain live, Python/CLI assumptions do not |
 | D-021 | Microphone availability gating | Accepted |
 | D-022 | Click-through to settings | Rejected |
 | D-023 | Cloud provider presets + secret keys | Accepted; extended by D-032 |
@@ -42,7 +42,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
 | D-035 | dsh 0.1.1 compatibility and open peers | Accepted (live compatibility and peer policy) |
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
-| D-037 | OS-aware Local Whisper setup guidance | Accepted |
+| D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
 
 ## D-001 — Project identity
@@ -342,3 +342,15 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: user-facing copy avoids internal jargon such as "Host"; prefer plain phrasing ("本机 / this computer") or omit the location when obvious. Developer docs and code keep technical terms.
 - Enforcement: `tests/locale.test.ts` guards every locale entry against terminal stops; host message strings follow the same style by convention.
 - Rationale: terminal punctuation across short UI strings read as machine-generated, and "Host" names an internal deployment concept users have no mental model for.
+
+
+## D-039 — Native whisper.node runtime and fixed configuration slots
+
+- Status: accepted (2026-08-25); partially supersedes D-020 and fully supersedes D-037.
+- Decision: Local Whisper uses the high-level `@fugood/whisper.node` package as the only native runtime. Python, Torch, FFmpeg, interpreter discovery, the `whisper` CLI, and fallback engines are removed from the product path. The Host owns the native runtime and model lifecycle; the browser owns audio normalization.
+- Decision: the browser converts captured audio to mono 16 kHz PCM16 WAV before the final Host RPC. The Host keeps a persistent native model context, serializes transcription jobs, forwards cancellation to the native job, and releases the context on Cordis disposal.
+- Decision: model files are separate whisper.cpp GGML downloads owned by dsh-ears. Downloads use a fixed manifest, checksum, partial file, atomic rename, and completion marker. Models are not embedded in the npm tarball.
+- Decision: Local Whisper acceleration is selected with the concrete flat wire field `localWhisperAcceleration` (`default`, `vulkan`, or `cuda`) and is stored under `recognition.localWhisper.acceleration`. The first native load fixes the process variant; changing acceleration afterwards requires restarting the dsh Host. No automatic fallback is presented or performed.
+- Decision: runtime diagnostics are short and concrete: the selected native package or acceleration variant is unavailable, or the Host must restart to apply a changed variant. The old Python/FFmpeg/openai-whisper setup guide is deleted.
+- Decision: persisted Host configuration has four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing`. The Remote/browser contract remains flat for compatibility with per-field drafts and auto-save. This is a fixed dsh-ears data shape, not a registry, factory, generic slot interface, or provider framework.
+- Rationale: one native dependency and one concrete Host runtime remove the old TypeScript-to-Python process boundary without introducing a second abstraction layer. Keeping the flat wire avoids coupling this runtime refactor to a client protocol rewrite, while nested Host storage makes ownership and migration legible.

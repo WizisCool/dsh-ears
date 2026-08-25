@@ -10,7 +10,7 @@ Give the dsh Web UI a native-feeling voice input flow:
 microphone → live transcript → optional dsh LLM polish → editable draft → manual send
 ```
 
-The implementation supports browser Web Speech, Host-side local Whisper, Groq, Alibaba Cloud Model Studio (Bailian / DashScope), and a custom OpenAI-compatible cloud ASR backend. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
+The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Alibaba Cloud Model Studio (Bailian / DashScope), and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
 
 ## Status
 
@@ -25,11 +25,13 @@ The package has two faces:
 - Host: Cordis lifecycle, Host RPC, native `settings.section`, local/cloud ASR, and dsh `ctx.llm`.
 - Browser: composer microphone, session-scoped recognition card, Web Speech, MediaRecorder capture for final ASR, and `inputActions.setDraft()`.
 
-Web Speech runs in the browser and is not a PCM recorder. Local Whisper and cloud ASR use a separate MediaRecorder source and a final-result Host RPC. The first release does not switch backends during one recording.
+Web Speech runs in the browser and is not a PCM recorder. Local Whisper and cloud ASR use a separate MediaRecorder source and a final-result Host RPC. Local Whisper receives browser-normalized mono 16 kHz PCM16 WAV, then uses a persistent whisper.node context. The first release does not switch backends during one recording.
 
 After recording stops, polishing runs on the Host through dsh's existing LLM runtime and credentials. The plugin stores a selected `{ provider, model }` route, not a second provider configuration.
 
 Durable detail lives in [`context.md`](./context.md). Live versus superseded decisions live in [`decisions.md`](./decisions.md).
+
+Four fixed Host configuration slots organize persisted settings: `general`, `recognition`, `cloudAsr`, and `polishing`. The Remote/browser view remains flat for compatibility and per-field auto-save; no slot registry, factory, or generic configuration framework is used.
 
 ## Current product surface
 

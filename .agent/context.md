@@ -40,7 +40,7 @@ Host (`exports["."]`)
   ├─ Cordis lifecycle
   ├─ native dsh settings scope
   ├─ cloud ASR provider registry and per-provider write-only role('secret') keys
-  ├─ local Whisper CLI adapter
+  ├─ bundled whisper.node native runtime and model lifecycle
   ├─ OpenAI-compatible and DashScope cloud ASR adapters
   ├─ dsh `ctx.llm` route discovery and polishing
   └─ strict Typert Remote descriptors
@@ -62,9 +62,9 @@ Browser (`exports["./client"]`)
 
 ### Local Whisper
 
-The browser records a bounded one-shot encoded audio payload. The Host writes it to a private `mkdtemp()` directory and invokes the configured `whisper` executable with an argument array (never a shell). Model weights stay owned by the user's Host installation.
+The browser records a bounded one-shot payload, downmixes and resamples it to mono 16 kHz PCM16 WAV, and sends it through the final Host RPC. The Host writes the WAV to a private `mkdtemp()` directory and uses the bundled whisper.node native context. Model weights stay in the plugin's separate local model cache.
 
-Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects a missing CLI or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The manager is disposed with the plugin scope. Windows `python.exe` / `py.exe` + PATHEXT probing is implemented but not yet smoke-tested. `medium` and larger models are documented as impractical on the CPU + 120-second path.
+Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects an unavailable native runtime or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The native runtime is disposed with the plugin scope. The selected Default/Vulkan/CUDA variant is fixed after first native load, so changing acceleration requires a dsh Host restart.
 
 ### Cloud ASR
 
@@ -86,10 +86,12 @@ Host `transcribe()` and `polish()` return the strict `RemoteTextResult` union: `
 
 ## Settings
 
+Persisted Host configuration is organized into four fixed slots: `general`, `recognition`, `cloudAsr`, and `polishing`. The flat Remote wire is retained as a compatibility adapter for the existing per-field client drafts; no registry, factory, or generic slot abstraction is introduced.
+
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
 
 - **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), language (empty = follow the dsh English/中文 locale), recording limit (default 120 seconds).
-- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Custom), Whisper model lifecycle, per-provider key/endpoint/host/model.
+- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Changing acceleration after the first native load requires restarting the dsh Host.
 - **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
 - **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
 
@@ -124,7 +126,7 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
 - Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
 - Strict Remote result objects keep optional fields absent rather than explicitly `undefined`; the wire test replays the gateway's JSON-safety check (D-036).
-- Broken Local Whisper environments report `platform` + `environment` diagnostics, which the settings page renders as OS-specific setup guidance with copyable install commands (D-037).
+- Local Whisper uses the bundled native package and a separately downloaded whisper.cpp GGML model. Browser capture is normalized to mono 16 kHz PCM16 WAV. Runtime failures stay concise: the settings page reports native package or selected acceleration unavailability, with no Python/FFmpeg/CLI setup guide.
 - The composer microphone grays out (D-021) on positive unavailability signals only. Active flow states stay enabled so stop remains reachable. Cloud readiness (key + model, plus Bailian host) is folded into the cloud backend's availability signal.
 - The voice shortcut (D-028) is in-page only. Idle starts, recording stops, transcribing/polishing is ignored. IME composition and key auto-repeat never trigger it. Events inside `[role="dialog"]` and hidden views are ignored. A gated microphone focuses the gray button instead of recording. Stored form is a canonical `ctrl+shift+space`-style string. Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. The field cannot be empty; Reset restores the default.
 

@@ -88,7 +88,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 | 后端 | 工作方式 | 需要什么 | 免费额度 |
 | --- | --- | --- | --- |
 | Web Speech | 浏览器实时识别，边说边出字 | Chromium 内核浏览器。音频可能经由浏览器厂商处理 | — |
-| 本地 Whisper | 停止录音后由 Host 调用本机 `whisper` CLI 转写 | 预装 openai-whisper，并在插件设置页下载模型（权重不随插件打包） | — |
+| 本地 Whisper | 浏览器停止录音后标准化为单声道 16 kHz PCM16 WAV，再由 Host 通过内置 whisper.node native 依赖转写 | npm 安装会带来对应平台的 native 变体；在设置页下载 whisper.cpp GGML 模型，模型不随 npm 包打包 | — |
 | [Groq](https://console.groq.com) | Host 将录音发送到 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key 和模型名；单次录音最长 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
 | 自定义 OpenAI 兼容 | 向指定的 `/audio/transcriptions` 端点发送请求 | 端点地址、API key 和模型名 | — |
@@ -96,7 +96,15 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 
 > 表中的额度来自提供商文档，可能随时变化，请以提供商的最新说明为准。
 
-> Whisper `medium` 及以上模型仅靠 CPU 通常难以在 120 秒内完成转写，建议使用 GPU 或更快的本地运行时。
+> Local Whisper 不需要预装 Python、Torch、FFmpeg 或 `whisper` CLI，也没有 Python/CLI fallback。浏览器负责把录音转为单声道 16 kHz PCM16 WAV，Host 使用随包提供的 `@fugood/whisper.node` native runtime 和单独下载的 whisper.cpp GGML 模型
+>
+> Recognition 设置中的加速后端为 Default、Vulkan、CUDA，具体可用项取决于平台与安装的 native variant。native runtime 首次加载后切换加速后端需要重启 dsh Host。当前锁定的 `@fugood/whisper.node@1.1.2` Windows x64 CUDA 产物依赖 CUDA 12 的 `cudart64_12.dll` 和 `cublas64_12.dll`；只有 CUDA 13 运行库时该 variant 会显示不可用，并且不会回退到 Default 或 Vulkan。根包会带来更大的 installed size，因为官方 optional platform variants 会按包管理器规则参与安装；npm tarball 不内嵌模型，模型按需下载到本机缓存
+
+## 本地 Whisper 运行时
+
+本地 Whisper 由两部分组成：npm 包内的 `@fugood/whisper.node` native dependency，以及插件单独下载的 whisper.cpp GGML 模型文件。模型下载使用固定 manifest、校验和、临时文件和完成标记；npm 包本身不携带模型权重。
+
+浏览器录音会先下混、重采样并编码为单声道 16 kHz PCM16 WAV，Host 不再寻找 Python 解释器、Torch、FFmpeg 或命令行程序。安装异常只会提示 native package 或所选加速后端不可用，不会引导用户安装外部 Python 环境。
 
 ## 润色
 

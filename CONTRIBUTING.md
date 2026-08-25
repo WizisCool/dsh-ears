@@ -30,6 +30,12 @@ dsh plugin --profile web add "$PWD"
 
 On Windows, run this from PowerShell or Git Bash — `cmd.exe` does not expand `$PWD`; use `"%CD%"` from cmd.
 
+## Local Whisper development
+
+Local Whisper uses the bundled `@fugood/whisper.node` native dependency and separately downloaded whisper.cpp GGML models. Do not add Python, Torch, FFmpeg, or CLI discovery code, and do not add a fallback engine. Browser capture is normalized to mono 16 kHz PCM16 WAV before the Host RPC.
+
+The Recognition acceleration selector supports `default`, `vulkan`, and `cuda` according to the installed platform variant. The first native load fixes the process variant, so changing acceleration requires restarting the dsh Host. The root package is intentionally larger because platform variants are installed separately; model files remain outside the package cache and are never committed.
+
 ## Cross-platform installs
 
 The checkout keeps native dependency trees in separate directories: `node_modules.win32` for Windows and `node_modules.linux` for WSL. The active tree is exposed as `node_modules`, so each platform keeps its own native packages and command shims.

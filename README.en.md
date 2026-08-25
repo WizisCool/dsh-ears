@@ -100,7 +100,7 @@ If the selected backend is not ready, the microphone icon is disabled. Hover ove
 | Backend | How it works | Requirements | Free allowance |
 | --- | --- | --- | --- |
 | Web Speech | Live in-browser recognition; words appear as you speak | A Chromium-based browser. Audio may be routed through the browser vendor | — |
-| Local Whisper | The Host runs the `whisper` CLI after recording stops | `openai-whisper` installed locally; download a model from the plugin settings page (weights are not bundled) | — |
+| Local Whisper | After recording stops, the browser normalizes audio to mono 16 kHz PCM16 WAV and the Host transcribes it through the bundled whisper.node native dependency | The matching native variant is installed with npm; download a whisper.cpp GGML model from settings (models are not bundled) | — |
 | [Groq](https://console.groq.com) | The Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription (Flash family) | HTTPS origin, API key, and model name. Recordings are limited to 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
 | Custom OpenAI-compatible | Sends a request to the specified `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
@@ -108,7 +108,15 @@ If the selected backend is not ready, the microphone icon is disabled. Hover ove
 
 > The allowances above come from provider documentation and may change. Check the provider's current documentation.
 
-> Whisper `medium` and larger models rarely finish within 120 s on CPU alone. A GPU or a faster local runtime is recommended.
+> Local Whisper does not require Python, Torch, FFmpeg, or the `whisper` CLI, and it has no Python/CLI fallback. The browser normalizes the recording to mono 16 kHz PCM16 WAV, while the Host uses the bundled `@fugood/whisper.node` native runtime and a separately downloaded whisper.cpp GGML model
+>
+> The Recognition tab exposes Default, Vulkan, and CUDA acceleration choices where supported by the platform and installed native variant. Changing acceleration after the native runtime has loaded requires a dsh Host restart. The pinned `@fugood/whisper.node@1.1.2` Windows x64 CUDA binary depends on the CUDA 12 `cudart64_12.dll` and `cublas64_12.dll`; a machine with only CUDA 13 runtime libraries reports that variant as unavailable, with no fallback to Default or Vulkan. The root package materially increases installed size because the official optional platform variants participate in installation; the npm tarball does not embed model weights, which are downloaded on demand
+
+## Local Whisper runtime
+
+Local Whisper has two separate payloads: the npm-installed `@fugood/whisper.node` native dependency and a whisper.cpp GGML model downloaded by the plugin. Model downloads use a fixed manifest, checksum, partial file, atomic rename, and completion marker; model weights are not included in the npm package
+
+The browser downmixes, resamples, and encodes each MediaRecorder result as mono 16 kHz PCM16 WAV before sending it to the Host. The Host does not discover Python, Torch, FFmpeg, or a command-line executable. If the native package or selected acceleration is unavailable, the settings page shows a short diagnosis instead of an external installation guide
 
 ## Polishing
 
