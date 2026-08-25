@@ -5,7 +5,9 @@
  * relies on; mixed-script boundaries also keep the space for readability.
  */
 const CJK_SCRIPT = '\\p{Script=Han}|\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Hangul}'
-const FULL_WIDTH_PUNCTUATION = '[\\u3000-\u303f\\u30fc\\uff01-\\uff20\\uff3b-\\uff40\\uff5b-\\uff65\\u2014\\u2026]'
+// Full-width punctuation only; full-width digits (０-９) are content
+// characters, not delimiters.
+const FULL_WIDTH_PUNCTUATION = '[\\u3000-\\u303f\\u30fc\\uff01-\\uff0f\\uff1a-\\uff20\\uff3b-\\uff40\\uff5b-\\uff65\\u2014\\u2026]'
 const FULL_WIDTH_PUNCTUATION_HEAD = new RegExp(`^${FULL_WIDTH_PUNCTUATION}`, 'u')
 const FULL_WIDTH_PUNCTUATION_TAIL = new RegExp(`${FULL_WIDTH_PUNCTUATION}$`, 'u')
 const CJK_SCRIPT_HEAD = new RegExp(`^(?:${CJK_SCRIPT})`, 'u')

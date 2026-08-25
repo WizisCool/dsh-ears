@@ -38,4 +38,8 @@ describe('joinSpacedSegments', () => {
     expect(joinSpacedSegments('结束了。', 'next')).toBe('结束了。next')
     expect(joinSpacedSegments('hello', '「引文」')).toBe('hello「引文」')
   })
+
+  it('keeps the space around full-width digits, which are content characters', () => {
+    expect(joinSpacedSegments('编号１２３', '456')).toBe('编号１２３ 456')
+  })
 })
