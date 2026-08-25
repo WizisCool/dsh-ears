@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, settingsPageLabel, validateEarsSettings } from '../src/config.js'
+import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, settingsPageLabel, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
   it('defaults the settings page name to dsh-ears and accepts the voice label', () => {
@@ -8,6 +8,9 @@ describe('dsh-ears settings validation', () => {
     expect(settingsPageLabel('voice', { plugin: 'dsh-ears', voice: '语音' })).toBe('语音')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, settingsDisplayName: 'voice' })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, settingsDisplayName: 'other' })).toThrow('display name')
+    expect(WHISPER_ACCELERATION_IDS).toEqual(['default', 'vulkan', 'cuda'])
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'cuda' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'metal' })).toThrow('acceleration')
   })
 
   it('follows the dsh UI locale when recognition language is unset', () => {

@@ -56,6 +56,13 @@ describe('structured error Remote contracts', () => {
 })
 
 describe('settings Remote contract', () => {
+  it('accepts the supported local Whisper acceleration values', () => {
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'default' })).toEqual({ localWhisperAcceleration: 'default' })
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'vulkan' })).toEqual({ localWhisperAcceleration: 'vulkan' })
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'cuda' })).toEqual({ localWhisperAcceleration: 'cuda' })
+    expect(() => earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'metal' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',
@@ -103,6 +110,7 @@ describe('settings Remote contract', () => {
       settings: {
         asrBackend: 'web-speech',
         localWhisperModel: 'tiny',
+        localWhisperAcceleration: 'default',
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: '',
         cloudAsrGroqModel: '',

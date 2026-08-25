@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ENVIRONMENT_IDS, WHISPER_MODEL_IDS, WHISPER_PLATFORM_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_ENVIRONMENT_IDS, WHISPER_MODEL_IDS, WHISPER_PLATFORM_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -12,6 +12,7 @@ export const textSchema = z.string()
 export const earsSettingsSchema = z.object({
   asrBackend: z.string(),
   localWhisperModel: z.string(),
+  localWhisperAcceleration: z.string(),
   cloudAsrProvider: z.string(),
   cloudAsrGroqApiKey: z.string(),
   cloudAsrGroqModel: z.string(),
@@ -37,6 +38,7 @@ export const earsSettingsSchema = z.object({
 export const earsSettingsPatchSchema = z.object({
   asrBackend: asrBackendSchema.optional(),
   localWhisperModel: whisperModelSchema.optional(),
+  localWhisperAcceleration: z.enum(WHISPER_ACCELERATION_IDS).optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
   cloudAsrGroqApiKey: z.string().max(1024).optional(),
   cloudAsrGroqModel: z.string().optional(),
@@ -179,7 +181,7 @@ export type EarsSettingsView = {
 export type { PolishRoute }
 export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
-export type { WhisperEnvironmentId, WhisperPlatformId } from './config.js'
+export type { WhisperAccelerationId, WhisperEnvironmentId, WhisperPlatformId } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
 export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
