@@ -6,7 +6,7 @@ import { TYPERT_REMOTE } from '../src/remote.js'
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
     expect(whisperModelStateSchema.parse({
-      cliAvailable: true,
+      runtimeAvailable: true,
       downloaded: false,
       downloading: false,
       progress: null,
@@ -17,16 +17,14 @@ describe('structured error Remote contracts', () => {
       errorParams: { model: 'tiny' }
     })).toMatchObject({ errorCode: 'whisper.modelUnknown', errorParams: { model: 'tiny' } })
     expect(whisperModelStateSchema.parse({
-      cliAvailable: false,
+      runtimeAvailable: false,
       downloaded: false,
       downloading: false,
       progress: null,
       bytes: null,
       totalBytes: null,
-      error: null,
-      platform: 'windows',
-      environment: 'python-missing'
-    })).toMatchObject({ platform: 'windows', environment: 'python-missing' })
+      error: null
+    })).toMatchObject({ runtimeAvailable: false })
     expect(cloudProviderModelsViewSchema.parse({
       status: 'error',
       models: [],

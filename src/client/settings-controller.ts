@@ -73,7 +73,7 @@ export const EMPTY_CLOUD_MODELS_VIEW: CloudModelsView = Object.freeze({
 })
 
 export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
-  cliAvailable: false,
+  runtimeAvailable: false,
   downloaded: false,
   downloading: false,
   progress: null,

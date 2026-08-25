@@ -12,6 +12,7 @@ export default defineConfig([
     outDir: 'lib',
     format: 'esm',
     platform: 'node',
+    deps: { neverBundle: ['@fugood/whisper.node'] },
     target: 'es2022',
     dts: true,
     clean: true,

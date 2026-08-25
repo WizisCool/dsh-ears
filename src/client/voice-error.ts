@@ -44,8 +44,8 @@ const EMPTY_ERROR_CODES = new Set<string>([
 ])
 
 const CONFIG_ERROR_CODES = new Set<string>([
-  EARS_ERROR_CODES.whisperNotInstalled,
-  EARS_ERROR_CODES.whisperPythonNotFound,
+  EARS_ERROR_CODES.whisperNativeUnavailable,
+  EARS_ERROR_CODES.whisperRestartRequired,
   EARS_ERROR_CODES.whisperModelUnknown,
   EARS_ERROR_CODES.whisperModelUnverified,
   EARS_ERROR_CODES.whisperModelNotDownloaded,

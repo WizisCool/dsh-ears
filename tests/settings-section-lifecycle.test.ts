@@ -76,7 +76,7 @@ describe('EarsSettingsSection lifecycle', () => {
       useEarsWhisper: (selector) => selector({
         status: 'ready',
         state: {
-          cliAvailable: false,
+          runtimeAvailable: false,
           downloaded: false,
           downloading: false,
           progress: null,

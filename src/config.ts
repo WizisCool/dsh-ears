@@ -41,12 +41,6 @@ export type { SettingsDisplayNameId } from './settings/general.js'
 
 export const SETTINGS_NAMESPACE = 'dsh-ears'
 export const EARS_SETTINGS_SCHEMA_VERSION = 2 as const
-export const WHISPER_PLATFORM_IDS = ['windows', 'macos', 'linux'] as const
-export type WhisperPlatformId = typeof WHISPER_PLATFORM_IDS[number]
-
-/** Why the local Whisper environment is unusable; absent from the wire when the environment works. */
-export const WHISPER_ENVIRONMENT_IDS = ['python-missing', 'whisper-missing'] as const
-export type WhisperEnvironmentId = typeof WHISPER_ENVIRONMENT_IDS[number]
 
 /**
  * Flat settings are the compatibility view used by the existing Remote and

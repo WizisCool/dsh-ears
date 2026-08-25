@@ -378,7 +378,7 @@ export const TYPERT = {
           },
           {
             name: 'WhisperModelState',
-            declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
+            declaration: 'export interface WhisperModelState { runtimeAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
           },
           {
             name: 'CloudProviderModelsView',
