@@ -1,5 +1,8 @@
 const CHINESE_ORDINAL = /第[一二三四五六七八九十]/g
-const FALSE_ORDINAL_TAIL = /^(名|时间|反应|印象|人称)/
+// Ordinals that head time, quantity, or measure phrases (第一天, 第二批,
+// 第一步) narrate a sequence instead of enumerating list items; splitting on
+// them corrupted the sentence and dropped the classifier into the first item.
+const FALSE_ORDINAL_TAIL = /^(名|时间|反应|印象|人称|天|日|夜|周|月|年|季度|批|轮|次|个|步|阶段)/
 const ORDINAL_TAIL = /^(点|是)?[，,、.\s]*/
 const INLINE_ARABIC_ITEM = /(?<=\S)\s+(?=[2-9]\.\s|[1-9]\d\.\s)/g
 
