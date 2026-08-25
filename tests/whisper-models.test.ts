@@ -90,6 +90,20 @@ describe('whisper.cpp model lifecycle', () => {
     await expect(stat(`${filePath}.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  it('rejects a same-size model file after its bytes change', async () => {
+    const { manager, cacheDir } = await makeManager()
+    await manager.downloadWhisperModel('tiny', true)
+    await waitForState(manager, (state) => state.downloaded)
+    const tampered = Buffer.from(TEST_BYTES)
+    tampered[0] ^= 1
+    await writeFile(`${cacheDir}/ggml-tiny.bin`, tampered)
+
+    await expect(manager.getWhisperModelState('tiny', true)).resolves.toMatchObject({
+      downloaded: false,
+      errorCode: 'whisper.modelUnverified'
+    })
+  })
+
   it('removes an invalid download and reports checksum failure', async () => {
     const { manager, cacheDir } = await makeManager(async () => new Response(Buffer.from('wrong'), { headers: { 'content-length': '5' } }), { ...TEST_DEFINITION, bytes: 5 })
     await manager.downloadWhisperModel('tiny', true)
@@ -102,13 +116,26 @@ describe('whisper.cpp model lifecycle', () => {
   })
 
   it('stops a stream when it exceeds the manifest size', async () => {
-    const oversized = Buffer.concat([TEST_BYTES, Buffer.from('extra')])
-    const { manager, cacheDir } = await makeManager(async () => new Response(oversized, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    const chunks = [TEST_BYTES, Buffer.from('extra'), Buffer.from('tail')]
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1
+        const chunk = chunks.shift()
+        if (chunk === undefined) {
+          controller.close()
+          return
+        }
+        controller.enqueue(chunk)
+      }
+    }, { highWaterMark: 0 })
+    const { manager, cacheDir } = await makeManager(async () => new Response(stream, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
     await manager.downloadWhisperModel('tiny', true)
     const done = await waitForState(manager, (state) => !state.downloading)
     expect(done.downloaded).toBe(false)
     expect(done.error).toContain('size mismatch')
     expect(done.errorCode).toBe('whisper.downloadFailed')
+    expect(pulls).toBe(2)
     await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
@@ -116,11 +143,14 @@ describe('whisper.cpp model lifecycle', () => {
     let releaseResponse: ((response: Response) => void) | undefined
     const fetch = vi.fn(async () => await new Promise<Response>((resolve) => { releaseResponse = resolve }))
     const { manager } = await makeManager(fetch)
-    await manager.downloadWhisperModel('tiny', true)
+    const first = manager.downloadWhisperModel('tiny', true)
+    const second = manager.downloadWhisperModel('base', true)
+    await first
     await waitForState(manager, (state) => state.downloading)
-    const blocked = await manager.downloadWhisperModel('base', true)
+    const blocked = await second
     expect(blocked.error).toBe('Another Whisper model is already downloading.')
     expect(blocked.errorCode).toBe('whisper.alreadyDownloading')
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
     releaseResponse?.(new Response(TEST_BYTES, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
     await waitForState(manager, (state) => !state.downloading)
   })

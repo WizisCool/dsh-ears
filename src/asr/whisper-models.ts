@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { access, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { constants } from 'node:fs'
+import { createReadStream, constants } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { WHISPER_MODEL_IDS, type WhisperModelId } from '../config.js'
@@ -81,6 +81,13 @@ interface CompletionMarker {
   readonly bytes: number
 }
 
+interface VerifiedFile {
+  readonly size: number
+  readonly mtimeMs: number
+  readonly ctimeMs: number
+  readonly sha256: string
+}
+
 interface DownloadHandle {
   readonly model: WhisperModelId
   readonly filePath: string
@@ -145,6 +152,8 @@ export class WhisperModels {
   private readonly manifest: Readonly<Record<WhisperModelId, WhisperModelDefinition>>
   private disposed = false
   private activeDownload: DownloadHandle | undefined
+  private downloadSetup: Promise<void> = Promise.resolve()
+  private readonly verifiedFiles = new Map<string, VerifiedFile>()
 
   constructor(options: WhisperModelsOptions = {}) {
     this.platform = options.platform ?? process.platform
@@ -160,9 +169,8 @@ export class WhisperModels {
     if (handle !== undefined && !handle.finished) {
       handle.cancelRequested = true
       handle.controller.abort()
-      void this.removeArtifacts(handle).catch(() => undefined)
+      void handle.promise?.catch(() => undefined)
     }
-    this.activeDownload = undefined
   }
 
   async getWhisperModelState(model: WhisperModelId, runtimeAvailable: boolean): Promise<WhisperModelState> {
@@ -187,8 +195,18 @@ export class WhisperModels {
         return errorState(runtimeAvailable, 'The dsh-ears model completion marker is invalid; download the model again.', EARS_ERROR_CODES.whisperModelUnverified)
       }
       if (info.size !== definition.bytes) {
+        this.verifiedFiles.delete(filePath)
         return errorState(runtimeAvailable, 'The downloaded Whisper model has an unexpected size; download it again.', EARS_ERROR_CODES.whisperModelUnverified)
       }
+      const verified = this.verifiedFiles.get(filePath)
+      const digest = verified !== undefined && verified.size === info.size && verified.mtimeMs === info.mtimeMs && verified.ctimeMs === info.ctimeMs
+        ? verified.sha256
+        : await hashFile(filePath)
+      if (digest !== definition.sha256) {
+        this.verifiedFiles.delete(filePath)
+        return errorState(runtimeAvailable, 'The downloaded Whisper model failed checksum verification; download it again.', EARS_ERROR_CODES.whisperModelUnverified)
+      }
+      this.verifiedFiles.set(filePath, { size: info.size, mtimeMs: info.mtimeMs, ctimeMs: info.ctimeMs, sha256: digest })
       return {
         runtimeAvailable,
         downloaded: true,
@@ -207,6 +225,7 @@ export class WhisperModels {
           { detail: error instanceof Error ? error.message : 'Whisper model state query failed' }
         )
       }
+      this.verifiedFiles.delete(filePath)
       await rm(marker, { force: true }).catch(() => undefined)
       await rm(`${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`, { force: true }).catch(() => undefined)
       return {
@@ -225,47 +244,46 @@ export class WhisperModels {
     if (this.disposed) return { ...EMPTY_STATE, runtimeAvailable }
     if (!isWhisperModelId(model)) return { ...EMPTY_STATE, runtimeAvailable }
 
-    const active = this.activeDownload
-    if (active !== undefined && !active.finished) {
-      if (active.model === model) return stateFromHandle(active, runtimeAvailable)
-      return {
-        ...stateFromHandle(active, runtimeAvailable),
-        error: 'Another Whisper model is already downloading.',
-        errorCode: EARS_ERROR_CODES.whisperAlreadyDownloading
+    const releaseSetup = await this.acquireDownloadSetup()
+    try {
+      if (this.disposed) return { ...EMPTY_STATE, runtimeAvailable }
+      const active = this.activeDownload
+      if (active !== undefined && !active.finished) {
+        if (active.model === model) return stateFromHandle(active, runtimeAvailable)
+        return {
+          ...stateFromHandle(active, runtimeAvailable),
+          error: 'Another Whisper model is already downloading.',
+          errorCode: EARS_ERROR_CODES.whisperAlreadyDownloading
+        }
       }
-    }
 
-    const current = await this.getWhisperModelState(model, runtimeAvailable)
-    if (current.downloaded) return current
+      const current = await this.getWhisperModelState(model, runtimeAvailable)
+      if (this.disposed) return { ...EMPTY_STATE, runtimeAvailable }
+      if (current.downloaded) return current
 
-    const definition = this.manifest[model]
-    const filePath = this.modelPath(model, definition)
-    const partialPath = `${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`
-    const markerPath = `${filePath}${DOWNLOAD_MARKER_SUFFIX}`
-    await mkdir(dirname(filePath), { recursive: true })
-    await rm(partialPath, { force: true })
-    if (current.errorCode === EARS_ERROR_CODES.whisperModelUnverified) {
-      await rm(filePath, { force: true })
-      await rm(markerPath, { force: true })
+      const definition = this.manifest[model]
+      const filePath = this.modelPath(model, definition)
+      const handle: DownloadHandle = {
+        model,
+        filePath,
+        partialPath: `${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`,
+        markerPath: `${filePath}${DOWNLOAD_MARKER_SUFFIX}`,
+        controller: new AbortController(),
+        progress: 0,
+        bytes: 0,
+        totalBytes: definition.bytes,
+        error: null,
+        finished: false,
+        cancelRequested: false
+      }
+      this.verifiedFiles.delete(filePath)
+      this.activeDownload = handle
+      handle.promise = this.runDownload(handle, definition, current.errorCode === EARS_ERROR_CODES.whisperModelUnverified)
+      void handle.promise.catch(() => undefined)
+      return stateFromHandle(handle, runtimeAvailable)
+    } finally {
+      releaseSetup()
     }
-
-    const handle: DownloadHandle = {
-      model,
-      filePath,
-      partialPath,
-      markerPath,
-      controller: new AbortController(),
-      progress: 0,
-      bytes: 0,
-      totalBytes: definition.bytes,
-      error: null,
-      finished: false,
-      cancelRequested: false
-    }
-    this.activeDownload = handle
-    handle.promise = this.runDownload(handle, definition)
-    void handle.promise.catch(() => undefined)
-    return stateFromHandle(handle, runtimeAvailable)
   }
 
   async cancelWhisperModelDownload(model: WhisperModelId, runtimeAvailable: boolean): Promise<WhisperModelState> {
@@ -293,6 +311,7 @@ export class WhisperModels {
 
     try {
       const filePath = this.modelPath(model, this.manifest[model])
+      this.verifiedFiles.delete(filePath)
       await rm(filePath, { force: true })
       await rm(`${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`, { force: true })
       await rm(`${filePath}${DOWNLOAD_MARKER_SUFFIX}`, { force: true })
@@ -311,12 +330,28 @@ export class WhisperModels {
     }
   }
 
+  private async acquireDownloadSetup(): Promise<() => void> {
+    const previous = this.downloadSetup
+    let release!: () => void
+    this.downloadSetup = new Promise((resolve) => { release = resolve })
+    await previous
+    return release
+  }
+
   private modelPath(model: WhisperModelId, definition: WhisperModelDefinition): string {
     return join(whisperCacheDirectory(this.platform, this.env), definition.fileName)
   }
 
-  private async runDownload(handle: DownloadHandle, definition: WhisperModelDefinition): Promise<void> {
+  private async runDownload(handle: DownloadHandle, definition: WhisperModelDefinition, removeUnverified: boolean): Promise<void> {
     try {
+      handle.controller.signal.throwIfAborted()
+      await mkdir(dirname(handle.filePath), { recursive: true })
+      await rm(handle.partialPath, { force: true })
+      if (removeUnverified) {
+        await rm(handle.filePath, { force: true })
+        await rm(handle.markerPath, { force: true })
+      }
+      handle.controller.signal.throwIfAborted()
       if (this.fetchImpl === undefined) throw new Error('The Node fetch API is unavailable')
       const url = modelUrl(definition, this.env)
       const response = await this.fetchImpl(url, { signal: handle.controller.signal, redirect: 'follow' })
@@ -326,6 +361,7 @@ export class WhisperModels {
       const contentLength = Number(response.headers.get('content-length'))
       if (Number.isFinite(contentLength) && contentLength > 0) handle.totalBytes = contentLength
       if (handle.totalBytes !== null && handle.totalBytes > MAX_MODEL_BYTES) throw new Error('Whisper model is too large')
+      handle.controller.signal.throwIfAborted()
 
       const file = await open(handle.partialPath, 'w')
       const hash = createHash('sha256')
@@ -357,12 +393,15 @@ export class WhisperModels {
         await file.close()
       }
 
+      handle.controller.signal.throwIfAborted()
       if (handle.bytes !== definition.bytes) throw new Error(`Whisper model size mismatch: expected ${definition.bytes} bytes, received ${handle.bytes ?? 0}`)
       const digest = hash.digest('hex')
       if (digest !== definition.sha256) throw new Error('Whisper model checksum verification failed')
 
       await rm(handle.filePath, { force: true })
+      handle.controller.signal.throwIfAborted()
       await rename(handle.partialPath, handle.filePath)
+      handle.controller.signal.throwIfAborted()
       await writeFile(handle.markerPath, JSON.stringify({ version: 1, model: handle.model, sha256: definition.sha256, bytes: definition.bytes } satisfies CompletionMarker), 'utf8')
       handle.progress = 1
       handle.bytes = definition.bytes
@@ -375,15 +414,13 @@ export class WhisperModels {
         handle.errorParams = { detail }
       }
       await this.removeArtifacts(handle).catch((error) => {
-        if (handle.cancelRequested) return
         const detail = error instanceof Error ? error.message : String(error)
         handle.error = `${handle.error ?? 'Whisper model download failed'}; cleanup failed: ${detail}`
         handle.errorCode = EARS_ERROR_CODES.whisperDownloadCleanupFailed
         handle.errorParams = { detail }
       })
-      if (handle.cancelRequested) {
+      if (handle.cancelRequested && handle.errorCode === undefined) {
         handle.error = null
-        delete handle.errorCode
         delete handle.errorParams
       }
       throw error
@@ -415,6 +452,12 @@ export class WhisperModels {
       return 'invalid'
     }
   }
+}
+
+async function hashFile(path: string): Promise<string> {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest('hex')
 }
 
 function modelUrl(definition: WhisperModelDefinition, env: NodeJS.ProcessEnv): string {
