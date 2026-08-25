@@ -4,7 +4,7 @@ import { EARS_ERROR_CODES, type EarsErrorCode } from '../errors.js'
 
 export const LOCALE_NAMESPACE = 'settings.dshEars' as const
 
-/** Simplified Chinese is the locale key-set source of truth. */
+/** English-only documentation rule exception: localeZh is the registered Simplified Chinese source of truth. */
 export const localeZh = {
   polishPrompt: '润色提示词',
   polishPromptHint: '留空使用内置默认',
