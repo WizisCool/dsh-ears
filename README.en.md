@@ -88,9 +88,7 @@ The command removes the dsh plugin registration and leaves a local clone in plac
 
 ## DSH Plugin Market
 
-`dsh-ears` is listed in the DSH Plugin Market, where it can be installed, updated, and uninstalled from Settings → Plugin Market. The market installs the published npm package and can usually hot-load a fresh installation.
-
-When an update includes Host code, the market reports that dsh must be restarted; the new version is fully active after the restart. Uninstalling removes the plugin and its runtime registration but keeps dsh-ears settings, cloud API keys, and downloaded Whisper models so a later reinstall can reuse them.
+`dsh-ears` is listed in [DSH Market](https://github.com/dsh-market/dsh-market), where it can be installed, updated, and uninstalled directly from Settings → Plugin Market.
 
 ## Usage
 

@@ -88,9 +88,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 
 ## DSH 插件市场
 
-`dsh-ears` 已收录到 DSH 插件市场，可在设置 → 插件市场中直接安装、更新和卸载。市场安装使用 npm 发布包，安装完成后通常可以热加载。
-
-更新包含 Host 代码时，市场会提示重启 dsh，重启后新版本才会完全生效。卸载会移除插件和运行时注册，但会保留 dsh-ears 的设置、云端 API key 和已下载的 Whisper 模型，重新安装后可以继续使用。
+`dsh-ears` 已被 [DSH Market](https://github.com/dsh-market/dsh-market) 收录，可在设置 → 插件市场中直接安装、更新和卸载。
 
 ## 使用
 
