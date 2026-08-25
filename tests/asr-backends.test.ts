@@ -77,7 +77,7 @@ describe('local whisper native preflight', () => {
       required.push(name)
       return { WhisperContext: function WhisperContext() {} }
     })
-    expect(packageName).toBe('@fugood/node-whisper-win32-x64-cuda')
+    expect(packageName).toBe(whisperNativePackageName('cuda'))
     expect(required).toEqual([packageName])
   })
 
