@@ -58,12 +58,23 @@ function createMutableSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS) {
   return {
     get: () => stored,
     update: vi.fn(async (next: unknown) => {
-      stored = next
+      stored = mergeSettings(stored, next)
     }),
     replace: vi.fn(async (next: unknown) => {
       stored = next
     })
   }
+}
+
+function mergeSettings(base: unknown, patch: unknown): unknown {
+  if (!isRecord(base) || !isRecord(patch)) return patch
+  const result: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(patch)) result[key] = mergeSettings(result[key], value)
+  return result
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 describe('resolvePolishRoute', () => {
@@ -454,8 +465,38 @@ describe('PolishService', () => {
 
     expect(service.getSettings().settings.localWhisperAcceleration).toBe('default')
     expect(service.getSettings().localWhisperAccelerations).toEqual(['default'])
-    await vi.waitFor(() => expect(scope.replace).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(scope.update).toHaveBeenCalledTimes(1))
+    expect(scope.update).toHaveBeenCalledWith({ recognition: { localWhisper: { acceleration: 'default' } } })
     expect((scope.get() as { recognition: { localWhisper: { acceleration: string } } }).recognition.localWhisper.acceleration).toBe('default')
+  })
+
+  it('preserves inherited settings when only the resolved snapshot is visible', async () => {
+    whisperCapabilities.available = ['default']
+    whisperCapabilities.default = 'default'
+    const resolved = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, language: 'base-language', localWhisperAcceleration: 'cuda' })
+    const update = vi.fn(async () => undefined)
+    const replace = vi.fn(async () => undefined)
+    const scope = {
+      get: () => resolved,
+      update,
+      replace
+    }
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: true,
+      describe: () => [{ ns: 'dsh-ears' }],
+      register: () => scope
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    expect(service.getSettings().settings.localWhisperAcceleration).toBe('default')
+    await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(update).toHaveBeenCalledWith({ recognition: { localWhisper: { acceleration: 'default' } } })
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('does not report cloud ASR as available without a model', async () => {

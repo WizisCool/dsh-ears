@@ -257,6 +257,47 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
   }
 }
 
+export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  const paths: Record<string, readonly string[]> = {
+    asrBackend: ['recognition', 'backend'],
+    localWhisperModel: ['recognition', 'localWhisper', 'model'],
+    localWhisperAcceleration: ['recognition', 'localWhisper', 'acceleration'],
+    cloudAsrProvider: ['recognition', 'cloudProvider'],
+    language: ['recognition', 'language'],
+    maxRecordingSeconds: ['recognition', 'maxRecordingSeconds'],
+    cloudAsrGroqApiKey: ['cloudAsr', 'groq', 'apiKey'],
+    cloudAsrGroqModel: ['cloudAsr', 'groq', 'model'],
+    cloudAsrCustomApiKey: ['cloudAsr', 'customOpenAi', 'apiKey'],
+    cloudAsrCustomEndpoint: ['cloudAsr', 'customOpenAi', 'endpoint'],
+    cloudAsrCustomModel: ['cloudAsr', 'customOpenAi', 'model'],
+    cloudAsrBailianApiKey: ['cloudAsr', 'bailian', 'apiKey'],
+    cloudAsrBailianHost: ['cloudAsr', 'bailian', 'host'],
+    cloudAsrBailianModel: ['cloudAsr', 'bailian', 'model'],
+    voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
+    voiceShortcut: ['general', 'shortcut', 'value'],
+    voiceSoundsEnabled: ['general', 'soundsEnabled'],
+    settingsDisplayName: ['general', 'displayName'],
+    polishingEnabled: ['polishing', 'enabled'],
+    polishProvider: ['polishing', 'provider'],
+    polishModel: ['polishing', 'model'],
+    polishReasoningEffort: ['polishing', 'reasoningEffort'],
+    polishPrompt: ['polishing', 'prompt']
+  }
+  for (const [field, value] of Object.entries(patch)) {
+    const path = paths[field]
+    if (value === undefined || path === undefined) continue
+    let target = result
+    for (const segment of path.slice(0, -1)) {
+      const next = target[segment]
+      if (!isRecord(next)) target[segment] = {}
+      target = target[segment] as Record<string, unknown>
+    }
+    target[path[path.length - 1] as string] = value
+  }
+  return result
+}
+
 export function applyFlatSettingsPatch(stored: unknown, patch: EarsSettingsPatch): StoredEarsSettings {
   const currentStored = normalizeStoredEarsSettings(stored)
   const current = flattenStoredSettings(currentStored)
