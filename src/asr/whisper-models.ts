@@ -363,8 +363,10 @@ export class WhisperModels {
             // A model file reappeared (placed or restored); leave the artifacts
             // to the verification path instead of deleting its marker.
             return
-          } catch {
-            // Still missing; sweeping is safe.
+          } catch (error) {
+            // Only sweep on a confirmed missing file; any other stat failure
+            // may be transient and must not destroy a valid marker.
+            if (!isMissingFile(error)) return
           }
           await Promise.all([
             rm(markerPath, { force: true }),
