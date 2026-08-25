@@ -14,7 +14,7 @@ import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecord
 import { commitTranscript, updateDraft } from './voice-flow.js'
 import { matchesShortcut } from '../shortcut.js'
 import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
-import { resolveCaptureBackend, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
+import { resolveCaptureBackend, isSupersededMediaCapture, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
@@ -49,6 +49,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const mediaBaseDraftRef = useRef('')
   const mediaStartedAtRef = useRef(0)
   const mediaStartCancelledRef = useRef(false)
+  const mediaStartGenerationRef = useRef(0)
   const mediaBackendRef = useRef<MediaCaptureBackend | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const polishAbortRef = useRef<AbortController | null>(null)
@@ -199,6 +200,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const startWebSpeech = () => {
     let baseDraft = input.draft
+    // Starting Web Speech supersedes any still-pending media capture; claim a
+    // new generation before resetting the shared cancel flag so the pending
+    // MediaRecorderSession.create() cannot pass its staleness check later.
+    mediaStartGenerationRef.current += 1
     let sessionDraft = baseDraft
     let failed = false
     mediaStartCancelledRef.current = false
@@ -374,12 +379,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const startMediaRecording = async (backend: MediaCaptureBackend) => {
     const baseDraft = input.draft
+    const generation = ++mediaStartGenerationRef.current
     mediaStartCancelledRef.current = false
     setState('starting')
     let session: MediaRecorderSession | undefined
     try {
       session = await MediaRecorderSession.create()
-      if (shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
+      if (isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
         session.abort()
         return
       }
@@ -396,17 +402,18 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         // Recording remains usable when the optional waveform analyser is unavailable.
       }
     } catch {
-      levelMonitorRef.current?.stop()
-      levelMonitorRef.current = null
       session?.abort()
       if (mediaSessionRef.current === session) {
         mediaSessionRef.current = null
         mediaBackendRef.current = null
       }
-      if (mountedRef.current) {
-        if (mediaStartCancelledRef.current) setState('idle')
-        else applyVoiceFailure(voiceSession, 'asr', new Error('Media recording is unavailable in this browser'))
-      }
+      // A superseded start owns neither the shared refs nor the UI state; the
+      // newer initiation reports its own outcome.
+      if (!mountedRef.current || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
+      if (mediaStartCancelledRef.current) setState('idle')
+      else applyVoiceFailure(voiceSession, 'asr', new Error('Media recording is unavailable in this browser'))
     }
   }
 

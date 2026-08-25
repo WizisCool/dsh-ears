@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   decideMicrophoneClick,
+  isSupersededMediaCapture,
   resolveCaptureBackend,
   shouldAbandonPendingCapture,
   voiceToggleAction,
@@ -80,6 +81,18 @@ describe('shouldAbandonPendingCapture', () => {
     expect(shouldAbandonPendingCapture(false, false)).toBe(true)
     expect(shouldAbandonPendingCapture(true, true)).toBe(true)
     expect(shouldAbandonPendingCapture(false, true)).toBe(true)
+  })
+})
+
+describe('isSupersededMediaCapture', () => {
+  it('aborts a pending create that resolves after a newer initiation reset the cancel flag', () => {
+    // start (generation 1) -> cancel -> start again (generation 2): the first
+    // create() must not pass the cancelled-flag check and steal the session.
+    expect(isSupersededMediaCapture(2, 1)).toBe(true)
+  })
+
+  it('keeps a capture whose generation is still the latest initiation', () => {
+    expect(isSupersededMediaCapture(1, 1)).toBe(false)
   })
 })
 
