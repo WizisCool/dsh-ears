@@ -33,4 +33,9 @@ describe('joinSpacedSegments', () => {
     expect(joinSpacedSegments('你好', 'world')).toBe('你好 world')
     expect(joinSpacedSegments('价格100', '元')).toBe('价格100 元')
   })
+
+  it('joins directly when either boundary is full-width punctuation', () => {
+    expect(joinSpacedSegments('结束了。', 'next')).toBe('结束了。next')
+    expect(joinSpacedSegments('hello', '「引文」')).toBe('hello「引文」')
+  })
 })
