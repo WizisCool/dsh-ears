@@ -1,3 +1,6 @@
+allowBuilds:
+  '@fugood/whisper.node': true
+
 minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-agent-default-model@0.1.0-rc.8 || 0.1.1-rc.2'
   - '@deepseek-ai/dsh-agent-presets@0.1.0-rc.8 || 0.1.1-rc.2'
