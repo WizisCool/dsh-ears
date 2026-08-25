@@ -1,5 +1,6 @@
 import type { EarsSettings } from '../config.js'
 import { isEarsErrorCode } from '../errors.js'
+import { joinSpacedSegments } from '../text-join.js'
 import type { EarsRemote } from '../remote.js'
 import { classifyVoiceFailure, failureMessage, remoteFailureDetail, remoteFailureParams } from './voice-error.js'
 import type { VoiceStateDetailParams } from './voice-session.js'
@@ -173,8 +174,5 @@ export function updateDraft(
 }
 
 export function appendToDraft(baseDraft: string, transcript: string): string {
-  if (transcript === '') return baseDraft
-  if (baseDraft === '') return transcript
-  if (/\s$/.test(baseDraft) || /^\s/.test(transcript)) return baseDraft + transcript
-  return `${baseDraft} ${transcript}`
+  return joinSpacedSegments(baseDraft, transcript)
 }
