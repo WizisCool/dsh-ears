@@ -2,7 +2,9 @@
 
 All notable changes to dsh-ears are recorded here.
 
-## [Unreleased]
+## [0.1.4] - 2026-08-26
+
+Local Whisper native runtime release with voice-input quality fixes.
 
 ### Changed
 
@@ -10,6 +12,17 @@ All notable changes to dsh-ears are recorded here.
 - Recognition exposes Default, Vulkan, and CUDA acceleration choices where supported. Changing the native variant after its first load requires restarting the dsh Host; the npm root package is materially larger because official optional platform variants participate in installation, while model weights remain outside the npm tarball.
 - The old OS-aware Python/FFmpeg/openai-whisper setup guide and its copyable commands are removed. Unavailable native packages or acceleration variants now produce concise diagnostics.
 - Host persistence is organized into four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing` — while the flat Remote wire remains for client compatibility and per-field auto-save.
+- Recognition and polishing settings copy is reworded for clarity.
+
+### Fixed
+
+- Rapid microphone toggles no longer leak an orphaned media recorder session that keeps the audio track open; a pending capture aborts itself when a newer start or a Web Speech start supersedes it (#9).
+- Streamed Chinese/Japanese recognition results and draft appends no longer insert half-width spaces between CJK characters or around full-width punctuation (#11).
+- A failed Whisper model download reports once and then reflects the real filesystem state again, so restored or manually placed models are detected without restarting the Host; leftover artifact sweeps can no longer race an in-flight retry download (#8).
+- Chronological Chinese narratives such as "第一天……第二天……" stay prose instead of being corrupted into broken numbered lists (#12).
+- Local Whisper state responses stay JSON-safe across download, cancel, and dispose paths.
+- Whisper acceleration options list only what the current platform supports.
+- The dev HMR patch emits a file URL base so module imports resolve on Windows.
 
 ## [0.1.3] - 2026-08-23
 
