@@ -42,11 +42,6 @@ Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 dsh plugin --profile web add dsh-ears
 ```
 
-### Install via dsh-market
-
-This plugin is listed in [dsh-market](https://github.com/dsh-market/dsh-market).<br>
-It can be installed, updated, and uninstalled directly from Settings → Plugin Market.
-
 ### Install from source
 
 ```sh
