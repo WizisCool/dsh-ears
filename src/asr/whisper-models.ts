@@ -179,7 +179,14 @@ export class WhisperModels {
 
     const handle = this.activeDownload
     if (handle !== undefined && handle.model === model) {
-      if (!handle.finished || handle.error !== null) return stateFromHandle(handle, runtimeAvailable)
+      if (!handle.finished) return stateFromHandle(handle, runtimeAvailable)
+      // Report a terminal download failure exactly once, then drop the
+      // handle so later queries probe the filesystem again instead of
+      // repeating the stale in-memory failure until a host restart.
+      if (handle.error !== null) {
+        this.activeDownload = undefined
+        return stateFromHandle(handle, runtimeAvailable)
+      }
     }
 
     const definition = this.manifest[model]
@@ -226,8 +233,7 @@ export class WhisperModels {
         )
       }
       this.verifiedFiles.delete(filePath)
-      await rm(marker, { force: true }).catch(() => undefined)
-      await rm(`${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`, { force: true }).catch(() => undefined)
+      this.sweepMissingModelArtifacts(filePath, marker, model)
       return {
         runtimeAvailable,
         downloaded: false,
@@ -336,6 +342,41 @@ export class WhisperModels {
     this.downloadSetup = new Promise((resolve) => { release = resolve })
     await previous
     return release
+  }
+
+  /**
+   * Opportunistically clear the leftover marker and partial file once the
+   * model file is gone. The sweep never blocks the state query: it queues on
+   * the download-setup lock, so a retry download that starts meanwhile either
+   * wins the lock first (the re-check below sees its live handle and skips)
+   * or runs after the sweep finished — it can never lose its partial file to
+   * this cleanup mid-write.
+   */
+  private sweepMissingModelArtifacts(filePath: string, markerPath: string, model: WhisperModelId): void {
+    void this.acquireDownloadSetup()
+      .then(async (release) => {
+        try {
+          const handle = this.activeDownload
+          if (handle !== undefined && !handle.finished && handle.model === model) return
+          try {
+            await stat(filePath)
+            // A model file reappeared (placed or restored); leave the artifacts
+            // to the verification path instead of deleting its marker.
+            return
+          } catch (error) {
+            // Only sweep on a confirmed missing file; any other stat failure
+            // may be transient and must not destroy a valid marker.
+            if (!isMissingFile(error)) return
+          }
+          await Promise.all([
+            rm(markerPath, { force: true }),
+            rm(`${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`, { force: true })
+          ])
+        } finally {
+          release()
+        }
+      })
+      .catch(() => undefined)
   }
 
   private modelPath(model: WhisperModelId, definition: WhisperModelDefinition): string {
