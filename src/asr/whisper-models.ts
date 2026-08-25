@@ -367,13 +367,17 @@ export class WhisperModels {
       const hash = createHash('sha256')
       try {
         const reader = response.body.getReader()
+        let streamCompleted = false
         const cancelReader = () => { void reader.cancel(handle.controller.signal.reason).catch(() => undefined) }
         handle.controller.signal.addEventListener('abort', cancelReader, { once: true })
         try {
           while (true) {
             handle.controller.signal.throwIfAborted()
             const chunk = await reader.read()
-            if (chunk.done) break
+            if (chunk.done) {
+              streamCompleted = true
+              break
+            }
             if (chunk.value === undefined) continue
             const bytes = Buffer.from(chunk.value)
             const nextBytes = (handle.bytes ?? 0) + bytes.byteLength
@@ -388,6 +392,7 @@ export class WhisperModels {
           }
         } finally {
           handle.controller.signal.removeEventListener('abort', cancelReader)
+          if (!streamCompleted) await reader.cancel(handle.controller.signal.reason).catch(() => undefined)
         }
       } finally {
         await file.close()

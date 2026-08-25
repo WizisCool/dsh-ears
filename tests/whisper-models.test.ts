@@ -118,6 +118,7 @@ describe('whisper.cpp model lifecycle', () => {
   it('stops a stream when it exceeds the manifest size', async () => {
     const chunks = [TEST_BYTES, Buffer.from('extra'), Buffer.from('tail')]
     let pulls = 0
+    let cancels = 0
     const stream = new ReadableStream<Uint8Array>({
       pull(controller) {
         pulls += 1
@@ -127,6 +128,9 @@ describe('whisper.cpp model lifecycle', () => {
           return
         }
         controller.enqueue(chunk)
+      },
+      cancel() {
+        cancels += 1
       }
     }, { highWaterMark: 0 })
     const { manager, cacheDir } = await makeManager(async () => new Response(stream, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
@@ -136,6 +140,7 @@ describe('whisper.cpp model lifecycle', () => {
     expect(done.error).toContain('size mismatch')
     expect(done.errorCode).toBe('whisper.downloadFailed')
     expect(pulls).toBe(2)
+    expect(cancels).toBe(1)
     await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
