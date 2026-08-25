@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
-import type { AsrBackendId, EarsSettings, PolishRoute } from './config.js'
+import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
 
@@ -68,6 +68,7 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrGroqApiKeyConfigured: z.boolean(),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
+  localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
 
@@ -174,6 +175,7 @@ export type EarsSettingsView = {
   cloudAsrGroqApiKeyConfigured: boolean
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrBailianApiKeyConfigured: boolean
+  localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }
 export type { PolishRoute }

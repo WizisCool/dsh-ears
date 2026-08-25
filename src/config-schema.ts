@@ -20,7 +20,7 @@ export const EarsSettingsSchema = s.object({
     backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend: web-speech, local-whisper, or cloud-openai'),
     localWhisper: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id'),
-      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration: default, vulkan, or cuda')
+      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform')
     }).description('Local Whisper model and native acceleration').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, custom, or bailian'),
     language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.language).description('Recognition language'),

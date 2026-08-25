@@ -10,6 +10,7 @@ import {
   releaseWhisperModelContext,
   transcribeWithWhisper,
   validateWhisperTranscription,
+  whisperAccelerationCapabilities,
   whisperNativePackageName,
   WHISPER_NATIVE_UNAVAILABLE_CODE,
   WHISPER_RESTART_REQUIRED_CODE
@@ -89,6 +90,34 @@ describe('local whisper native preflight', () => {
     } catch (error) {
       expect(error).toMatchObject({ code: WHISPER_NATIVE_UNAVAILABLE_CODE })
     }
+  })
+
+  it('lists only the native variants supported by each platform', () => {
+    const required: string[] = []
+    const requirePackage = ((name: string) => {
+      required.push(name)
+      return { WhisperContext: function WhisperContext() {} }
+    }) as NodeRequire
+
+    expect(whisperAccelerationCapabilities('darwin', 'arm64', requirePackage)).toEqual({
+      available: ['default'],
+      default: 'default'
+    })
+    expect(required).toEqual(['@fugood/node-whisper-darwin-arm64'])
+    expect(whisperAccelerationCapabilities('win32', 'arm64', requirePackage).available).toEqual(['default', 'vulkan'])
+    expect(whisperAccelerationCapabilities('freebsd', 'x64', requirePackage)).toEqual({ available: [], default: 'default' })
+  })
+
+  it('filters platform variants whose optional packages are not installed', () => {
+    const requirePackage = ((name: string) => {
+      if (name.endsWith('-cuda')) throw new Error('optional package is absent')
+      return { WhisperContext: function WhisperContext() {} }
+    }) as NodeRequire
+
+    expect(whisperAccelerationCapabilities('linux', 'x64', requirePackage)).toEqual({
+      available: ['default', 'vulkan'],
+      default: 'default'
+    })
   })
 
   it('uses platform defaults for GPU selection', () => {

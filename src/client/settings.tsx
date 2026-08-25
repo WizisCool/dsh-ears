@@ -5,7 +5,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
@@ -78,6 +78,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   }, [])
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
+  const localWhisperAccelerations = state.localWhisperAccelerations ?? ['default']
   const modelOptions = routes.routes.filter((route) => route.provider === state.polishProvider.text)
   const modelValueIsKnown = modelOptions.some((route) => route.model === state.polishModel.text)
   const selectedEntryId = state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text : state.asrBackend.text
@@ -149,7 +150,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             props.edit('asrBackend', id)
           }} />
           {state.asrBackend.text === 'local-whisper' ? <>
-            <SelectRow label={t('localAcceleration')} hint={t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={WHISPER_ACCELERATION_IDS.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
+            <SelectRow label={t('localAcceleration')} hint={localWhisperAccelerations.length === 0 ? t('localAccelerationUnavailable') : t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={localWhisperAccelerations.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable || localWhisperAccelerations.length === 0} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
             <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
           </> : null}
           {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>

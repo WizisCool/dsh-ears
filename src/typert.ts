@@ -354,7 +354,7 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',
@@ -375,6 +375,10 @@ export const TYPERT = {
           {
             name: 'ReasoningEffortsView',
             declaration: 'export interface ReasoningEffortsView { efforts: ReasoningEffortInfo[]; defaultEffort?: string }'
+          },
+          {
+            name: 'WhisperAccelerationId',
+            declaration: "export type WhisperAccelerationId = 'default' | 'vulkan' | 'cuda'"
           },
           {
             name: 'WhisperModelState',

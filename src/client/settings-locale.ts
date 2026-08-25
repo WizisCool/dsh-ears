@@ -4,7 +4,7 @@ import { EARS_ERROR_CODES, type EarsErrorCode } from '../errors.js'
 
 export const LOCALE_NAMESPACE = 'settings.dshEars' as const
 
-/** Simplified Chinese is the locale key-set source of truth. */
+/** English-only documentation rule exception: localeZh is the registered Simplified Chinese source of truth. */
 export const localeZh = {
   polishPrompt: '润色提示词',
   polishPromptHint: '留空使用内置默认',
@@ -67,8 +67,9 @@ export const localeZh = {
   bailianModelHint: '支持DashScope API的模型名，如"qwen-audio-3.0-asr-flash"',
   localModel: 'Whisper 模型',
   localAcceleration: '推理模式',
-  localAccelerationHint: '选择后端推理模式',
-  localAccelerationDefault: 'CPU',
+  localAccelerationHint: '选择当前平台支持的推理后端',
+  localAccelerationUnavailable: '当前平台没有可用的 Whisper 原生后端',
+  localAccelerationDefault: '默认',
   localAccelerationVulkan: 'Vulkan',
   localAccelerationCuda: 'CUDA',
   whisperDownloaded: '模型已下载',
@@ -243,8 +244,9 @@ export const localeEn = {
   bailianModelHint: 'A model name that supports the DashScope API, such as "qwen-audio-3.0-asr-flash"',
   localModel: 'Whisper model',
   localAcceleration: 'Inference mode',
-  localAccelerationHint: 'Choose the backend inference mode',
-  localAccelerationDefault: 'CPU',
+  localAccelerationHint: 'Choose a Whisper backend supported by this platform',
+  localAccelerationUnavailable: 'No Whisper native backend is available for this platform',
+  localAccelerationDefault: 'Default',
   localAccelerationVulkan: 'Vulkan',
   localAccelerationCuda: 'CUDA',
   whisperDownloaded: 'Model downloaded',

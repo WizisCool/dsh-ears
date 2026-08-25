@@ -110,7 +110,7 @@ If the selected backend is not ready, the microphone icon is disabled. Hover ove
 >
 > Local Whisper uses the bundled `@fugood/whisper.node` native runtime and a separately downloaded whisper.cpp GGML model. The browser normalizes each recording to mono 16 kHz PCM16 WAV before sending it to the Host
 >
-> The Recognition tab exposes Default, Vulkan, and CUDA acceleration choices where supported by the platform and installed native variant. Changing acceleration after the native runtime has loaded requires a dsh Host restart. The pinned `@fugood/whisper.node@1.1.2` Windows x64 CUDA binary requires the CUDA 12 `cudart64_12.dll` and `cublas64_12.dll`; when the runtime libraries do not match, settings marks that variant unavailable and the user can select another available backend. Official optional platform variants participate in installation, while model weights are downloaded into the local cache
+> The Recognition tab shows only acceleration variants supported by the current platform and installed native packages. The official macOS artifacts provide Default only, so CUDA is not shown there; Windows x64 and Linux options depend on the optional variants actually installed. A native variant that cannot be loaded is omitted from the available options. Changing acceleration after the native runtime has loaded requires a dsh Host restart. The pinned `@fugood/whisper.node@1.1.2` Windows x64 CUDA binary requires the CUDA 12 `cudart64_12.dll` and `cublas64_12.dll`; model weights are downloaded into the local cache
 
 ## Local Whisper runtime
 
