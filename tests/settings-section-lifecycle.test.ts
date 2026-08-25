@@ -3,14 +3,15 @@ import type { EarsCardState } from '../src/client/settings-controller.js'
 import { EarsSettingsSection, localeEn } from '../src/client/settings.js'
 
 const reactMocks = vi.hoisted(() => ({
-  useEffect: vi.fn()
+  useEffect: vi.fn(),
+  useState: vi.fn()
 }))
 
 vi.mock('react', () => ({
   useEffect: reactMocks.useEffect,
   useId: () => 'settings-test',
   useRef: <T>(initial: T) => ({ current: initial }),
-  useState: <T>(initial: T) => [initial, vi.fn()] as const,
+  useState: reactMocks.useState,
   useSyncExternalStore: vi.fn()
 }))
 
@@ -68,6 +69,8 @@ const cardState: EarsCardState = {
 describe('EarsSettingsSection lifecycle', () => {
   it('flushes pending auto-saves when the settings section unmounts', () => {
     reactMocks.useEffect.mockClear()
+    reactMocks.useState.mockReset()
+    reactMocks.useState.mockImplementation((initial) => [initial, vi.fn()])
     const flush = vi.fn()
 
     EarsSettingsSection({
@@ -114,4 +117,83 @@ describe('EarsSettingsSection lifecycle', () => {
     cleanup?.()
     expect(flush).toHaveBeenCalledOnce()
   })
+
+  it('does not keep prior Whisper error styling while a new acceleration is being checked', () => {
+    reactMocks.useEffect.mockClear()
+    reactMocks.useState.mockReset()
+    reactMocks.useState
+      .mockImplementationOnce(() => ['recognition', vi.fn()])
+      .mockImplementation((initial) => [initial, vi.fn()])
+
+    const tree = EarsSettingsSection({
+      useEarsCard: (selector) => selector({
+        ...cardState,
+        asrBackend: field('local-whisper'),
+        localWhisperAcceleration: field('cuda')
+      }),
+      useEarsRoutes: (selector) => selector({ status: 'ready', routes: [] }),
+      useEarsReasoning: (selector) => selector({ status: 'ready', efforts: [] }),
+      useEarsWhisper: (selector) => selector({
+        status: 'loading',
+        state: {
+          runtimeAvailable: false,
+          downloaded: true,
+          downloading: false,
+          progress: null,
+          bytes: 100,
+          totalBytes: 100,
+          error: 'Restart dsh to switch Local Whisper acceleration',
+          errorCode: 'whisper.restartRequired',
+          errorParams: { loadedVariant: 'vulkan', requestedVariant: 'cuda' }
+        }
+      }),
+      useEarsCloudModels: (selector) => selector({ status: 'ready', view: { status: 'unsupported' } }),
+      earsT: (key) => localeEn[key],
+      edit: vi.fn(),
+      setApiKey: vi.fn(),
+      clearApiKey: vi.fn(),
+      undoClearApiKey: vi.fn(),
+      setCustomApiKey: vi.fn(),
+      clearCustomApiKey: vi.fn(),
+      undoClearCustomApiKey: vi.fn(),
+      setBailianApiKey: vi.fn(),
+      clearBailianApiKey: vi.fn(),
+      undoClearBailianApiKey: vi.fn(),
+      flush: vi.fn(),
+      retryCloudModels: vi.fn(),
+      downloadModel: vi.fn(),
+      cancelModel: vi.fn(),
+      deleteModel: vi.fn(),
+      loadAbout: vi.fn(async () => null),
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web update dsh-ears' }))
+    })
+
+    const checkingRow = renderHostElements(tree).find((element) =>
+      element.type === 'div' && textContent(element.props?.children) === localeEn.whisperChecking
+    )
+    expect(checkingRow).toBeDefined()
+    expect(checkingRow?.props?.role).toBeUndefined()
+    expect(String(checkingRow?.props?.className ?? '')).not.toContain('invalid')
+  })
 })
+
+interface ElementLike {
+  type?: unknown
+  props?: Record<string, unknown>
+}
+
+function renderHostElements(node: unknown): ElementLike[] {
+  if (node === null || node === undefined || typeof node === 'boolean' || typeof node === 'string' || typeof node === 'number') return []
+  if (Array.isArray(node)) return node.flatMap(renderHostElements)
+  const element = node as ElementLike
+  if (typeof element.type === 'function') return renderHostElements(element.type(element.props ?? {}))
+  return [element, ...renderHostElements(element.props?.children)]
+}
+
+function textContent(node: unknown): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textContent).join('')
+  const element = node as ElementLike
+  return textContent(element.props?.children)
+}

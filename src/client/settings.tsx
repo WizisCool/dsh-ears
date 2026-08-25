@@ -486,7 +486,7 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
   const labelText = selected === undefined ? value : selected[1]
-  const alert = invalid || !modelState.runtimeAvailable || modelState.error !== null
+  const alert = status === 'ready' && (invalid || !modelState.runtimeAvailable || modelState.error !== null)
   const statusContent = status === 'loading' ? whisperCheckingContent(t) : whisperStatusContent(modelState, t, writable, onDownload, onCancelDownload, onDeleteModel)
   return (
     <div className={styles.row}>
