@@ -151,8 +151,9 @@ export async function polishDraft(options: PolishDraftOptions): Promise<void> {
 
 export function shouldApplyPolishResult(currentDraft: string, draftAtStop: string, baseDraft: string, originalDraft = baseDraft): boolean {
   const current = collapseDraft(currentDraft)
+  const effectiveBase = collapseDraft(baseDraft)
   const original = collapseDraft(originalDraft)
-  return current === collapseDraft(draftAtStop) || (original !== '' && current === original)
+  return current === collapseDraft(draftAtStop) || (effectiveBase === original && current === original)
 }
 
 function collapseDraft(text: string): string {
