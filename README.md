@@ -110,7 +110,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 >
 > 本地 Whisper 使用随包提供的 `@fugood/whisper.node` native runtime 和单独下载的 whisper.cpp GGML 模型，浏览器负责把录音转为单声道 16 kHz PCM16 WAV
 >
-> Recognition 设置中的加速后端为 Default、Vulkan、CUDA，具体可用项取决于平台与安装的 native variant。native runtime 首次加载后切换加速后端需要重启 dsh Host。当前锁定的 `@fugood/whisper.node@1.1.2` Windows x64 CUDA 产物需要 CUDA 12 的 `cudart64_12.dll` 和 `cublas64_12.dll`；运行库不匹配时，设置页会将该 variant 显示为不可用，用户可选择其他可用后端。官方 optional platform variants 会参与安装，模型按需下载到本机缓存
+> Recognition 设置页只显示当前平台和已安装 native variant 支持的加速后端。macOS 的官方产物只提供 Default，因此不会显示 CUDA；Windows x64 和 Linux 的可用项以实际安装的 optional variant 为准。native runtime 首次加载后切换加速后端需要重启 dsh Host。当前锁定的 `@fugood/whisper.node@1.1.2` Windows x64 CUDA 产物需要 CUDA 12 的 `cudart64_12.dll` 和 `cublas64_12.dll`；运行库不匹配时，设置页会将该 variant 显示为不可用，用户可选择其他可用后端。模型按需下载到本机缓存
 
 ## 本地 Whisper 运行时
 
