@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,7 +17,10 @@ function requireFile(label, relativePath) {
     return
   }
   const path = relativePath.replace(/^\.\//u, '')
-  if (!existsSync(join(root, path))) fail(`${label} is missing: ${relativePath}`)
+  const absolutePath = join(root, path)
+  if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
+    fail(`${label} is missing or is not a file: ${relativePath}`)
+  }
 }
 
 function requireExport(target, condition) {
