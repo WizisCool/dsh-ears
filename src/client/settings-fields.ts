@@ -1,4 +1,4 @@
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_MODEL_IDS, isBailianAsrHost, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, isBailianAsrHost, isHttpEndpoint, isValidRecordingLimit } from '../config.js'
 import type { EarsSettings } from '../config.js'
 import { shortcutRejectReason } from '../shortcut.js'
 
@@ -20,6 +20,7 @@ export function isSettingsFieldInvalid(field: FieldName, text: string): boolean 
   if (field === 'language') return false
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
+  if (field === 'localWhisperAcceleration') return !(WHISPER_ACCELERATION_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrProvider') return !(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
   if (field === 'cloudAsrCustomEndpoint') {

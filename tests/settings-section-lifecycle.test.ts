@@ -36,6 +36,7 @@ const cardState: EarsCardState = {
   invalid: false,
   asrBackend: field('web-speech'),
   localWhisperModel: field('base'),
+  localWhisperAcceleration: field('default'),
   cloudAsrProvider: field('groq'),
   cloudAsrGroqApiKey: field(''),
   cloudAsrGroqApiKeyConfigured: false,

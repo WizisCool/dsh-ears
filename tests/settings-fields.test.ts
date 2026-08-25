@@ -18,6 +18,10 @@ describe('isSettingsFieldInvalid', () => {
     expect(isSettingsFieldInvalid('cloudAsrProvider', 'unknown')).toBe(true)
     expect(isSettingsFieldInvalid('localWhisperModel', 'tiny')).toBe(false)
     expect(isSettingsFieldInvalid('localWhisperModel', 'huge')).toBe(true)
+    expect(isSettingsFieldInvalid('localWhisperAcceleration', 'default')).toBe(false)
+    expect(isSettingsFieldInvalid('localWhisperAcceleration', 'vulkan')).toBe(false)
+    expect(isSettingsFieldInvalid('localWhisperAcceleration', 'cuda')).toBe(false)
+    expect(isSettingsFieldInvalid('localWhisperAcceleration', 'metal')).toBe(true)
   })
 
   it('flags over-long keys and prompts and illegal URLs', () => {
