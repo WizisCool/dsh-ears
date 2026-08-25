@@ -43,17 +43,17 @@ describe('dsh-ears locale dictionaries', () => {
 
   it('uses current shortcut, Bailian, and polishing hints without terminal full stops', () => {
     expect(localeZh.shortcutEnabledHint).toBe('设置语音输入的快捷键')
-    expect(localeZh.shortcutHint).toBe('使用按键开始或停止语音输入')
+    expect(localeZh.shortcutHint).toBe('设置开始/结束语音输入的热键')
     expect(localeZh.bailianHostHint).toBe('请填写带HTTPS的API HOST')
     expect(localeZh.bailianModelHint).toBe('支持DashScope API的模型名，如"qwen-audio-3.0-asr-flash"')
-    expect(localeZh.polishingHint).toBe('启用后将对识别后的文本进行润色整理')
-    expect(localeZh.localAccelerationHint).toContain('重启 dsh Host')
+    expect(localeZh.polishingHint).toBe('对转写的文本进行润色整理')
+    expect(localeZh.localAccelerationHint).toBe('选择后端推理模式')
     expect(localeEn.shortcutEnabledHint).toBe('Set the voice input shortcut')
-    expect(localeEn.shortcutHint).toBe('Use the shortcut to start or stop voice input')
+    expect(localeEn.shortcutHint).toBe('Set the hotkey that starts and stops voice input')
     expect(localeEn.bailianHostHint).toBe('Enter an API host with HTTPS')
     expect(localeEn.bailianModelHint).toBe('A model name that supports the DashScope API, such as "qwen-audio-3.0-asr-flash"')
-    expect(localeEn.polishingHint).toBe('When enabled, polish and organize the recognized text')
-    expect(localeEn.localAccelerationHint).toContain('Restart the dsh Host')
+    expect(localeEn.polishingHint).toBe('Polish and organize the transcribed text')
+    expect(localeEn.localAccelerationHint).toBe('Choose the backend inference mode')
     for (const key of Object.keys(localeZh).filter((key) => key.endsWith('Hint')) as Array<keyof typeof localeZh>) {
       expect(localeZh[key]).not.toMatch(/[。.]$/)
       expect(localeEn[key]).not.toMatch(/[。.]$/)
