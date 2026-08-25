@@ -30,12 +30,13 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     options.setState('idle')
     return
   }
-  if (options.requireUnchanged && options.latestDraftRef.current !== (options.expectedDraft ?? options.baseDraft)) {
+  const draftBase = resolveCommitDraftBase(options)
+  if (draftBase === null) {
     options.setState('idle')
     return
   }
 
-  const draftAtStop = appendToDraft(options.baseDraft, transcript)
+  const draftAtStop = appendToDraft(draftBase, transcript)
   options.latestDraftRef.current = draftAtStop
   options.actionsRef.current.setDraft(draftAtStop)
   // Honor the local toggle so an off switch never flashes "polishing".
@@ -51,7 +52,7 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
   }
   void polishDraft({
     transcript,
-    baseDraft: options.baseDraft,
+    baseDraft: draftBase,
     draftAtStop,
     provider: options.settings.polishProvider,
     model: options.settings.polishModel,
@@ -67,6 +68,18 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
 
 export function shouldRequestPolish(settings: Pick<EarsSettings, 'polishingEnabled'>): boolean {
   return settings.polishingEnabled
+}
+
+function resolveCommitDraftBase(options: CommitTranscriptOptions): string | null {
+  if (!options.requireUnchanged) return options.baseDraft
+  const expectedDraft = options.expectedDraft ?? options.baseDraft
+  const currentDraft = options.latestDraftRef.current
+  if (currentDraft === expectedDraft) return options.baseDraft
+  // Clearing the composer is an intentional reset of the old draft, not a
+  // conflicting edit. The transcript should become the new draft instead of
+  // being discarded by stale-result protection.
+  if (currentDraft.trim() === '') return ''
+  return null
 }
 
 export interface PolishDraftOptions {

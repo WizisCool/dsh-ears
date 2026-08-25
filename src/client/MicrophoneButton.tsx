@@ -198,7 +198,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const startWebSpeech = () => {
-    const baseDraft = input.draft
+    let baseDraft = input.draft
     let sessionDraft = baseDraft
     let failed = false
     mediaStartCancelledRef.current = false
@@ -223,14 +223,25 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       })
     }
 
+    const updateLiveDraft = (text: string) => {
+      const currentDraft = latestDraftRef.current
+      if (currentDraft !== sessionDraft) {
+        if (currentDraft.trim() !== '') return
+        // Treat clearing the composer as the new insertion point for this
+        // recognition session rather than restoring the old draft.
+        baseDraft = ''
+      }
+      sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef)
+    }
+
     try {
       session = new WebSpeechSession({
         language: effectiveRecognitionLanguage(settingsRef.current.language, uiLocale),
         onStart: () => {
           startLevelMonitor()
         },
-        onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
-        onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
+        onInterim: updateLiveDraft,
+        onFinal: updateLiveDraft,
         onError: (error) => {
           failed = true
           levelMonitorRef.current?.stop()

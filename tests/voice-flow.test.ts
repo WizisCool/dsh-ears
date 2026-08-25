@@ -29,6 +29,29 @@ describe('voice draft flow', () => {
     expect(setState).toHaveBeenCalledWith('idle')
   })
 
+  it('commits into the composer after the user clears the draft', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: '' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      expectedDraft: 'original draft live text',
+      requireUnchanged: true,
+      settings: DEFAULT_EARS_SETTINGS,
+      remote: { polish: vi.fn() } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    expect(setDraft).toHaveBeenCalledWith('recognized text')
+    expect(latestDraftRef.current).toBe('recognized text')
+    expect(setState).toHaveBeenCalledWith('idle')
+  })
+
   it('does not overwrite a manual edit after live recognition updates the draft', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
