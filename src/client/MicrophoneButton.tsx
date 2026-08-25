@@ -19,6 +19,7 @@ import { micUnavailableReason, type MicUnavailableReason } from './mic-availabil
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
+import { isTranscriptionStillCurrent, prepareRecordedAudioForBackend, type MediaCaptureBackend } from './local-whisper-audio.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -48,6 +49,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const mediaBaseDraftRef = useRef('')
   const mediaStartedAtRef = useRef(0)
   const mediaStartCancelledRef = useRef(false)
+  const mediaBackendRef = useRef<MediaCaptureBackend | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const polishAbortRef = useRef<AbortController | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -129,6 +131,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       speechSessionRef.current = null
       mediaSessionRef.current?.abort()
       mediaSessionRef.current = null
+      mediaBackendRef.current = null
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
       clearRecordingTimer(recordingTimerRef)
@@ -195,7 +198,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const startWebSpeech = () => {
-    const baseDraft = input.draft
+    let baseDraft = input.draft
     let sessionDraft = baseDraft
     let failed = false
     mediaStartCancelledRef.current = false
@@ -220,14 +223,25 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       })
     }
 
+    const updateLiveDraft = (text: string) => {
+      const currentDraft = latestDraftRef.current
+      if (currentDraft !== sessionDraft) {
+        if (currentDraft.trim() !== '') return
+        // Treat clearing the composer as the new insertion point for this
+        // recognition session rather than restoring the old draft.
+        baseDraft = ''
+      }
+      sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef)
+    }
+
     try {
       session = new WebSpeechSession({
         language: effectiveRecognitionLanguage(settingsRef.current.language, uiLocale),
         onStart: () => {
           startLevelMonitor()
         },
-        onInterim: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
-        onFinal: (text) => { sessionDraft = updateDraft(baseDraft, text, latestDraftRef, actionsRef) },
+        onInterim: updateLiveDraft,
+        onFinal: updateLiveDraft,
         onError: (error) => {
           failed = true
           levelMonitorRef.current?.stop()
@@ -296,19 +310,35 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     levelMonitorRef.current = null
     const baseDraft = mediaBaseDraftRef.current
     const startedAt = mediaStartedAtRef.current
+    const mediaBackend = mediaBackendRef.current
+    mediaBackendRef.current = null
     const controller = new AbortController()
     transcribeAbortRef.current = controller
     try {
       const audio = await session.stop()
       if (!mountedRef.current) return
+      if (mediaBackend === null) {
+        applyVoiceFailure(voiceSession, 'asr', new Error('Media recording backend snapshot is missing'))
+        return
+      }
       if (isTrivialRecording(base64ByteLength(audio.base64), Date.now() - startedAt)) {
         setState('idle')
         return
       }
       setState('transcribing')
       const epoch = voiceSession.captureEpoch()
-      const result = await remote.transcribe(audio.base64, audio.mimeType, controller.signal)
-      if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
+      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal })
+      if (!isTranscriptionStillCurrent({
+        mounted: mountedRef.current,
+        signal: controller.signal,
+        captureIsCurrent: voiceSession.isCurrentEpoch(epoch)
+      })) return
+      const result = await remote.transcribe(transcribeAudio.base64, transcribeAudio.mimeType, controller.signal)
+      if (!isTranscriptionStillCurrent({
+        mounted: mountedRef.current,
+        signal: controller.signal,
+        captureIsCurrent: voiceSession.isCurrentEpoch(epoch)
+      })) return
       if (!result.ok) {
         applyVoiceFailure(voiceSession, 'asr', result.error)
         return
@@ -342,7 +372,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   stopRecordingRef.current = stopRecording
 
-  const startMediaRecording = async () => {
+  const startMediaRecording = async (backend: MediaCaptureBackend) => {
     const baseDraft = input.draft
     mediaStartCancelledRef.current = false
     setState('starting')
@@ -354,6 +384,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         return
       }
       mediaSessionRef.current = session
+      mediaBackendRef.current = backend
       mediaBaseDraftRef.current = baseDraft
       mediaStartedAtRef.current = Date.now()
       session.start()
@@ -368,7 +399,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
       session?.abort()
-      if (mediaSessionRef.current === session) mediaSessionRef.current = null
+      if (mediaSessionRef.current === session) {
+        mediaSessionRef.current = null
+        mediaBackendRef.current = null
+      }
       if (mountedRef.current) {
         if (mediaStartCancelledRef.current) setState('idle')
         else applyVoiceFailure(voiceSession, 'asr', new Error('Media recording is unavailable in this browser'))
@@ -395,8 +429,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
     if (nextBackend === 'web-speech') {
       void startWebSpeech()
-    } else if (nextBackend !== null) {
-      void startMediaRecording()
+    } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
+      void startMediaRecording(nextBackend)
     }
   }
   toggleRef.current = toggle

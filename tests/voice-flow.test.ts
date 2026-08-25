@@ -29,6 +29,29 @@ describe('voice draft flow', () => {
     expect(setState).toHaveBeenCalledWith('idle')
   })
 
+  it('commits into the composer after the user clears the draft', () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: '' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      expectedDraft: 'original draft live text',
+      requireUnchanged: true,
+      settings: DEFAULT_EARS_SETTINGS,
+      remote: { polish: vi.fn() } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+
+    expect(setDraft).toHaveBeenCalledWith('recognized text')
+    expect(latestDraftRef.current).toBe('recognized text')
+    expect(setState).toHaveBeenCalledWith('idle')
+  })
+
   it('does not overwrite a manual edit after live recognition updates the draft', () => {
     const setDraft = vi.fn()
     const setState = vi.fn()
@@ -109,6 +132,66 @@ describe('voice draft flow', () => {
     resolvePolish?.({ ok: true, value: { status: 'ok', text: 'polished text' } })
     await vi.waitFor(() => expect(setDraft).toHaveBeenLastCalledWith('original draft polished text'))
     expect(setState).toHaveBeenLastCalledWith('idle')
+  })
+
+  it('does not restore polish after an initially empty draft is cleared', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: '' }
+    let resolvePolish: ((result: { ok: boolean; value?: RemoteTextResult }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: RemoteTextResult }>((resolve) => {
+      resolvePolish = resolve
+    }))
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: '',
+      requireUnchanged: false,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+    expect(setDraft).toHaveBeenCalledWith('recognized text')
+    latestDraftRef.current = ''
+    resolvePolish?.({ ok: true, value: { status: 'ok', text: 'polished text' } })
+    await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('idle'))
+
+    expect(setDraft).toHaveBeenCalledTimes(1)
+    expect(latestDraftRef.current).toBe('')
+  })
+
+  it('does not apply polish after the cleared draft is cleared again', async () => {
+    const setDraft = vi.fn()
+    const setState = vi.fn()
+    const latestDraftRef = { current: '' }
+    let resolvePolish: ((result: { ok: boolean; value?: RemoteTextResult }) => void) | undefined
+    const polish = vi.fn(() => new Promise<{ ok: boolean; value?: RemoteTextResult }>((resolve) => {
+      resolvePolish = resolve
+    }))
+    const settings = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: true, polishProvider: 'provider', polishModel: 'model' }
+
+    commitTranscript({
+      transcript: 'recognized text',
+      baseDraft: 'original draft',
+      requireUnchanged: true,
+      settings,
+      remote: { polish } as never,
+      setState,
+      latestDraftRef,
+      actionsRef: { current: { setDraft } },
+      polishAbortRef: { current: null }
+    })
+    expect(setDraft).toHaveBeenCalledWith('recognized text')
+    latestDraftRef.current = ''
+    resolvePolish?.({ ok: true, value: { status: 'ok', text: 'polished text' } })
+    await vi.waitFor(() => expect(setState).toHaveBeenLastCalledWith('idle'))
+
+    expect(setDraft).toHaveBeenCalledTimes(1)
+    expect(latestDraftRef.current).toBe('')
   })
 
   it('keeps the raw draft and shows an error when the polish RPC fails', async () => {

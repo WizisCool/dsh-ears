@@ -25,7 +25,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-017 | Dedicated settings page | Accepted (live) |
 | D-018 | Recording-settings snapshot | **Open** |
 | D-019 | Whisper cache integrity | Closed by D-020 |
-| D-020 | Whisper robustness | Accepted |
+| D-020 | Whisper robustness | Partially superseded by D-039; integrity and lifecycle rules remain live, Python/CLI assumptions do not |
 | D-021 | Microphone availability gating | Accepted |
 | D-022 | Click-through to settings | Rejected |
 | D-023 | Cloud provider presets + secret keys | Accepted; extended by D-032 |
@@ -41,6 +41,9 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
 | D-035 | dsh 0.1.1 compatibility and open peers | Accepted (live compatibility and peer policy) |
+| D-036 | Wire-safe optional fields on strict RPC results | Accepted |
+| D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
+| D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
 
 ## D-001 — Project identity
 
@@ -316,3 +319,38 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: the compile/test baseline moves to the exact `0.1.1-rc.2` packages (D-030/D-034 precedent repeated): devDependencies always track the newest tested host so CI catches regressions first. The release-age exemption file gains the rc.2 set alongside rc.8.
 - Prohibited: claiming an untested future dsh release before its audit; reintroducing a single prerelease caret floor that silently rejects newer tuples.
 - Rationale: node-semver prerelease matching rejects any version whose `[major, minor, patch]` tuple has no prerelease comparator, so `^0.1.0-rc.6` accepts rc.6/rc.7/rc.8 (tuple `0.1.0`) but silently refuses every `0.1.1-*` host — published `0.1.1` failed peer resolution there. A caret-OR list would fix that today but break installation again at the next dsh release until another plugin release ships; the maintainer chose install-always over install-gating, accepting that untested future hosts may load the plugin before an audit runs.
+## D-036 — Wire-safe optional fields on strict RPC results
+
+- Status: accepted (2026-08-25).
+- Decision: every object returned across a strict Typert result boundary omits optional fields instead of assigning them an explicit `undefined` value. Result constructors either drop the key or use a conditional spread (`...(value === undefined ? {} : { key: value })`); shared empty-state constants list only their always-present keys.
+- Failure context: selecting Local Whisper surfaced "typert gateway: dshEars/getWhisperModelState: business result failed boundary validation". The model manager's empty state carried `errorCode: undefined` and `errorParams: undefined` as own properties; zod v4 preserves present-but-undefined keys through `.optional()`, so they survived schema parsing and the gateway's JSON-safety walk rejected them ("undefined is not JSON-safe"), surfacing as a `result-invalid` TypertGatewayError.
+- Decision: no defensive undefined-stripping at the service boundary. The producer stays the single place responsible for wire safety, so a future violation surfaces as a loud gateway error instead of being silently masked; `tests/whisper-model-state-wire.test.ts` replays the gateway check over every no-interpreter path.
+- Rationale: the typert gateway validates strict results twice — a zod parse, then a recursive JSON-safety walk — and only absent keys survive both for optional fields.
+
+## D-037 — OS-aware Local Whisper setup guidance
+
+- Status: accepted (2026-08-25).
+- Decision: when interpreter discovery fails, `dshEars/getWhisperModelState` attaches two additive optional diagnostics to the state — `platform` (`windows` / `macos` / `linux`) and `environment` (`python-missing` when nothing was found, `whisper-missing` when an interpreter exists without the openai-whisper package). The probe already knew whether any interpreter existed; both fields stay absent on healthy states.
+- Decision: with a diagnosis present, the Recognition tab's model row shows the matching sentence plus an expandable 安装指引 / Setup guide: per-platform steps for Python, FFmpeg (a transcription dependency), and openai-whisper, each with one canonical copyable command (`winget` / `brew` / `apt`; `pip` or `pip3`). A `whisper-missing` diagnosis skips the Python step. A 重新检测 / Check again action re-queries state after the user installs pieces; an unknown platform falls back to generic doc advice.
+- Decision: the composer microphone keeps its D-021 gray-tooltip behavior unchanged as the short recording-entry hint; guidance lives where the download button lives.
+- Rationale: a disabled download button gave no reason and the mic tooltip sat far from the problem surface. Commands stay single canonical ones per step rather than full package-manager surveys.
+
+## D-038 — User-facing copy style
+
+- Status: accepted (2026-08-25); revises D-024's rule that error, validation, and status messages retain sentence punctuation.
+- Decision: no user-facing string ends with a full stop (`。` or `.`) in either locale. Multi-sentence strings are rewritten around commas or semicolons instead. Internal dots that are not sentence stops (versions, URLs, commands) are untouched.
+- Decision: user-facing copy avoids internal jargon such as "Host"; prefer plain phrasing ("本机 / this computer") or omit the location when obvious. Developer docs and code keep technical terms.
+- Enforcement: `tests/locale.test.ts` guards every locale entry against terminal stops; host message strings follow the same style by convention.
+- Rationale: terminal punctuation across short UI strings read as machine-generated, and "Host" names an internal deployment concept users have no mental model for.
+
+
+## D-039 — Native whisper.node runtime and fixed configuration slots
+
+- Status: accepted (2026-08-25); partially supersedes D-020 and fully supersedes D-037.
+- Decision: Local Whisper uses the high-level `@fugood/whisper.node` package as the only native runtime. Python, Torch, FFmpeg, interpreter discovery, the `whisper` CLI, and fallback engines are removed from the product path. The Host owns the native runtime and model lifecycle; the browser owns audio normalization.
+- Decision: the browser converts captured audio to mono 16 kHz PCM16 WAV before the final Host RPC. The Host keeps a persistent native model context, serializes transcription jobs, forwards cancellation to the native job, and releases the context on Cordis disposal.
+- Decision: model files are separate whisper.cpp GGML downloads owned by dsh-ears. Downloads use a fixed manifest, checksum, partial file, atomic rename, and completion marker. Models are not embedded in the npm tarball.
+- Decision: Local Whisper acceleration is selected with the concrete flat wire field `localWhisperAcceleration` (`default`, `vulkan`, or `cuda`) and is stored under `recognition.localWhisper.acceleration`. The first native load fixes the process variant; changing acceleration afterwards requires restarting the dsh Host. No automatic fallback is presented or performed.
+- Decision: runtime diagnostics are short and concrete: the selected native package or acceleration variant is unavailable, or the Host must restart to apply a changed variant. The old Python/FFmpeg/openai-whisper setup guide is deleted.
+- Decision: persisted Host configuration has four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing`. The Remote/browser contract remains flat for compatibility with per-field drafts and auto-save. This is a fixed dsh-ears data shape, not a registry, factory, generic slot interface, or provider framework.
+- Rationale: one native dependency and one concrete Host runtime remove the old TypeScript-to-Python process boundary without introducing a second abstraction layer. Keeping the flat wire avoids coupling this runtime refactor to a client protocol rewrite, while nested Host storage makes ownership and migration legible.

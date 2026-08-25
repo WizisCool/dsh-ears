@@ -6,7 +6,7 @@ import { TYPERT_REMOTE } from '../src/remote.js'
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
     expect(whisperModelStateSchema.parse({
-      cliAvailable: true,
+      runtimeAvailable: true,
       downloaded: false,
       downloading: false,
       progress: null,
@@ -16,6 +16,15 @@ describe('structured error Remote contracts', () => {
       errorCode: 'whisper.modelUnknown',
       errorParams: { model: 'tiny' }
     })).toMatchObject({ errorCode: 'whisper.modelUnknown', errorParams: { model: 'tiny' } })
+    expect(whisperModelStateSchema.parse({
+      runtimeAvailable: false,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: null
+    })).toMatchObject({ runtimeAvailable: false })
     expect(cloudProviderModelsViewSchema.parse({
       status: 'error',
       models: [],
@@ -27,7 +36,7 @@ describe('structured error Remote contracts', () => {
       id: 'web-speech',
       name: 'Web Speech',
       available: false,
-      detail: 'Browser-provided live recognition; availability depends on the browser.',
+      detail: 'Browser-provided live recognition; availability depends on the browser',
       detailCode: 'backend.webSpeechUnavailable'
     })).toMatchObject({ detailCode: 'backend.webSpeechUnavailable' })
     expect(remoteTextResultSchema.parse({
@@ -45,6 +54,13 @@ describe('structured error Remote contracts', () => {
 })
 
 describe('settings Remote contract', () => {
+  it('accepts the supported local Whisper acceleration values', () => {
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'default' })).toEqual({ localWhisperAcceleration: 'default' })
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'vulkan' })).toEqual({ localWhisperAcceleration: 'vulkan' })
+    expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'cuda' })).toEqual({ localWhisperAcceleration: 'cuda' })
+    expect(() => earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'metal' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',
@@ -92,6 +108,7 @@ describe('settings Remote contract', () => {
       settings: {
         asrBackend: 'web-speech',
         localWhisperModel: 'tiny',
+        localWhisperAcceleration: 'default',
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: '',
         cloudAsrGroqModel: '',

@@ -26,7 +26,7 @@ describe('dsh-ears locale dictionaries', () => {
     }) as Translate
 
     expect(localizedErrorText(t, EARS_ERROR_CODES.asrHttpFailed, 'fallback', { status: 503 }))
-      .toBe('云端语音识别请求失败（HTTP 503）。')
+      .toBe('云端语音识别请求失败（HTTP 503）')
     expect(localizedErrorText(t, EARS_ERROR_CODES.asrUnexpected, 'safe fallback'))
       .toBe('safe fallback')
   })
@@ -47,12 +47,21 @@ describe('dsh-ears locale dictionaries', () => {
     expect(localeZh.bailianHostHint).toBe('请填写带HTTPS的API HOST')
     expect(localeZh.bailianModelHint).toBe('支持DashScope API的模型名，如"qwen-audio-3.0-asr-flash"')
     expect(localeZh.polishingHint).toBe('启用后将对识别后的文本进行润色整理')
+    expect(localeZh.localAccelerationHint).toContain('重启 dsh Host')
     expect(localeEn.shortcutEnabledHint).toBe('Set the voice input shortcut')
     expect(localeEn.shortcutHint).toBe('Use the shortcut to start or stop voice input')
     expect(localeEn.bailianHostHint).toBe('Enter an API host with HTTPS')
     expect(localeEn.bailianModelHint).toBe('A model name that supports the DashScope API, such as "qwen-audio-3.0-asr-flash"')
     expect(localeEn.polishingHint).toBe('When enabled, polish and organize the recognized text')
+    expect(localeEn.localAccelerationHint).toContain('Restart the dsh Host')
     for (const key of Object.keys(localeZh).filter((key) => key.endsWith('Hint')) as Array<keyof typeof localeZh>) {
+      expect(localeZh[key]).not.toMatch(/[。.]$/)
+      expect(localeEn[key]).not.toMatch(/[。.]$/)
+    }
+  })
+
+  it('never ends any locale entry with a full stop', () => {
+    for (const key of Object.keys(localeZh) as Array<keyof typeof localeZh>) {
       expect(localeZh[key]).not.toMatch(/[。.]$/)
       expect(localeEn[key]).not.toMatch(/[。.]$/)
     }

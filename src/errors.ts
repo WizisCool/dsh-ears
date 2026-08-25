@@ -1,8 +1,8 @@
 /** Stable business error codes shared by the Host and browser client. */
 
 export const EARS_ERROR_CODES = {
-  whisperNotInstalled: 'whisper.notInstalled',
-  whisperPythonNotFound: 'whisper.pythonNotFound',
+  whisperNativeUnavailable: 'whisper.nativeUnavailable',
+  whisperRestartRequired: 'whisper.restartRequired',
   whisperModelUnknown: 'whisper.modelUnknown',
   whisperModelUnverified: 'whisper.modelUnverified',
   whisperModelNotDownloaded: 'whisper.modelNotDownloaded',
@@ -13,8 +13,6 @@ export const EARS_ERROR_CODES = {
   whisperCancelCleanupFailed: 'whisper.cancelCleanupFailed',
   whisperStillDownloading: 'whisper.stillDownloading',
   whisperDeleteFailed: 'whisper.deleteFailed',
-  whisperMarkerWriteFailed: 'whisper.markerWriteFailed',
-  whisperModelTableFailed: 'whisper.modelTableFailed',
   cloudModelsTimedOut: 'cloudModels.timedOut',
   cloudModelsHttpFailed: 'cloudModels.httpFailed',
   cloudModelsInvalidJson: 'cloudModels.invalidJson',

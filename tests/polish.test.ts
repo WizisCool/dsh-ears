@@ -2,27 +2,48 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
 import { PolishService, validateSettings } from '../src/polish/service.js'
 import { resolvePolishRoute } from '../src/polish/route.js'
 import { remoteTextResultSchema } from '../src/remote-contract.js'
-import { unflattenEarsSettings } from '../src/settings-store.js'
+import { defaultStoredEarsSettings, unflattenEarsSettings } from '../src/settings-store.js'
 
-vi.mock('../src/asr/local-whisper.js', () => ({
-  isWhisperAvailable: vi.fn(async () => false),
-  transcribeWithWhisper: vi.fn()
-}))
+vi.mock('../src/asr/local-whisper.js', () => {
+  class WhisperRestartRequiredError extends Error {
+    readonly loadedVariant: 'default' | 'vulkan' | 'cuda'
+    readonly requestedVariant: 'default' | 'vulkan' | 'cuda'
+
+    constructor(loadedVariant: 'default' | 'vulkan' | 'cuda', requestedVariant: 'default' | 'vulkan' | 'cuda') {
+      super(`Restart dsh to switch Local Whisper acceleration from "${loadedVariant}" to "${requestedVariant}"`)
+      this.name = 'WhisperRestartRequiredError'
+      this.loadedVariant = loadedVariant
+      this.requestedVariant = requestedVariant
+    }
+  }
+
+  return {
+    disposeWhisperRuntime: vi.fn(async () => undefined),
+    isWhisperAvailable: vi.fn(async () => false),
+    releaseWhisperModelContext: vi.fn(async () => undefined),
+    transcribeWithWhisper: vi.fn(),
+    validateWhisperTranscription: vi.fn(),
+    WhisperRestartRequiredError
+  }
+})
 
 type FakeSettingsScope = {
   get: () => typeof DEFAULT_EARS_SETTINGS
   update: (patch: unknown) => Promise<void>
+  replace: (section: unknown) => Promise<void>
 }
 
 function createSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS = DEFAULT_EARS_SETTINGS): FakeSettingsScope {
   return {
     get: () => settings,
-    update: vi.fn(async () => undefined)
+    update: vi.fn(async () => undefined),
+    replace: vi.fn(async () => undefined)
   }
 }
 
@@ -31,6 +52,9 @@ function createMutableSettingsScope(settings: typeof DEFAULT_EARS_SETTINGS) {
   return {
     get: () => stored,
     update: vi.fn(async (next: unknown) => {
+      stored = next
+    }),
+    replace: vi.fn(async (next: unknown) => {
       stored = next
     })
   }
@@ -319,6 +343,92 @@ describe('PolishService', () => {
     vi.unstubAllGlobals()
   })
 
+  it('reads legacy secrets from the raw user layer when the new schema resolved value only has defaults', async () => {
+    const resolved = defaultStoredEarsSettings()
+    let rawUser: unknown = {
+      cloudAsrProvider: 'groq',
+      cloudAsrApiKey: 'gsk_raw_legacy',
+      cloudAsrModel: 'whisper-large-v3-turbo'
+    }
+    const replace = vi.fn(async (next: unknown) => {
+      rawUser = next
+    })
+    const describe = vi.fn((options: { redactSecrets?: boolean }) => [{
+      ns: 'dsh-ears',
+      user: options.redactSecrets === false
+        ? rawUser
+        : { cloudAsr: { groq: {} } },
+      ...(options.redactSecrets === false ? {} : { secrets: [{ path: ['cloudAsr', 'groq', 'apiKey'], set: true }] })
+    }])
+    const scope = {
+      get: () => resolved,
+      update: vi.fn(async () => undefined),
+      replace
+    }
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: true,
+      describe,
+      register: () => scope
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const view = service.getSettings()
+    expect(view.cloudAsrGroqApiKeyConfigured).toBe(true)
+    expect(view.settings.cloudAsrGroqApiKey).toBe('')
+    expect(view.settings.cloudAsrGroqModel).toBe('whisper-large-v3-turbo')
+    expect(view.overridden).toContain('cloudAsrGroqApiKey')
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledTimes(1))
+
+    const canonical = replace.mock.calls[0]?.[0] as {
+      schemaVersion: number
+      cloudAsr: { groq: { apiKey: string; model: string } }
+    }
+    expect(canonical.schemaVersion).toBe(2)
+    expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo' })
+
+    service.getSettings()
+    await service.listAsrBackends()
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(describe).toHaveBeenCalledWith({ redactSecrets: false })
+    expect(describe).toHaveBeenCalledWith({ redactSecrets: true })
+  })
+
+  it('does not retry a failed raw-settings migration on later reads', async () => {
+    const rawUser: unknown = { cloudAsrProvider: 'groq', cloudAsrApiKey: 'gsk_readonly' }
+    const replace = vi.fn(async () => {
+      throw new Error('settings provider is read-only')
+    })
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: false,
+      describe: (options: { redactSecrets?: boolean }) => [{
+        ns: 'dsh-ears',
+        user: options.redactSecrets === false ? rawUser : { cloudAsr: { groq: {} } },
+        ...(options.redactSecrets === false ? {} : { secrets: [{ path: ['cloudAsr', 'groq', 'apiKey'], set: true }] })
+      }],
+      register: () => ({
+        get: () => defaultStoredEarsSettings(),
+        update: vi.fn(async () => undefined),
+        replace
+      })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    expect(service.getSettings().cloudAsrGroqApiKeyConfigured).toBe(true)
+    expect(service.getSettings().cloudAsrGroqApiKeyConfigured).toBe(true)
+    await service.listAsrBackends()
+    expect(replace).toHaveBeenCalledTimes(1)
+  })
+
   it('does not report cloud ASR as available without a model', async () => {
     const context = createContext({}, {
       ...DEFAULT_EARS_SETTINGS,
@@ -368,6 +478,218 @@ describe('PolishService', () => {
     await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
   })
 
+  it('uses the configured Whisper acceleration for availability, model state, and transcription', async () => {
+    const availability = vi.mocked(isWhisperAvailable)
+    const transcribe = vi.mocked(transcribeWithWhisper)
+    availability.mockClear()
+    availability.mockResolvedValue(true)
+    transcribe.mockClear()
+    transcribe.mockResolvedValue('local result')
+
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'local-whisper',
+      localWhisperAcceleration: 'cuda'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const state = {
+      runtimeAvailable: true,
+      downloaded: true,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: 123,
+      error: null
+    }
+    const getWhisperModelState = vi.fn(async () => state)
+    const serviceInternals = service as unknown as {
+      whisperModels: {
+        getWhisperModelState: typeof getWhisperModelState
+        dispose: () => void
+      }
+    }
+    serviceInternals.whisperModels = { getWhisperModelState, dispose: vi.fn() }
+
+    const backends = await service.listAsrBackends()
+    expect(backends.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
+    expect(await service.getWhisperModelState('tiny')).toMatchObject({ runtimeAvailable: true, downloaded: true })
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'local result' })
+
+    expect(availability).toHaveBeenCalledTimes(1)
+    expect(availability).toHaveBeenCalledWith('cuda')
+    expect(getWhisperModelState).toHaveBeenCalledWith('tiny', true)
+    expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: 'tiny', variant: 'cuda' }))
+  })
+
+  it('does not cache a transient restart-required availability rejection', async () => {
+    const availability = vi.mocked(isWhisperAvailable)
+    availability.mockClear()
+    availability
+      .mockRejectedValueOnce(new WhisperRestartRequiredError('default', 'cuda'))
+      .mockResolvedValueOnce(true)
+
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      localWhisperAcceleration: 'cuda'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const first = await service.listAsrBackends()
+    expect(first.find((backend) => backend.id === 'local-whisper')).toMatchObject({
+      available: false,
+      detailCode: 'whisper.restartRequired'
+    })
+    const second = await service.listAsrBackends()
+    expect(second.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
+    expect(availability).toHaveBeenCalledTimes(2)
+  })
+
+  it('invalidates cached Whisper availability after the acceleration setting changes', async () => {
+    const availability = vi.mocked(isWhisperAvailable)
+    availability.mockClear()
+    availability.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const scope = createMutableSettingsScope(DEFAULT_EARS_SETTINGS)
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', {
+      writable: true,
+      register: () => scope
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const before = await service.listAsrBackends()
+    expect(before.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: false })
+    await service.updateSettings({ localWhisperAcceleration: 'vulkan' }, new AbortController().signal)
+    const after = await service.listAsrBackends()
+    expect(after.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
+    await service.updateSettings({ language: 'en-US' }, new AbortController().signal)
+    const unchanged = await service.listAsrBackends()
+    expect(unchanged.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
+    expect(availability.mock.calls).toEqual([['default'], ['vulkan']])
+  })
+
+  it('reports a locked native variant as a restart-required, gateway-safe state', async () => {
+    const availability = vi.mocked(isWhisperAvailable)
+    availability.mockClear()
+    availability.mockRejectedValue(new WhisperRestartRequiredError('default', 'cuda'))
+
+    const context = createContext({}, {
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'local-whisper',
+      localWhisperAcceleration: 'cuda'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const restartState = {
+      runtimeAvailable: false,
+      downloaded: true,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: 123,
+      error: null
+    }
+    const getWhisperModelState = vi.fn(async () => restartState)
+    const downloadWhisperModel = vi.fn(async () => restartState)
+    const serviceInternals = service as unknown as {
+      whisperModels: {
+        getWhisperModelState: typeof getWhisperModelState
+        downloadWhisperModel: typeof downloadWhisperModel
+        dispose: () => void
+      }
+    }
+    serviceInternals.whisperModels = { getWhisperModelState, downloadWhisperModel, dispose: vi.fn() }
+
+    const backends = await service.listAsrBackends()
+    const local = backends.find((backend) => backend.id === 'local-whisper')
+    expect(local).toMatchObject({
+      available: false,
+      detailCode: 'whisper.restartRequired',
+      detailParams: { loadedVariant: 'default', requestedVariant: 'cuda' }
+    })
+    expect(local?.detail).not.toMatch(/cli|python|openai-whisper/i)
+
+    const state = await service.getWhisperModelState('tiny')
+    expect(state).toMatchObject({
+      runtimeAvailable: false,
+      downloaded: true,
+      errorCode: 'whisper.restartRequired',
+      errorParams: { loadedVariant: 'default', requestedVariant: 'cuda' }
+    })
+    expect(state.error).toContain('Restart dsh')
+    expect(JSON.parse(JSON.stringify(state))).toEqual(state)
+
+    const downloadState = await service.downloadWhisperModel('tiny')
+    expect(downloadWhisperModel).toHaveBeenCalledWith('tiny', false)
+    expect(downloadState).toMatchObject({
+      downloaded: true,
+      runtimeAvailable: false,
+      errorCode: 'whisper.restartRequired'
+    })
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({
+      status: 'error',
+      code: 'whisper.restartRequired',
+      message: 'Restart dsh to switch Local Whisper acceleration from "default" to "cuda"',
+      params: { loadedVariant: 'default', requestedVariant: 'cuda' }
+    })
+  })
+
+  it('releases the native model context before deletion and disposes the runtime', async () => {
+    const availability = vi.mocked(isWhisperAvailable)
+    const release = vi.mocked(releaseWhisperModelContext)
+    const dispose = vi.mocked(disposeWhisperRuntime)
+    availability.mockClear()
+    availability.mockResolvedValue(true)
+    release.mockClear()
+    dispose.mockClear()
+
+    const context = createContext({})
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const deleted = {
+      runtimeAvailable: true,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: null
+    }
+    const deleteWhisperModel = vi.fn(async () => deleted)
+    const serviceInternals = service as unknown as {
+      whisperModels: {
+        deleteWhisperModel: typeof deleteWhisperModel
+        dispose: () => void
+      }
+    }
+    serviceInternals.whisperModels = { deleteWhisperModel, dispose: vi.fn() }
+
+    await expect(service.deleteWhisperModel('tiny')).resolves.toEqual(deleted)
+    expect(release).toHaveBeenCalledTimes(1)
+    expect(deleteWhisperModel).toHaveBeenCalledWith('tiny', true)
+    expect(release.mock.invocationCallOrder[0]).toBeLessThan(deleteWhisperModel.mock.invocationCallOrder[0])
+
+    await fiber.dispose()
+    fibers.splice(fibers.indexOf(fiber), 1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('sanitizes and caps Whisper model state errors', async () => {
     const context = createContext()
     const fiber = await context.plugin(PolishService)
@@ -377,7 +699,7 @@ describe('PolishService', () => {
 
     const whisperModels = {
       getWhisperModelState: vi.fn(async () => ({
-        cliAvailable: true,
+        runtimeAvailable: true,
         downloaded: false,
         downloading: false,
         progress: null,

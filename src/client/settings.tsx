@@ -5,7 +5,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
@@ -148,7 +148,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             }
             props.edit('asrBackend', id)
           }} />
-          {state.asrBackend.text === 'local-whisper' ? <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} /> : null}
+          {state.asrBackend.text === 'local-whisper' ? <>
+            <SelectRow label={t('localAcceleration')} hint={t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={WHISPER_ACCELERATION_IDS.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
+            <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
+          </> : null}
           {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrGroqApiKey.text} configured={state.cloudAsrGroqApiKeyConfigured} clearPending={state.cloudAsrGroqApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrGroqApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
             <CloudModelRow label={t('cloudModel')} value={state.cloudAsrGroqModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrGroqModel', value)} onRetry={props.retryCloudModels} t={t} />
@@ -483,12 +486,13 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
   const labelText = selected === undefined ? value : selected[1]
+  const alert = status === 'ready' && (invalid || !modelState.runtimeAvailable || modelState.error !== null)
   const statusContent = status === 'loading' ? whisperCheckingContent(t) : whisperStatusContent(modelState, t, writable, onDownload, onCancelDownload, onDeleteModel)
   return (
     <div className={styles.row}>
       <div className={styles.rowText}>
         <div className={styles.rowTitle}>{label}</div>
-        <div className={`${styles.rowDesc} ${styles.rowDescInline} ${modelState.error !== null || invalid ? styles.invalid : ''}`} {...(modelState.error !== null || invalid ? { role: 'alert' } : {})}>
+        <div className={`${styles.rowDesc} ${styles.rowDescInline} ${alert ? styles.invalid : ''}`} {...(alert ? { role: 'alert' } : {})}>
           {statusContent}
         </div>
       </div>
@@ -522,6 +526,16 @@ function whisperCheckingContent(t: Translate): ReactNode {
 }
 
 function whisperStatusContent(modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void, onCancelDownload: () => void, onDeleteModel: () => void): ReactNode {
+  if (!modelState.runtimeAvailable) {
+    const errorText = modelState.error === null ? t('whisperNativeUnavailable') : localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
+    if (!modelState.downloading) return <span>{errorText}</span>
+    const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
+    return <>
+      <span>{errorText}</span>
+      <span>{percent === null ? t('whisperDownloading') : t('whisperDownloadingProgress', { percent })}</span>
+      <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
+    </>
+  }
   if (modelState.error !== null) {
     const errorText = localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
     return <>
@@ -530,7 +544,7 @@ function whisperStatusContent(modelState: WhisperModelState, t: Translate, writa
         ? <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
         : modelState.downloaded
           ? <WhisperDownloadedActions modelState={modelState} t={t} writable={writable} onDeleteModel={onDeleteModel} />
-          : <button type="button" className={styles.linkButton} disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('retryDownload')}</button>}
+          : <button type="button" className={styles.linkButton} disabled={!writable} onClick={onDownload}>{t('retryDownload')}</button>}
     </>
   }
   if (modelState.downloading) {
@@ -540,12 +554,7 @@ function whisperStatusContent(modelState: WhisperModelState, t: Translate, writa
   if (modelState.downloaded) {
     return <WhisperDownloadedActions modelState={modelState} t={t} writable={writable} onDeleteModel={onDeleteModel} />
   }
-  return (
-    <>
-      <span>{t('whisperNotDownloaded')}</span>
-      <button type="button" className={styles.linkButton} disabled={!writable || !modelState.cliAvailable} onClick={onDownload}>{t('clickDownload')}</button>
-    </>
-  )
+  return <><span>{t('whisperNotDownloaded')}</span><button type="button" className={styles.linkButton} disabled={!writable} onClick={onDownload}>{t('clickDownload')}</button></>
 }
 
 function WhisperDownloadedActions({ modelState, t, writable, onDeleteModel }: { modelState: WhisperModelState; t: Translate; writable: boolean; onDeleteModel: () => void }) {

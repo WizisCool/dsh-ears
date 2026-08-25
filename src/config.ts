@@ -1,26 +1,55 @@
 import { isValidStoredShortcut } from './shortcut.js'
+import {
+  ASR_BACKEND_IDS,
+  BAILIAN_MAX_RECORDING_SECONDS,
+  CLOUD_ASR_PROVIDER_IDS,
+  effectiveRecognitionLanguage,
+  isValidRecordingLimit,
+  WHISPER_ACCELERATION_IDS,
+  WHISPER_MODEL_IDS
+} from './settings/recognition.js'
+import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
+import { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
+import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
+import type {
+  AsrBackendId,
+  CloudAsrProviderId,
+  WhisperAccelerationId,
+  WhisperModelId
+} from './settings/recognition.js'
+import type { SettingsDisplayNameId } from './settings/general.js'
+
+export {
+  ASR_BACKEND_IDS,
+  BAILIAN_MAX_RECORDING_SECONDS,
+  CLOUD_ASR_PROVIDER_IDS,
+  effectiveRecognitionLanguage,
+  isValidRecordingLimit,
+  WHISPER_ACCELERATION_IDS,
+  WHISPER_MODEL_IDS
+} from './settings/recognition.js'
+export { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
+export { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
+export { SETTINGS_DISPLAY_NAME_IDS, settingsPageLabel } from './settings/general.js'
+export type {
+  AsrBackendId,
+  CloudAsrProviderId,
+  WhisperAccelerationId,
+  WhisperModelId
+} from './settings/recognition.js'
+export type { SettingsDisplayNameId } from './settings/general.js'
 
 export const SETTINGS_NAMESPACE = 'dsh-ears'
+export const EARS_SETTINGS_SCHEMA_VERSION = 2 as const
 
-export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
-export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
-
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'bailian', 'custom'] as const
-export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
-export const BAILIAN_MAX_RECORDING_SECONDS = 300
-
-export const WHISPER_MODEL_IDS = ['tiny', 'base', 'small', 'medium', 'large', 'turbo'] as const
-export type WhisperModelId = typeof WHISPER_MODEL_IDS[number]
-
-export const MAX_CLOUD_API_KEY_LENGTH = 512
-export const MAX_POLISH_PROMPT_LENGTH = 4000
-
-export const SETTINGS_DISPLAY_NAME_IDS = ['dsh-ears', 'voice'] as const
-export type SettingsDisplayNameId = typeof SETTINGS_DISPLAY_NAME_IDS[number]
-
+/**
+ * Flat settings are the compatibility view used by the existing Remote and
+ * browser client. Host persistence is organized separately in settings-store.
+ */
 export interface EarsSettings {
   asrBackend: AsrBackendId | string
   localWhisperModel: WhisperModelId | string
+  localWhisperAcceleration: WhisperAccelerationId | string
   cloudAsrProvider: CloudAsrProviderId | string
   cloudAsrGroqApiKey: string
   cloudAsrGroqModel: string
@@ -46,6 +75,7 @@ export interface EarsSettings {
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   asrBackend: 'web-speech',
   localWhisperModel: 'tiny',
+  localWhisperAcceleration: 'default',
   cloudAsrProvider: 'groq',
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
@@ -86,45 +116,6 @@ export interface ReasoningEffortsView {
   defaultEffort?: string
 }
 
-export function isHttpEndpoint(value: string): boolean {
-  if (value.trim() === '') return false
-  try {
-    const url = new URL(value.trim())
-    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username === '' && url.password === ''
-  } catch {
-    return false
-  }
-}
-
-export function isValidRecordingLimit(value: number): boolean {
-  return Number.isSafeInteger(value) && value >= 1 && value <= 600
-}
-
-/** Bailian public hosts must be HTTPS; loopback may use HTTP, matching custom endpoints. */
-export function isBailianAsrHost(value: string): boolean {
-  if (value.trim() === '') return false
-  try {
-    const url = new URL(value.trim())
-    if (url.username !== '' || url.password !== '') return false
-    const host = url.hostname.toLowerCase()
-    const loopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
-    if (loopback) return url.protocol === 'https:' || url.protocol === 'http:'
-    return url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-/** Empty stored language follows the dsh English/中文 locale. A typed value wins. */
-export function languageFromUiLocale(locale: string): string {
-  return locale.trim().toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN'
-}
-
-export function effectiveRecognitionLanguage(stored: string, uiLocale: string): string {
-  const value = stored.trim()
-  return value === '' ? languageFromUiLocale(uiLocale) : value
-}
-
 export function effectiveRecordingSeconds(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'maxRecordingSeconds'>): number {
   const limit = settings.maxRecordingSeconds
   if (settings.asrBackend === 'cloud-openai' && settings.cloudAsrProvider === 'bailian') {
@@ -136,6 +127,7 @@ export function effectiveRecordingSeconds(settings: Pick<EarsSettings, 'asrBacke
 export function validateEarsSettings(settings: EarsSettings): void {
   if (!(ASR_BACKEND_IDS as readonly string[]).includes(settings.asrBackend)) throw new Error('Unknown dsh-ears ASR backend')
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
+  if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
   if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
   if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
@@ -146,8 +138,4 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
-}
-
-export function settingsPageLabel(id: string, labels: { plugin: string; voice: string }): string {
-  return id === 'voice' ? labels.voice : labels.plugin
 }

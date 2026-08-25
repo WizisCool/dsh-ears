@@ -349,6 +349,10 @@ export const TYPERT = {
             declaration: "export type RemoteTextResult = { status: 'ok'; text: string } | { status: 'error'; code: string; message: string; params?: Record<string, string | number> }"
           },
           {
+            name: 'EarsSettings',
+            declaration: 'export interface EarsSettings { asrBackend: string; localWhisperModel: string; localWhisperAcceleration: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; language: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
+          },
+          {
             name: 'EarsSettingsView',
             declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; overridden: string[] }'
           },
@@ -374,7 +378,7 @@ export const TYPERT = {
           },
           {
             name: 'WhisperModelState',
-            declaration: 'export interface WhisperModelState { cliAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
+            declaration: 'export interface WhisperModelState { runtimeAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
           },
           {
             name: 'CloudProviderModelsView',

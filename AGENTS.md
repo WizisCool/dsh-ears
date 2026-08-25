@@ -64,6 +64,10 @@ tests/                    Vitest suites next to the shipped modules
 - Follow official DeepSeek Harness package shape, naming, lifecycle, and TypeScript style where they apply.
 - English for source, comments, public documentation, context, issue-ready text, and commit messages. Runtime product prompts may be Chinese when the product requires Chinese output.
 
+## Local Whisper runtime
+
+Local Whisper is Host-only and uses the bundled `@fugood/whisper.node` native dependency plus separately downloaded whisper.cpp GGML models. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. Native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
+
 ## Boundaries
 
 - Host owns credentials, process spawn, cloud calls, and Whisper. The browser never receives a cloud ASR key and never calls an LLM provider.

@@ -1,5 +1,7 @@
-import { dirname } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { describe, expect, it, vi } from 'vitest'
 import { WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
 import { whisperModelStateSchema } from '../src/remote-contract.js'
 
@@ -28,35 +30,61 @@ function assertGatewayWireSafe(state: unknown): void {
   walk(parsed)
 }
 
+async function withManager(run: (manager: WhisperModels) => Promise<void>): Promise<void> {
+  const cacheDir = await mkdtemp(join(tmpdir(), 'dsh-ears-wire-'))
+  const fetchMock = vi.fn(async () => {
+    throw new Error('offline test')
+  }) as unknown as typeof fetch
+  const manager = new WhisperModels({
+    env: { ...process.env, DSH_EARS_WHISPER_CACHE_DIR: cacheDir },
+    fetch: fetchMock
+  })
+  try {
+    await run(manager)
+  } finally {
+    manager.dispose()
+    await rm(cacheDir, { recursive: true, force: true })
+  }
+}
+
 describe('whisper model state wire safety', () => {
-  it('returns gateway-safe states on every no-interpreter path', async () => {
-    // Keep PATH to the Node directory only: this prevents a real whisper or
-    // Python installation from making the test depend on the host machine.
-    const manager = new WhisperModels({ env: { ...process.env, PATH: dirname(process.execPath) } })
-    try {
+  it('returns gateway-safe states across unavailable, download, cancel, and dispose paths', async () => {
+    await withManager(async (manager) => {
       const states: WhisperModelState[] = [
         await manager.getWhisperModelState('tiny', false),
         await manager.getWhisperModelState('tiny', true),
         await manager.downloadWhisperModel('tiny', false),
-        await manager.downloadWhisperModel('tiny', true),
         await manager.cancelWhisperModelDownload('tiny', false),
         await manager.deleteWhisperModel('tiny', true)
       ]
       for (const state of states) {
-        expect(state.cliAvailable).toBeTypeOf('boolean')
+        expect(state.runtimeAvailable).toBeTypeOf('boolean')
         expect(() => assertGatewayWireSafe(state)).not.toThrow()
       }
+
       manager.dispose()
       const disposed = await manager.getWhisperModelState('tiny', false)
+      expect(disposed.runtimeAvailable).toBe(false)
       expect(() => assertGatewayWireSafe(disposed)).not.toThrow()
-    } finally {
-      manager.dispose()
-    }
+    })
+  })
+
+  it('does not emit removed Python or platform diagnostics', async () => {
+    await withManager(async (manager) => {
+      for (const runtimeAvailable of [false, true]) {
+        const state = await manager.getWhisperModelState('tiny', runtimeAvailable)
+        expect(state.runtimeAvailable).toBe(runtimeAvailable)
+        expect(state).not.toHaveProperty('cliAvailable')
+        expect(state).not.toHaveProperty('platform')
+        expect(state).not.toHaveProperty('environment')
+        expect(() => assertGatewayWireSafe(state)).not.toThrow()
+      }
+    })
   })
 
   it('keeps the downloaded-state shape gateway-safe', () => {
     expect(() => assertGatewayWireSafe({
-      cliAvailable: true,
+      runtimeAvailable: true,
       downloaded: true,
       downloading: false,
       progress: null,

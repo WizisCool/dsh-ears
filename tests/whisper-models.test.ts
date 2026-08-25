@@ -1,393 +1,206 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { executableSuffixes, parseDownloadProgress, pythonCandidates, WhisperModels, type WhisperModelState } from '../src/asr/whisper-models.js'
-import { readShebangInterpreter } from '../src/asr/whisper-discovery.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  WHISPER_MODEL_MANIFEST,
+  WhisperModels,
+  whisperCacheDirectory,
+  whisperModelPath,
+  type WhisperModelDefinition,
+  type WhisperModelState
+} from '../src/asr/whisper-models.js'
 
-describe('whisper download progress parsing', () => {
-  it('extracts percent and sizes from a tqdm line', () => {
-    expect(parseDownloadProgress(' 42%|████▌     | 63.2M/150M [00:12<00:16, 5.89MB/s]')).toEqual({
-      percent: 0.42,
-      bytes: Math.round(63.2 * 1024 * 1024),
-      totalBytes: 150 * 1024 * 1024
-    })
+const TEST_BYTES = Buffer.from('small deterministic whisper model fixture')
+const TEST_SHA256 = createHash('sha256').update(TEST_BYTES).digest('hex')
+const TEST_DEFINITION: WhisperModelDefinition = {
+  fileName: 'ggml-tiny.bin',
+  url: 'https://models.example.test/ggml-tiny.bin',
+  sha256: TEST_SHA256,
+  bytes: TEST_BYTES.byteLength
+}
+
+const managers: WhisperModels[] = []
+const directories: string[] = []
+
+afterEach(async () => {
+  for (const manager of managers.splice(0)) manager.dispose()
+  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
+})
+
+async function makeManager(fetch: typeof globalThis.fetch = async () => new Response(TEST_BYTES, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }), definition: WhisperModelDefinition = TEST_DEFINITION) {
+  const cacheDir = await mkdtemp(joinPath(tmpdir(), 'dsh-ears-whisper-models-'))
+  directories.push(cacheDir)
+  const manager = new WhisperModels({
+    env: { ...process.env, DSH_EARS_WHISPER_CACHE_DIR: cacheDir },
+    fetch,
+    manifest: { tiny: definition }
+  })
+  managers.push(manager)
+  return { manager, cacheDir }
+}
+
+async function waitForState(manager: WhisperModels, predicate: (state: WhisperModelState) => boolean, timeoutMs = 5000): Promise<WhisperModelState> {
+  const deadline = Date.now() + timeoutMs
+  let state = await manager.getWhisperModelState('tiny', true)
+  while (!predicate(state)) {
+    if (Date.now() > deadline) throw new Error('timed out waiting for whisper model state')
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    state = await manager.getWhisperModelState('tiny', true)
+  }
+  return state
+}
+
+describe('whisper model manifest and paths', () => {
+  it('contains the six fixed whisper.cpp model definitions', () => {
+    expect(Object.keys(WHISPER_MODEL_MANIFEST)).toEqual(['tiny', 'base', 'small', 'medium', 'large', 'turbo'])
+    for (const definition of Object.values(WHISPER_MODEL_MANIFEST)) {
+      expect(definition.url).toContain('huggingface.co/ggerganov/whisper.cpp')
+      expect(definition.sha256).toMatch(/^[a-f0-9]{64}$/)
+      expect(definition.bytes).toBeGreaterThan(0)
+    }
   })
 
-  it('uses the last update when a chunk carries carriage-return updates', () => {
-    expect(parseDownloadProgress(' 10%|██        | 15.0M/150M\r 85%|████████▌ | 128M/150M')).toEqual({
-      percent: 0.85,
-      bytes: 128 * 1024 * 1024,
-      totalBytes: 150 * 1024 * 1024
-    })
-  })
-
-  it('parses bytes with explicit iB suffixes', () => {
-    expect(parseDownloadProgress('100%|██████████| 72.1MiB/72.1MiB [00:02<00:00, 28.2MiB/s]')).toEqual({
-      percent: 1,
-      bytes: Math.round(72.1 * 1024 * 1024),
-      totalBytes: Math.round(72.1 * 1024 * 1024)
-    })
-  })
-
-  it('returns nulls for text without a progress tuple', () => {
-    expect(parseDownloadProgress('some warning line\n')).toEqual({ percent: null, bytes: null, totalBytes: null })
+  it('uses platform cache conventions and ggml file names', () => {
+    expect(whisperCacheDirectory('linux', { XDG_CACHE_HOME: '/cache', HOME: '/home/test' }).replaceAll('\\', '/')).toBe('/cache/dsh-ears/whisper')
+    expect(whisperModelPath('tiny', 'linux', { XDG_CACHE_HOME: '/cache', HOME: '/home/test' }).replaceAll('\\', '/')).toBe('/cache/dsh-ears/whisper/ggml-tiny.bin')
   })
 })
 
-describe('windows executable discovery', () => {
-  it('probes python.exe and py.exe launchers on win32', () => {
-    expect(pythonCandidates('win32')).toEqual(['python.exe', 'py.exe'])
-    expect(pythonCandidates('darwin')).toEqual(['python3', 'python'])
+describe('whisper.cpp model lifecycle', () => {
+  it('reports a missing model without probing Python or a CLI', async () => {
+    const { manager } = await makeManager()
+    await expect(manager.getWhisperModelState('tiny', true)).resolves.toMatchObject({
+      runtimeAvailable: true,
+      downloaded: false,
+      downloading: false,
+      error: null
+    })
   })
 
-  it('expands extension-less commands against PATHEXT on win32', () => {
-    expect(executableSuffixes('py', 'win32', '.EXE;.CMD')).toEqual(['', '.EXE', '.CMD'])
-    expect(executableSuffixes('py', 'win32', undefined)).toEqual(['', '.COM', '.EXE', '.BAT', '.CMD'])
-  })
-
-  it('leaves commands with extensions and POSIX probing untouched', () => {
-    expect(executableSuffixes('python.exe', 'win32', '.EXE;.CMD')).toEqual([''])
-    expect(executableSuffixes('python3', 'darwin', undefined)).toEqual([''])
-  })
-})
-
-describe('whisper shebang discovery', () => {
-  it('reads only the interpreter from a shebang line', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-shebang-'))
-    const script = join(directory, 'whisper')
-    const leftover = join(directory, 'not-a-script')
-    try {
-      await writeFile(script, '#!/usr/bin/env python3\nprint("ok")\n')
-      await writeFile(leftover, 'this is not a shebang\n')
-      await expect(readShebangInterpreter(script)).resolves.toBe('python3')
-      await expect(readShebangInterpreter(leftover)).resolves.toBeUndefined()
-      await expect(readShebangInterpreter(join(directory, 'missing'))).resolves.toBeUndefined()
-    } finally {
-      await rm(directory, { recursive: true, force: true })
-    }
-  })
-})
-
-/**
- * A fake `python3` executable that speaks the three helper protocols the
- * manager uses: the spec probe, the model-table dump, and the model download.
- * It writes into the XDG_CACHE_HOME it inherits, so tests keep the cache fully
- * isolated from the real `~/.cache/whisper`.
- */
-const FAKE_PYTHON_SCRIPT = [
-  '#!/usr/bin/env node',
-  "import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'",
-  "import { homedir } from 'node:os'",
-  "import { join } from 'node:path'",
-  'const args = process.argv.slice(2)',
-  "const scriptIndex = args.indexOf('-c')",
-  "const script = scriptIndex === -1 ? '' : args[scriptIndex + 1]",
-  'const model = args[args.length - 1]',
-  "const root = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'whisper')",
-  "if (process.env.FAKE_WHISPER_LOG) appendFileSync(process.env.FAKE_WHISPER_LOG, 'invoked\\n')",
-  "if (script.includes('find_spec')) {",
-  "  process.stdout.write(process.env.FAKE_WHISPER_NO_SPEC === '1' ? 'False\\n' : 'True\\n')",
-  '  process.exit(0)',
-  '}',
-  "if (script.includes('print(json.dumps')) {",
-  "  if (process.env.FAKE_WHISPER_BAD_TABLE === '1') { process.stdout.write('not json\\n'); process.exit(0) }",
-  "  if (process.env.FAKE_WHISPER_NULL_TABLE === '1') { process.stdout.write('null\\n'); process.exit(0) }",
-  "  if (process.env.FAKE_WHISPER_ARRAY_TABLE === '1') { process.stdout.write(JSON.stringify({ root: root, files: [] }) + '\\n'); process.exit(0) }",
-  "  process.stdout.write(JSON.stringify({ root: root, files: { tiny: 'tiny.pt', base: 'base.pt' } }) + '\\n')",
-  '  process.exit(0)',
-  '}',
-  "if (script.includes('_download')) {",
-  "  mkdirSync(root, { recursive: true })",
-  "  writeFileSync(join(root, model + '.pt'), 'partial')",
-  "  const slow = process.env.FAKE_WHISPER_SLOW === '1'",
-  "  const fail = process.env.FAKE_WHISPER_FAIL === '1'",
-  '  if (slow) {',
-  "    process.stderr.write(' 42%|████▌     | 63.2M/150M [00:12<00:16, 5.89MB/s]\\n')",
-  '    setTimeout(() => {',
-  "      if (fail) { process.stderr.write('Traceback (most recent call last):\\n  boom\\nRuntimeError: boom\\n'); process.exit(1) }",
-  "      process.stderr.write('__DSH_EARS_DONE__\\n')",
-  '      process.exit(0)',
-  '    }, 60000)',
-  '  } else if (fail) {',
-  "    process.stderr.write('Traceback (most recent call last):\\n  boom\\nRuntimeError: boom\\n')",
-  '    process.exit(1)',
-  '  } else {',
-  "    process.stderr.write('__DSH_EARS_DONE__\\n')",
-  '    process.exit(0)',
-  '  }',
-  '} else {',
-  "  process.stdout.write('False\\n')",
-  '  process.exit(0)',
-  '}',
-  ''
-].join('\n')
-
-/**
- * The fake python is a POSIX shebang script; native Windows cannot spawn it
- * (CreateProcess requires a real PE executable), so the spawn-based lifecycle
- * suite runs only where the kernel handles the shebang. Platform-independent
- * coverage remains in the discovery and progress-parsing suites.
- */
-describe.skipIf(process.platform === 'win32')('whisper model lifecycle', () => {
-  let binDir: string
-  let baseEnv: NodeJS.ProcessEnv
-
-  beforeAll(async () => {
-    binDir = await mkdtemp(join(tmpdir(), 'dsh-ears-fake-bin-'))
-    await writeFile(join(binDir, 'python3'), FAKE_PYTHON_SCRIPT)
-    await chmod(join(binDir, 'python3'), 0o755)
-    // Only the fake bin dir and the node directory are on PATH, so discovery
-    // can never fall through to a real whisper CLI or Python installation.
-    baseEnv = { ...process.env, PATH: `${binDir}:${dirname(process.execPath)}` }
-  })
-
-  afterAll(async () => {
-    await rm(binDir, { recursive: true, force: true })
-  })
-
-  async function makeEnv(extra: Record<string, string> = {}): Promise<{ cacheDir: string; env: NodeJS.ProcessEnv }> {
-    const cacheDir = await mkdtemp(join(tmpdir(), 'dsh-ears-fake-cache-'))
-    return { cacheDir, env: { ...baseEnv, XDG_CACHE_HOME: cacheDir, ...extra } }
-  }
-
-  async function waitForState(manager: WhisperModels, predicate: (state: WhisperModelState) => boolean, timeoutMs = 5000): Promise<WhisperModelState> {
-    const deadline = Date.now() + timeoutMs
-    let state = await manager.getWhisperModelState('tiny', true)
-    while (!predicate(state)) {
-      if (Date.now() > deadline) throw new Error('timed out waiting for whisper model state')
-      await new Promise((resolve) => setTimeout(resolve, 20))
-      state = await manager.getWhisperModelState('tiny', true)
-    }
-    return state
-  }
-
-  async function waitForGone(path: string, timeoutMs = 2000): Promise<void> {
-    const deadline = Date.now() + timeoutMs
-    while (Date.now() < deadline) {
-      try {
-        await stat(path)
-      } catch {
-        return
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20))
-    }
-    throw new Error(`file still exists: ${path}`)
-  }
-
-  it('downloads a model, writes the completion marker, and reports downloaded', async () => {
-    const { cacheDir, env } = await makeEnv()
-    const manager = new WhisperModels({ env })
-    try {
-      const start = await manager.downloadWhisperModel('tiny', true)
-      expect(start.downloading).toBe(true)
-      const done = await waitForState(manager, (state) => !state.downloading)
-      expect(done.downloaded).toBe(true)
-      expect(done.error).toBeNull()
-      await stat(join(cacheDir, 'whisper', 'tiny.pt'))
-      await stat(join(cacheDir, 'whisper', 'tiny.pt.dsh-ears-done'))
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('treats a model file without a completion marker as not downloaded', async () => {
-    const { cacheDir, env } = await makeEnv()
-    await mkdir(join(cacheDir, 'whisper'), { recursive: true })
-    await writeFile(join(cacheDir, 'whisper', 'tiny.pt'), 'stale')
-    const manager = new WhisperModels({ env })
-    try {
-      const state = await manager.getWhisperModelState('tiny', true)
-      expect(state.downloaded).toBe(false)
-      expect(state.error).toContain('not downloaded by dsh-ears')
-      expect(state.errorCode).toBe('whisper.modelUnverified')
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('removes an orphaned completion marker when the model file is missing', async () => {
-    const { cacheDir, env } = await makeEnv()
-    await mkdir(join(cacheDir, 'whisper'), { recursive: true })
-    await writeFile(join(cacheDir, 'whisper', 'tiny.pt.dsh-ears-done'), 'tiny')
-    const manager = new WhisperModels({ env })
-    try {
-      const state = await manager.getWhisperModelState('tiny', true)
-      expect(state.downloaded).toBe(false)
-      expect(state.error).toBeNull()
-      await waitForGone(join(cacheDir, 'whisper', 'tiny.pt.dsh-ears-done'))
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('refuses a second download while another model is still downloading', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_SLOW: '1' })
-    const manager = new WhisperModels({ env })
-    try {
-      await manager.downloadWhisperModel('tiny', true)
-      await waitForState(manager, (state) => state.downloading)
-      const blocked = await manager.downloadWhisperModel('base', true)
-      expect(blocked.downloading).toBe(true)
-      expect(blocked.error).toBe('Another Whisper model is already downloading.')
-      expect(blocked.errorCode).toBe('whisper.alreadyDownloading')
-      const tiny = await manager.getWhisperModelState('tiny', true)
-      expect(tiny.downloading).toBe(true)
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('cancelling a download kills the child and removes the partial file', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_SLOW: '1' })
-    const manager = new WhisperModels({ env })
-    try {
-      await manager.downloadWhisperModel('tiny', true)
-      const progress = await waitForState(manager, (state) => state.progress !== null && state.progress > 0)
-      expect(progress.progress).toBeCloseTo(0.42, 5)
-      const cancelled = await manager.cancelWhisperModelDownload('tiny', true)
-      expect(cancelled.downloading).toBe(false)
-      expect(cancelled.downloaded).toBe(false)
-      expect(cancelled.error).toBeNull()
-      await waitForGone(join(cacheDir, 'whisper', 'tiny.pt'))
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('removes the partial file and reports the traceback tail when a download fails', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_FAIL: '1' })
-    const manager = new WhisperModels({ env })
-    try {
-      await manager.downloadWhisperModel('tiny', true)
-      const done = await waitForState(manager, (state) => !state.downloading)
-      expect(done.downloaded).toBe(false)
-      expect(done.error).toContain('RuntimeError: boom')
-      expect(done.errorCode).toBe('whisper.downloadFailed')
-      await waitForGone(join(cacheDir, 'whisper', 'tiny.pt'))
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('deleting a model removes the file and its completion marker', async () => {
-    const { cacheDir, env } = await makeEnv()
-    const manager = new WhisperModels({ env })
-    try {
-      await manager.downloadWhisperModel('tiny', true)
-      await waitForState(manager, (state) => state.downloaded)
-      const after = await manager.deleteWhisperModel('tiny', true)
-      expect(after.downloaded).toBe(false)
-      expect(after.error).toBeNull()
-      await waitForGone(join(cacheDir, 'whisper', 'tiny.pt'))
-      await waitForGone(join(cacheDir, 'whisper', 'tiny.pt.dsh-ears-done'))
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('dispose kills an active download, removes the partial file, and freezes the instance', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_SLOW: '1' })
-    const manager = new WhisperModels({ env })
+  it('downloads to a partial file, verifies SHA-256, renames atomically, and writes a completion marker', async () => {
+    const { manager, cacheDir } = await makeManager()
     await manager.downloadWhisperModel('tiny', true)
-    await waitForState(manager, (state) => state.progress !== null && state.progress > 0)
+    const done = await waitForState(manager, (state) => !state.downloading)
+    expect(done).toMatchObject({ downloaded: true, error: null, progress: null })
+    const filePath = `${cacheDir}/ggml-tiny.bin`
+    const markerPath = `${filePath}.dsh-ears-done`
+    expect(await readFile(filePath)).toEqual(TEST_BYTES)
+    expect(await readFile(markerPath, 'utf8')).toContain(TEST_SHA256)
+    await expect(stat(`${filePath}.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('rejects a same-size model file after its bytes change', async () => {
+    const { manager, cacheDir } = await makeManager()
+    await manager.downloadWhisperModel('tiny', true)
+    await waitForState(manager, (state) => state.downloaded)
+    const tampered = Buffer.from(TEST_BYTES)
+    tampered[0] ^= 1
+    await writeFile(`${cacheDir}/ggml-tiny.bin`, tampered)
+
+    await expect(manager.getWhisperModelState('tiny', true)).resolves.toMatchObject({
+      downloaded: false,
+      errorCode: 'whisper.modelUnverified'
+    })
+  })
+
+  it('removes an invalid download and reports checksum failure', async () => {
+    const { manager, cacheDir } = await makeManager(async () => new Response(Buffer.from('wrong'), { headers: { 'content-length': '5' } }), { ...TEST_DEFINITION, bytes: 5 })
+    await manager.downloadWhisperModel('tiny', true)
+    const done = await waitForState(manager, (state) => !state.downloading)
+    expect(done.downloaded).toBe(false)
+    expect(done.error).toContain('checksum')
+    expect(done.errorCode).toBe('whisper.downloadFailed')
+    await expect(stat(`${cacheDir}/ggml-tiny.bin`)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('stops a stream when it exceeds the manifest size', async () => {
+    const chunks = [TEST_BYTES, Buffer.from('extra'), Buffer.from('tail')]
+    let pulls = 0
+    let cancels = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1
+        const chunk = chunks.shift()
+        if (chunk === undefined) {
+          controller.close()
+          return
+        }
+        controller.enqueue(chunk)
+      },
+      cancel() {
+        cancels += 1
+      }
+    }, { highWaterMark: 0 })
+    const { manager, cacheDir } = await makeManager(async () => new Response(stream, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    await manager.downloadWhisperModel('tiny', true)
+    const done = await waitForState(manager, (state) => !state.downloading)
+    expect(done.downloaded).toBe(false)
+    expect(done.error).toContain('size mismatch')
+    expect(done.errorCode).toBe('whisper.downloadFailed')
+    expect(pulls).toBe(2)
+    expect(cancels).toBe(1)
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('rejects a second model while one download is active', async () => {
+    let releaseResponse: ((response: Response) => void) | undefined
+    const fetch = vi.fn(async () => await new Promise<Response>((resolve) => { releaseResponse = resolve }))
+    const { manager } = await makeManager(fetch)
+    const first = manager.downloadWhisperModel('tiny', true)
+    const second = manager.downloadWhisperModel('base', true)
+    await first
+    await waitForState(manager, (state) => state.downloading)
+    const blocked = await second
+    expect(blocked.error).toBe('Another Whisper model is already downloading.')
+    expect(blocked.errorCode).toBe('whisper.alreadyDownloading')
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    releaseResponse?.(new Response(TEST_BYTES, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    await waitForState(manager, (state) => !state.downloading)
+  })
+
+  it('cancels a streaming download and removes the partial file', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+        controller.enqueue(TEST_BYTES.subarray(0, 4))
+      }
+    })
+    const { manager, cacheDir } = await makeManager(async () => new Response(stream, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    await manager.downloadWhisperModel('tiny', true)
+    await waitForState(manager, (state) => state.downloading)
+    const cancelled = await manager.cancelWhisperModelDownload('tiny', true)
+    expect(cancelled).toMatchObject({ downloading: false, downloaded: false, error: null })
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+    streamController?.error(new Error('closed'))
+  })
+
+  it('deletes the model, marker, and stale partial file', async () => {
+    const { manager, cacheDir } = await makeManager()
+    await manager.downloadWhisperModel('tiny', true)
+    await waitForState(manager, (state) => state.downloaded)
+    await writeFile(`${cacheDir}/ggml-tiny.bin.partial`, 'stale')
+    await expect(manager.deleteWhisperModel('tiny', true)).resolves.toMatchObject({ downloaded: false, error: null })
+    await expect(stat(`${cacheDir}/ggml-tiny.bin`)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.dsh-ears-done`)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('disposes an active download without leaving model artifacts', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({ start(controller) { streamController = controller } })
+    const { manager, cacheDir } = await makeManager(async () => new Response(stream, { headers: { 'content-length': String(TEST_BYTES.byteLength) } }))
+    await manager.downloadWhisperModel('tiny', true)
+    await waitForState(manager, (state) => state.downloading)
     manager.dispose()
-    await waitForGone(join(cacheDir, 'whisper', 'tiny.pt'))
-    const state = await manager.getWhisperModelState('tiny', true)
-    expect(state.downloading).toBe(false)
-    expect(state.downloaded).toBe(false)
-    await rm(cacheDir, { recursive: true, force: true })
-  })
-
-  it('negative-caches interpreter discovery failures and re-probes after the TTL', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_NO_SPEC: '1' })
-    const logPath = join(cacheDir, 'probes.log')
-    const manager = new WhisperModels({ env: { ...env, FAKE_WHISPER_LOG: logPath }, failureCacheTtlMs: 200 })
-    const probeCount = async () => {
-      try {
-        const log = await readFile(logPath, 'utf8')
-        return log.trim().split('\n').filter((line) => line !== '').length
-      } catch {
-        return 0
-      }
-    }
-    try {
-      const first = await manager.downloadWhisperModel('tiny', false)
-      expect(first.error).toContain('openai-whisper is not installed')
-      expect(first.errorCode).toBe('whisper.notInstalled')
-      expect(await probeCount()).toBe(1)
-
-      const second = await manager.downloadWhisperModel('tiny', false)
-      expect(second.error).toContain('openai-whisper is not installed')
-      expect(second.errorCode).toBe('whisper.notInstalled')
-      expect(await probeCount()).toBe(1)
-
-      await new Promise((resolve) => setTimeout(resolve, 250))
-      await manager.downloadWhisperModel('tiny', false)
-      expect(await probeCount()).toBe(2)
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('negative-caches model table failures instead of re-spawning on each retry', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_BAD_TABLE: '1' })
-    const logPath = join(cacheDir, 'probes.log')
-    const manager = new WhisperModels({ env: { ...env, FAKE_WHISPER_LOG: logPath }, failureCacheTtlMs: 200 })
-    const probeCount = async () => {
-      try {
-        const log = await readFile(logPath, 'utf8')
-        return log.trim().split('\n').filter((line) => line !== '').length
-      } catch {
-        return 0
-      }
-    }
-    try {
-      const first = await manager.getWhisperModelState('tiny', true)
-      expect(first.error).not.toBeNull()
-      const afterFirst = await probeCount()
-      expect(afterFirst).toBeGreaterThan(0)
-
-      const second = await manager.getWhisperModelState('tiny', true)
-      expect(second.error).toBe(first.error)
-      expect(await probeCount()).toBe(afterFirst)
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('rejects a null model table with a controlled state error', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_NULL_TABLE: '1' })
-    const manager = new WhisperModels({ env })
-    try {
-      const state = await manager.getWhisperModelState('tiny', true)
-      expect(state.error).toContain('unreadable model table')
-      expect(state.errorCode).toBe('whisper.stateQueryFailed')
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
-  })
-
-  it('rejects an array-valued model table files field', async () => {
-    const { cacheDir, env } = await makeEnv({ FAKE_WHISPER_ARRAY_TABLE: '1' })
-    const manager = new WhisperModels({ env })
-    try {
-      const state = await manager.getWhisperModelState('tiny', true)
-      expect(state.error).toContain('Could not read the installed whisper model table')
-      expect(state.errorCode).toBe('whisper.stateQueryFailed')
-    } finally {
-      manager.dispose()
-      await rm(cacheDir, { recursive: true, force: true })
-    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await expect(stat(`${cacheDir}/ggml-tiny.bin.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
+    streamController?.error(new Error('closed'))
   })
 })
+
+function joinPath(...parts: string[]): string {
+  return parts.join('/').replaceAll('\\', '/')
+}

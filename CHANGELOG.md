@@ -2,6 +2,15 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [Unreleased]
+
+### Changed
+
+- Local Whisper now uses the bundled `@fugood/whisper.node` native dependency and separately downloaded whisper.cpp GGML models instead of Python, Torch, FFmpeg, or the `whisper` CLI. Browser capture is normalized to mono 16 kHz PCM16 WAV, and there is no fallback engine.
+- Recognition exposes Default, Vulkan, and CUDA acceleration choices where supported. Changing the native variant after its first load requires restarting the dsh Host; the npm root package is materially larger because official optional platform variants participate in installation, while model weights remain outside the npm tarball.
+- The old OS-aware Python/FFmpeg/openai-whisper setup guide and its copyable commands are removed. Unavailable native packages or acceleration variants now produce concise diagnostics.
+- Host persistence is organized into four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing` — while the flat Remote wire remains for client compatibility and per-field auto-save.
+
 ## [0.1.3] - 2026-08-23
 
 Structured error handling and localized settings copy release.

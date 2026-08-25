@@ -8,7 +8,7 @@ dsh-ears handles microphone recordings, transcripts, dsh model routes, and optio
 
 - Web Speech recognition is performed by the browser API and may transmit audio to the browser vendor.
 - Local/cloud backends capture one recording with `MediaRecorder`, then send it to the Host through a bounded RPC.
-- Local Whisper writes audio only to a private temporary directory and removes that directory after success, failure, or cancellation.
+- Local Whisper uses the bundled whisper.node native runtime, writes normalized PCM16 WAV audio only to a private temporary directory, and removes that directory after success, failure, or cancellation. The model is downloaded separately into the plugin cache and is not bundled into the npm tarball.
 - The cloud adapter sends audio only to the endpoint explicitly configured by the user. It does not crawl, discover, or probe endpoints.
 - Cloud responses are bounded before JSON parsing. Audio and transcript data are not intentionally logged or persisted by the plugin.
 - The draft remains user-editable. Late ASR or polishing results are discarded when the user has changed the draft.
@@ -23,7 +23,7 @@ Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. 
 
 ## Host safety
 
-- Local Whisper is spawned with an argument array, never through a shell.
+- Local Whisper loads the selected native package directly; it does not spawn Python, Torch, FFmpeg, or a Whisper CLI process.
 - Audio, response, stderr, and transcript sizes are bounded.
 - Abort signals are forwarded to ASR and LLM operations.
 - Temporary files and MediaRecorder tracks are released on all terminal paths.
