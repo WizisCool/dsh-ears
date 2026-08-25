@@ -153,7 +153,7 @@ export function shouldApplyPolishResult(currentDraft: string, draftAtStop: strin
   const current = collapseDraft(currentDraft)
   const effectiveBase = collapseDraft(baseDraft)
   const original = collapseDraft(originalDraft)
-  return current === collapseDraft(draftAtStop) || (effectiveBase === original && current === original)
+  return current === collapseDraft(draftAtStop) || (original !== '' && effectiveBase === original && current === original)
 }
 
 function collapseDraft(text: string): string {
