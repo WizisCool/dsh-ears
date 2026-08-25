@@ -45,6 +45,18 @@ const INITIAL_WHISPER_STATE: WhisperModelState = {
 type EffortsResult = RemoteResult<{ efforts: Array<{ id: string; name: string }> }>
 
 describe('EarsSettingsController Whisper state', () => {
+  it('uses the Host-provided acceleration list for the settings card', async () => {
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), localWhisperAccelerations: ['default'] }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true as const, value: view })
+    }))
+
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().localWhisperAccelerations).toEqual(['default'])
+    controller.dispose()
+  })
+
   it('surfaces a RemoteResult failure without discarding the last known state', async () => {
     const getWhisperModelState = vi.fn<() => Promise<RemoteResult<WhisperModelState>>>()
       .mockResolvedValueOnce({ ok: true, value: INITIAL_WHISPER_STATE })

@@ -133,6 +133,7 @@ describe('settings Remote contract', () => {
       cloudAsrGroqApiKeyConfigured: false,
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
+      localWhisperAccelerations: ['default'],
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
   })

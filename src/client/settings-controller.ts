@@ -1,7 +1,7 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import type { EarsSettings, PolishRoute, ReasoningEffortInfo } from '../config.js'
+import type { EarsSettings, PolishRoute, ReasoningEffortInfo, WhisperAccelerationId } from '../config.js'
 import { cloudAsrModelField, isSettingsFieldInvalid, parseSettingsField, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
@@ -28,6 +28,7 @@ export interface EarsCardState {
   asrBackend: FieldState
   localWhisperModel: FieldState
   localWhisperAcceleration: FieldState
+  localWhisperAccelerations: readonly WhisperAccelerationId[]
   cloudAsrProvider: FieldState
   cloudAsrGroqApiKey: FieldState
   cloudAsrGroqApiKeyConfigured: boolean
@@ -800,6 +801,7 @@ export class EarsSettingsController {
       asrBackend,
       localWhisperModel,
       localWhisperAcceleration,
+      localWhisperAccelerations: this.settingsView.localWhisperAccelerations ?? ['default'],
       cloudAsrProvider,
       cloudAsrGroqApiKey,
       cloudAsrGroqApiKeyConfigured: this.settingsView.cloudAsrGroqApiKeyConfigured,

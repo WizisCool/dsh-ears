@@ -17,6 +17,13 @@ function whisperNodeRequire(): NodeRequire {
   return createRequire(entry)
 }
 
+const WHISPER_NATIVE_VARIANTS: readonly LibVariant[] = ['default', 'vulkan', 'cuda']
+
+export interface WhisperAccelerationCapabilities {
+  readonly available: readonly LibVariant[]
+  readonly default: LibVariant
+}
+
 export const WHISPER_RESTART_REQUIRED_CODE = EARS_ERROR_CODES.whisperRestartRequired
 export const WHISPER_NATIVE_UNAVAILABLE_CODE = EARS_ERROR_CODES.whisperNativeUnavailable
 
@@ -72,6 +79,47 @@ export function whisperNativePackageName(
 ): string {
   const suffix = variant === 'default' ? '' : `-${variant}`
   return `@fugood/node-whisper-${platform}-${arch}${suffix}`
+}
+
+/**
+ * Return the native acceleration packages supported by the current platform
+ * and installed dependency tree without initializing whisper.node.
+ */
+export function whisperAccelerationCapabilities(
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch,
+  requirePackage?: NodeRequire
+): WhisperAccelerationCapabilities {
+  const candidates = platformWhisperVariants(platform, arch)
+  if (candidates.length === 0) return { available: [], default: 'default' }
+
+  let loadPackage: NodeRequire
+  try {
+    loadPackage = requirePackage ?? whisperNodeRequire()
+  } catch {
+    return { available: [], default: 'default' }
+  }
+
+  const available = candidates.filter((variant) => {
+    try {
+      const native = loadPackage(whisperNativePackageName(variant, platform, arch)) as { WhisperContext?: unknown } | undefined
+      return native !== undefined && typeof native.WhisperContext === 'function'
+    } catch {
+      return false
+    }
+  })
+  return {
+    available,
+    default: available.includes('default') ? 'default' : available[0] ?? 'default'
+  }
+}
+
+function platformWhisperVariants(platform: NodeJS.Platform, arch: string): readonly LibVariant[] {
+  if (platform === 'darwin' && (arch === 'x64' || arch === 'arm64')) return ['default']
+  if (platform === 'linux' && (arch === 'x64' || arch === 'arm64')) return WHISPER_NATIVE_VARIANTS
+  if (platform === 'win32' && arch === 'x64') return WHISPER_NATIVE_VARIANTS
+  if (platform === 'win32' && arch === 'arm64') return ['default', 'vulkan']
+  return []
 }
 
 /**
