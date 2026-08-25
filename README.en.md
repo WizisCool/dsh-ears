@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-0.1.0--rc.6%20--%200.1.1--rc.2-1a73e8?style=flat-square" alt="dsh 0.1.0-rc.6 - 0.1.1-rc.2"></a>
+  <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <img src="https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
@@ -84,6 +85,12 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 ```
 
 The command removes the dsh plugin registration and leaves a local clone in place. Refresh the Web UI afterwards; the microphone icon disappears.
+
+## DSH Plugin Market
+
+`dsh-ears` is listed in the DSH Plugin Market, where it can be installed, updated, and uninstalled from Settings → Plugin Market. The market installs the published npm package and can usually hot-load a fresh installation.
+
+When an update includes Host code, the market reports that dsh must be restarted; the new version is fully active after the restart. Uninstalling removes the plugin and its runtime registration but keeps dsh-ears settings, cloud API keys, and downloaded Whisper models so a later reinstall can reuse them.
 
 ## Usage
 

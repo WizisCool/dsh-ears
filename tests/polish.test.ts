@@ -760,6 +760,18 @@ describe('PolishService', () => {
     expect(dispose).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps Host cleanup idempotent when the plugin scope is disposed twice', async () => {
+    const dispose = vi.mocked(disposeWhisperRuntime)
+    dispose.mockClear()
+
+    const context = createContext({})
+    const fiber = await context.plugin(PolishService)
+    await fiber.dispose()
+    await fiber.dispose()
+
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('sanitizes and caps Whisper model state errors', async () => {
     const context = createContext()
     const fiber = await context.plugin(PolishService)
