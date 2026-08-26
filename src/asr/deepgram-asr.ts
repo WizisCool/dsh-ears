@@ -104,7 +104,7 @@ export function deepgramRealtimeUrl(options: {
   } catch {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Invalid Deepgram endpoint: ${base}`)
   }
-  if (url.protocol !== 'wss:' && url.protocol !== 'ws:') {
+  if (url.protocol !== 'wss:') {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Deepgram realtime endpoint must use wss: ${base}`)
   }
   const model = options.model?.trim() || DEEPGRAM_DEFAULT_MODEL
