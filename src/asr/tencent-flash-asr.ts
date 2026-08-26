@@ -97,7 +97,8 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
         method: 'POST',
         headers: {
           Authorization: signature,
-          'Content-Type': 'application/octet-stream'
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': String(options.audio.byteLength)
         },
         body: new Uint8Array(options.audio),
         redirect: 'manual',
@@ -113,6 +114,7 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
     try {
       parsed = JSON.parse(body)
     } catch {
+      if (!response.ok) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, tencentFlashErrorDetail(undefined, response.status), { status: response.status })
       throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, 'Tencent Cloud Flash ASR returned invalid JSON')
     }
     if (!response.ok) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, tencentFlashErrorDetail(parsed, response.status), { status: response.status })

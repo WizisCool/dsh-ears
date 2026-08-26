@@ -52,9 +52,29 @@ describe('transcribeTencentFlashAsr', () => {
           'Content-Type': 'application/octet-stream'
         }),
         body: expect.any(Uint8Array),
-        redirect: 'manual'
+        redirect: 'manual',
+        headers: expect.objectContaining({
+          'Content-Length': '3'
+        })
       })
     )
+  })
+
+  it('maps a non-JSON HTTP failure to the shared HTTP failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>not found</html>', { status: 404 })))
+
+    await expect(transcribeTencentFlashAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      appId: '1250000000',
+      secretId: 'AKIDexample',
+      secretKey: 'secret-key',
+      engineType: '16k_zh',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed,
+      params: { status: 404 }
+    })
   })
 
   it('maps Tencent error responses to the shared HTTP failure', async () => {
