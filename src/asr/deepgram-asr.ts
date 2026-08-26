@@ -80,8 +80,10 @@ export function deepgramListenUrl(options: {
 
   const lang = options.language?.trim()
   if (lang !== undefined && lang !== '' && lang !== 'auto') {
+    url.searchParams.delete('detect_language')
     url.searchParams.set('language', lang)
   } else {
+    url.searchParams.delete('language')
     url.searchParams.set('detect_language', 'true')
   }
 
@@ -124,7 +126,11 @@ export function deepgramRealtimeUrl(options: {
   }
 
   const lang = options.language?.trim()
-  if (lang !== undefined && lang !== '' && lang !== 'auto') {
+  if (lang === undefined || lang === '' || lang === 'auto') {
+    url.searchParams.delete('language')
+    url.searchParams.delete('detect_language')
+  } else {
+    url.searchParams.delete('detect_language')
     url.searchParams.set('language', lang)
   }
 

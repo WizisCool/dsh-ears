@@ -61,6 +61,29 @@ describe('Deepgram URL builder', () => {
     expect(url.searchParams.has('language')).toBe(false)
   })
 
+  it('cleans up pre-existing language and detect_language query parameters from endpoint', () => {
+    const listenUrl = new URL(deepgramListenUrl({
+      endpoint: 'https://api.deepgram.com/v1/listen?language=fr&detect_language=false',
+      language: 'auto'
+    }))
+    expect(listenUrl.searchParams.get('detect_language')).toBe('true')
+    expect(listenUrl.searchParams.has('language')).toBe(false)
+
+    const realtimeUrl = new URL(deepgramRealtimeUrl({
+      endpoint: 'wss://api.deepgram.com/v1/listen?language=fr&detect_language=true',
+      language: 'auto'
+    }))
+    expect(realtimeUrl.searchParams.has('detect_language')).toBe(false)
+    expect(realtimeUrl.searchParams.has('language')).toBe(false)
+
+    const realtimeExplicit = new URL(deepgramRealtimeUrl({
+      endpoint: 'wss://api.deepgram.com/v1/listen?language=fr&detect_language=true',
+      language: 'zh-CN'
+    }))
+    expect(realtimeExplicit.searchParams.has('detect_language')).toBe(false)
+    expect(realtimeExplicit.searchParams.get('language')).toBe('zh-CN')
+  })
+
   it('throws asrEndpointInvalid on malformed endpoint', () => {
     expect(() => deepgramListenUrl({ endpoint: 'not a url' })).toThrowError(
       expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
