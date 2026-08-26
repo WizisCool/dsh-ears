@@ -23,10 +23,12 @@ describe('cloud ASR provider registry', () => {
     const ids = CLOUD_ASR_PROVIDERS.map((entry) => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(cloudProviderEntry('groq')?.protocol).toBe('openai-compatible')
+    expect(cloudProviderEntry('deepgram')?.protocol).toBe('deepgram')
     expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('bailian')?.protocol).toBe('dashscope-asr')
     expect(cloudProviderEntry('tencent')?.protocol).toBe('tencent')
     expect(isKnownCloudProvider('groq')).toBe(true)
+    expect(isKnownCloudProvider('deepgram')).toBe(true)
     expect(isKnownCloudProvider('bailian')).toBe(true)
     expect(isKnownCloudProvider('tencent')).toBe(true)
     expect(isKnownCloudProvider('custom')).toBe(true)
@@ -64,6 +66,15 @@ describe('cloud ASR provider registry', () => {
     expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'tencent' }))).toBe('https://asr.tencentcloudapi.com/')
     expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'tencent' }))).toBe('16k_zh')
     expect(cloudProviderEntry('tencent')?.name.zh).toBe('腾讯云')
+  })
+
+  it('registers Deepgram with nova-3 default model and listen endpoint', () => {
+    expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'deepgram' }))).toBe('https://api.deepgram.com/v1/listen')
+    expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: '' }))).toBe('nova-3')
+    expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-2' }))).toBe('nova-2')
+    expect(cloudProviderEntry('deepgram')?.name.en).toBe('Deepgram')
+    expect(cloudProviderEntry('deepgram')?.apiKeyRequired).toBe(true)
+    expect(cloudProviderEntry('deepgram')?.endpointEditable).toBe(false)
   })
 })
 
@@ -104,6 +115,13 @@ describe('cloud ASR runtime readiness', () => {
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'tencent', cloudAsrTencentService: 'unsupported', cloudAsrTencentAppId: '1250000000', cloudAsrTencentSecretId: 'AKID', cloudAsrTencentSecretKey: 'secret' }))).toBe(false)
   })
 
+  it('requires Deepgram API key and an executable service', () => {
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'recording-file' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'realtime' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: '', cloudAsrDeepgramService: 'recording-file' }))).toBe(false)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'unsupported' }))).toBe(false)
+  })
+
   it('rejects embedded credentials in a custom endpoint', () => {
     expect(isHttpEndpoint('https://user:pass@asr.example.test/audio/transcriptions')).toBe(false)
   })
@@ -112,10 +130,12 @@ describe('cloud ASR runtime readiness', () => {
     const mixed = settings({
       cloudAsrProvider: 'bailian',
       cloudAsrGroqApiKey: 'gsk_groq',
+      cloudAsrDeepgramApiKey: 'dg_key',
       cloudAsrCustomApiKey: 'sk_custom',
       cloudAsrBailianApiKey: 'sk_bailian'
     })
     expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'groq' })).toBe('gsk_groq')
+    expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'deepgram' })).toBe('dg_key')
     expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'custom' })).toBe('sk_custom')
     expect(cloudAsrCredentialFor(mixed)).toBe('sk_bailian')
   })

@@ -67,6 +67,12 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'unsupported-service' })).toThrow()
   })
 
+  it('accepts the supported Deepgram service identifiers', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'recording-file' })).toEqual({ cloudAsrDeepgramService: 'recording-file' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'realtime' })).toEqual({ cloudAsrDeepgramService: 'realtime' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'unsupported-service' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',
@@ -118,6 +124,58 @@ describe('settings Remote contract', () => {
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: '',
         cloudAsrGroqModel: '',
+        cloudAsrDeepgramApiKey: '',
+        cloudAsrDeepgramModel: 'nova-3',
+        cloudAsrDeepgramLanguage: '',
+        cloudAsrDeepgramService: 'recording-file',
+        cloudAsrCustomApiKey: '',
+        cloudAsrCustomEndpoint: '',
+        cloudAsrCustomModel: '',
+        cloudAsrBailianApiKey: '',
+        cloudAsrBailianHost: '',
+        cloudAsrBailianModel: '',
+        cloudAsrTencentAppId: '',
+        cloudAsrTencentSecretId: '',
+        cloudAsrTencentSecretKey: '',
+        cloudAsrTencentEngineType: '16k_zh',
+        cloudAsrTencentService: 'recording-file',
+        webSpeechLanguage: 'zh-CN',
+        localWhisperLanguage: '',
+        cloudAsrGroqLanguage: '',
+        cloudAsrCustomLanguage: '',
+        cloudAsrBailianLanguage: '',
+        maxRecordingSeconds: 120,
+        voiceShortcutEnabled: true,
+        voiceShortcut: 'ctrl+shift+space',
+        voiceSoundsEnabled: true,
+        settingsDisplayName: 'dsh-ears',
+        polishingEnabled: true,
+        polishProvider: '',
+        polishModel: '',
+        polishReasoningEffort: '',
+        polishPrompt: ''
+      },
+      cloudAsrGroqApiKeyConfigured: false,
+      cloudAsrDeepgramApiKeyConfigured: false,
+      cloudAsrCustomApiKeyConfigured: false,
+      cloudAsrBailianApiKeyConfigured: false,
+      cloudAsrTencentSecretKeyConfigured: false,
+      localWhisperAccelerations: ['default'],
+      overridden: []
+    }).settings.maxRecordingSeconds).toBe(120)
+  })
+
+  it('parses older pre-Deepgram Host responses with backward-compatible defaults', () => {
+    const legacyView = {
+      available: true,
+      writable: true,
+      settings: {
+        asrBackend: 'web-speech',
+        cloudAsrProvider: 'groq',
+        localWhisperModel: 'base',
+        localWhisperAcceleration: 'default',
+        cloudAsrGroqApiKey: '',
+        cloudAsrGroqModel: '',
         cloudAsrCustomApiKey: '',
         cloudAsrCustomEndpoint: '',
         cloudAsrCustomModel: '',
@@ -149,9 +207,13 @@ describe('settings Remote contract', () => {
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       cloudAsrTencentSecretKeyConfigured: false,
-      localWhisperAccelerations: ['default'],
       overridden: []
-    }).settings.maxRecordingSeconds).toBe(120)
+    }
+    const parsed = earsSettingsViewSchema.parse(legacyView)
+    expect(parsed.settings.cloudAsrDeepgramApiKey).toBe('')
+    expect(parsed.settings.cloudAsrDeepgramModel).toBe('nova-3')
+    expect(parsed.settings.cloudAsrDeepgramService).toBe('recording-file')
+    expect(parsed.cloudAsrDeepgramApiKeyConfigured).toBe(false)
   })
 
   it('keeps Host and Client Remote descriptors aligned', () => {

@@ -1,8 +1,13 @@
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'bailian', 'tencent', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
+
+export const DEEPGRAM_DEFAULT_MODEL = 'nova-3'
+export const DEEPGRAM_ASR_SERVICE_IDS = ['recording-file', 'realtime'] as const
+export type DeepgramAsrServiceId = typeof DEEPGRAM_ASR_SERVICE_IDS[number]
+export const DEEPGRAM_ASR_DEFAULT_SERVICE: DeepgramAsrServiceId = 'recording-file'
 
 export const BAILIAN_MAX_RECORDING_SECONDS = 300
 export const TENCENT_DEFAULT_ENGINE = '16k_zh'

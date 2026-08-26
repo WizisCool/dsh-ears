@@ -10,13 +10,16 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
   const endpoint = `${entry.baseUrl.replace(/\/+$/, '')}/models`
   const headers: Record<string, string> = { accept: 'application/json' }
   const key = apiKey.trim()
-  if (key !== '') headers.authorization = `Bearer ${key}`
+  if (key !== '') {
+    headers.authorization = entry.protocol === 'deepgram' ? `Token ${key}` : `Bearer ${key}`
+  }
   const timeout = new AbortController()
   let timedOut = false
   const timer = setTimeout(() => {
     timedOut = true
     timeout.abort()
   }, LIST_TIMEOUT_MS)
+  if (signal.aborted) timeout.abort(signal.reason)
   const forwardAbort = () => timeout.abort(signal.reason)
   signal.addEventListener('abort', forwardAbort, { once: true })
   try {
@@ -31,6 +34,13 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
       } catch {
         throw new EarsError(EARS_ERROR_CODES.cloudModelsInvalidJson, 'Cloud model listing returned invalid JSON')
       }
+      if (entry.protocol === 'deepgram') {
+        if (!isRecord(parsed) || !Array.isArray(parsed.stt)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
+        const models = filterDeepgramModels(parsed.stt)
+        if (models.length === 0) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
+        return models
+      }
+
       if (!isRecord(parsed) || !Array.isArray(parsed.data)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Cloud model listing returned no models')
 
       const models: string[] = []
@@ -87,6 +97,48 @@ async function readBoundedText(response: Response): Promise<string> {
     offset += chunk.byteLength
   }
   return new TextDecoder().decode(bytes)
+}
+
+export function filterDeepgramModels(stt: unknown[]): string[] {
+  const rawSet = new Set<string>()
+  for (const item of stt) {
+    if (!isRecord(item)) continue
+    let name = ''
+    if (typeof item.canonical_name === 'string' && item.canonical_name.trim() !== '') {
+      name = item.canonical_name.trim()
+    } else if (typeof item.name === 'string') {
+      name = item.name.trim()
+    }
+    // Filter out empty names, non-STT models (e.g. phoneme), and internal/test models (e.g. dQw4w9WgXcQ)
+    if (name === '' || name === 'phoneme' || name.includes('dQw4w9WgXcQ')) continue
+    rawSet.add(name)
+  }
+
+  // Ensure top-level family aliases exist when general variants are present
+  if (rawSet.has('nova-3-general')) rawSet.add('nova-3')
+  if (rawSet.has('nova-2-general')) rawSet.add('nova-2')
+  if (rawSet.has('enhanced-general')) rawSet.add('enhanced')
+  if (rawSet.has('general')) rawSet.add('base')
+
+  function modelRank(id: string): number {
+    if (id === 'nova-3') return 10
+    if (id === 'nova-3-general') return 11
+    if (id.startsWith('nova-3-')) return 12
+    if (id === 'nova-2') return 20
+    if (id === 'nova-2-general') return 21
+    if (id.startsWith('nova-2-')) return 22
+    if (id === 'enhanced') return 30
+    if (id.startsWith('enhanced-')) return 31
+    if (id === 'base') return 40
+    if (id.startsWith('whisper-')) return 50
+    return 60
+  }
+
+  return Array.from(rawSet).sort((a, b) => {
+    const rankDiff = modelRank(a) - modelRank(b)
+    if (rankDiff !== 0) return rankDiff
+    return a.localeCompare(b)
+  })
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

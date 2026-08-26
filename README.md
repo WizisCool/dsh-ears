@@ -77,6 +77,7 @@ dsh plugin --profile web remove dsh-ears
 | Web Speech | 浏览器实时识别 | Chromium 内核浏览器 |
 | 本地 Whisper | 录音结束后由 Host 本地转写 | 在设置页下载 GGML 模型 |
 | [Groq](https://console.groq.com) | Host 调用 Groq Whisper API | API key |
+| [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写 | API key、模型名；单次最长 300 秒 |
 | [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |

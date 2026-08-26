@@ -29,6 +29,7 @@ describe('canonical Host settings slots', () => {
     })
     expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'cuda', language: '' })
     expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_groq', model: 'whisper-large-v3-turbo', language: '' })
+    expect(stored.cloudAsr.deepgram).toEqual({ apiKey: '', model: 'nova-3', language: '', service: 'recording-file' })
     expect(stored.cloudAsr.customOpenAi).toEqual({
       apiKey: 'sk_openai',
       endpoint: 'https://asr.example.test/audio/transcriptions',

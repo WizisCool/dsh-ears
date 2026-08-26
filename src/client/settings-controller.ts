@@ -35,6 +35,9 @@ export interface EarsCardState {
   cloudAsrGroqApiKey: FieldState
   cloudAsrGroqApiKeyConfigured: boolean
   cloudAsrGroqApiKeyClearPending: boolean
+  cloudAsrDeepgramApiKey: FieldState
+  cloudAsrDeepgramApiKeyConfigured: boolean
+  cloudAsrDeepgramApiKeyClearPending: boolean
   cloudAsrCustomApiKey: FieldState
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrCustomApiKeyClearPending: boolean
@@ -50,6 +53,9 @@ export interface EarsCardState {
   cloudAsrBailianHost: FieldState
   cloudAsrGroqModel: FieldState
   cloudAsrGroqLanguage: FieldState
+  cloudAsrDeepgramModel: FieldState
+  cloudAsrDeepgramLanguage: FieldState
+  cloudAsrDeepgramService: FieldState
   cloudAsrBailianModel: FieldState
   cloudAsrBailianLanguage: FieldState
   cloudAsrTencentAppId: FieldState
@@ -126,7 +132,7 @@ export class EarsSettingsController {
   private readonly cloudAsrModels = new Map<string, string>()
   private readonly polishModels = new Map<string, string>()
   private readonly polishReasoningEfforts = new Map<string, string>()
-  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKeyConfigured: false, cloudAsrCustomApiKeyConfigured: false, cloudAsrBailianApiKeyConfigured: false, cloudAsrTencentSecretKeyConfigured: false, overridden: [] }
+  private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKeyConfigured: false, cloudAsrDeepgramApiKeyConfigured: false, cloudAsrCustomApiKeyConfigured: false, cloudAsrBailianApiKeyConfigured: false, cloudAsrTencentSecretKeyConfigured: false, overridden: [] }
   private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
   private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
@@ -138,6 +144,7 @@ export class EarsSettingsController {
   private loadFailed = false
   private failed = false
   private clearKeyPending = false
+  private clearDeepgramKeyPending = false
   private clearCustomKeyPending = false
   private clearBailianKeyPending = false
   private clearTencentKeyPending = false
@@ -183,6 +190,9 @@ export class EarsSettingsController {
       setApiKey: (text: string) => this.edit('cloudAsrGroqApiKey', text),
       clearApiKey: () => this.clearApiKey(),
       undoClearApiKey: () => this.undoClearApiKey(),
+      setDeepgramApiKey: (text: string) => this.edit('cloudAsrDeepgramApiKey', text),
+      clearDeepgramApiKey: () => this.clearNamedApiKey('deepgram'),
+      undoClearDeepgramApiKey: () => this.undoClearNamedApiKey('deepgram'),
       setCustomApiKey: (text: string) => this.edit('cloudAsrCustomApiKey', text),
       clearCustomApiKey: () => this.clearNamedApiKey('custom'),
       undoClearCustomApiKey: () => this.undoClearNamedApiKey('custom'),
@@ -195,6 +205,7 @@ export class EarsSettingsController {
       save: () => void this.save(),
       flush: () => void this.save(),
       discard: () => this.discard(),
+      refreshRoutes: () => void this.refreshRoutes(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
@@ -238,6 +249,7 @@ export class EarsSettingsController {
         if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
         this.retryTimer = undefined
         this.publishCard()
+        void this.refreshRoutes()
         void this.refreshReasoningEfforts()
         void this.refreshWhisperState()
         void this.refreshCloudModels()
@@ -259,18 +271,23 @@ export class EarsSettingsController {
     }
   }
 
-  async refreshRoutes(): Promise<void> {
+  async refreshRoutes(silent = this.routeState.routes.length > 0): Promise<void> {
     if (this.disposed) return
     const request = ++this.routeRequest
-    this.routeState = { status: 'loading', routes: [] }
-    this.routeStore.set(this.routeState)
+    if (!silent) {
+      this.routeState = { status: 'loading', routes: this.routeState.routes }
+      this.routeStore.set(this.routeState)
+    }
+    let nextState: RouteState
     try {
       const result = await this.remote.listRoutes()
-      this.routeState = result.ok ? { status: 'ready', routes: result.value } : { status: 'ready', routes: [] }
+      const routes = result.ok ? result.value : this.routeState.routes
+      nextState = { status: 'ready', routes }
     } catch {
-      this.routeState = { status: 'ready', routes: [] }
+      nextState = { status: 'ready', routes: this.routeState.routes }
     }
     if (this.disposed || request !== this.routeRequest) return
+    this.routeState = nextState
     this.routeStore.set(this.routeState)
   }
 
@@ -486,6 +503,7 @@ export class EarsSettingsController {
     this.cloudAsrModels.clear()
     const settings = this.settingsView.settings
     this.rememberCloudAsrModel('groq', settings.cloudAsrGroqModel)
+    this.rememberCloudAsrModel('deepgram', settings.cloudAsrDeepgramModel)
     this.rememberCloudAsrModel('custom', settings.cloudAsrCustomModel)
     this.rememberCloudAsrModel('bailian', settings.cloudAsrBailianModel)
     this.rememberCloudAsrModel('tencent', settings.cloudAsrTencentEngineType)
@@ -598,12 +616,16 @@ export class EarsSettingsController {
       this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), text)
     } else if (field === 'cloudAsrProvider') {
       this.rememberCloudAsrModel(this.currentCloudAsrProvider(), this.currentCloudAsrModel())
-    } else if (field === 'cloudAsrGroqModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentEngineType') {
-      this.rememberCloudAsrModel(
-        field === 'cloudAsrBailianModel' ? 'bailian' : field === 'cloudAsrCustomModel' ? 'custom' : field === 'cloudAsrTencentEngineType' ? 'tencent' : 'groq',
-        text
-      )
-    } else if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey') {
+    } else if (field === 'cloudAsrGroqModel' || field === 'cloudAsrDeepgramModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentEngineType') {
+      const fieldToProvider: Record<string, string> = {
+        cloudAsrDeepgramModel: 'deepgram',
+        cloudAsrBailianModel: 'bailian',
+        cloudAsrCustomModel: 'custom',
+        cloudAsrTencentEngineType: 'tencent',
+        cloudAsrGroqModel: 'groq'
+      }
+      this.rememberCloudAsrModel(fieldToProvider[field] ?? 'groq', text)
+    } else if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrDeepgramApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey') {
       if (text.trim() === '') {
         this.drafts.delete(field)
         this.failed = false
@@ -613,6 +635,7 @@ export class EarsSettingsController {
         return
       }
       if (field === 'cloudAsrGroqApiKey') this.clearKeyPending = false
+      if (field === 'cloudAsrDeepgramApiKey') this.clearDeepgramKeyPending = false
       if (field === 'cloudAsrCustomApiKey') this.clearCustomKeyPending = false
       if (field === 'cloudAsrBailianApiKey') this.clearBailianKeyPending = false
       if (field === 'cloudAsrTencentSecretKey') this.clearTencentKeyPending = false
@@ -641,11 +664,14 @@ export class EarsSettingsController {
     this.undoClearNamedApiKey('groq')
   }
 
-  private clearNamedApiKey(which: 'groq' | 'custom' | 'bailian' | 'tencent'): void {
+  private clearNamedApiKey(which: 'groq' | 'deepgram' | 'custom' | 'bailian' | 'tencent'): void {
     if (this.disposed) return
     if (which === 'groq') {
       this.clearKeyPending = true
       this.drafts.delete('cloudAsrGroqApiKey')
+    } else if (which === 'deepgram') {
+      this.clearDeepgramKeyPending = true
+      this.drafts.delete('cloudAsrDeepgramApiKey')
     } else if (which === 'custom') {
       this.clearCustomKeyPending = true
       this.drafts.delete('cloudAsrCustomApiKey')
@@ -661,9 +687,10 @@ export class EarsSettingsController {
     this.scheduleSave(0)
   }
 
-  private undoClearNamedApiKey(which: 'groq' | 'custom' | 'bailian' | 'tencent'): void {
+  private undoClearNamedApiKey(which: 'groq' | 'deepgram' | 'custom' | 'bailian' | 'tencent'): void {
     if (this.disposed || this.saving) return
     if (which === 'groq') this.clearKeyPending = false
+    else if (which === 'deepgram') this.clearDeepgramKeyPending = false
     else if (which === 'custom') this.clearCustomKeyPending = false
     else if (which === 'bailian') this.clearBailianKeyPending = false
     else this.clearTencentKeyPending = false
@@ -682,6 +709,7 @@ export class EarsSettingsController {
     this.resetCloudAsrModels()
     this.resetPolishSelections()
     this.clearKeyPending = false
+    this.clearDeepgramKeyPending = false
     this.clearCustomKeyPending = false
     this.clearBailianKeyPending = false
     this.clearTencentKeyPending = false
@@ -725,14 +753,16 @@ export class EarsSettingsController {
       }
     }
     const submittedClear = this.clearKeyPending
+    const submittedDeepgramClear = this.clearDeepgramKeyPending
     const submittedCustomClear = this.clearCustomKeyPending
     const submittedBailianClear = this.clearBailianKeyPending
     const submittedTencentClear = this.clearTencentKeyPending
     if (submittedClear) (patch as Record<string, unknown>).cloudAsrGroqApiKey = ''
+    if (submittedDeepgramClear) (patch as Record<string, unknown>).cloudAsrDeepgramApiKey = ''
     if (submittedCustomClear) (patch as Record<string, unknown>).cloudAsrCustomApiKey = ''
     if (submittedBailianClear) (patch as Record<string, unknown>).cloudAsrBailianApiKey = ''
     if (submittedTencentClear) (patch as Record<string, unknown>).cloudAsrTencentSecretKey = ''
-    if (submittedDrafts.size === 0 && !submittedClear && !submittedCustomClear && !submittedBailianClear && !submittedTencentClear) return
+    if (submittedDrafts.size === 0 && !submittedClear && !submittedDeepgramClear && !submittedCustomClear && !submittedBailianClear && !submittedTencentClear) return
     this.saving = true
     this.saveQueued = false
     this.failed = false
@@ -741,8 +771,9 @@ export class EarsSettingsController {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
-      const cloudRelevant = submittedClear || submittedCustomClear || submittedBailianClear || submittedTencentClear
+      const cloudRelevant = submittedClear || submittedDeepgramClear || submittedCustomClear || submittedBailianClear || submittedTencentClear
         || submittedDrafts.has('cloudAsrGroqApiKey')
+        || submittedDrafts.has('cloudAsrDeepgramApiKey')
         || submittedDrafts.has('cloudAsrCustomApiKey')
         || submittedDrafts.has('cloudAsrBailianApiKey')
         || submittedDrafts.has('cloudAsrTencentSecretKey')
@@ -752,13 +783,16 @@ export class EarsSettingsController {
       this.settingsView = result.value
       this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, cloudAsrModelFor(result.value.settings))
       this.rememberCloudAsrModel('groq', result.value.settings.cloudAsrGroqModel)
+      this.rememberCloudAsrModel('deepgram', result.value.settings.cloudAsrDeepgramModel)
       this.rememberCloudAsrModel('custom', result.value.settings.cloudAsrCustomModel)
       this.rememberCloudAsrModel('bailian', result.value.settings.cloudAsrBailianModel)
+      this.rememberCloudAsrModel('tencent', result.value.settings.cloudAsrTencentEngineType)
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)
       }
       if (submittedClear && this.clearKeyPending) this.clearKeyPending = false
+      if (submittedDeepgramClear && this.clearDeepgramKeyPending) this.clearDeepgramKeyPending = false
       if (submittedCustomClear && this.clearCustomKeyPending) this.clearCustomKeyPending = false
       if (submittedBailianClear && this.clearBailianKeyPending) this.clearBailianKeyPending = false
       if (submittedTencentClear && this.clearTencentKeyPending) this.clearTencentKeyPending = false
@@ -779,7 +813,7 @@ export class EarsSettingsController {
   }
 
   private hasPersistableDrafts(): boolean {
-    if (this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending) return true
+    if (this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending) return true
     for (const [field, text] of this.drafts.entries()) {
       if (!isSettingsFieldInvalid(field, text)) return true
     }
@@ -798,6 +832,7 @@ export class EarsSettingsController {
     const localWhisperLanguage = field('localWhisperLanguage', this.drafts.get('localWhisperLanguage') ?? current.localWhisperLanguage)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
     const cloudAsrGroqApiKey = field('cloudAsrGroqApiKey', this.drafts.get('cloudAsrGroqApiKey') ?? '')
+    const cloudAsrDeepgramApiKey = field('cloudAsrDeepgramApiKey', this.drafts.get('cloudAsrDeepgramApiKey') ?? '')
     const cloudAsrCustomApiKey = field('cloudAsrCustomApiKey', this.drafts.get('cloudAsrCustomApiKey') ?? '')
     const cloudAsrBailianApiKey = field('cloudAsrBailianApiKey', this.drafts.get('cloudAsrBailianApiKey') ?? '')
     const cloudAsrTencentSecretKey = field('cloudAsrTencentSecretKey', this.drafts.get('cloudAsrTencentSecretKey') ?? '')
@@ -807,6 +842,9 @@ export class EarsSettingsController {
     const cloudAsrBailianHost = field('cloudAsrBailianHost', this.drafts.get('cloudAsrBailianHost') ?? current.cloudAsrBailianHost)
     const cloudAsrGroqModel = field('cloudAsrGroqModel', this.drafts.get('cloudAsrGroqModel') ?? current.cloudAsrGroqModel)
     const cloudAsrGroqLanguage = field('cloudAsrGroqLanguage', this.drafts.get('cloudAsrGroqLanguage') ?? current.cloudAsrGroqLanguage)
+    const cloudAsrDeepgramModel = field('cloudAsrDeepgramModel', this.drafts.get('cloudAsrDeepgramModel') ?? current.cloudAsrDeepgramModel)
+    const cloudAsrDeepgramLanguage = field('cloudAsrDeepgramLanguage', this.drafts.get('cloudAsrDeepgramLanguage') ?? current.cloudAsrDeepgramLanguage)
+    const cloudAsrDeepgramService = field('cloudAsrDeepgramService', this.drafts.get('cloudAsrDeepgramService') ?? current.cloudAsrDeepgramService)
     const cloudAsrBailianModel = field('cloudAsrBailianModel', this.drafts.get('cloudAsrBailianModel') ?? current.cloudAsrBailianModel)
     const cloudAsrBailianLanguage = field('cloudAsrBailianLanguage', this.drafts.get('cloudAsrBailianLanguage') ?? current.cloudAsrBailianLanguage)
     const cloudAsrTencentAppId = field('cloudAsrTencentAppId', this.drafts.get('cloudAsrTencentAppId') ?? current.cloudAsrTencentAppId)
@@ -823,7 +861,7 @@ export class EarsSettingsController {
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
-    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
+    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -831,7 +869,7 @@ export class EarsSettingsController {
       loadFailed: this.loadFailed,
       saving: this.saving,
       failed: this.failed,
-      dirty: this.drafts.size > 0 || this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending,
+      dirty: this.drafts.size > 0 || this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending,
       invalid: stagedFields.some((candidate) => candidate.invalid),
       asrBackend,
       webSpeechLanguage,
@@ -843,6 +881,9 @@ export class EarsSettingsController {
       cloudAsrGroqApiKey,
       cloudAsrGroqApiKeyConfigured: this.settingsView.cloudAsrGroqApiKeyConfigured,
       cloudAsrGroqApiKeyClearPending: this.clearKeyPending,
+      cloudAsrDeepgramApiKey,
+      cloudAsrDeepgramApiKeyConfigured: this.settingsView.cloudAsrDeepgramApiKeyConfigured,
+      cloudAsrDeepgramApiKeyClearPending: this.clearDeepgramKeyPending,
       cloudAsrCustomApiKey,
       cloudAsrCustomApiKeyConfigured: this.settingsView.cloudAsrCustomApiKeyConfigured,
       cloudAsrCustomApiKeyClearPending: this.clearCustomKeyPending,
@@ -858,6 +899,9 @@ export class EarsSettingsController {
       cloudAsrBailianHost,
       cloudAsrGroqModel,
       cloudAsrGroqLanguage,
+      cloudAsrDeepgramModel,
+      cloudAsrDeepgramLanguage,
+      cloudAsrDeepgramService,
       cloudAsrBailianModel,
       cloudAsrBailianLanguage,
       cloudAsrTencentAppId,

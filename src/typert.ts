@@ -381,8 +381,8 @@ export const TYPERT = {
             kind: 'method',
             name: 'startRealtime',
             signature: 'startRealtime(signal: AbortSignal): Promise<RealtimeSession>',
-            summary: 'Open a Host-owned Tencent Cloud realtime recognition session.',
-            jsDoc: '/** Open a Host-owned Tencent Cloud realtime recognition session. */'
+            summary: 'Open a Host-owned cloud realtime recognition session.',
+            jsDoc: '/** Open a Host-owned cloud realtime recognition session. */'
           },
           {
             kind: 'method',
@@ -420,11 +420,11 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettings',
-            declaration: 'export interface EarsSettings { asrBackend: string; webSpeechLanguage: string; localWhisperModel: string; localWhisperAcceleration: string; localWhisperLanguage: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrGroqLanguage: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrCustomLanguage: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrBailianLanguage: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
+            declaration: 'export interface EarsSettings { asrBackend: string; webSpeechLanguage: string; localWhisperModel: string; localWhisperAcceleration: string; localWhisperLanguage: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrGroqLanguage: string; cloudAsrDeepgramApiKey: string; cloudAsrDeepgramModel: string; cloudAsrDeepgramLanguage: string; cloudAsrDeepgramService: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrCustomLanguage: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrBailianLanguage: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
           },
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrDeepgramApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',

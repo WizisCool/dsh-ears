@@ -46,7 +46,9 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
 | D-039 | Native whisper.node runtime and fixed configuration slots | Accepted |
 | D-040 | Tencent Cloud product selector | Superseded by D-041 |
+| D-041 | Tencent Cloud standard and realtime recognition | Accepted |
 | D-042 | Per-provider recognition language | Accepted. Supersedes the D-028 recognition-language row placement and the D-032 shared-row reference. |
+| D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
 
 ## D-001 — Project identity
 
@@ -386,3 +388,12 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Migration: stored `recognition.language` is silently dropped when the settings store rewrites to schema version 4 (`EARS_SETTINGS_SCHEMA_VERSION` 3 → 4). The new fields start empty; no value migrates into them.
 - Rationale: the global row was already not shared in substance — Tencent ignored it in favor of engine type, and every adapter re-normalized it differently (full BCP-47 for Web Speech, base codes for Whisper and the OpenAI-compatible contract, `asr_options.language` / `language_hints` for Bailian). Because an empty value resolved to a concrete locale before the adapters ran, their empty/auto branches were unreachable. Per-provider fields match each protocol's real capabilities, follow the existing per-provider credential/model pattern, and let future cloud providers define their own language semantics per provider.
 - Prohibited: reintroducing a global language field shared across backends; special-casing the literal `auto` string as a stored value — empty is the automatic-detection representation.
+
+## D-043 — Deepgram cloud ASR and dual recording-file/realtime services
+
+- Status: accepted (2026-08-27).
+- Decision: add Deepgram as a first-class cloud ASR provider with protocol `'deepgram'`, default model `nova-3`, and dual executable service ids: `recording-file` (standard pre-recorded audio via REST `POST https://api.deepgram.com/v1/listen`) and `realtime` (live streaming via WebSocket `wss://api.deepgram.com/v1/listen`).
+- Decision: `recording-file` submits local audio directly to the Deepgram REST endpoint with `Authorization: Token <api_key>`. When recognition language is empty, it appends `detect_language=true` for automatic language detection; when language is specified, it appends `language=<lang>`. Both `smart_format=true` and `punctuate=true` are enabled by default for natural draft formatting.
+- Decision: `realtime` establishes a Host-managed duplex WebSocket connection to the Deepgram streaming endpoint with raw linear16 16kHz mono audio. Streaming does not support `detect_language=true` (Deepgram API restricts language detection to pre-recorded audio), so empty language omits the parameter while explicit language appends `language=<lang>`. The Host buffers interim and final results, merges segments using CJK-aware spacing (`joinSpacedSegments`), and exposes incremental text to the browser client through standard Realtime RPC.
+- Decision: Deepgram API key is managed as a Schemastery `role('secret')` field under `cloudAsr.deepgram.apiKey`, mapped to `cloudAsrDeepgramApiKey` on the flat Remote wire. The browser never receives the secret key.
+- Rationale: Deepgram's REST and streaming protocols require proprietary endpoints and payload shapes that differ from OpenAI-compatible and DashScope adapters. Reusing the dual-service pattern established by Tencent Cloud (D-041) allows users to choose between high-accuracy one-shot recording transcription and low-latency realtime live recognition under a single unified provider configuration.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchCloudProviderModels } from '../src/asr/cloud-provider-models.js'
+import { fetchCloudProviderModels, filterDeepgramModels } from '../src/asr/cloud-provider-models.js'
 import { cloudProviderEntry } from '../src/asr/providers.js'
 
 afterEach(() => {
@@ -10,6 +10,12 @@ afterEach(() => {
 function groqEntry() {
   const entry = cloudProviderEntry('groq')
   if (entry === undefined) throw new Error('Groq provider entry is missing')
+  return entry
+}
+
+function deepgramEntry() {
+  const entry = cloudProviderEntry('deepgram')
+  if (entry === undefined) throw new Error('Deepgram provider entry is missing')
   return entry
 }
 
@@ -38,6 +44,39 @@ describe('cloud provider model listing', () => {
   it('answers from static models when the provider has no listing endpoint', async () => {
     const entry = { ...groqEntry(), baseUrl: undefined, staticModels: ['static-whisper'] }
     await expect(fetchCloudProviderModels(entry, 'gsk_test', new AbortController().signal)).resolves.toEqual(['static-whisper'])
+  })
+
+  it('lists Deepgram models with Token authorization and scientific filtering/ranking', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      stt: [
+        { canonical_name: 'nova-3-general', architecture: 'nova-3' },
+        { canonical_name: 'nova-3-medical', architecture: 'nova-3' },
+        { canonical_name: 'nova-2-meeting', architecture: 'nova-2' },
+        { canonical_name: 'nova-2-general', architecture: 'nova-2' },
+        { canonical_name: 'enhanced-general', architecture: 'polaris' },
+        { canonical_name: 'phoneme', architecture: 'base' },
+        { canonical_name: 'general-dQw4w9WgXcQ', architecture: 'base' },
+        { canonical_name: 'whisper-large', architecture: 'whisper' }
+      ]
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const models = await fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)
+    expect(models).toEqual([
+      'nova-3',
+      'nova-3-general',
+      'nova-3-medical',
+      'nova-2',
+      'nova-2-general',
+      'nova-2-meeting',
+      'enhanced',
+      'enhanced-general',
+      'whisper-large'
+    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.deepgram.com/v1/models',
+      expect.objectContaining({ headers: { accept: 'application/json', authorization: 'Token dg_token' } })
+    )
   })
 
   it('rejects invalid JSON and missing data arrays', async () => {
