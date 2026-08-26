@@ -32,7 +32,7 @@
 .button[data-state='transcribing'],
 .button[data-state='polishing'] {
   background: var(--dsw-alias-button-info-fill);
-  color: var(--dsw-alias-label-primary-foreground);
+  color: #fff;
 }
 
 .button[data-state='starting']:hover:not(:disabled):not([aria-disabled='true']),
@@ -40,6 +40,7 @@
 .button[data-state='transcribing']:hover:not(:disabled):not([aria-disabled='true']),
 .button[data-state='polishing']:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--dsw-alias-button-info-hover);
+  color: #fff;
 }
 
 .button[data-state='error'] {
