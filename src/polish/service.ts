@@ -384,8 +384,10 @@ export class PolishService extends TypertRemoteService {
     signal.throwIfAborted()
     const entry = this.realtimeSessions.get(sessionId)
     if (entry === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
-    this.refreshRealtimeSessionExpiry(sessionId, entry)
-    return entry.session.sendAudio(decodeAudio(audioBase64), signal)
+    const audio = decodeAudio(audioBase64)
+    const result = await entry.session.sendAudio(audio, signal)
+    if (this.realtimeSessions.get(sessionId) === entry) this.refreshRealtimeSessionExpiry(sessionId, entry)
+    return result
   }
 
   async finishRealtime(sessionId: string, signal: AbortSignal): Promise<RemoteTextResult> {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
@@ -138,6 +139,43 @@ describe('PolishService', () => {
     whisperCapabilities.available = ['default', 'vulkan', 'cuda']
     whisperCapabilities.default = 'default'
     for (const fiber of fibers.splice(0).reverse()) await fiber.dispose()
+  })
+
+  it('does not extend a realtime session for invalid audio', async () => {
+    vi.useFakeTimers()
+    const open = vi.spyOn(TencentRealtimeAsrSession.prototype, 'open').mockResolvedValue()
+    const sendAudio = vi.spyOn(TencentRealtimeAsrSession.prototype, 'sendAudio').mockResolvedValue({ text: '', final: false })
+    try {
+      const context = createContext({}, {
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'tencent',
+        cloudAsrTencentService: 'realtime',
+        cloudAsrTencentAppId: 'app-id',
+        cloudAsrTencentSecretId: 'secret-id',
+        cloudAsrTencentSecretKey: 'secret-key',
+        cloudAsrTencentEngineType: '16k_zh'
+      })
+      const fiber = await context.plugin(PolishService)
+      fibers.push(fiber)
+      const service = context.get('dshEarsPolish')!
+      const started = await service.startRealtime(new AbortController().signal)
+
+      vi.advanceTimersByTime(60_000 - 1)
+      await expect(service.sendRealtimeAudio(started.sessionId, 'not-base64', new AbortController().signal)).rejects.toMatchObject({
+        code: EARS_ERROR_CODES.asrAudioInvalid
+      })
+      vi.advanceTimersByTime(1)
+
+      await expect(service.sendRealtimeAudio(started.sessionId, 'AQ==', new AbortController().signal)).rejects.toMatchObject({
+        code: EARS_ERROR_CODES.asrUnexpected
+      })
+      expect(sendAudio).not.toHaveBeenCalled()
+    } finally {
+      open.mockRestore()
+      sendAudio.mockRestore()
+      vi.useRealTimers()
+    }
   })
 
   it('lists routes from dsh providers and models', async () => {

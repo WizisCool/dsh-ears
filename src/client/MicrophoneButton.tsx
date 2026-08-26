@@ -48,6 +48,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
   const realtimeCaptureRef = useRef<RealtimeAudioCaptureSession | null>(null)
   const realtimeRemoteSessionIdRef = useRef<string | null>(null)
+  const realtimeStartAbortRef = useRef<AbortController | null>(null)
   const realtimeBaseDraftRef = useRef('')
   const realtimeDraftRef = useRef('')
   const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
@@ -117,6 +118,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const cancel = voiceSession.onCancelRequested(() => {
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
+      mediaStartCancelledRef.current = true
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
       realtimeCaptureRef.current?.abort()
       const sessionId = realtimeRemoteSessionIdRef.current
       realtimeRemoteSessionIdRef.current = null
@@ -141,6 +145,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       speechSessionRef.current = null
       mediaSessionRef.current?.abort()
       mediaSessionRef.current = null
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
       realtimeCaptureRef.current?.abort()
       realtimeCaptureRef.current = null
       const realtimeSessionId = realtimeRemoteSessionIdRef.current
@@ -367,17 +373,23 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const startRealtimeRecording = async () => {
     const baseDraft = input.draft
+    const startController = new AbortController()
+    realtimeStartAbortRef.current = startController
     const generation = ++mediaStartGenerationRef.current
     mediaStartCancelledRef.current = false
     setState('starting')
     let capture: RealtimeAudioCaptureSession | undefined
     let sessionId: string | undefined
     try {
-      const started = await remote.startRealtime()
+      const started = await remote.startRealtime(startController.signal)
       if (!started.ok) throw started.error
+      if (!mountedRef.current || startController.signal.aborted || realtimeStartAbortRef.current !== startController) {
+        await remote.cancelRealtime(started.value.sessionId)
+        return
+      }
       sessionId = started.value.sessionId
       capture = await RealtimeAudioCaptureSession.create()
-      if (isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
+      if (!mountedRef.current || startController.signal.aborted || realtimeStartAbortRef.current !== startController || isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
         capture.abort()
         await remote.cancelRealtime(sessionId)
         return
@@ -406,12 +418,15 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       } catch {
         // Realtime recognition remains usable when the optional waveform analyser is unavailable.
       }
+      realtimeStartAbortRef.current = null
     } catch (error) {
       capture?.abort()
       if (sessionId !== undefined) await remote.cancelRealtime(sessionId)
       if (realtimeCaptureRef.current === capture) realtimeCaptureRef.current = null
       if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
-      if (!mountedRef.current || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
+      const ownsStart = realtimeStartAbortRef.current === startController
+      if (ownsStart) realtimeStartAbortRef.current = null
+      if (!mountedRef.current || startController.signal.aborted || !ownsStart || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
       if (mediaStartCancelledRef.current) setState('idle')
@@ -424,6 +439,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null && realtimeCaptureRef.current === null && realtimeRemoteSessionIdRef.current === null) {
       playToggleClick(settingsRef.current, 0.4)
       mediaStartCancelledRef.current = true
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
       setState('idle')

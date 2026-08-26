@@ -32,6 +32,8 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   private queue = Promise.resolve()
   private onChunk: ((audioBase64: string) => Promise<void>) | undefined
   private pendingPcm = new Uint8Array()
+  private resamplePhase = 0
+  private deliveryGeneration = 0
   private closed = false
   private failure: unknown
 
@@ -48,9 +50,10 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
     this.processor.onaudioprocess = (event) => {
       if (this.closed || this.onChunk === undefined) return
       const samples = event.inputBuffer.getChannelData(0)
-      const pcm = resampleToPcm16(samples, event.inputBuffer.sampleRate)
-      if (pcm.byteLength === 0) return
-      this.enqueuePcm(this.onChunk, pcm)
+      const resampled = resampleToPcm16(samples, event.inputBuffer.sampleRate, this.resamplePhase)
+      this.resamplePhase = resampled.phase
+      if (resampled.pcm.byteLength === 0) return
+      this.enqueuePcm(this.onChunk, resampled.pcm)
     }
   }
 
@@ -104,6 +107,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
 
   abort(): void {
     if (this.closed) return
+    this.deliveryGeneration += 1
     this.closed = true
     this.onChunk = undefined
     this.pendingPcm = new Uint8Array()
@@ -129,8 +133,9 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   }
 
   private enqueueChunk(callback: (audioBase64: string) => Promise<void>, pcm: Uint8Array): void {
+    const generation = this.deliveryGeneration
     this.queue = this.queue.then(async () => {
-      if (this.failure !== undefined) return
+      if (generation !== this.deliveryGeneration || this.failure !== undefined) return
       await deliverChunk(callback, bytesToBase64(pcm))
     }).catch((error) => {
       this.failure ??= error
@@ -138,9 +143,13 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   }
 }
 
-function resampleToPcm16(samples: Float32Array, sampleRate: number): Uint8Array {
-  if (samples.length === 0 || !Number.isFinite(sampleRate) || sampleRate <= 0) return new Uint8Array()
-  const outputSamples = Math.max(1, Math.round(samples.length * TARGET_SAMPLE_RATE / sampleRate))
+function resampleToPcm16(samples: Float32Array, sampleRate: number, phase: number): { pcm: Uint8Array; phase: number } {
+  if (samples.length === 0 || !Number.isFinite(sampleRate) || sampleRate <= 0) return { pcm: new Uint8Array(), phase }
+  const exactOutputSamples = samples.length * TARGET_SAMPLE_RATE / sampleRate + phase
+  const roundingTolerance = Number.EPSILON * Math.max(1, Math.abs(exactOutputSamples)) * 4
+  const outputSamples = Math.floor(exactOutputSamples + roundingTolerance)
+  const nextPhase = Math.max(0, exactOutputSamples - outputSamples)
+  if (outputSamples === 0) return { pcm: new Uint8Array(), phase: nextPhase }
   const floatSamples = new Float32Array(outputSamples)
   for (let index = 0; index < outputSamples; index += 1) {
     const position = index * (samples.length - 1) / Math.max(1, outputSamples - 1)
@@ -149,7 +158,10 @@ function resampleToPcm16(samples: Float32Array, sampleRate: number): Uint8Array 
     const fraction = position - lower
     floatSamples[index] = (samples[lower] ?? 0) + ((samples[upper] ?? 0) - (samples[lower] ?? 0)) * fraction
   }
-  return audioToPcm16Wav({ sampleRate: TARGET_SAMPLE_RATE, channelData: [floatSamples] }).subarray(44)
+  return {
+    pcm: audioToPcm16Wav({ sampleRate: TARGET_SAMPLE_RATE, channelData: [floatSamples] }).subarray(44),
+    phase: nextPhase
+  }
 }
 
 async function deliverChunk(callback: (audioBase64: string) => Promise<void>, audioBase64: string): Promise<void> {

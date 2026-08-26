@@ -145,6 +145,67 @@ describe('RealtimeAudioCaptureSession', () => {
     expect(decoded[1]?.slice(-2)).toEqual([-16_384, -16_384])
   })
 
+  it('preserves fractional resampling phase across input buffers', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() {
+        super()
+        Object.assign(this, context)
+      }
+    })
+
+    const session = await RealtimeAudioCaptureSession.create()
+    const chunks: string[] = []
+    session.start(async (chunk) => {
+      chunks.push(chunk)
+    })
+    emitAudio(context, samplesOf(1_024, 0.25), 48_000)
+    emitAudio(context, samplesOf(1_024, 0.25), 48_000)
+    emitAudio(context, samplesOf(1_024, 0.25), 48_000)
+
+    await session.stop()
+
+    const decoded = chunks.map((chunk) => decodePcm16(chunk)).flat()
+    expect(decoded).toHaveLength(1_024)
+  })
+
+  it('drops queued chunks after aborting the capture session', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() {
+        super()
+        Object.assign(this, context)
+      }
+    })
+
+    const session = await RealtimeAudioCaptureSession.create()
+    const chunks: string[] = []
+    let releaseFirst!: () => void
+    const first = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    session.start(async (chunk) => {
+      chunks.push(chunk)
+      if (chunks.length === 1) await first
+    })
+    emitAudio(context, samplesOf(640, 0.25))
+    emitAudio(context, samplesOf(640, -0.25))
+
+    await Promise.resolve()
+    expect(chunks).toHaveLength(1)
+    session.abort()
+    releaseFirst()
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(chunks).toHaveLength(1)
+    expect(stream.track.stop).toHaveBeenCalledOnce()
+    expect(context.close).toHaveBeenCalledOnce()
+  })
+
   it('waits for queued chunks before closing the audio context', async () => {
     const stream = new FakeStream()
     const context = new FakeAudioContext()
