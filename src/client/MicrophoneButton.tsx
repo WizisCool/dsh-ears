@@ -194,7 +194,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     )
   }
 
-  const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime' ? isRealtimeAudioCaptureAvailable() : isMediaRecorderAvailable()
+  const backendAvailable = backend === 'web-speech'
+    ? isWebSpeechAvailable()
+    : backend === 'cloud-openai' && settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime'
+      ? isRealtimeAudioCaptureAvailable()
+      : isMediaRecorderAvailable()
   if (!active && !busy && !backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
@@ -315,7 +319,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     realtimeRemoteSessionIdRef.current = null
     levelMonitorRef.current?.stop()
     levelMonitorRef.current = null
-    const baseDraft = realtimeBaseDraftRef.current
     const controller = new AbortController()
     transcribeAbortRef.current = controller
     const epoch = voiceSession.captureEpoch()
@@ -338,7 +341,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
         setState('idle')
         return
       }
-      updateDraft(realtimeBaseDraftRef.current, transcript, latestDraftRef, actionsRef)
+      const baseDraft = realtimeBaseDraftRef.current
+      updateDraft(baseDraft, transcript, latestDraftRef, actionsRef)
       commitTranscript({
         transcript,
         baseDraft,

@@ -61,6 +61,12 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'metal' })).toThrow()
   })
 
+  it('accepts the supported Tencent service identifiers', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'recording-file' })).toEqual({ cloudAsrTencentService: 'recording-file' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'realtime' })).toEqual({ cloudAsrTencentService: 'realtime' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'unsupported-service' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',

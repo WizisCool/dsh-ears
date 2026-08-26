@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -57,7 +57,7 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrTencentSecretId: z.string().optional(),
   cloudAsrTencentSecretKey: z.string().max(1024).optional(),
   cloudAsrTencentEngineType: z.string().optional(),
-  cloudAsrTencentService: z.string().optional(),
+  cloudAsrTencentService: z.enum(TENCENT_ASR_SERVICE_IDS).optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),

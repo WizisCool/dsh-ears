@@ -53,6 +53,10 @@ function emitAudio(context: FakeAudioContext, samples: number[], sampleRate = 16
   })
 }
 
+function samplesOf(length: number, value: number): number[] {
+  return Array.from({ length }, () => value)
+}
+
 function decodePcm16(base64: string): number[] {
   const bytes = new Uint8Array(Buffer.from(base64, 'base64'))
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -110,6 +114,37 @@ describe('RealtimeAudioCaptureSession', () => {
     expect(context.sink.disconnect).toHaveBeenCalledOnce()
   })
 
+  it('frames resampled audio into 40 ms PCM16 packets', async () => {
+    const stream = new FakeStream()
+    const context = new FakeAudioContext()
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+    vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+      constructor() {
+        super()
+        Object.assign(this, context)
+      }
+    })
+
+    const session = await RealtimeAudioCaptureSession.create()
+    const chunks: string[] = []
+    session.start(async (chunk) => {
+      chunks.push(chunk)
+    })
+    emitAudio(context, samplesOf(960, 0.25), 48_000)
+    emitAudio(context, samplesOf(960, -0.25), 48_000)
+    emitAudio(context, samplesOf(960, 0.5), 48_000)
+    emitAudio(context, samplesOf(960, -0.5), 48_000)
+
+    await session.stop()
+
+    const decoded = chunks.map((chunk) => decodePcm16(chunk))
+    expect(decoded.map((samples) => samples.length)).toEqual([640, 640])
+    expect(decoded[0]?.slice(0, 2)).toEqual([8_192, 8_192])
+    expect(decoded[0]?.slice(-2)).toEqual([-8_192, -8_192])
+    expect(decoded[1]?.slice(0, 2)).toEqual([16_384, 16_384])
+    expect(decoded[1]?.slice(-2)).toEqual([-16_384, -16_384])
+  })
+
   it('waits for queued chunks before closing the audio context', async () => {
     const stream = new FakeStream()
     const context = new FakeAudioContext()
@@ -131,8 +166,8 @@ describe('RealtimeAudioCaptureSession', () => {
       chunks.push(chunk)
       if (chunks.length === 1) await first
     })
-    emitAudio(context, [0.25, -0.25])
-    emitAudio(context, [0.5, -0.5])
+    emitAudio(context, samplesOf(640, 0.25))
+    emitAudio(context, samplesOf(640, -0.25))
 
     const stopping = session.stop()
     await Promise.resolve()
@@ -143,6 +178,31 @@ describe('RealtimeAudioCaptureSession', () => {
     await stopping
     expect(chunks).toHaveLength(2)
     expect(context.close).toHaveBeenCalledOnce()
+  })
+
+  it('stops waiting when chunk delivery exceeds the transport budget', async () => {
+    vi.useFakeTimers()
+    try {
+      const stream = new FakeStream()
+      const context = new FakeAudioContext()
+      vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
+      vi.stubGlobal('AudioContext', class extends FakeAudioContext {
+        constructor() {
+          super()
+          Object.assign(this, context)
+        }
+      })
+
+      const session = await RealtimeAudioCaptureSession.create()
+      session.start(async () => await new Promise<void>(() => undefined))
+      emitAudio(context, [0, 0])
+      const rejection = expect(session.stop()).rejects.toThrow('Realtime audio chunk delivery timed out')
+      await vi.advanceTimersByTimeAsync(5_000)
+      await rejection
+      expect(context.close).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('propagates a chunk delivery error after cleaning up resources', async () => {

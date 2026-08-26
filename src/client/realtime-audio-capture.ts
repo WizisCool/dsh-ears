@@ -2,7 +2,10 @@ import { AudioLevelMonitor, VOICE_AUDIO_CONSTRAINTS } from '../asr/audio-level.j
 import { audioToPcm16Wav } from '../asr/pcm-wav.js'
 
 const TARGET_SAMPLE_RATE = 16_000
-const BUFFER_SIZE = 4096
+const BUFFER_SIZE = 1024
+const REALTIME_AUDIO_CHUNK_SAMPLES = TARGET_SAMPLE_RATE / 25
+const REALTIME_AUDIO_CHUNK_BYTES = REALTIME_AUDIO_CHUNK_SAMPLES * 2
+const REALTIME_CHUNK_DELIVERY_TIMEOUT_MS = 5_000
 
 export function isRealtimeAudioCaptureAvailable(): boolean {
   if (typeof navigator === 'undefined' || typeof navigator.mediaDevices?.getUserMedia !== 'function') return false
@@ -28,6 +31,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   private readonly sink: GainNode
   private queue = Promise.resolve()
   private onChunk: ((audioBase64: string) => Promise<void>) | undefined
+  private pendingPcm = new Uint8Array()
   private closed = false
   private failure: unknown
 
@@ -46,10 +50,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
       const samples = event.inputBuffer.getChannelData(0)
       const pcm = resampleToPcm16(samples, event.inputBuffer.sampleRate)
       if (pcm.byteLength === 0) return
-      const callback = this.onChunk
-      this.queue = this.queue.then(() => callback(bytesToBase64(pcm))).catch((error) => {
-        this.failure ??= error
-      })
+      this.enqueuePcm(this.onChunk, pcm)
     }
   }
 
@@ -81,8 +82,13 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
 
   async stop(): Promise<void> {
     if (this.closed) return
+    const callback = this.onChunk
     this.closed = true
     this.onChunk = undefined
+    if (callback !== undefined && this.pendingPcm.byteLength > 0) {
+      this.enqueueChunk(callback, this.pendingPcm)
+      this.pendingPcm = new Uint8Array()
+    }
     this.processor.onaudioprocess = null
     this.source.disconnect()
     this.processor.disconnect()
@@ -100,12 +106,35 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
     if (this.closed) return
     this.closed = true
     this.onChunk = undefined
+    this.pendingPcm = new Uint8Array()
     this.processor.onaudioprocess = null
     this.source.disconnect()
     this.processor.disconnect()
     this.sink.disconnect()
     stopTracks(this.stream)
     void this.context.close().catch(() => undefined)
+  }
+
+  private enqueuePcm(callback: ((audioBase64: string) => Promise<void>) | undefined, pcm: Uint8Array): void {
+    if (callback === undefined) return
+    const combined = new Uint8Array(this.pendingPcm.byteLength + pcm.byteLength)
+    combined.set(this.pendingPcm)
+    combined.set(pcm, this.pendingPcm.byteLength)
+    let offset = 0
+    while (combined.byteLength - offset >= REALTIME_AUDIO_CHUNK_BYTES) {
+      this.enqueueChunk(callback, combined.subarray(offset, offset + REALTIME_AUDIO_CHUNK_BYTES))
+      offset += REALTIME_AUDIO_CHUNK_BYTES
+    }
+    this.pendingPcm = combined.slice(offset)
+  }
+
+  private enqueueChunk(callback: (audioBase64: string) => Promise<void>, pcm: Uint8Array): void {
+    this.queue = this.queue.then(async () => {
+      if (this.failure !== undefined) return
+      await deliverChunk(callback, bytesToBase64(pcm))
+    }).catch((error) => {
+      this.failure ??= error
+    })
   }
 }
 
@@ -121,6 +150,20 @@ function resampleToPcm16(samples: Float32Array, sampleRate: number): Uint8Array 
     floatSamples[index] = (samples[lower] ?? 0) + ((samples[upper] ?? 0) - (samples[lower] ?? 0)) * fraction
   }
   return audioToPcm16Wav({ sampleRate: TARGET_SAMPLE_RATE, channelData: [floatSamples] }).subarray(44)
+}
+
+async function deliverChunk(callback: (audioBase64: string) => Promise<void>, audioBase64: string): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      callback(audioBase64),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Realtime audio chunk delivery timed out')), REALTIME_CHUNK_DELIVERY_TIMEOUT_MS)
+      })
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

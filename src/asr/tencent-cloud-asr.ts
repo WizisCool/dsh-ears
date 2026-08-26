@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomInt, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomInt } from 'node:crypto'
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 
 export const TENCENT_API_HOST = 'asr.tencentcloudapi.com'
@@ -14,6 +14,7 @@ const POLL_INTERVAL_MS = 500
 const REALTIME_OPEN_TIMEOUT_MS = 15_000
 const REALTIME_FINISH_TIMEOUT_MS = 30_000
 const REALTIME_MESSAGE_GRACE_MS = 120
+const TENCENT_VOICE_ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
 export interface TencentRecordingAsrOptions {
   readonly audio: Uint8Array
@@ -125,8 +126,12 @@ export function tencentRealtimeQuery(options: {
     secretid: options.secretId.trim(),
     timestamp: String(timestamp),
     voice_format: '1',
-    voice_id: options.voiceId ?? randomUUID()
+    voice_id: options.voiceId ?? randomTencentVoiceId()
   }
+}
+
+function randomTencentVoiceId(): string {
+  return Array.from({ length: 16 }, () => TENCENT_VOICE_ID_ALPHABET[randomInt(TENCENT_VOICE_ID_ALPHABET.length)]!).join('')
 }
 
 export function tencentRealtimeUrl(options: {
@@ -217,7 +222,7 @@ export class TencentRealtimeAsrSession {
   async open(): Promise<void> {
     if (this.socket !== undefined) throw new Error('Tencent realtime session is already open')
     const factory = this.options.webSocketFactory ?? defaultWebSocketFactory
-    const voiceId = randomUUID()
+    const voiceId = randomTencentVoiceId()
     const url = tencentRealtimeUrl({
       appId: this.options.appId,
       secretId: this.options.secretId,
@@ -258,18 +263,21 @@ export class TencentRealtimeAsrSession {
   }
 
   async finish(signal: AbortSignal = this.options.signal ?? new AbortController().signal): Promise<string> {
-    signal.throwIfAborted()
-    if (this.final) return this.transcript
-    const socket = this.requireSocket()
-    if (!this.ended) {
-      this.ended = true
-      socket.send(JSON.stringify({ type: 'end' }))
+    try {
+      signal.throwIfAborted()
+      if (this.final) return this.transcript.trim()
+      const socket = this.requireSocket()
+      if (!this.ended) {
+        this.ended = true
+        socket.send(JSON.stringify({ type: 'end' }))
+      }
+      await this.waitFor(() => this.final || this.lastError !== undefined || this.closed, REALTIME_FINISH_TIMEOUT_MS, signal)
+      if (this.lastError !== undefined) throw this.lastError
+      if (!this.final) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Tencent Cloud realtime recognition did not finish')
+      return this.transcript.trim()
+    } finally {
+      this.close()
     }
-    await this.waitFor(() => this.final || this.lastError !== undefined || this.closed, REALTIME_FINISH_TIMEOUT_MS, signal)
-    if (this.lastError !== undefined) throw this.lastError
-    if (!this.final) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Tencent Cloud realtime recognition did not finish')
-    this.close()
-    return this.transcript.trim()
   }
 
   snapshot(): TencentRealtimeTranscript {

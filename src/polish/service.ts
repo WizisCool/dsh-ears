@@ -29,7 +29,13 @@ import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
 const MAX_POLISHED_CHARACTERS = 24_000
 const POLISH_TIMEOUT_MS = 20_000
+const REALTIME_SESSION_IDLE_TIMEOUT_MS = 60_000
 const CLOUD_MODELS_FAILURE_TTL_MS = 30_000
+
+type RealtimeSessionEntry = {
+  session: TencentRealtimeAsrSession
+  timer: ReturnType<typeof setTimeout>
+}
 
 export class PolishService extends TypertRemoteService {
   static inject = ['llm']
@@ -39,14 +45,17 @@ export class PolishService extends TypertRemoteService {
   private whisperAvailability: { variant: WhisperAccelerationId; expiresAt: number; value: Promise<boolean> } | undefined
   private cloudModelsFailure: { key: string; expiresAt: number; message: string; errorCode: EarsErrorCode; errorParams?: EarsErrorParams } | undefined
   private readonly whisperModels = new WhisperModels()
-  private readonly realtimeSessions = new Map<string, TencentRealtimeAsrSession>()
+  private readonly realtimeSessions = new Map<string, RealtimeSessionEntry>()
 
   constructor(ctx: Context) {
     super(ctx, 'dshEarsPolish', { namespace: 'dshEars' })
     this.whisperCapabilities = whisperAccelerationCapabilities()
     ctx.effect(() => async () => {
       this.whisperModels.dispose()
-      for (const session of this.realtimeSessions.values()) session.close()
+      for (const entry of this.realtimeSessions.values()) {
+        clearTimeout(entry.timer)
+        entry.session.close()
+      }
       this.realtimeSessions.clear()
       await disposeWhisperRuntime()
     }, 'dsh-ears whisper runtime lifecycle')
@@ -364,36 +373,61 @@ export class PolishService extends TypertRemoteService {
     })
     await session.open()
     const sessionId = randomUUID()
-    this.realtimeSessions.set(sessionId, session)
+    this.realtimeSessions.set(sessionId, {
+      session,
+      timer: this.scheduleRealtimeSessionExpiry(sessionId, session)
+    })
     return { sessionId }
   }
 
   async sendRealtimeAudio(sessionId: string, audioBase64: string, signal: AbortSignal): Promise<{ text: string; final: boolean }> {
     signal.throwIfAborted()
-    const session = this.realtimeSessions.get(sessionId)
-    if (session === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
-    return session.sendAudio(decodeAudio(audioBase64), signal)
+    const entry = this.realtimeSessions.get(sessionId)
+    if (entry === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
+    this.refreshRealtimeSessionExpiry(sessionId, entry)
+    return entry.session.sendAudio(decodeAudio(audioBase64), signal)
   }
 
   async finishRealtime(sessionId: string, signal: AbortSignal): Promise<RemoteTextResult> {
+    const entry = this.realtimeSessions.get(sessionId)
     try {
       signal.throwIfAborted()
-      const session = this.realtimeSessions.get(sessionId)
-      if (session === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
-      const text = await session.finish(signal)
+      if (entry === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
+      const text = await entry.session.finish(signal)
       return remoteTextSuccess(text)
     } catch (error) {
       return toRemoteTextFailure(error, signal, EARS_ERROR_CODES.asrUnexpected, 'The Tencent Cloud realtime recognition failed')
     } finally {
-      this.realtimeSessions.delete(sessionId)
+      this.removeRealtimeSession(sessionId, entry?.session)
     }
   }
 
   async cancelRealtime(sessionId: string): Promise<{ cancelled: true }> {
-    const session = this.realtimeSessions.get(sessionId)
-    session?.close()
-    this.realtimeSessions.delete(sessionId)
+    this.removeRealtimeSession(sessionId)
     return { cancelled: true }
+  }
+
+  private scheduleRealtimeSessionExpiry(sessionId: string, session: TencentRealtimeAsrSession): ReturnType<typeof setTimeout> {
+    return setTimeout(() => {
+      const entry = this.realtimeSessions.get(sessionId)
+      if (entry?.session !== session) return
+      entry.session.close()
+      clearTimeout(entry.timer)
+      this.realtimeSessions.delete(sessionId)
+    }, REALTIME_SESSION_IDLE_TIMEOUT_MS)
+  }
+
+  private refreshRealtimeSessionExpiry(sessionId: string, entry: RealtimeSessionEntry): void {
+    clearTimeout(entry.timer)
+    entry.timer = this.scheduleRealtimeSessionExpiry(sessionId, entry.session)
+  }
+
+  private removeRealtimeSession(sessionId: string, expectedSession?: TencentRealtimeAsrSession): void {
+    const entry = this.realtimeSessions.get(sessionId)
+    if (entry === undefined || (expectedSession !== undefined && entry.session !== expectedSession)) return
+    clearTimeout(entry.timer)
+    entry.session.close()
+    this.realtimeSessions.delete(sessionId)
   }
 
   async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult> {

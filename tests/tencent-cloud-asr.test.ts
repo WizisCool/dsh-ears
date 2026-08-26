@@ -59,6 +59,16 @@ class FakeWebSocket implements TencentWebSocket {
   }
 }
 
+class NeverFinishesWebSocket extends FakeWebSocket {
+  override send(data: ArrayBuffer | ArrayBufferView | string): void {
+    if (typeof data === 'string') {
+      this.sent.push(data)
+      return
+    }
+    super.send(data)
+  }
+}
+
 describe('Tencent Cloud standard recording recognition', () => {
   it('builds the API 3.0 request body and deterministic TC3 signature', () => {
     const body = tencentRecordingRequestBody({ audio: new Uint8Array([1, 2, 3]), engineType: ' 16k_zh ' })
@@ -192,6 +202,19 @@ describe('Tencent Cloud realtime recognition', () => {
     })).toBe('wss://asr.cloud.tencent.com/asr/v2/1250000000?engine_model_type=16k_zh&expired=1700000300&nonce=123&secretid=AKIDexample&timestamp=1700000000&voice_format=1&voice_id=voice%20id&signature=dgpShHztVr8yX%2FwCiSyEUGEy%2Fbo%3D')
   })
 
+  it('generates a document-compatible voice identifier when omitted', () => {
+    const url = tencentRealtimeUrl({
+      appId: '1250000000',
+      secretId: 'AKIDexample',
+      secretKey: 'secret-key',
+      engineType: '16k_zh',
+      timestamp: 1_700_000_000,
+      nonce: 123
+    })
+    const voiceId = new URL(url).searchParams.get('voice_id')
+    expect(voiceId).toMatch(/^[A-Za-z0-9]{16}$/)
+  })
+
   it('rejects malformed response codes', async () => {
     for (const code of [undefined, null, true, '', 'not-a-number', {}]) {
       const socket = new FakeWebSocket(JSON.stringify({ code, result: { voice_text_str: '你好', index: 0, slice_type: 2 } }))
@@ -239,6 +262,42 @@ describe('Tencent Cloud realtime recognition', () => {
     await session.open()
     await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toMatchObject({ text: '你好', final: false })
     session.close()
+  })
+
+  it('closes the socket when the server already marked the result final', async () => {
+    const socket = new FakeWebSocket(JSON.stringify({ code: 0, result: { voice_text_str: '你好', index: 0, slice_type: 2 }, final: 1 }))
+    const session = new TencentRealtimeAsrSession({
+      appId: '1250000000',
+      secretId: 'AKIDexample',
+      secretKey: 'secret-key',
+      engineType: '16k_zh',
+      webSocketFactory: () => socket
+    })
+    await session.open()
+    await session.sendAudio(new Uint8Array([1, 2]))
+    await expect(session.finish()).resolves.toBe('你好')
+    expect(socket.readyState).toBe(3)
+  })
+
+  it('closes the socket when finalization times out', async () => {
+    vi.useFakeTimers()
+    try {
+      const socket = new NeverFinishesWebSocket()
+      const session = new TencentRealtimeAsrSession({
+        appId: '1250000000',
+        secretId: 'AKIDexample',
+        secretKey: 'secret-key',
+        engineType: '16k_zh',
+        webSocketFactory: () => socket
+      })
+      await session.open()
+      const rejection = expect(session.finish()).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await rejection
+      expect(socket.readyState).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('opens, streams audio, finalizes, and releases the socket', async () => {
