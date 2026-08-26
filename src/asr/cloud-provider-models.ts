@@ -35,7 +35,9 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
       }
       if (entry.protocol === 'deepgram') {
         if (!isRecord(parsed) || !Array.isArray(parsed.stt)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
-        return filterDeepgramModels(parsed.stt)
+        const models = filterDeepgramModels(parsed.stt)
+        if (models.length === 0) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
+        return models
       }
 
       if (!isRecord(parsed) || !Array.isArray(parsed.data)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Cloud model listing returned no models')

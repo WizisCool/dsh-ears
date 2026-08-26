@@ -1,3 +1,5 @@
+import { DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_DEFAULT_MODEL } from './recognition.js'
+
 export const MAX_CLOUD_API_KEY_LENGTH = 512
 
 export interface CloudAsrProviderSettings {
@@ -36,7 +38,7 @@ export interface CloudAsrSettings {
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
   groq: Object.freeze({ apiKey: '', model: '', language: '' }),
-  deepgram: Object.freeze({ apiKey: '', model: 'nova-3', language: '', service: 'recording-file' }),
+  deepgram: Object.freeze({ apiKey: '', model: DEEPGRAM_DEFAULT_MODEL, language: '', service: DEEPGRAM_ASR_DEFAULT_SERVICE }),
   customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '', language: '' }),
   bailian: Object.freeze({ apiKey: '', host: '', model: '', language: '' }),
   tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })

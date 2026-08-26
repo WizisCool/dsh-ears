@@ -83,19 +83,24 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   useEffect(() => () => {
     flushRef.current()
   }, [])
+  const refreshRoutesRef = useRef(props.refreshRoutes)
+  refreshRoutesRef.current = props.refreshRoutes
   useEffect(() => {
     // Silently refresh routes on mount and whenever the window regains focus
-    props.refreshRoutes()
+    refreshRoutesRef.current()
     const onFocus = () => {
-      props.refreshRoutes()
+      refreshRoutesRef.current()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshRoutesRef.current()
     }
     window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [props.refreshRoutes])
+  }, [])
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
   const localWhisperAccelerations = state.localWhisperAccelerations ?? ['default']
@@ -239,15 +244,17 @@ function AboutPanel({ t, loadAbout, checkForUpdate }: { t: Translate; loadAbout:
   const [about, setAbout] = useState<AboutInfo | null>(null)
   const [check, setCheck] = useState<UpdateCheckResult | { status: 'idle' } | { status: 'checking' }>({ status: 'idle' })
   const [copied, setCopied] = useState(false)
+  const loadAboutRef = useRef(loadAbout)
+  loadAboutRef.current = loadAbout
   useEffect(() => {
     let cancelled = false
-    void loadAbout().then((value) => {
+    void loadAboutRef.current().then((value) => {
       if (!cancelled) setAbout(value)
     })
     return () => {
       cancelled = true
     }
-  }, [loadAbout])
+  }, [])
   const checkHint = check.status === 'checking'
     ? t('aboutChecking')
     : check.status === 'up-to-date'
@@ -532,7 +539,7 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
 }
 
 const DEEPGRAM_STATIC_FALLBACK_MODELS = [
-  'nova-3',
+  DEEPGRAM_DEFAULT_MODEL,
   'nova-3-general',
   'nova-3-medical',
   'nova-2',
@@ -554,6 +561,10 @@ function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, o
     ? view.models
     : DEEPGRAM_STATIC_FALLBACK_MODELS
 
+  useEffect(() => {
+    if (candidateModels.includes(value)) setExplicitCustom(false)
+  }, [value, candidateModels])
+
   const isKnown = candidateModels.includes(value)
   const isCustom = explicitCustom || (!isKnown && value.trim() !== '')
 
@@ -562,12 +573,12 @@ function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, o
     ['__custom__', t('customModelOption')]
   ]
 
-  const selectValue = isCustom ? '__custom__' : (isKnown ? value : 'nova-3')
+  const selectValue = isCustom ? '__custom__' : (isKnown ? value : DEEPGRAM_DEFAULT_MODEL)
 
   const onSelectChange = (nextSelected: string) => {
     if (nextSelected === '__custom__') {
       setExplicitCustom(true)
-      if (value.trim() === '') onChange('nova-3')
+      if (value.trim() === '') onChange(DEEPGRAM_DEFAULT_MODEL)
     } else {
       setExplicitCustom(false)
       onChange(nextSelected)
@@ -603,7 +614,7 @@ function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, o
           label={t('customModelName')}
           hint={t('customModelInputHint')}
           value={value}
-          placeholder="nova-3"
+          placeholder={DEEPGRAM_DEFAULT_MODEL}
           disabled={disabled}
           invalid={invalid}
           onChange={(event) => onChange(event.target.value)}

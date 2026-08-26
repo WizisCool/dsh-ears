@@ -146,6 +146,9 @@ export function deepgramErrorDetail(body: unknown, status: number): string {
 }
 
 export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions): Promise<string> {
+  const key = options.credential.trim()
+  if (key === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
+
   const fetchImpl = options.fetch ?? globalThis.fetch
   const url = deepgramListenUrl({
     endpoint: options.endpoint,
@@ -154,6 +157,7 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
   })
 
   const controller = new AbortController()
+  if (options.signal?.aborted) controller.abort(options.signal.reason)
   let timedOut = false
   const timer = setTimeout(() => {
     timedOut = true
@@ -166,7 +170,6 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
   }
 
   try {
-    const key = options.credential.trim()
     const contentType = (options.mimeType && options.mimeType.trim() !== '') ? options.mimeType.trim() : 'audio/wav'
     const headers: Record<string, string> = {
       Authorization: `Token ${key}`,
@@ -246,9 +249,14 @@ export class DeepgramRealtimeAsrSession {
     this.socket.addEventListener('error', this.onError)
     this.socket.addEventListener('close', this.onClose)
 
-    await this.waitFor(() => this.opened || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS)
-    if (this.lastError !== undefined) throw this.lastError
-    if (!this.opened) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition failed to connect')
+    try {
+      await this.waitFor(() => this.opened || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS)
+      if (this.lastError !== undefined) throw this.lastError
+      if (!this.opened) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition failed to connect')
+    } catch (error) {
+      this.close()
+      throw error
+    }
   }
 
   async sendAudio(audio: Uint8Array, signal: AbortSignal = this.options.signal ?? new AbortController().signal): Promise<DeepgramRealtimeTranscript> {
@@ -259,7 +267,10 @@ export class DeepgramRealtimeAsrSession {
       throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Deepgram realtime recognition is not active')
     }
     const version = this.messageVersion
-    socket.send(audio)
+    const payload = audio.byteOffset === 0 && audio.byteLength === audio.buffer.byteLength
+      ? audio
+      : audio.slice()
+    socket.send(payload)
     await this.waitFor(() => this.messageVersion > version || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_MESSAGE_GRACE_MS, signal)
     if (this.lastError !== undefined) throw this.lastError
     if (this.closed && this.messageVersion === version) {

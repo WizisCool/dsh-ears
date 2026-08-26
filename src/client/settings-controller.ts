@@ -780,6 +780,7 @@ export class EarsSettingsController {
       this.rememberCloudAsrModel('deepgram', result.value.settings.cloudAsrDeepgramModel)
       this.rememberCloudAsrModel('custom', result.value.settings.cloudAsrCustomModel)
       this.rememberCloudAsrModel('bailian', result.value.settings.cloudAsrBailianModel)
+      this.rememberCloudAsrModel('tencent', result.value.settings.cloudAsrTencentEngineType)
       this.settingsStore.set(result.value.settings)
       for (const [field, text] of submittedDrafts) {
         if (this.drafts.get(field) === text) this.drafts.delete(field)

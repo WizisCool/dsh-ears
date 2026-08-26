@@ -200,14 +200,14 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     )
   }
 
-  const backendAvailable = backend === 'web-speech'
-    ? isWebSpeechAvailable()
-    : backend === 'cloud-openai' && (
-      (settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime') ||
-      (settings.cloudAsrProvider === 'deepgram' && settings.cloudAsrDeepgramService === 'realtime')
-    )
-      ? isRealtimeAudioCaptureAvailable()
-      : isMediaRecorderAvailable()
+  let backendAvailable: boolean
+  if (backend === 'web-speech') {
+    backendAvailable = isWebSpeechAvailable()
+  } else if (backend === 'cloud-openai' && isRealtimeCloudAsr(settings)) {
+    backendAvailable = isRealtimeAudioCaptureAvailable()
+  } else {
+    backendAvailable = isMediaRecorderAvailable()
+  }
   if (!active && !busy && !backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
@@ -585,10 +585,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
     if (nextBackend === 'web-speech') {
       void startWebSpeech()
-    } else if (nextBackend === 'cloud-openai' && (
-      (settingsRef.current.cloudAsrProvider === 'tencent' && settingsRef.current.cloudAsrTencentService === 'realtime') ||
-      (settingsRef.current.cloudAsrProvider === 'deepgram' && settingsRef.current.cloudAsrDeepgramService === 'realtime')
-    )) {
+    } else if (nextBackend === 'cloud-openai' && isRealtimeCloudAsr(settingsRef.current)) {
       void startRealtimeRecording()
     } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
       void startMediaRecording(nextBackend)
@@ -629,6 +626,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       </button>
     </Tooltip>
   )
+}
+
+function isRealtimeCloudAsr(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService'>): boolean {
+  return (settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime')
+    || (settings.cloudAsrProvider === 'deepgram' && settings.cloudAsrDeepgramService === 'realtime')
 }
 
 function armRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }, seconds: number, stop: () => void): void {

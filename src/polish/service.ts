@@ -429,8 +429,9 @@ export class PolishService extends TypertRemoteService {
       return { sessionId }
     } catch (error) {
       if (signal.aborted) signal.throwIfAborted()
+      if (error instanceof EarsError) throw error
       const message = error instanceof Error && error.message.trim() !== '' ? error.message.trim() : 'Realtime recognition failed to start'
-      throw new Error(message)
+      throw new EarsError(EARS_ERROR_CODES.asrUnexpected, message)
     }
   }
 
