@@ -88,6 +88,9 @@
   order: 3;
 }
 
+:global([data-slot='conversation.input.model'] ~ button:last-of-type),
+:global([data-slot='conversation.input.model'] ~ button[class*='primary']),
+:global([data-slot='conversation.input.model'] ~ button[class*='Primary']),
 :global([data-slot='conversation.input.model'] ~ button:last-child) {
   order: 4;
 }
