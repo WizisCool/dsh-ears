@@ -50,6 +50,8 @@ describe('Deepgram URL builder', () => {
     expect(url.searchParams.get('encoding')).toBe('linear16')
     expect(url.searchParams.get('sample_rate')).toBe('16000')
     expect(url.searchParams.get('channels')).toBe('1')
+    expect(url.searchParams.get('interim_results')).toBe('true')
+    expect(url.searchParams.get('endpointing')).toBe('300')
     expect(url.searchParams.get('language')).toBe('en-US')
   })
 

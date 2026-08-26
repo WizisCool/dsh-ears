@@ -5,8 +5,8 @@ export const DEEPGRAM_API_HOST = 'api.deepgram.com'
 export const DEEPGRAM_DEFAULT_MODEL = 'nova-3'
 export const DEEPGRAM_RECORDING_TIMEOUT_MS = 120_000
 export const DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS = 15_000
-export const DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS = 30_000
-export const DEEPGRAM_REALTIME_MESSAGE_GRACE_MS = 120
+export const DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS = 5_000
+export const DEEPGRAM_REALTIME_MESSAGE_GRACE_MS = 5
 
 export interface DeepgramRecordingAsrOptions {
   readonly audio: Uint8Array
@@ -96,6 +96,9 @@ export function deepgramRealtimeUrl(options: {
   url.searchParams.set('encoding', 'linear16')
   url.searchParams.set('sample_rate', '16000')
   url.searchParams.set('channels', '1')
+  url.searchParams.set('interim_results', 'true')
+  url.searchParams.set('endpointing', '300')
+  url.searchParams.set('vad_events', 'true')
 
   if (options.smartFormat !== false) {
     url.searchParams.set('smart_format', 'true')
@@ -323,6 +326,12 @@ export class DeepgramRealtimeAsrSession {
     if (typeof parsed.err_code === 'string' || typeof parsed.err_msg === 'string') {
       const detail = deepgramErrorDetail(parsed, 400)
       this.setError(new EarsError(EARS_ERROR_CODES.asrHttpFailed, `Deepgram realtime recognition failed: ${detail}`))
+      return
+    }
+
+    if (parsed.type === 'Metadata') {
+      this.final = true
+      this.notifyWaiters()
       return
     }
 
