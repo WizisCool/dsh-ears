@@ -563,10 +563,6 @@ function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, o
       : DEEPGRAM_STATIC_FALLBACK_MODELS
   ), [view])
 
-  useEffect(() => {
-    if (candidateModels.includes(value)) setExplicitCustom(false)
-  }, [value, candidateModels])
-
   const isKnown = candidateModels.includes(value)
   const isCustom = explicitCustom || (!isKnown && value.trim() !== '')
 

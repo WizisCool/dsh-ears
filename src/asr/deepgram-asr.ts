@@ -65,6 +65,9 @@ export function deepgramListenUrl(options: {
   } catch {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Invalid Deepgram endpoint: ${base}`)
   }
+  if (url.protocol !== 'https:') {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Deepgram endpoint must use https: ${base}`)
+  }
   const model = options.model?.trim() || DEEPGRAM_DEFAULT_MODEL
   url.searchParams.set('model', model)
 
@@ -100,6 +103,9 @@ export function deepgramRealtimeUrl(options: {
     url = new URL(base)
   } catch {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Invalid Deepgram endpoint: ${base}`)
+  }
+  if (url.protocol !== 'wss:' && url.protocol !== 'ws:') {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Deepgram realtime endpoint must use wss: ${base}`)
   }
   const model = options.model?.trim() || DEEPGRAM_DEFAULT_MODEL
   url.searchParams.set('model', model)
@@ -237,6 +243,7 @@ export class DeepgramRealtimeAsrSession {
   private transcript = ''
   private messageVersion = 0
   private lastError: unknown
+  private detached = false
   private readonly waiters = new Set<() => void>()
 
   constructor(options: DeepgramRealtimeAsrOptions) {
@@ -314,18 +321,20 @@ export class DeepgramRealtimeAsrSession {
   }
 
   close(): void {
-    if (this.closed) return
     this.closed = true
-    const socket = this.socket
-    if (socket !== undefined) {
-      socket.removeEventListener('open', this.onOpen)
-      socket.removeEventListener('message', this.onMessage)
-      socket.removeEventListener('error', this.onError)
-      socket.removeEventListener('close', this.onClose)
-      try {
-        socket.close(1000, 'client closed')
-      } catch {
-        // Transport already closing.
+    if (!this.detached) {
+      this.detached = true
+      const socket = this.socket
+      if (socket !== undefined) {
+        socket.removeEventListener('open', this.onOpen)
+        socket.removeEventListener('message', this.onMessage)
+        socket.removeEventListener('error', this.onError)
+        socket.removeEventListener('close', this.onClose)
+        try {
+          socket.close(1000, 'client closed')
+        } catch {
+          // Transport already closing.
+        }
       }
     }
     this.notifyWaiters()
@@ -386,13 +395,12 @@ export class DeepgramRealtimeAsrSession {
   }
 
   private readonly onClose = (event: DeepgramWebSocketEvent): void => {
-    this.closed = true
     this.final = true
     if (event.code !== undefined && event.code !== 1000 && event.code !== 1005 && this.lastError === undefined) {
       const reason = typeof event.reason === 'string' && event.reason !== '' ? event.reason : `code ${String(event.code)}`
       this.setError(new EarsError(EARS_ERROR_CODES.asrHttpFailed, `Deepgram realtime recognition closed unexpectedly: ${reason}`))
     }
-    this.notifyWaiters()
+    this.close()
   }
 
   private rebuildTranscript(): void {

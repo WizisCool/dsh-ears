@@ -165,6 +165,57 @@ describe('settings Remote contract', () => {
     }).settings.maxRecordingSeconds).toBe(120)
   })
 
+  it('parses older pre-Deepgram Host responses with backward-compatible defaults', () => {
+    const legacyView = {
+      available: true,
+      writable: true,
+      settings: {
+        asrBackend: 'web-speech',
+        cloudAsrProvider: 'groq',
+        localWhisperModel: 'base',
+        localWhisperAcceleration: 'default',
+        cloudAsrGroqApiKey: '',
+        cloudAsrGroqModel: '',
+        cloudAsrCustomApiKey: '',
+        cloudAsrCustomEndpoint: '',
+        cloudAsrCustomModel: '',
+        cloudAsrBailianApiKey: '',
+        cloudAsrBailianHost: '',
+        cloudAsrBailianModel: '',
+        cloudAsrTencentAppId: '',
+        cloudAsrTencentSecretId: '',
+        cloudAsrTencentSecretKey: '',
+        cloudAsrTencentEngineType: '16k_zh',
+        cloudAsrTencentService: 'recording-file',
+        webSpeechLanguage: 'zh-CN',
+        localWhisperLanguage: '',
+        cloudAsrGroqLanguage: '',
+        cloudAsrCustomLanguage: '',
+        cloudAsrBailianLanguage: '',
+        maxRecordingSeconds: 120,
+        voiceShortcutEnabled: true,
+        voiceShortcut: 'ctrl+shift+space',
+        voiceSoundsEnabled: true,
+        settingsDisplayName: 'dsh-ears',
+        polishingEnabled: true,
+        polishProvider: '',
+        polishModel: '',
+        polishReasoningEffort: '',
+        polishPrompt: ''
+      },
+      cloudAsrGroqApiKeyConfigured: false,
+      cloudAsrCustomApiKeyConfigured: false,
+      cloudAsrBailianApiKeyConfigured: false,
+      cloudAsrTencentSecretKeyConfigured: false,
+      overridden: []
+    }
+    const parsed = earsSettingsViewSchema.parse(legacyView)
+    expect(parsed.settings.cloudAsrDeepgramApiKey).toBe('')
+    expect(parsed.settings.cloudAsrDeepgramModel).toBe('nova-3')
+    expect(parsed.settings.cloudAsrDeepgramService).toBe('recording-file')
+    expect(parsed.cloudAsrDeepgramApiKeyConfigured).toBe(false)
+  })
+
   it('keeps Host and Client Remote descriptors aligned', () => {
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()

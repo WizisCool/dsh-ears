@@ -278,14 +278,16 @@ export class EarsSettingsController {
       this.routeState = { status: 'loading', routes: this.routeState.routes }
       this.routeStore.set(this.routeState)
     }
+    let nextState: RouteState
     try {
       const result = await this.remote.listRoutes()
       const routes = result.ok ? result.value : this.routeState.routes
-      this.routeState = { status: 'ready', routes }
+      nextState = { status: 'ready', routes }
     } catch {
-      this.routeState = { status: 'ready', routes: this.routeState.routes }
+      nextState = { status: 'ready', routes: this.routeState.routes }
     }
     if (this.disposed || request !== this.routeRequest) return
+    this.routeState = nextState
     this.routeStore.set(this.routeState)
   }
 

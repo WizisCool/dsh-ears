@@ -69,6 +69,15 @@ describe('Deepgram URL builder', () => {
       expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
     )
   })
+
+  it('throws asrEndpointInvalid on insecure or invalid scheme', () => {
+    expect(() => deepgramListenUrl({ endpoint: 'http://api.deepgram.com/v1/listen' })).toThrowError(
+      expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
+    )
+    expect(() => deepgramRealtimeUrl({ endpoint: 'http://api.deepgram.com/v1/listen' })).toThrowError(
+      expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
+    )
+  })
 })
 
 describe('Deepgram response parsing', () => {
