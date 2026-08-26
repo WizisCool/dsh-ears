@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-0.1.0--rc.6%20--%200.1.1--rc.2-1a73e8?style=flat-square" alt="dsh 0.1.0-rc.6 - 0.1.1-rc.2"></a>
+  <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <img src="https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
@@ -35,19 +36,13 @@ While recording, a recognition bar appears above the composer with a waveform an
 
 Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` through `0.1.1-rc.2`) and Node.js `^22.19.0 || >=24.0.0`.
 
-**Install from npm:**
+### Install from npm
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-If the `dsh` CLI is not installed:
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
-```
-
-**Install from source:**
+### Install from source
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
@@ -77,12 +72,6 @@ Refresh the Web UI after the update.
 dsh plugin --profile web remove dsh-ears
 ```
 
-If the `dsh` CLI is not installed:
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
-```
-
 The command removes the dsh plugin registration and leaves a local clone in place. Refresh the Web UI afterwards; the microphone icon disappears.
 
 ## Usage
@@ -103,6 +92,7 @@ If the selected backend is not ready, the microphone icon is disabled. Hover ove
 | Local Whisper | After recording stops, the browser normalizes audio to mono 16 kHz PCM16 WAV and the Host transcribes it through the bundled whisper.node native dependency | The matching native variant is installed with npm; download a whisper.cpp GGML model from settings, where model weights are stored in the local cache | — |
 | [Groq](https://console.groq.com) | The Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription (Flash family) | HTTPS origin, API key, and model name. Recordings are limited to 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
+| [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Standard recording file recognition through API 3.0](https://cloud.tencent.com/document/api/1093/37823) or [real-time speech recognition through WebSocket](https://cloud.tencent.com/document/api/1093/48982); the Host submits and polls recording tasks and owns the realtime session | AppID, SecretID, SecretKey, and `engine_type` | [Service and Billing](https://intl.cloud.tencent.com/document/product/1118/43371) |
 | Custom OpenAI-compatible | Sends a request to the specified `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
 | Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
 

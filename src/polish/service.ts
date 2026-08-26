@@ -1,4 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
@@ -12,6 +13,7 @@ import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
+import { TencentRealtimeAsrSession, transcribeTencentCloudRecording } from '../asr/tencent-cloud-asr.js'
 import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
@@ -37,12 +39,15 @@ export class PolishService extends TypertRemoteService {
   private whisperAvailability: { variant: WhisperAccelerationId; expiresAt: number; value: Promise<boolean> } | undefined
   private cloudModelsFailure: { key: string; expiresAt: number; message: string; errorCode: EarsErrorCode; errorParams?: EarsErrorParams } | undefined
   private readonly whisperModels = new WhisperModels()
+  private readonly realtimeSessions = new Map<string, TencentRealtimeAsrSession>()
 
   constructor(ctx: Context) {
     super(ctx, 'dshEarsPolish', { namespace: 'dshEars' })
     this.whisperCapabilities = whisperAccelerationCapabilities()
     ctx.effect(() => async () => {
       this.whisperModels.dispose()
+      for (const session of this.realtimeSessions.values()) session.close()
+      this.realtimeSessions.clear()
       await disposeWhisperRuntime()
     }, 'dsh-ears whisper runtime lifecycle')
     ctx.inject(['settings'], (settingsCtx) => {
@@ -68,6 +73,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrGroqApiKeyConfigured: false,
         cloudAsrCustomApiKeyConfigured: false,
         cloudAsrBailianApiKeyConfigured: false,
+        cloudAsrTencentSecretKeyConfigured: false,
         localWhisperAccelerations: [...this.whisperCapabilities.available],
         overridden: []
       }
@@ -84,11 +90,13 @@ export class PolishService extends TypertRemoteService {
         ...snapshot,
         cloudAsrGroqApiKey: '',
         cloudAsrCustomApiKey: '',
-        cloudAsrBailianApiKey: ''
+        cloudAsrBailianApiKey: '',
+        cloudAsrTencentSecretKey: ''
       },
       cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
       cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
       cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
+      cloudAsrTencentSecretKeyConfigured: snapshot.cloudAsrTencentSecretKey.trim() !== '',
       localWhisperAccelerations: [...this.whisperCapabilities.available],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
@@ -294,6 +302,19 @@ export class PolishService extends TypertRemoteService {
       if (providerEntry === undefined) throw new EarsError(EARS_ERROR_CODES.asrProviderUnknown, `Unknown dsh-ears cloud ASR provider: ${settings.cloudAsrProvider}`, { provider: settings.cloudAsrProvider })
       const credential = cloudAsrCredentialFor(settings)
       if (providerEntry.apiKeyRequired && credential === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'The cloud ASR API key is not configured')
+      if (providerEntry.protocol === 'tencent') {
+        if (settings.cloudAsrTencentService !== 'recording-file') throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected Tencent Cloud ASR service uses a live session')
+        const text = await transcribeTencentCloudRecording({
+          audio,
+          appId: settings.cloudAsrTencentAppId,
+          secretId: settings.cloudAsrTencentSecretId,
+          secretKey: settings.cloudAsrTencentSecretKey,
+          engineType: model,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
       if (providerEntry.protocol === 'dashscope-asr') {
         const text = await transcribeDashScopeAsr({
           audio,
@@ -321,6 +342,58 @@ export class PolishService extends TypertRemoteService {
     } catch (error) {
       return toRemoteTextFailure(error, signal, EARS_ERROR_CODES.asrUnexpected, 'The ASR request failed')
     }
+  }
+
+  async startRealtime(signal: AbortSignal): Promise<{ sessionId: string }> {
+    signal.throwIfAborted()
+    const settings = this.requireSettings()
+    if (settings.asrBackend !== 'cloud-openai' || settings.cloudAsrProvider !== 'tencent' || settings.cloudAsrTencentService !== 'realtime') {
+      throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Tencent Cloud realtime recognition is not selected')
+    }
+    const model = cloudAsrModelFor(settings)
+    if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The Tencent Cloud engine model is not configured')
+    if (settings.cloudAsrTencentAppId.trim() === '' || settings.cloudAsrTencentSecretId.trim() === '' || settings.cloudAsrTencentSecretKey.trim() === '') {
+      throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Tencent Cloud credentials are not configured')
+    }
+    const session = new TencentRealtimeAsrSession({
+      appId: settings.cloudAsrTencentAppId,
+      secretId: settings.cloudAsrTencentSecretId,
+      secretKey: settings.cloudAsrTencentSecretKey,
+      engineType: model,
+      signal
+    })
+    await session.open()
+    const sessionId = randomUUID()
+    this.realtimeSessions.set(sessionId, session)
+    return { sessionId }
+  }
+
+  async sendRealtimeAudio(sessionId: string, audioBase64: string, signal: AbortSignal): Promise<{ text: string; final: boolean }> {
+    signal.throwIfAborted()
+    const session = this.realtimeSessions.get(sessionId)
+    if (session === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
+    return session.sendAudio(decodeAudio(audioBase64), signal)
+  }
+
+  async finishRealtime(sessionId: string, signal: AbortSignal): Promise<RemoteTextResult> {
+    try {
+      signal.throwIfAborted()
+      const session = this.realtimeSessions.get(sessionId)
+      if (session === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime session was not found')
+      const text = await session.finish(signal)
+      return remoteTextSuccess(text)
+    } catch (error) {
+      return toRemoteTextFailure(error, signal, EARS_ERROR_CODES.asrUnexpected, 'The Tencent Cloud realtime recognition failed')
+    } finally {
+      this.realtimeSessions.delete(sessionId)
+    }
+  }
+
+  async cancelRealtime(sessionId: string): Promise<{ cancelled: true }> {
+    const session = this.realtimeSessions.get(sessionId)
+    session?.close()
+    this.realtimeSessions.delete(sessionId)
+    return { cancelled: true }
   }
 
   async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult> {

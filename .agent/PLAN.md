@@ -10,7 +10,7 @@ Give the dsh Web UI a native-feeling voice input flow:
 microphone → live transcript → optional dsh LLM polish → editable draft → manual send
 ```
 
-The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Alibaba Cloud Model Studio (Bailian / DashScope), and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
+The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Alibaba Cloud Model Studio (Bailian / DashScope), Tencent Cloud standard recording file recognition and real-time speech recognition, and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
 
 ## Status
 
@@ -25,7 +25,7 @@ The package has two faces:
 - Host: Cordis lifecycle, Host RPC, native `settings.section`, local/cloud ASR, and dsh `ctx.llm`.
 - Browser: composer microphone, session-scoped recognition card, Web Speech, MediaRecorder capture for final ASR, and `inputActions.setDraft()`.
 
-Web Speech runs in the browser and is not a PCM recorder. Local Whisper and cloud ASR use a separate MediaRecorder source and a final-result Host RPC. Local Whisper receives browser-normalized mono 16 kHz PCM16 WAV, then uses a persistent whisper.node context. The first release does not switch backends during one recording.
+Web Speech runs in the browser and is not a PCM recorder. Local Whisper and file-based cloud ASR use a separate MediaRecorder source and a final-result Host RPC; Tencent realtime recognition uses a Host-owned WebSocket session with browser PCM chunks. Local Whisper receives browser-normalized mono 16 kHz PCM16 WAV, then uses a persistent whisper.node context. The first release does not switch backends during one recording.
 
 After recording stops, polishing runs on the Host through dsh's existing LLM runtime and credentials. The plugin stores a selected `{ provider, model }` route, not a second provider configuration.
 
@@ -46,9 +46,9 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 ## Open gates
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins. Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
-2. Live Groq, Bailian, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
+2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
 3. Later npm publishes, release tags, and visibility changes still require an explicit maintainer decision. The first public `0.1.0` is authorized.
-4. Emotion recognition/UI stays deferred (D-015). Additional cloud-provider protocols stay out of first-release scope.
+4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.
 
 ## dsh integration
 
@@ -75,7 +75,7 @@ dsh-ears/
 ├── src/
 │   ├── index.ts              # Host plugin entry
 │   ├── client.ts / client/   # Browser composition
-│   ├── asr/                  # Web Speech, Whisper, Groq, Bailian, custom
+│   ├── asr/                  # Web Speech, Whisper, Groq, Bailian, Tencent Cloud, custom
 │   ├── polish/               # Host LLM polish
 │   ├── config.ts             # Shared constants and validation
 │   ├── config-schema.ts      # Host-only schemastery schema

@@ -55,6 +55,15 @@ describe('prepareRecordedAudioForBackend', () => {
     const cloud = await prepareRecordedAudioForBackend('cloud-openai', raw)
     expect(cloud).toBe(raw)
 
+    const tencent = await prepareRecordedAudioForBackend('cloud-openai', raw, {
+      cloudProvider: 'tencent',
+      createAudioContext: () => ({
+        decodeAudioData: async () => audioBuffer([Float32Array.from([0])]),
+        close: async () => undefined
+      })
+    })
+    expect(tencent.mimeType).toBe('audio/wav')
+
     const local = await prepareRecordedAudioForBackend('local-whisper', raw, {
       createAudioContext: () => ({
         decodeAudioData: async () => audioBuffer([Float32Array.from([0])]),
@@ -143,7 +152,7 @@ describe('normalizeRecordedAudioForLocalWhisper', () => {
 
     await expect(normalizeRecordedAudioForLocalWhisper(encodedAudio(), {
       createAudioContext: () => ({ decodeAudioData, close })
-    })).rejects.toThrow('Failed to decode recorded audio for local Whisper')
+    })).rejects.toThrow('Failed to decode recorded audio')
     expect(close).toHaveBeenCalledOnce()
   })
 

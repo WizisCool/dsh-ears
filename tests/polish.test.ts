@@ -407,7 +407,7 @@ describe('PolishService', () => {
       schemaVersion: number
       cloudAsr: { groq: { apiKey: string; model: string } }
     }
-    expect(canonical.schemaVersion).toBe(2)
+    expect(canonical.schemaVersion).toBe(3)
     expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo' })
 
     service.getSettings()
@@ -757,6 +757,18 @@ describe('PolishService', () => {
 
     await fiber.dispose()
     fibers.splice(fibers.indexOf(fiber), 1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps Host cleanup idempotent when the plugin scope is disposed twice', async () => {
+    const dispose = vi.mocked(disposeWhisperRuntime)
+    dispose.mockClear()
+
+    const context = createContext({})
+    const fiber = await context.plugin(PolishService)
+    await fiber.dispose()
+    await fiber.dispose()
+
     expect(dispose).toHaveBeenCalledTimes(1)
   })
 

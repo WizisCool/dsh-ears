@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-0.1.0--rc.6%20--%200.1.1--rc.2-1a73e8?style=flat-square" alt="dsh 0.1.0-rc.6 - 0.1.1-rc.2"></a>
+  <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <img src="https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
@@ -35,19 +36,13 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`0.1.0-rc.6` 至 `0.1.1-rc.2`）和 Node.js `^22.19.0 || >=24.0.0`。
 
-**通过 npm 安装：**
+### 通过 npm 安装
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-尚未安装 `dsh` CLI 时：
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web add dsh-ears
-```
-
-**从源码安装：**
+### 从源码安装
 
 ```sh
 git clone https://github.com/WizisCool/dsh-ears.git
@@ -77,12 +72,6 @@ dsh plugin --profile web update dsh-ears
 dsh plugin --profile web remove dsh-ears
 ```
 
-尚未安装 `dsh` CLI 时：
-
-```sh
-npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
-```
-
 这条命令会移除 dsh 中的插件注册，源码目录保持不变。卸载后刷新 Web UI，麦克风图标会消失。
 
 ## 使用
@@ -103,6 +92,7 @@ npx -y @deepseek-ai/dsh plugin --profile web remove dsh-ears
 | 本地 Whisper | 浏览器停止录音后标准化为单声道 16 kHz PCM16 WAV，再由 Host 通过内置 whisper.node native 依赖转写 | npm 安装会带来对应平台的 native 变体；在设置页下载 whisper.cpp GGML 模型，模型不随 npm 包打包 | — |
 | [Groq](https://console.groq.com) | Host 将录音发送到 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key 和模型名；单次录音最长 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
+| [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [标准录音文件识别（API 3.0）](https://cloud.tencent.com/document/api/1093/37823) 或 [实时语音识别（WebSocket）](https://cloud.tencent.com/document/api/1093/48982)；录音文件任务由 Host 提交并轮询，实时模式由 Host 持有 WebSocket 会话 | AppID、SecretID、SecretKey 和 `engine_type` | [计费概述](https://cloud.tencent.com/document/product/1093/35686) |
 | 自定义 OpenAI 兼容 | 向指定的 `/audio/transcriptions` 端点发送请求 | 端点地址、API key 和模型名 | — |
 | 贡献新后端 | — | 欢迎通过 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
 

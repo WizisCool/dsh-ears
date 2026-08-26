@@ -118,6 +118,11 @@ describe('settings Remote contract', () => {
         cloudAsrBailianApiKey: '',
         cloudAsrBailianHost: '',
         cloudAsrBailianModel: '',
+        cloudAsrTencentAppId: '',
+        cloudAsrTencentSecretId: '',
+        cloudAsrTencentSecretKey: '',
+        cloudAsrTencentEngineType: '16k_zh',
+        cloudAsrTencentService: 'recording-file',
         language: 'zh-CN',
         maxRecordingSeconds: 120,
         voiceShortcutEnabled: true,
@@ -133,6 +138,7 @@ describe('settings Remote contract', () => {
       cloudAsrGroqApiKeyConfigured: false,
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
+      cloudAsrTencentSecretKeyConfigured: false,
       localWhisperAccelerations: ['default'],
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
@@ -142,7 +148,7 @@ describe('settings Remote contract', () => {
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
-    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'listCloudProviderModels', 'polish', 'transcribe', 'updateSettings'])
+    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'finishRealtime', 'listCloudProviderModels', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
   })
 
   it('keeps every endpoint wire shape aligned across Host and Client', () => {

@@ -3,7 +3,7 @@ import { EARS_SETTINGS_SCHEMA_VERSION } from './config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS } from './settings/recognition.js'
+import { DEFAULT_RECOGNITION_SETTINGS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
 
 /** Host-only dsh settings schema; keep schemastery out of the browser bundle. */
 export const EarsSettingsSchema = s.object({
@@ -22,7 +22,7 @@ export const EarsSettingsSchema = s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id'),
       acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform')
     }).description('Local Whisper model and native acceleration').collapse(),
-    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, custom, or bailian'),
+    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, custom, bailian, or tencent'),
     language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.language).description('Recognition language'),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds')
   }).description('Audio recognition routing and limits').collapse(),
@@ -39,8 +39,15 @@ export const EarsSettingsSchema = s.object({
     bailian: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.apiKey).description('Alibaba Cloud Model Studio API key'),
       host: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.host).description('HTTPS DashScope origin'),
-      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.model).description('Sync Flash model id')
-    }).description('Alibaba Cloud Model Studio (Bailian) ASR').collapse()
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.model).description('Synchronous transcription model id')
+    }).description('Alibaba Cloud Model Studio (Bailian) ASR').collapse(),
+    tencent: s.object({
+      appId: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.appId).description('Tencent Cloud AppID'),
+      secretId: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.secretId).description('Tencent Cloud SecretID'),
+      secretKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.secretKey).description('Tencent Cloud SecretKey'),
+      engineType: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.engineType).description('Tencent Cloud ASR engine type'),
+      service: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.service).description(`Tencent Cloud ASR service: ${TENCENT_ASR_SERVICE_IDS.join(', ')}`)
+    }).description('Tencent Cloud ASR services').collapse()
   }).description('Cloud ASR provider credentials and models').collapse(),
   polishing: s.object({
     enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing'),

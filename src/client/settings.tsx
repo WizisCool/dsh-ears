@@ -39,6 +39,9 @@ interface EarsSettingsSectionProps {
   readonly setBailianApiKey: (text: string) => void
   readonly clearBailianApiKey: () => void
   readonly undoClearBailianApiKey: () => void
+  readonly setTencentSecretKey: (text: string) => void
+  readonly clearTencentSecretKey: () => void
+  readonly undoClearTencentSecretKey: () => void
   readonly flush: () => void
   readonly retryCloudModels: () => void
   readonly downloadModel: () => void
@@ -90,6 +93,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
     { id: 'groq', label: t('groqProvider') },
     { id: 'bailian', label: t('bailianProvider') },
+    { id: 'tencent', label: t('tencentProvider') },
     { id: 'custom', label: t('customProvider') }
   ]
   const tabs: Array<{ id: 'general' | 'recognition' | 'polishing' | 'about'; label: string }> = [
@@ -142,7 +146,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-            if (id === 'groq' || id === 'bailian' || id === 'custom') {
+            if (id === 'groq' || id === 'bailian' || id === 'tencent' || id === 'custom') {
               props.edit('asrBackend', 'cloud-openai')
               props.edit('cloudAsrProvider', id)
               return
@@ -160,6 +164,15 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('bailianHost')} hint={t('bailianHostHint')} value={state.cloudAsrBailianHost.text} disabled={!state.writable} invalid={state.cloudAsrBailianHost.invalid} onChange={(event) => props.edit('cloudAsrBailianHost', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrBailianApiKey.text} configured={state.cloudAsrBailianApiKeyConfigured} clearPending={state.cloudAsrBailianApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrBailianApiKey.invalid} onEdit={props.setBailianApiKey} onClear={props.clearBailianApiKey} onUndoClear={props.undoClearBailianApiKey} onBlur={props.flush} t={t} />
             <TextRow label={t('cloudModel')} hint={t('bailianModelHint')} value={state.cloudAsrBailianModel.text} disabled={!state.writable} invalid={state.cloudAsrBailianModel.invalid} onChange={(event) => props.edit('cloudAsrBailianModel', event.target.value)} onBlur={props.flush} />
+          </> : state.cloudAsrProvider.text === 'tencent' ? <>
+            <SelectRow label={t('tencentService')} hint={t('tencentServiceHint')} value={state.cloudAsrTencentService.text} entries={[
+              { id: 'recording-file', label: t('tencentRecordingService') },
+              { id: 'realtime', label: t('tencentRealtimeService') }
+            ]} disabled={!state.writable} invalid={state.cloudAsrTencentService.invalid} onChange={(value) => props.edit('cloudAsrTencentService', value)} />
+            <TextRow label={t('tencentAppId')} hint={t('tencentAppIdHint')} value={state.cloudAsrTencentAppId.text} disabled={!state.writable} invalid={state.cloudAsrTencentAppId.invalid} onChange={(event) => props.edit('cloudAsrTencentAppId', event.target.value)} onBlur={props.flush} />
+            <TextRow label={t('tencentSecretId')} hint={t('tencentSecretIdHint')} value={state.cloudAsrTencentSecretId.text} disabled={!state.writable} invalid={state.cloudAsrTencentSecretId.invalid} onChange={(event) => props.edit('cloudAsrTencentSecretId', event.target.value)} onBlur={props.flush} />
+            <KeyRow label={t('tencentSecretKey')} hint={t('tencentSecretKeyHint')} value={state.cloudAsrTencentSecretKey.text} configured={state.cloudAsrTencentSecretKeyConfigured} clearPending={state.cloudAsrTencentSecretKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrTencentSecretKey.invalid} onEdit={props.setTencentSecretKey} onClear={props.clearTencentSecretKey} onUndoClear={props.undoClearTencentSecretKey} onBlur={props.flush} t={t} />
+            <TextRow label={t('tencentEngineType')} hint={t('tencentEngineTypeHint')} value={state.cloudAsrTencentEngineType.text} disabled={!state.writable} invalid={state.cloudAsrTencentEngineType.invalid} onChange={(event) => props.edit('cloudAsrTencentEngineType', event.target.value)} onBlur={props.flush} />
           </> : <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrCustomEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrCustomEndpoint.invalid} onChange={(event) => props.edit('cloudAsrCustomEndpoint', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrCustomApiKey.text} configured={state.cloudAsrCustomApiKeyConfigured} clearPending={state.cloudAsrCustomApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrCustomApiKey.invalid} onEdit={props.setCustomApiKey} onClear={props.clearCustomApiKey} onUndoClear={props.undoClearCustomApiKey} onBlur={props.flush} t={t} />
@@ -589,6 +602,7 @@ function backendHint(backend: string, provider: string, t: Translate): string {
   if (backend === 'cloud-openai') {
     if (provider === 'groq') return t('backendHintGroq')
     if (provider === 'bailian') return t('backendHintBailian')
+    if (provider === 'tencent') return t('backendHintTencent')
     return t('backendHintCustom')
   }
   return t('backendHintWebSpeech')

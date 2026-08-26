@@ -24,6 +24,9 @@
     "url": "git+https://github.com/WizisCool/dsh-ears.git"
   },
   "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -79,7 +82,8 @@
     "dev:watch": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepack": "pnpm build",
+    "verify:package": "node scripts/verify-package.mjs",
+    "prepack": "pnpm build && pnpm verify:package",
     "prepare:patch": "node scripts/create-dev-patch.mjs",
     "dev:config": "pnpm build && pnpm prepare:patch && dsh --profile web --dump-config --patch ./.dsh/cordis.patch.yml",
     "dev:web": "pnpm build && pnpm prepare:patch && dsh --profile web --patch ./.dsh/cordis.patch.yml"

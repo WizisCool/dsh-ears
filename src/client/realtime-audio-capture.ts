@@ -1,0 +1,135 @@
+import { AudioLevelMonitor, VOICE_AUDIO_CONSTRAINTS } from '../asr/audio-level.js'
+import { audioToPcm16Wav } from '../asr/pcm-wav.js'
+
+const TARGET_SAMPLE_RATE = 16_000
+const BUFFER_SIZE = 4096
+
+export function isRealtimeAudioCaptureAvailable(): boolean {
+  if (typeof navigator === 'undefined' || typeof navigator.mediaDevices?.getUserMedia !== 'function') return false
+  const scope = globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }
+  const Constructor = scope.AudioContext ?? scope.webkitAudioContext
+  return Constructor !== undefined && typeof Constructor.prototype.createScriptProcessor === 'function'
+}
+
+export interface RealtimeAudioCapture {
+  createLevelMonitor(onLevel: (level: number) => void): AudioLevelMonitor
+  start(onChunk: (audioBase64: string) => Promise<void>): void
+  stop(): Promise<void>
+  abort(): void
+}
+
+type AudioContextLike = AudioContext
+
+export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
+  private readonly stream: MediaStream
+  private readonly context: AudioContextLike
+  private readonly source: MediaStreamAudioSourceNode
+  private readonly processor: ScriptProcessorNode
+  private readonly sink: GainNode
+  private queue = Promise.resolve()
+  private onChunk: ((audioBase64: string) => Promise<void>) | undefined
+  private closed = false
+  private failure: unknown
+
+  private constructor(stream: MediaStream, context: AudioContextLike) {
+    this.stream = stream
+    this.context = context
+    this.source = context.createMediaStreamSource(stream)
+    this.processor = context.createScriptProcessor(BUFFER_SIZE, 1, 1)
+    this.sink = context.createGain()
+    this.sink.gain.value = 0
+    this.source.connect(this.processor)
+    this.processor.connect(this.sink)
+    this.sink.connect(context.destination)
+    this.processor.onaudioprocess = (event) => {
+      if (this.closed || this.onChunk === undefined) return
+      const samples = event.inputBuffer.getChannelData(0)
+      const pcm = resampleToPcm16(samples, event.inputBuffer.sampleRate)
+      if (pcm.byteLength === 0) return
+      const callback = this.onChunk
+      this.queue = this.queue.then(() => callback(bytesToBase64(pcm))).catch((error) => {
+        this.failure ??= error
+      })
+    }
+  }
+
+  static async create(): Promise<RealtimeAudioCaptureSession> {
+    if (!isRealtimeAudioCaptureAvailable()) throw new Error('Realtime audio capture is unavailable in this browser')
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: VOICE_AUDIO_CONSTRAINTS })
+    try {
+      const scope = globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }
+      const Constructor = scope.AudioContext ?? scope.webkitAudioContext
+      if (Constructor === undefined) throw new Error('Realtime audio capture is unavailable in this browser')
+      const context = new Constructor()
+      await context.resume()
+      return new RealtimeAudioCaptureSession(stream, context)
+    } catch (error) {
+      stopTracks(stream)
+      throw error
+    }
+  }
+
+  createLevelMonitor(onLevel: (level: number) => void): AudioLevelMonitor {
+    if (this.closed) throw new Error('Realtime audio capture is no longer active')
+    return AudioLevelMonitor.fromStream(this.stream, onLevel)
+  }
+
+  start(onChunk: (audioBase64: string) => Promise<void>): void {
+    if (this.closed) throw new Error('Realtime audio capture is no longer active')
+    this.onChunk = onChunk
+  }
+
+  async stop(): Promise<void> {
+    if (this.closed) return
+    this.closed = true
+    this.onChunk = undefined
+    this.processor.onaudioprocess = null
+    this.source.disconnect()
+    this.processor.disconnect()
+    this.sink.disconnect()
+    stopTracks(this.stream)
+    try {
+      await this.queue
+      if (this.failure !== undefined) throw this.failure
+    } finally {
+      await this.context.close()
+    }
+  }
+
+  abort(): void {
+    if (this.closed) return
+    this.closed = true
+    this.onChunk = undefined
+    this.processor.onaudioprocess = null
+    this.source.disconnect()
+    this.processor.disconnect()
+    this.sink.disconnect()
+    stopTracks(this.stream)
+    void this.context.close().catch(() => undefined)
+  }
+}
+
+function resampleToPcm16(samples: Float32Array, sampleRate: number): Uint8Array {
+  if (samples.length === 0 || !Number.isFinite(sampleRate) || sampleRate <= 0) return new Uint8Array()
+  const outputSamples = Math.max(1, Math.round(samples.length * TARGET_SAMPLE_RATE / sampleRate))
+  const floatSamples = new Float32Array(outputSamples)
+  for (let index = 0; index < outputSamples; index += 1) {
+    const position = index * (samples.length - 1) / Math.max(1, outputSamples - 1)
+    const lower = Math.floor(position)
+    const upper = Math.min(samples.length - 1, lower + 1)
+    const fraction = position - lower
+    floatSamples[index] = (samples[lower] ?? 0) + ((samples[upper] ?? 0) - (samples[lower] ?? 0)) * fraction
+  }
+  return audioToPcm16Wav({ sampleRate: TARGET_SAMPLE_RATE, channelData: [floatSamples] }).subarray(44)
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  return btoa(binary)
+}
+
+function stopTracks(stream: MediaStream): void {
+  for (const track of stream.getTracks()) track.stop()
+}
