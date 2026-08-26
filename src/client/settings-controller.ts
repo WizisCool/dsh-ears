@@ -501,6 +501,7 @@ export class EarsSettingsController {
     this.cloudAsrModels.clear()
     const settings = this.settingsView.settings
     this.rememberCloudAsrModel('groq', settings.cloudAsrGroqModel)
+    this.rememberCloudAsrModel('deepgram', settings.cloudAsrDeepgramModel)
     this.rememberCloudAsrModel('custom', settings.cloudAsrCustomModel)
     this.rememberCloudAsrModel('bailian', settings.cloudAsrBailianModel)
     this.rememberCloudAsrModel('tencent', settings.cloudAsrTencentEngineType)

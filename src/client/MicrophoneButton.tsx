@@ -202,7 +202,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const backendAvailable = backend === 'web-speech'
     ? isWebSpeechAvailable()
-    : backend === 'cloud-openai' && settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime'
+    : backend === 'cloud-openai' && (
+      (settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime') ||
+      (settings.cloudAsrProvider === 'deepgram' && settings.cloudAsrDeepgramService === 'realtime')
+    )
       ? isRealtimeAudioCaptureAvailable()
       : isMediaRecorderAvailable()
   if (!active && !busy && !backendAvailable) {
