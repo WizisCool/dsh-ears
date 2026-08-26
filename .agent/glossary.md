@@ -43,3 +43,7 @@ A selectable cloud ASR service entry in the Host-side registry. A provider may u
 ## Free quota
 
 A Tencent account-side usage allowance. It is not a plugin-controlled budget, entitlement, or guarantee that every account or engine remains free
+
+## Recognition language
+
+The per-backend speech-recognition language setting (D-042). Each backend's field maps to its protocol's native language parameter, so there is no shared global language field. Empty means follow the dsh English/中文 locale for Web Speech and automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, and custom OpenAI-compatible backends. Tencent Cloud expresses language through `engine_type`

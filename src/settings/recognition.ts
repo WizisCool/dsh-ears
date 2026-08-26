@@ -18,23 +18,29 @@ export type WhisperAccelerationId = typeof WHISPER_ACCELERATION_IDS[number]
 
 export interface RecognitionSettings {
   backend: AsrBackendId | string
+  webSpeech: {
+    language: string
+  }
   localWhisper: {
     model: WhisperModelId | string
     acceleration: WhisperAccelerationId | string
+    language: string
   }
   cloudProvider: CloudAsrProviderId | string
-  language: string
   maxRecordingSeconds: number
 }
 
 export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = Object.freeze({
   backend: 'web-speech',
+  webSpeech: Object.freeze({
+    language: ''
+  }),
   localWhisper: Object.freeze({
     model: 'tiny',
-    acceleration: 'default'
+    acceleration: 'default',
+    language: ''
   }),
   cloudProvider: 'groq',
-  language: '',
   maxRecordingSeconds: 120
 })
 
@@ -42,7 +48,7 @@ export function isValidRecordingLimit(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 1 && value <= 600
 }
 
-/** Empty stored language follows the dsh English/中文 locale. A typed value wins. */
+/** Empty Web Speech recognition language follows the dsh English/中文 locale. A typed value wins. */
 export function languageFromUiLocale(locale: string): string {
   return locale.trim().toLowerCase().startsWith('en') ? 'en-US' : 'zh-CN'
 }

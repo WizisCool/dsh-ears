@@ -265,7 +265,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
     try {
       session = new WebSpeechSession({
-        language: effectiveRecognitionLanguage(settingsRef.current.language, uiLocale),
+        language: effectiveRecognitionLanguage(settingsRef.current.webSpeechLanguage, uiLocale),
         onStart: () => {
           startLevelMonitor()
         },

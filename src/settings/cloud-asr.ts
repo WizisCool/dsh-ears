@@ -3,6 +3,7 @@ export const MAX_CLOUD_API_KEY_LENGTH = 512
 export interface CloudAsrProviderSettings {
   apiKey: string
   model: string
+  language: string
 }
 
 export interface CustomOpenAiSettings extends CloudAsrProviderSettings {
@@ -29,9 +30,9 @@ export interface CloudAsrSettings {
 }
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
-  groq: Object.freeze({ apiKey: '', model: '' }),
-  customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '' }),
-  bailian: Object.freeze({ apiKey: '', host: '', model: '' }),
+  groq: Object.freeze({ apiKey: '', model: '', language: '' }),
+  customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '', language: '' }),
+  bailian: Object.freeze({ apiKey: '', host: '', model: '', language: '' }),
   tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
 })
 

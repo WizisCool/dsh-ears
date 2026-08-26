@@ -140,7 +140,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={!state.writable} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />
           ) : null}
           <SelectRow label={t('soundsEnabled')} hint={t('soundsEnabledHint')} value={state.voiceSoundsEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.voiceSoundsEnabled.invalid} onChange={(value) => props.edit('voiceSoundsEnabled', value)} />
-          <TextRow label={t('language')} hint={t('languageHint')} value={state.language.text} placeholder={effectiveRecognitionLanguage('', uiLocale)} disabled={!state.writable} invalid={state.language.invalid} onChange={(event) => props.edit('language', event.target.value)} onBlur={props.flush} />
           <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} onBlur={props.flush} />
         </div>
       ) : activeTab === 'recognition' ? (
@@ -153,17 +152,23 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             }
             props.edit('asrBackend', id)
           }} />
+          {state.asrBackend.text === 'web-speech' ? (
+            <TextRow label={t('language')} hint={t('webSpeechLanguageHint')} value={state.webSpeechLanguage.text} placeholder={effectiveRecognitionLanguage('', uiLocale)} disabled={!state.writable} invalid={state.webSpeechLanguage.invalid} onChange={(event) => props.edit('webSpeechLanguage', event.target.value)} onBlur={props.flush} />
+          ) : null}
           {state.asrBackend.text === 'local-whisper' ? <>
             <SelectRow label={t('localAcceleration')} hint={localWhisperAccelerations.length === 0 ? t('localAccelerationUnavailable') : t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={localWhisperAccelerations.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable || localWhisperAccelerations.length === 0} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
             <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.localWhisperLanguage.text} disabled={!state.writable} invalid={state.localWhisperLanguage.invalid} onChange={(event) => props.edit('localWhisperLanguage', event.target.value)} onBlur={props.flush} />
           </> : null}
           {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrGroqApiKey.text} configured={state.cloudAsrGroqApiKeyConfigured} clearPending={state.cloudAsrGroqApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrGroqApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
             <CloudModelRow label={t('cloudModel')} value={state.cloudAsrGroqModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrGroqModel', value)} onRetry={props.retryCloudModels} t={t} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrGroqLanguage.text} disabled={!state.writable} invalid={state.cloudAsrGroqLanguage.invalid} onChange={(event) => props.edit('cloudAsrGroqLanguage', event.target.value)} onBlur={props.flush} />
           </> : state.cloudAsrProvider.text === 'bailian' ? <>
             <TextRow label={t('bailianHost')} hint={t('bailianHostHint')} value={state.cloudAsrBailianHost.text} disabled={!state.writable} invalid={state.cloudAsrBailianHost.invalid} onChange={(event) => props.edit('cloudAsrBailianHost', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrBailianApiKey.text} configured={state.cloudAsrBailianApiKeyConfigured} clearPending={state.cloudAsrBailianApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrBailianApiKey.invalid} onEdit={props.setBailianApiKey} onClear={props.clearBailianApiKey} onUndoClear={props.undoClearBailianApiKey} onBlur={props.flush} t={t} />
             <TextRow label={t('cloudModel')} hint={t('bailianModelHint')} value={state.cloudAsrBailianModel.text} disabled={!state.writable} invalid={state.cloudAsrBailianModel.invalid} onChange={(event) => props.edit('cloudAsrBailianModel', event.target.value)} onBlur={props.flush} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrBailianLanguage.text} disabled={!state.writable} invalid={state.cloudAsrBailianLanguage.invalid} onChange={(event) => props.edit('cloudAsrBailianLanguage', event.target.value)} onBlur={props.flush} />
           </> : state.cloudAsrProvider.text === 'tencent' ? <>
             <SelectRow label={t('tencentService')} hint={t('tencentServiceHint')} value={state.cloudAsrTencentService.text} entries={[
               { id: 'recording-file', label: t('tencentRecordingService') },
@@ -177,6 +182,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrCustomEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrCustomEndpoint.invalid} onChange={(event) => props.edit('cloudAsrCustomEndpoint', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrCustomApiKey.text} configured={state.cloudAsrCustomApiKeyConfigured} clearPending={state.cloudAsrCustomApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrCustomApiKey.invalid} onEdit={props.setCustomApiKey} onClear={props.clearCustomApiKey} onUndoClear={props.undoClearCustomApiKey} onBlur={props.flush} t={t} />
             <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrCustomModel.text} disabled={!state.writable} invalid={state.cloudAsrCustomModel.invalid} onChange={(event) => props.edit('cloudAsrCustomModel', event.target.value)} onBlur={props.flush} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrCustomLanguage.text} disabled={!state.writable} invalid={state.cloudAsrCustomLanguage.invalid} onChange={(event) => props.edit('cloudAsrCustomLanguage', event.target.value)} onBlur={props.flush} />
           </> : null}
         </div>
       ) : activeTab === 'polishing' ? (

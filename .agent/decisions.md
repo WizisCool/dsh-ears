@@ -46,6 +46,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
 | D-039 | Native whisper.node runtime and fixed configuration slots | Accepted |
 | D-040 | Tencent Cloud product selector | Superseded by D-041 |
+| D-042 | Per-provider recognition language | Accepted. Supersedes the D-028 recognition-language row placement and the D-032 shared-row reference. |
 
 ## D-001 — Project identity
 
@@ -166,6 +167,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Option A: carry the recording-start backend/model/language snapshot in the final-audio RPC so a settings change cannot alter an in-flight recording.
 - Option B: lock recognition settings while capture or transcription is active.
 - Rationale for deferral: both options change the first-release wire or UI semantics and need an explicit compatibility decision.
+- Revision (2026-08-26): "language" throughout this decision means the per-provider recognition-language fields introduced by D-042; the original single global recognition-language setting is removed. The snapshot-or-lock gate itself remains open.
 
 ## D-019 — Whisper cache integrity after Host crash
 
@@ -258,6 +260,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision (recorder rules): the recorder **accepts modifier-only chords** (`Ctrl`, `Ctrl+Shift`, …) by committing the peak simultaneous modifier set when every modifier is released. It still hard-rejects **bare** letter/digit/text-action keys (Space, Enter, punctuation, arrows…) because they type or act on text, and it rejects Alt/Option+letter/digit chords because macOS Option+letter produces special characters (and AltGr layouts behave the same). **Letters and digits with Ctrl/Shift/Meta are valid** (revised after an earlier version rejected them as browser-reserved; collisions are now amber warnings instead of blocks). Bare F-keys are allowed because they never produce text. Browser/OS-reserved chords — including generated `ctrl+<letter>`, `meta+<letter>`, `ctrl+<digit>`, `meta+<digit>` and explicit `ctrl+shift+`/`shift+meta+` sets, plus F5, Ctrl+Space, Alt+Tab, Cmd+Space, Ctrl+Enter… — are valid but flagged amber without blocking the write. Escape cancels capture; capture events are intercepted with `preventDefault` + `stopPropagation` at the window capture phase so the global shortcut cannot fire while recording, and held modifier keys are shown live inside the capture button. A "Reset to default" action restores `ctrl+shift+space` (an empty shortcut is never a valid state).
 - Display: chords render with platform-appropriate labels (mac ⌃⌥⇧⌘ vs Win/Linux Ctrl/Alt/Shift/Win-Super); the default renders identically on all platforms.
 - Rationale: the four-round design grill (default-key constraint evolution: global→in-page, ≤2 keys→left-hand→compact-layout→IME safety) settled that a safe in-page voice chord must be a modifier chord; Ctrl+Shift+Space is the only default simultaneously left-hand, typing-safe, cross-platform, compact-layout-safe, and free of browser/OS/IME conflicts. Moving language and the recording limit to General keeps the Recognition tab focused on ASR backends and matches the user's request to lead with general settings.
+- Revision (2026-08-26): the recognition-language row placement is superseded by D-042, which removes the global recognition-language setting and gives each backend its own language field inside the Recognition tab. The General tab keeps the voice-input shortcut, sounds toggle, display name, and recording limit.
 
 ## D-029 — Custom polish system prompt with a multilingual default
 
@@ -290,6 +293,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: the user types an HTTPS origin (`cloudAsrBailianHost`; loopback may be HTTP) and a model name (`cloudAsrModel`, empty = not ready). Selecting Bailian caps a recording at 300 seconds. Language uses the existing recognition-language row (`zh-CN` → `zh` / `language_hints`), and `auto` omits the language field. No ITN, hotword, or context settings.
 - Decision: Groq, custom OpenAI-compatible, and Bailian each store a separate `role('secret')` key. The Host settings file groups them as `groq`, `customOpenAi`, and `bailian` (apiKey / model / endpoint or host). The plugin wire uses explicit names (`cloudAsrGroqApiKey`, `cloudAsrCustomApiKey`, `cloudAsrBailianApiKey`). Switching providers no longer overwrites another provider's key. A first-read rewrite lifts the previous flat keys into those groups.
 - Rationale: OpenAI-compatible `chat/completions` only documents Qwen3-ASR-Flash. DashScope sync is the common Flash endpoint. Filetrans still needs a public URL the plugin does not have.
+- Revision (2026-08-26): "Language uses the existing recognition-language row" above is superseded by D-042 — Bailian reads its own `cloudAsrBailianLanguage` field, and an empty value omits the language parameter for automatic detection.
 
 ## D-033 — About tab and notify-only update check
 
@@ -371,3 +375,14 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: stopping commits the final transcript to the editable draft and then follows the existing optional polishing flow. Cancelling closes the Host session and discards the in-flight transcript.
 - Decision: AppID and SecretID remain Host settings, SecretKey is a Schemastery `role('secret')` field, and no Tencent credential value crosses the browser Remote boundary.
 - Rationale: both supported Tencent Cloud interaction modes now use their current documented protocols while preserving one provider-level configuration and the existing Host/Client ownership boundary.
+
+## D-042 — Per-provider recognition language
+
+- Status: accepted (2026-08-26).
+- Decision: remove the global recognition-language setting (`recognition.language`) and its General-tab row (that placement came from D-028).
+- Decision: each backend owns its language. New fields `recognition.webSpeech.language`, `recognition.localWhisper.language`, `cloudAsr.groq.language`, `cloudAsr.customOpenAi.language`, and `cloudAsr.bailian.language` map to the flat wire names `webSpeechLanguage`, `localWhisperLanguage`, `cloudAsrGroqLanguage`, `cloudAsrCustomLanguage`, and `cloudAsrBailianLanguage`. Tencent Cloud keeps the per-provider engine type as its language/engine selector (D-041) and receives no new field.
+- Decision: empty values follow per-backend semantics. Web Speech with an empty field follows the dsh English/中文 locale through the existing helper. Local Whisper, Groq, custom OpenAI-compatible, and Bailian omit the language parameter when the field is empty, making automatic detection the default and first-class behavior instead of unreachable behind the previous empty-to-locale resolution.
+- Decision: each Recognition-tab backend branch renders its own language row — Web Speech, Local Whisper, Groq, Bailian, and custom OpenAI-compatible; Tencent Cloud has no language row.
+- Migration: stored `recognition.language` is silently dropped when the settings store rewrites to schema version 4 (`EARS_SETTINGS_SCHEMA_VERSION` 3 → 4). The new fields start empty; no value migrates into them.
+- Rationale: the global row was already not shared in substance — Tencent ignored it in favor of engine type, and every adapter re-normalized it differently (full BCP-47 for Web Speech, base codes for Whisper and the OpenAI-compatible contract, `asr_options.language` / `language_hints` for Bailian). Because an empty value resolved to a concrete locale before the adapters ran, their empty/auto branches were unreachable. Per-provider fields match each protocol's real capabilities, follow the existing per-provider credential/model pattern, and let future cloud providers define their own language semantics per provider.
+- Prohibited: reintroducing a global language field shared across backends; special-casing the literal `auto` string as a stored value — empty is the automatic-detection representation.

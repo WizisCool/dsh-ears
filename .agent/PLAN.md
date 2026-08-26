@@ -45,7 +45,7 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 ## Open gates
 
-1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins. Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
+1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins — "language" now meaning the per-provider recognition-language fields (D-042). Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
 3. Later npm publishes, release tags, and visibility changes still require an explicit maintainer decision. The first public `0.1.0` is authorized.
 4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.

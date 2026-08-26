@@ -443,10 +443,10 @@ describe('PolishService', () => {
 
     const canonical = replace.mock.calls[0]?.[0] as {
       schemaVersion: number
-      cloudAsr: { groq: { apiKey: string; model: string } }
+      cloudAsr: { groq: { apiKey: string; model: string; language: string } }
     }
-    expect(canonical.schemaVersion).toBe(3)
-    expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo' })
+    expect(canonical.schemaVersion).toBe(4)
+    expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo', language: '' })
 
     service.getSettings()
     await service.listAsrBackends()
@@ -511,7 +511,7 @@ describe('PolishService', () => {
   it('preserves inherited settings when only the resolved snapshot is visible', async () => {
     whisperCapabilities.available = ['default']
     whisperCapabilities.default = 'default'
-    const resolved = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, language: 'base-language', localWhisperAcceleration: 'cuda' })
+    const resolved = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'base-language', localWhisperAcceleration: 'cuda' })
     const update = vi.fn(async () => undefined)
     const replace = vi.fn(async () => undefined)
     const scope = {
@@ -680,7 +680,7 @@ describe('PolishService', () => {
     await service.updateSettings({ localWhisperAcceleration: 'vulkan' }, new AbortController().signal)
     const after = await service.listAsrBackends()
     expect(after.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
-    await service.updateSettings({ language: 'en-US' }, new AbortController().signal)
+    await service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)
     const unchanged = await service.listAsrBackends()
     expect(unchanged.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
     expect(availability.mock.calls).toEqual([['default'], ['vulkan']])
@@ -897,7 +897,7 @@ describe('PolishService', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(context.get('dshEarsPolish')?.updateSettings({ language: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(context.get('dshEarsPolish')?.updateSettings({ webSpeechLanguage: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
     expect(update).not.toHaveBeenCalled()
   })
 
