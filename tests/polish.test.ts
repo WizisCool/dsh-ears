@@ -3,7 +3,9 @@ import { Context } from '@deepseek-ai/cordis'
 import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
+import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
+import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
 import { PolishService, validateSettings } from '../src/polish/service.js'
@@ -39,6 +41,14 @@ vi.mock('../src/asr/local-whisper.js', () => {
     WhisperRestartRequiredError
   }
 })
+
+vi.mock('../src/asr/dashscope-asr.js', () => ({
+  transcribeDashScopeAsr: vi.fn()
+}))
+
+vi.mock('../src/asr/openai-compatible.js', () => ({
+  transcribeOpenAICompatible: vi.fn()
+}))
 
 type FakeSettingsScope = {
   get: () => typeof DEFAULT_EARS_SETTINGS
@@ -631,6 +641,71 @@ describe('PolishService', () => {
     expect(availability).toHaveBeenCalledWith('cuda')
     expect(getWhisperModelState).toHaveBeenCalledWith('tiny', true)
     expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: 'tiny', variant: 'cuda' }))
+  })
+
+  it('passes each cloud provider its own recognition language', async () => {
+    const openAi = vi.mocked(transcribeOpenAICompatible)
+    const dashscope = vi.mocked(transcribeDashScopeAsr)
+    openAi.mockResolvedValue('openai result')
+    dashscope.mockResolvedValue('dashscope result')
+
+    const groqContext = new Context()
+    groqContext.provide('llm', {} as never)
+    groqContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'groq',
+        cloudAsrGroqApiKey: 'gsk_test',
+        cloudAsrGroqModel: 'whisper-large-v3-turbo',
+        cloudAsrGroqLanguage: 'zh'
+      })
+    } as never)
+    fibers.push(await groqContext.plugin(PolishService))
+    const groqService = groqContext.get('dshEarsPolish')
+    if (groqService === undefined) throw new Error('Polish service is missing')
+    await expect(groqService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'openai result' })
+    expect(openAi).toHaveBeenCalledWith(expect.objectContaining({ language: 'zh', model: 'whisper-large-v3-turbo' }))
+
+    const customContext = new Context()
+    customContext.provide('llm', {} as never)
+    customContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'custom',
+        cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions',
+        cloudAsrCustomModel: 'whisper-1',
+        cloudAsrCustomLanguage: 'en'
+      })
+    } as never)
+    fibers.push(await customContext.plugin(PolishService))
+    const customService = customContext.get('dshEarsPolish')
+    if (customService === undefined) throw new Error('Polish service is missing')
+    await expect(customService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'openai result' })
+    expect(openAi).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en', model: 'whisper-1' }))
+
+    const bailianContext = new Context()
+    bailianContext.provide('llm', {} as never)
+    bailianContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'bailian',
+        cloudAsrBailianApiKey: 'sk_test',
+        cloudAsrBailianHost: 'https://dashscope.aliyuncs.com',
+        cloudAsrBailianModel: 'fun-asr-flash',
+        cloudAsrBailianLanguage: 'ja'
+      })
+    } as never)
+    fibers.push(await bailianContext.plugin(PolishService))
+    const bailianService = bailianContext.get('dshEarsPolish')
+    if (bailianService === undefined) throw new Error('Polish service is missing')
+    await expect(bailianService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'dashscope result' })
+    expect(dashscope).toHaveBeenCalledWith(expect.objectContaining({ language: 'ja', model: 'fun-asr-flash' }))
   })
 
   it('does not cache a transient restart-required availability rejection', async () => {
