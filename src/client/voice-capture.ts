@@ -10,10 +10,7 @@ export type MicrophoneClickDecision =
   | { action: 'unavailable' }
   | { action: 'start'; backend: AsrBackendId }
 
-/**
- * Map a stored backend id to a capture backend. Unknown values stay unknown
- * so the composer cannot silently start Web Speech for a different backend.
- */
+/** Map a stored backend ID to a recognized capture backend, or null if unknown. */
 export function resolveCaptureBackend(value: string): AsrBackendId | null {
   return (ASR_BACKEND_IDS as readonly string[]).includes(value) ? value as AsrBackendId : null
 }
@@ -44,12 +41,7 @@ export function shouldAbandonPendingCapture(mounted: boolean, cancelled: boolean
   return !mounted || cancelled
 }
 
-/**
- * Every media-capture initiation claims the next generation number. A newer
- * start resets the shared cancel flag, so a still-pending create() that
- * resolves afterwards would pass the flag check and steal the live session
- * slot; a capture whose generation is no longer current must abort instead.
- */
+/** Check whether a media capture was superseded by a newer start generation. */
 export function isSupersededMediaCapture(latestGeneration: number, generation: number): boolean {
   return latestGeneration !== generation
 }

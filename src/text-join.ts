@@ -1,9 +1,4 @@
-/**
- * CJK scripts carry no inter-word spaces, and full-width punctuation is
- * already self-delimiting, so segments meeting on such characters join
- * directly. Everything else keeps the half-width space that Latin text
- * relies on; mixed-script boundaries also keep the space for readability.
- */
+/** CJK script pattern for segment joining. */
 const CJK_SCRIPT = '\\p{Script=Han}|\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Hangul}'
 // Full-width punctuation only; full-width digits (０-９) are content
 // characters, not delimiters.

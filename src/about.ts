@@ -1,7 +1,4 @@
-/**
- * Plugin identity and update-check helpers. Host reads the installed
- * package.json; the browser never talks to the npm registry.
- */
+/** Plugin identity and update-check helpers. */
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

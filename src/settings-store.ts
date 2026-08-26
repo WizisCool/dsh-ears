@@ -20,7 +20,7 @@ export function defaultStoredEarsSettings(): StoredEarsSettings {
   return unflattenEarsSettings(DEFAULT_EARS_SETTINGS)
 }
 
-/** Normalize V2, partially populated V2, current grouped, and legacy flat settings. */
+/** Normalize stored settings into canonical form. */
 export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   const record = isRecord(raw) ? raw : {}
   const general = asRecord(record.general)

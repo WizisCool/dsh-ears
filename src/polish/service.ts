@@ -558,8 +558,6 @@ export class PolishService extends TypertRemoteService {
   private replaceSettings(next: Record<string, unknown>): Promise<void> {
     const scope = this.settings
     if (scope === undefined) return Promise.resolve()
-    // Replace is deliberate: merging a canonical V2 document would leave
-    // legacy flat keys in the persisted namespace.
     return scope.replace(next)
   }
 
@@ -723,7 +721,7 @@ function sanitizeJsonErrorParams(params: EarsErrorParams | undefined): EarsError
   return Object.fromEntries(Object.entries(sanitized).filter(([, value]) => typeof value === 'string' || Number.isFinite(value))) as EarsErrorParams
 }
 
-/** Host registration validate: field-level integrity only; no cross-field completeness gates (D-024). */
+/** Host registration validate: field-level integrity only. */
 export function validateSettings(settings: unknown): void {
   validateEarsSettings(flattenStoredSettings(settings))
 }

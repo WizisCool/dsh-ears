@@ -165,9 +165,7 @@ async function loadNativeModule(variant: LibVariant): Promise<WhisperNodeApi> {
       const pendingVariant = loadingVariant
       if (pendingVariant === variant) return pending
 
-      // A different variant is only restart-required after the in-flight load
-      // succeeds. If that first load fails, the requested variant still has a
-      // chance to become the process's first successful native variant.
+      // Wait for in-flight load; if it fails, allow the requested variant to try.
       try {
         await pending
       } catch {
@@ -224,9 +222,8 @@ interface RuntimeContext {
 }
 
 /**
- * A concrete, process-local whisper.node runtime. It owns one model context at
- * a time, serializes work on that context, and releases native resources on
- * disposal. It deliberately does not expose a generic ASR engine interface.
+ * Process-local whisper.node runtime. Owns one model context at a time,
+ * serializes work on that context, and releases native resources on disposal.
  */
 export class LocalWhisperRuntime {
   private context: RuntimeContext | undefined

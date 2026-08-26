@@ -6,14 +6,7 @@ export type MicUnavailableReason =
   | { kind: 'model-downloading'; percent: number | null }
   | { kind: 'model-not-downloaded' }
 
-/**
- * Positive signals only: the microphone grays out when the configured
- * backend provably cannot transcribe — the Host reports the backend
- * unavailable, the selected Whisper model is still downloading, or the model
- * file (with its completion marker) is missing. Loading, failed, and unknown
- * states report null so the button never disables itself on missing
- * information.
- */
+/** Returns why the microphone is unavailable, or null if ready. */
 export function micUnavailableReason(
   backend: AsrBackendId,
   backendState: BackendState,

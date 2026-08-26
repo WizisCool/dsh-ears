@@ -24,12 +24,9 @@ export interface LocalWhisperAudioOptions {
 }
 
 /**
- * Prepare exactly one of the two MediaRecorder-backed ASR payloads.
- *
- * This explicit branch is deliberately not a backend registry: Local Whisper
- * gets browser-decoded PCM WAV, while providers that accept the original
- * MediaRecorder codec keep that payload unchanged. Tencent Cloud's standard recording
- * service receives the same normalized WAV payload as Local Whisper.
+ * Prepare the MediaRecorder payload for the selected ASR backend.
+ * Local Whisper and Tencent Cloud standard recording get browser-decoded
+ * PCM WAV; other cloud providers keep the original MediaRecorder codec.
  */
 export function prepareRecordedAudioForBackend(
   backend: MediaCaptureBackend,
@@ -53,11 +50,8 @@ export function isTranscriptionStillCurrent(options: {
 }
 
 /**
- * Decode a browser MediaRecorder payload and convert it to the WAV format
- * expected by the Host-side local Whisper runtime.
- *
- * This is intentionally a concrete path for Local Whisper and Tencent Cloud
- * standard recording rather than a general codec/engine abstraction.
+ * Decode a browser MediaRecorder payload and convert it to mono 16 kHz
+ * PCM16 WAV for the Host-side local Whisper runtime.
  */
 export async function normalizeRecordedAudioForLocalWhisper(
   audio: RecordedAudioPayload,

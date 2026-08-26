@@ -18,10 +18,7 @@ export interface WhisperModelDefinition {
   readonly bytes: number
 }
 
-/**
- * The whisper.cpp GGML model manifest is intentionally owned by this package.
- * It is not read from Python, a CLI, or the installed native binding.
- */
+/** whisper.cpp GGML model manifest. */
 export const WHISPER_MODEL_MANIFEST: Readonly<Record<WhisperModelId, WhisperModelDefinition>> = Object.freeze({
   tiny: {
     fileName: 'ggml-tiny.bin',
@@ -141,10 +138,7 @@ export function whisperModelMarkerPath(model: WhisperModelId, platform: NodeJS.P
   return `${whisperModelPath(model, platform, env)}${DOWNLOAD_MARKER_SUFFIX}`
 }
 
-/**
- * Owns only the whisper.cpp model files. Native runtime probing and inference
- * belong to local-whisper.ts; this class never starts Python or a CLI.
- */
+/** Owns the whisper.cpp model files. Native runtime probing and inference belong to local-whisper.ts. */
 export class WhisperModels {
   private readonly platform: NodeJS.Platform
   private readonly env: NodeJS.ProcessEnv
@@ -180,9 +174,7 @@ export class WhisperModels {
     const handle = this.activeDownload
     if (handle !== undefined && handle.model === model) {
       if (!handle.finished) return stateFromHandle(handle, runtimeAvailable)
-      // Report a terminal download failure exactly once, then drop the
-      // handle so later queries probe the filesystem again instead of
-      // repeating the stale in-memory failure until a host restart.
+      // Report terminal download failure once, then clear handle so later queries probe filesystem.
       if (handle.error !== null) {
         this.activeDownload = undefined
         return stateFromHandle(handle, runtimeAvailable)
@@ -344,14 +336,7 @@ export class WhisperModels {
     return release
   }
 
-  /**
-   * Opportunistically clear the leftover marker and partial file once the
-   * model file is gone. The sweep never blocks the state query: it queues on
-   * the download-setup lock, so a retry download that starts meanwhile either
-   * wins the lock first (the re-check below sees its live handle and skips)
-   * or runs after the sweep finished — it can never lose its partial file to
-   * this cleanup mid-write.
-   */
+  /** Clear leftover marker and partial files when the model file is missing. */
   private sweepMissingModelArtifacts(filePath: string, markerPath: string, model: WhisperModelId): void {
     void this.acquireDownloadSetup()
       .then(async (release) => {

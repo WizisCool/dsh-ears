@@ -224,9 +224,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
 
   const startWebSpeech = () => {
     let baseDraft = input.draft
-    // Starting Web Speech supersedes any still-pending media capture; claim a
-    // new generation before resetting the shared cancel flag so the pending
-    // MediaRecorderSession.create() cannot pass its staleness check later.
+    // Supersede any pending media capture before starting Web Speech.
     mediaStartGenerationRef.current += 1
     let sessionDraft = baseDraft
     let failed = false

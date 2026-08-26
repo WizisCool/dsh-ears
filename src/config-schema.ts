@@ -5,9 +5,9 @@ import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
 import { DEFAULT_RECOGNITION_SETTINGS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
 
-/** Host-only dsh settings schema; keep schemastery out of the browser bundle. */
+/** Host settings schema. */
 export const EarsSettingsSchema = s.object({
-  schemaVersion: s.number().default(EARS_SETTINGS_SCHEMA_VERSION).description('dsh-ears Host settings schema version'),
+  schemaVersion: s.number().default(EARS_SETTINGS_SCHEMA_VERSION).description('Settings schema version'),
   general: s.object({
     displayName: s.string().default(DEFAULT_GENERAL_SETTINGS.displayName).description('Settings page display name: dsh-ears or voice'),
     shortcut: s.object({
@@ -37,7 +37,7 @@ export const EarsSettingsSchema = s.object({
     }).description('Groq cloud ASR').collapse(),
     customOpenAi: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.apiKey).description('OpenAI-compatible ASR API key'),
-      endpoint: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.endpoint).description('Full /audio/transcriptions URL'),
+      endpoint: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.endpoint).description('Transcription endpoint URL'),
       model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.model).description('Transcription model, for example whisper-1'),
       language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.language).description('Transcription language; leave empty for automatic detection')
     }).description('Custom OpenAI-compatible ASR').collapse(),

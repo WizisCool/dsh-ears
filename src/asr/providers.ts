@@ -116,9 +116,9 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
 
 /**
  * Settings-level validity: a cloud backend is valid once its endpoint (custom
- * only) and effective model are complete. The API key is intentionally not
- * part of validity — a keyless configuration must remain saveable so the key
- * can be entered first; key readiness is a runtime/availability concern.
+ * only) and effective model are complete. The API key is not part of validity
+ * — a keyless configuration must remain saveable so the key can be entered
+ * first; key readiness is a runtime/availability concern.
  */
 export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): boolean {
   if (settings.asrBackend !== 'cloud-openai') return true
@@ -131,11 +131,7 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
   return true
 }
 
-/**
- * Runtime readiness folded into the D-021 availability signal. Evaluated
- * against the cloud configuration itself, independent of the backend
- * currently selected, because `listAsrBackends` reports every backend.
- */
+/** Whether the cloud ASR backend has all required credentials and configuration to transcribe. */
 export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey'>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false

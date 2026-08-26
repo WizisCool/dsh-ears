@@ -1,12 +1,6 @@
 /**
- * Pure voice-input shortcut logic shared by Host validation, the settings
- * recorder, and the composer hotkey listener. No DOM, React, or platform API
- * imports so the module stays testable and bundle-safe on both faces.
- *
- * Canonical chord format: lowercase, '+' separated, modifiers in the fixed
- * order ctrl, alt, shift, meta, then the key token, e.g. `ctrl+shift+space`.
- * Key tokens are derived from `KeyboardEvent.code` (layout-stable physical
- * keys) rather than `event.key` (layout-dependent labels).
+ * Voice-input shortcut logic.
+ * Canonical chord format: lowercase, '+' separated modifiers in order ctrl, alt, shift, meta, then key.
  */
 
 export type ShortcutModifier = 'ctrl' | 'alt' | 'shift' | 'meta'
@@ -24,13 +18,7 @@ const TEXT_ACTION_TOKENS = new Set([
   'bracketleft', 'bracketright', 'backslash', 'slash', 'quote', 'intlbackslash'
 ])
 
-/**
- * Reserved browser/OS chords that are allowed but flagged with an amber
- * warning. `ctrl+<letter>` and `meta+<letter>` cover browser edit/navigation
- * and macOS app shortcuts; `ctrl+<digit>`/`meta+<digit>` cover tab switching;
- * the explicit `ctrl+shift+<letter>` and `meta+shift+<letter>` sets cover the
- * remaining combos Chrome, Firefox, Edge, and macOS reserve.
- */
+/** Reserved browser/OS chords that produce a collision warning. */
 const RESERVED_CHORDS = new Set<string>([
   'f1', 'f3', 'f4', 'f5', 'f6', 'f10', 'f11', 'f12', 'ctrl+f5',
   'alt', 'meta',
@@ -165,15 +153,7 @@ export function shortcutFromModifiers(modifiers: readonly ShortcutModifier[]): s
 
 export type ShortcutRejectReason = 'typing-key' | 'invalid'
 
-/**
- * Why a stored chord must be rejected by the settings field (red, blocks save).
- * Bare character keys (letters, digits, punctuation, and text-action keys
- * without any modifier) are rejected because they type or act on text, and
- * Alt/Option+letter/digit chords are rejected because macOS Option+letter
- * produces special characters (and AltGr layouts behave the same). Letters and
- * digits WITH Ctrl/Shift/Meta are valid. Bare F-keys are allowed. Modifier-only
- * chords are valid. Browser/OS collisions stay amber warnings.
- */
+/** Determine whether a shortcut chord should be rejected as invalid or a bare typing key. */
 export function shortcutRejectReason(chord: string): ShortcutRejectReason | null {
   if (typeof chord !== 'string' || chord.trim() === '' || chord.length > SHORTCUT_MAX_LENGTH) return 'invalid'
   const parsed = parseShortcut(chord)
@@ -207,12 +187,7 @@ type ModifierSourceEvent = {
   readonly getModifierState?: (key: string) => boolean
 }
 
-/**
- * Read held modifiers. macOS/WebKit often leaves `ctrlKey` false on Control
- * keydown and on the following key; `getModifierState` and the event's own
- * Control/Alt/Shift/Meta key restore them. `fromKey` is only for keydown of
- * the modifier itself — do not use it on keyup or Control would never release.
- */
+/** Read held modifiers from a keyboard event. */
 export function modifiersFromEvent(event: ModifierSourceEvent, fromKey = false): readonly ShortcutModifier[] {
   const modifiers: ShortcutModifier[] = []
   if (isCtrlDown(event, fromKey)) modifiers.push('ctrl')
@@ -279,11 +254,7 @@ export type ShortcutRecorderDecision =
   | { kind: 'update'; state: ShortcutRecorderState }
   | { kind: 'commit'; state: ShortcutRecorderState; chord: string }
 
-/**
- * Advance the shortcut recorder. Modifier-only chords commit the last largest
- * simultaneous set (`peak`) when every modifier is released — not the last
- * remaining key — so Ctrl+Shift is not reduced to Shift.
- */
+/** Advance the shortcut recorder state based on a key event. */
 export function reduceShortcutRecorder(
   state: ShortcutRecorderState,
   event: ShortcutRecorderInput

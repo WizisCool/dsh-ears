@@ -50,10 +50,7 @@ export type { SettingsDisplayNameId } from './settings/general.js'
 export const SETTINGS_NAMESPACE = 'dsh-ears'
 export const EARS_SETTINGS_SCHEMA_VERSION = 4 as const
 
-/**
- * Flat settings are the compatibility view used by the existing Remote and
- * browser client. Host persistence is organized separately in settings-store.
- */
+/** Browser-facing flat settings model. */
 export interface EarsSettings {
   asrBackend: AsrBackendId | string
   webSpeechLanguage: string
