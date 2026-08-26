@@ -5,7 +5,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { DEEPGRAM_DEFAULT_MODEL, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
@@ -33,6 +33,9 @@ interface EarsSettingsSectionProps {
   readonly setApiKey: (text: string) => void
   readonly clearApiKey: () => void
   readonly undoClearApiKey: () => void
+  readonly setDeepgramApiKey: (text: string) => void
+  readonly clearDeepgramApiKey: () => void
+  readonly undoClearDeepgramApiKey: () => void
   readonly setCustomApiKey: (text: string) => void
   readonly clearCustomApiKey: () => void
   readonly undoClearCustomApiKey: () => void
@@ -92,6 +95,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { type: 'separator', id: 'separator-cloud' },
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
     { id: 'groq', label: t('groqProvider') },
+    { id: 'deepgram', label: t('deepgramProvider') },
     { id: 'bailian', label: t('bailianProvider') },
     { id: 'tencent', label: t('tencentProvider') },
     { id: 'custom', label: t('customProvider') }
@@ -145,7 +149,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-            if (id === 'groq' || id === 'bailian' || id === 'tencent' || id === 'custom') {
+            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'custom') {
               props.edit('asrBackend', 'cloud-openai')
               props.edit('cloudAsrProvider', id)
               return
@@ -164,6 +168,14 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrGroqApiKey.text} configured={state.cloudAsrGroqApiKeyConfigured} clearPending={state.cloudAsrGroqApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrGroqApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
             <CloudModelRow label={t('cloudModel')} value={state.cloudAsrGroqModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrGroqModel', value)} onRetry={props.retryCloudModels} t={t} />
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrGroqLanguage.text} disabled={!state.writable} invalid={state.cloudAsrGroqLanguage.invalid} onChange={(event) => props.edit('cloudAsrGroqLanguage', event.target.value)} onBlur={props.flush} />
+          </> : state.cloudAsrProvider.text === 'deepgram' ? <>
+            <SelectRow label={t('deepgramService')} hint={t('deepgramServiceHint')} value={state.cloudAsrDeepgramService.text} entries={[
+              { id: 'recording-file', label: t('deepgramRecordingService') },
+              { id: 'realtime', label: t('deepgramRealtimeService') }
+            ]} disabled={!state.writable} invalid={state.cloudAsrDeepgramService.invalid} onChange={(value) => props.edit('cloudAsrDeepgramService', value)} />
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrDeepgramApiKey.text} configured={state.cloudAsrDeepgramApiKeyConfigured} clearPending={state.cloudAsrDeepgramApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrDeepgramApiKey.invalid} onEdit={props.setDeepgramApiKey} onClear={props.clearDeepgramApiKey} onUndoClear={props.undoClearDeepgramApiKey} onBlur={props.flush} t={t} />
+            <DeepgramModelRow label={t('cloudModel')} value={state.cloudAsrDeepgramModel.text} models={cloudModels} disabled={!state.writable} invalid={state.cloudAsrDeepgramModel.invalid} onChange={(value) => props.edit('cloudAsrDeepgramModel', value)} onBlur={props.flush} onRetry={props.retryCloudModels} t={t} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrDeepgramLanguage.text} disabled={!state.writable} invalid={state.cloudAsrDeepgramLanguage.invalid} onChange={(event) => props.edit('cloudAsrDeepgramLanguage', event.target.value)} onBlur={props.flush} />
           </> : state.cloudAsrProvider.text === 'bailian' ? <>
             <TextRow label={t('bailianHost')} hint={t('bailianHostHint')} value={state.cloudAsrBailianHost.text} disabled={!state.writable} invalid={state.cloudAsrBailianHost.invalid} onChange={(event) => props.edit('cloudAsrBailianHost', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrBailianApiKey.text} configured={state.cloudAsrBailianApiKeyConfigured} clearPending={state.cloudAsrBailianApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrBailianApiKey.invalid} onEdit={props.setBailianApiKey} onClear={props.clearBailianApiKey} onUndoClear={props.undoClearBailianApiKey} onBlur={props.flush} t={t} />
@@ -502,6 +514,89 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   )
 }
 
+const DEEPGRAM_STATIC_FALLBACK_MODELS = [
+  'nova-3',
+  'nova-3-general',
+  'nova-3-medical',
+  'nova-2',
+  'nova-2-general',
+  'nova-2-meeting',
+  'nova-2-phonecall',
+  'nova-2-conversationalai',
+  'nova-2-finance',
+  'nova-2-medical',
+  'enhanced',
+  'base',
+  'whisper-large'
+]
+
+function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
+  const [explicitCustom, setExplicitCustom] = useState(false)
+  const view = models.view
+  const candidateModels = (view.status === 'ok' && Array.isArray(view.models) && view.models.length > 0)
+    ? view.models
+    : DEEPGRAM_STATIC_FALLBACK_MODELS
+
+  const isKnown = candidateModels.includes(value)
+  const isCustom = explicitCustom || (!isKnown && value.trim() !== '')
+
+  const options: [string, string][] = [
+    ...candidateModels.map((m) => [m, m] as [string, string]),
+    ['__custom__', t('customModelOption')]
+  ]
+
+  const selectValue = isCustom ? '__custom__' : (isKnown ? value : 'nova-3')
+
+  const onSelectChange = (nextSelected: string) => {
+    if (nextSelected === '__custom__') {
+      setExplicitCustom(true)
+      if (value.trim() === '') onChange('nova-3')
+    } else {
+      setExplicitCustom(false)
+      onChange(nextSelected)
+    }
+  }
+
+  const errorText = view.status === 'error'
+    ? localizedErrorText(t, view.errorCode, view.error ?? t('cloudModelFetchFailed'), view.errorParams)
+    : undefined
+
+  return (
+    <>
+      <SelectRow
+        label={label}
+        hint={isCustom ? t('customModelInputHint') : t('deepgramModelSelectHint')}
+        value={selectValue}
+        options={options}
+        placeholder={t('modelPlaceholder')}
+        disabled={disabled}
+        invalid={false}
+        onChange={onSelectChange}
+      />
+      {errorText ? (
+        <RowField label="" hint={errorText} invalid alert>
+          <div className={styles.rowDescInline}>
+            <span>{errorText}</span>
+            <button type="button" className={styles.linkButton} disabled={disabled} onClick={onRetry}>{t('retry')}</button>
+          </div>
+        </RowField>
+      ) : null}
+      {isCustom ? (
+        <TextRow
+          label={t('customModelName')}
+          hint={t('customModelInputHint')}
+          value={value}
+          placeholder="nova-3"
+          disabled={disabled}
+          invalid={invalid}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+        />
+      ) : null}
+    </>
+  )
+}
+
 function WhisperModelRow({ label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onChange: (value: string) => void; t: Translate }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
@@ -607,6 +702,7 @@ function backendHint(backend: string, provider: string, t: Translate): string {
   if (backend === 'local-whisper') return t('backendHintLocalWhisper')
   if (backend === 'cloud-openai') {
     if (provider === 'groq') return t('backendHintGroq')
+    if (provider === 'deepgram') return t('backendHintDeepgram')
     if (provider === 'bailian') return t('backendHintBailian')
     if (provider === 'tencent') return t('backendHintTencent')
     return t('backendHintCustom')

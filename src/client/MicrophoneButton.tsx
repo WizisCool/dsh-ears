@@ -582,7 +582,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
     if (nextBackend === 'web-speech') {
       void startWebSpeech()
-    } else if (nextBackend === 'cloud-openai' && settingsRef.current.cloudAsrProvider === 'tencent' && settingsRef.current.cloudAsrTencentService === 'realtime') {
+    } else if (nextBackend === 'cloud-openai' && (
+      (settingsRef.current.cloudAsrProvider === 'tencent' && settingsRef.current.cloudAsrTencentService === 'realtime') ||
+      (settingsRef.current.cloudAsrProvider === 'deepgram' && settingsRef.current.cloudAsrDeepgramService === 'realtime')
+    )) {
       void startRealtimeRecording()
     } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
       void startMediaRecording(nextBackend)

@@ -32,6 +32,10 @@ describe('isSettingsFieldInvalid', () => {
     expect(isSettingsFieldInvalid('cloudAsrBailianHost', 'https://dashscope.aliyuncs.com')).toBe(false)
     expect(isSettingsFieldInvalid('cloudAsrTencentService', 'recording-file')).toBe(false)
     expect(isSettingsFieldInvalid('cloudAsrTencentService', 'not-a-service')).toBe(true)
+    expect(isSettingsFieldInvalid('cloudAsrDeepgramApiKey', 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1))).toBe(true)
+    expect(isSettingsFieldInvalid('cloudAsrDeepgramService', 'recording-file')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrDeepgramService', 'realtime')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrDeepgramService', 'not-a-service')).toBe(true)
     expect(isSettingsFieldInvalid('polishPrompt', 'p'.repeat(MAX_POLISH_PROMPT_LENGTH + 1))).toBe(true)
     expect(isSettingsFieldInvalid('maxRecordingSeconds', '0')).toBe(true)
     expect(isSettingsFieldInvalid('maxRecordingSeconds', '')).toBe(false)
@@ -42,6 +46,7 @@ describe('isSettingsFieldInvalid', () => {
     expect(isSettingsFieldInvalid('localWhisperLanguage', '')).toBe(false)
     expect(isSettingsFieldInvalid('cloudAsrGroqLanguage', '')).toBe(false)
     expect(isSettingsFieldInvalid('cloudAsrCustomLanguage', '')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrDeepgramLanguage', '')).toBe(false)
     expect(isSettingsFieldInvalid('cloudAsrBailianLanguage', '')).toBe(false)
     expect(isSettingsFieldInvalid('voiceShortcut', 'ctrl+shift+space')).toBe(false)
     expect(isSettingsFieldInvalid('voiceShortcut', 'alt+a')).toBe(true)
@@ -51,6 +56,7 @@ describe('isSettingsFieldInvalid', () => {
 describe('cloudAsrModelField', () => {
   it('maps each provider onto its own model field', () => {
     expect(cloudAsrModelField('groq')).toBe('cloudAsrGroqModel')
+    expect(cloudAsrModelField('deepgram')).toBe('cloudAsrDeepgramModel')
     expect(cloudAsrModelField('custom')).toBe('cloudAsrCustomModel')
     expect(cloudAsrModelField('bailian')).toBe('cloudAsrBailianModel')
     expect(cloudAsrModelField('tencent')).toBe('cloudAsrTencentEngineType')
