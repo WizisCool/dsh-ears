@@ -22,15 +22,11 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
 
-```text
-A voice-input plugin for DeepSeek Harness that supports multiple ASR backends and polishing through dsh's own LLM route.
-```
-
 https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-While recording, a recognition bar appears above the composer with a waveform and stop button. If transcription or polishing is still running, click the trash icon to discard the take.
+While recording, a recognition bar with a waveform appears above the composer. Click the discard icon to cancel during transcription or polishing.
 
 ## Install
 
@@ -56,63 +52,42 @@ dsh plugin --profile web add "$PWD"
 
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
-## Update
-
-Update to the latest version:
-
-```sh
-dsh plugin --profile web update dsh-ears
-```
-
-Refresh the Web UI after the update.
-
 ## Uninstall
 
 ```sh
 dsh plugin --profile web remove dsh-ears
 ```
 
-The command removes the dsh plugin registration and leaves a local clone in place. Refresh the Web UI afterwards; the microphone icon disappears.
+Refresh the Web UI after uninstalling.
 
 ## Usage
 
-1. Click the microphone icon, or press `Ctrl+Shift+Space`.
+1. Click the microphone icon, or press `Ctrl+Shift+Space` (configurable in settings).
 2. Start speaking.
-3. Press the shortcut again, or click the microphone, to stop recording and start transcription.
-4. With polishing enabled, the raw transcript appears in the draft first. The plugin replaces it with the polished text when polishing finishes, while preserving manual edits made in the meantime.
+3. Press the shortcut again or click the microphone to stop recording and start transcription.
+4. With polishing enabled, the raw transcript appears in the draft first. The plugin replaces it with the polished text when polishing finishes, preserving manual edits made in the meantime.
 5. Review and send.
 
-If the selected backend is not ready, the microphone icon is disabled. Hover over it to see why.
+Transcription results are always written to an editable draft and are never sent automatically. If the selected backend is not ready, the microphone icon is disabled — hover to see why.
 
 ## Recognition backends
 
-| Backend | How it works | Requirements | Free allowance |
-| --- | --- | --- | --- |
-| Web Speech | Live in-browser recognition; words appear as you speak | A Chromium-based browser. Audio may be routed through the browser vendor | — |
-| Local Whisper | After recording stops, the browser normalizes audio to mono 16 kHz PCM16 WAV and the Host transcribes it through the bundled whisper.node native dependency | The matching native variant is installed with npm; download a whisper.cpp GGML model from settings, where model weights are stored in the local cache | — |
-| [Groq](https://console.groq.com) | The Host sends the recording to the Groq Whisper API | A Groq API key | Always Free, [Rate Limits](https://console.groq.com/docs/rate-limits) |
-| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription (Flash family) | HTTPS origin, API key, and model name. Recordings are limited to 300 s | [New-user free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota) |
-| [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Standard recording file recognition through API 3.0](https://cloud.tencent.com/document/api/1093/37823) or [real-time speech recognition through WebSocket](https://cloud.tencent.com/document/api/1093/48982); the Host submits and polls recording tasks and owns the realtime session | AppID, SecretID, SecretKey, and `engine_type` | [Service and Billing](https://intl.cloud.tencent.com/document/product/1118/43371) |
-| Custom OpenAI-compatible | Sends a request to the specified `/audio/transcriptions` endpoint | Endpoint URL, API key, and model name | — |
-| Add a new backend | — | [Open a PR](https://github.com/WizisCool/dsh-ears/pulls) to contribute another transcription service | — |
+| Backend | How it works | Requirements |
+| --- | --- | --- |
+| Web Speech | Live in-browser recognition | A Chromium-based browser |
+| Local Whisper | Host transcribes locally after recording stops | Download a GGML model from settings |
+| [Groq](https://console.groq.com) | Host calls the Groq Whisper API | API key |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription | API key and model name; max 300 s per recording |
+| [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
+| Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
-> The allowances above come from provider documentation and may change. Check the provider's current documentation.
->
-> Local Whisper uses the bundled `@fugood/whisper.node` native runtime and a separately downloaded whisper.cpp GGML model. The browser normalizes each recording to mono 16 kHz PCM16 WAV before sending it to the Host
->
-> The Recognition tab shows only acceleration variants supported by the current platform and installed native packages. The official macOS artifacts provide Default only, so CUDA is not shown there; Windows x64 and Linux options depend on the optional variants actually installed. A native variant that cannot be loaded is omitted from the available options. Changing acceleration after the native runtime has loaded requires a dsh Host restart. The pinned `@fugood/whisper.node@1.1.2` Windows x64 CUDA binary requires the CUDA 12 `cudart64_12.dll` and `cublas64_12.dll`; model weights are downloaded into the local cache
-
-## Local Whisper runtime
-
-Local Whisper has two separate payloads: the npm-installed `@fugood/whisper.node` native dependency and a whisper.cpp GGML model downloaded by the plugin. Model downloads use a fixed manifest, checksum, partial file, atomic rename, and completion marker; model weights are stored in the local cache
-
-The browser downmixes, resamples, and encodes each MediaRecorder result as mono 16 kHz PCM16 WAV before sending it to the Host. The settings page reports the native package and acceleration state, and provides model download and recheck controls
+All API keys and credentials are stored on the Host. The browser never receives them.
 
 ## Polishing
 
-Choose the polish model from the models configured in `dsh → Settings → Models`. The plugin stores only the provider, model name, and prompt; the LLM key comes from dsh's existing configuration.
+Off by default; enable it in settings. Choose the polish model from the models configured in dsh. LLM credentials come from dsh's existing configuration.
 
-The default prompt removes filler words, fixes common ASR errors, handles spoken self-corrections ("not A, actually B"), and formats explicit enumerations. Leave the prompt blank to use the built-in default, which you can review in the settings page. If polishing fails or is cancelled, the raw transcript is kept as-is.
+The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats enumerations. Customize the prompt or view the default in settings. If polishing fails or is cancelled, the raw transcript is kept.
 
 ## Local development
 
@@ -121,14 +96,14 @@ pnpm use:platform
 pnpm install
 dsh plugin --profile web add "$PWD"
 # Windows cmd: use "%CD%"; PowerShell expands $PWD directly
-pnpm check
-pnpm test
-pnpm build
-pnpm dev:config   # build and write the HMR overlay
-pnpm dev:web      # start dsh web
+pnpm check          # type-check
+pnpm test           # run tests
+pnpm build          # build
+pnpm dev:config     # build and write the HMR config
+pnpm dev:web        # start dsh web
 ```
 
-Run `pnpm dev:watch` in a second terminal while developing. `pnpm dev:config` writes `.dsh/cordis.patch.yml` (git-ignored) for HMR and keeps a single plugin loader entry.
+Run `pnpm dev:watch` in a second terminal while developing.
 
 ## Docs
 
@@ -136,8 +111,6 @@ Run `pnpm dev:watch` in a second terminal while developing. `pnpm dev:config` wr
 - [CONTRIBUTING](./CONTRIBUTING.md)
 - [SECURITY](./SECURITY.md)
 - [LICENSE](./LICENSE)
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and [`.agent/`](./.agent/README.md) for the contributor guide and architecture notes.
 
 ## License
 
