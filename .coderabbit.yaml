@@ -1,0 +1,75 @@
+language: en-US
+tone_instructions: Be concise. English for code, comments, and commits. Do not suggest Chinese comments.
+
+reviews:
+  profile: chill
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  poem: false
+  in_progress_fortune: false
+
+  path_filters:
+    - "!lib/**"
+    - "!node_modules/**"
+    - "!node_modules.linux/**"
+    - "!pnpm-lock.yaml"
+    - "!assets/**"
+    - "!.dsh/**"
+    - "!.pi/**"
+
+  path_instructions:
+    - path: "src/**"
+      instructions: >
+        Host/Client split: exports["."] is Host (Cordis), exports["./client"] is browser.
+        Never suggest moving Host secrets, process spawn, or LLM calls to the browser.
+        Respect src/remote-contract.ts strict schemas and D-036 JSON-safe rule (omit undefined, never assign undefined).
+    - path: "src/asr/**"
+      instructions: >
+        Whisper is Host-only via @fugood/whisper.node with GGML .dsh-ears-done marker (D-020).
+        No Python/Torch/FFmpeg suggestions. Cloud ASR keys are per-provider role('secret') (D-023/D-032), never in client.
+    - path: "src/polish/**"
+      instructions: >
+        Polish reuses dsh ctx.llm route {provider, model} only (D-004). Do not propose plugin-owned LLM credentials.
+    - path: "src/client/**"
+      instructions: >
+        Client uses inputActions.setDraft() with stale-result protection and per-field auto-save (D-031). No Save/Discard suggestions.
+    - path: "tests/**"
+      instructions: >
+        Focused vitest suites mirroring shipped modules. Do not demand 80% docstring coverage.
+    - path: ".agent/**"
+      instructions: >
+        Append-only ADR history. Do not review as code.
+
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: warning
+    description:
+      mode: warning
+
+  tools:
+    ruff:
+      enabled: false
+    flake8:
+      enabled: false
+    pylint:
+      enabled: false
+    hadolint:
+      enabled: false
+    golangci-lint:
+      enabled: false
+    rubocop:
+      enabled: false
+    checkov:
+      enabled: false
+    trivy:
+      enabled: false
+    vale:
+      enabled: false
+    languagetool:
+      enabled: false
