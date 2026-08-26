@@ -92,7 +92,7 @@ export const earsSettingsViewSchema = z.object({
   writable: z.boolean(),
   settings: earsSettingsSchema,
   cloudAsrGroqApiKeyConfigured: z.boolean(),
-  cloudAsrDeepgramApiKeyConfigured: z.boolean(),
+  cloudAsrDeepgramApiKeyConfigured: z.boolean().default(false),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   cloudAsrTencentSecretKeyConfigured: z.boolean(),

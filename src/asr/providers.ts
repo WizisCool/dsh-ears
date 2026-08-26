@@ -128,15 +128,18 @@ export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProv
 }
 
 export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): string {
-  const model = settings.cloudAsrProvider === 'deepgram'
-    ? settings.cloudAsrDeepgramModel
-    : settings.cloudAsrProvider === 'bailian'
-      ? settings.cloudAsrBailianModel
-      : settings.cloudAsrProvider === 'tencent'
-        ? settings.cloudAsrTencentEngineType
-        : settings.cloudAsrProvider === 'custom'
-          ? settings.cloudAsrCustomModel
-          : settings.cloudAsrGroqModel
+  let model = ''
+  if (settings.cloudAsrProvider === 'deepgram') {
+    model = settings.cloudAsrDeepgramModel
+  } else if (settings.cloudAsrProvider === 'bailian') {
+    model = settings.cloudAsrBailianModel
+  } else if (settings.cloudAsrProvider === 'tencent') {
+    model = settings.cloudAsrTencentEngineType
+  } else if (settings.cloudAsrProvider === 'custom') {
+    model = settings.cloudAsrCustomModel
+  } else {
+    model = settings.cloudAsrGroqModel
+  }
   const trimmed = model.trim()
   if (trimmed !== '') return trimmed
   return cloudProviderEntry(settings.cloudAsrProvider)?.defaultModel ?? ''

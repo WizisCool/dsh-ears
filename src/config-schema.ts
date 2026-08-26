@@ -3,7 +3,7 @@ import { EARS_SETTINGS_SCHEMA_VERSION } from './config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
+import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
 
 /** Host settings schema. */
 export const EarsSettingsSchema = s.object({
@@ -26,7 +26,7 @@ export const EarsSettingsSchema = s.object({
       acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform'),
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection')
     }).description('Local Whisper model and native acceleration').collapse(),
-    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, deepgram, custom, bailian, or tencent'),
+    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description(`Active cloud ASR provider: ${CLOUD_ASR_PROVIDER_IDS.join(', ')}`),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds')
   }).description('Audio recognition routing and limits').collapse(),
   cloudAsr: s.object({

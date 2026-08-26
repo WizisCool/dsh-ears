@@ -157,7 +157,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'cloudAsrDeepgramApiKey')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.apiKey,
         model: deepgramModel,
-        language: ownText(deepgramSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.language,
+        language: firstDefinedText(
+          ownText(deepgramSlot, 'language'),
+          ownText(deepgramLegacy, 'language'),
+          ownText(record, 'cloudAsrDeepgramLanguage')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.language,
         service: deepgramService
       },
       customOpenAi: {

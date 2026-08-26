@@ -615,10 +615,14 @@ export class EarsSettingsController {
     } else if (field === 'cloudAsrProvider') {
       this.rememberCloudAsrModel(this.currentCloudAsrProvider(), this.currentCloudAsrModel())
     } else if (field === 'cloudAsrGroqModel' || field === 'cloudAsrDeepgramModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentEngineType') {
-      this.rememberCloudAsrModel(
-        field === 'cloudAsrDeepgramModel' ? 'deepgram' : field === 'cloudAsrBailianModel' ? 'bailian' : field === 'cloudAsrCustomModel' ? 'custom' : field === 'cloudAsrTencentEngineType' ? 'tencent' : 'groq',
-        text
-      )
+      const fieldToProvider: Record<string, string> = {
+        cloudAsrDeepgramModel: 'deepgram',
+        cloudAsrBailianModel: 'bailian',
+        cloudAsrCustomModel: 'custom',
+        cloudAsrTencentEngineType: 'tencent',
+        cloudAsrGroqModel: 'groq'
+      }
+      this.rememberCloudAsrModel(fieldToProvider[field] ?? 'groq', text)
     } else if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrDeepgramApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey') {
       if (text.trim() === '') {
         this.drafts.delete(field)

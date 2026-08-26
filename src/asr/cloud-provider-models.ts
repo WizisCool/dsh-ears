@@ -19,6 +19,7 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
     timedOut = true
     timeout.abort()
   }, LIST_TIMEOUT_MS)
+  if (signal.aborted) timeout.abort(signal.reason)
   const forwardAbort = () => timeout.abort(signal.reason)
   signal.addEventListener('abort', forwardAbort, { once: true })
   try {
@@ -102,9 +103,13 @@ export function filterDeepgramModels(stt: unknown[]): string[] {
   const rawSet = new Set<string>()
   for (const item of stt) {
     if (!isRecord(item)) continue
-    const name = typeof item.canonical_name === 'string' && item.canonical_name.trim() !== ''
-      ? item.canonical_name.trim()
-      : typeof item.name === 'string' ? item.name.trim() : ''
+    let name = ''
+    if (typeof item.canonical_name === 'string' && item.canonical_name.trim() !== '') {
+      name = item.canonical_name.trim()
+    } else if (typeof item.name === 'string') {
+      name = item.name.trim()
+    }
+    // Filter out empty names, non-STT models (e.g. phoneme), and internal/test models (e.g. dQw4w9WgXcQ)
     if (name === '' || name === 'phoneme' || name.includes('dQw4w9WgXcQ')) continue
     rawSet.add(name)
   }

@@ -60,6 +60,15 @@ describe('Deepgram URL builder', () => {
     expect(url.searchParams.has('detect_language')).toBe(false)
     expect(url.searchParams.has('language')).toBe(false)
   })
+
+  it('throws asrEndpointInvalid on malformed endpoint', () => {
+    expect(() => deepgramListenUrl({ endpoint: 'not a url' })).toThrowError(
+      expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
+    )
+    expect(() => deepgramRealtimeUrl({ endpoint: 'not a url' })).toThrowError(
+      expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid })
+    )
+  })
 })
 
 describe('Deepgram response parsing', () => {
@@ -153,6 +162,26 @@ describe('transcribeDeepgramAsr', () => {
       fetch: fetchMock
     })).rejects.toMatchObject({
       code: EARS_ERROR_CODES.asrHttpFailed
+    })
+  })
+
+  it('throws asrAudioEmpty on empty audio', async () => {
+    await expect(transcribeDeepgramAsr({
+      audio: new Uint8Array(0),
+      mimeType: 'audio/wav',
+      credential: 'test_token'
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrAudioEmpty
+    })
+  })
+
+  it('throws asrApiKeyNotConfigured on empty credential', async () => {
+    await expect(transcribeDeepgramAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      credential: '   '
+    })).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrApiKeyNotConfigured
     })
   })
 })

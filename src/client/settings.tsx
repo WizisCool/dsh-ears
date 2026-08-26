@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -557,9 +557,11 @@ const DEEPGRAM_STATIC_FALLBACK_MODELS = [
 function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
   const [explicitCustom, setExplicitCustom] = useState(false)
   const view = models.view
-  const candidateModels = (view.status === 'ok' && Array.isArray(view.models) && view.models.length > 0)
-    ? view.models
-    : DEEPGRAM_STATIC_FALLBACK_MODELS
+  const candidateModels = useMemo(() => (
+    (view.status === 'ok' && Array.isArray(view.models) && view.models.length > 0)
+      ? view.models
+      : DEEPGRAM_STATIC_FALLBACK_MODELS
+  ), [view])
 
   useEffect(() => {
     if (candidateModels.includes(value)) setExplicitCustom(false)
@@ -598,7 +600,7 @@ function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, o
         options={options}
         placeholder={t('modelPlaceholder')}
         disabled={disabled}
-        invalid={false}
+        invalid={!isCustom && invalid}
         onChange={onSelectChange}
       />
       {errorText ? (

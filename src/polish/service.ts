@@ -34,7 +34,7 @@ const REALTIME_SESSION_IDLE_TIMEOUT_MS = 60_000
 const CLOUD_MODELS_FAILURE_TTL_MS = 30_000
 
 interface GenericRealtimeAsrSession {
-  open(): Promise<void>
+  open(signal?: AbortSignal): Promise<void>
   sendAudio(audio: Uint8Array, signal?: AbortSignal): Promise<{ text: string; final: boolean }>
   finish(signal?: AbortSignal): Promise<string>
   close(): void
@@ -420,7 +420,7 @@ export class PolishService extends TypertRemoteService {
       } else {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR provider does not support realtime recognition')
       }
-      await session.open()
+      await session.open(signal)
       const sessionId = randomUUID()
       this.realtimeSessions.set(sessionId, {
         session,

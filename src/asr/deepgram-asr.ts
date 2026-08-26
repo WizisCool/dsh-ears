@@ -59,7 +59,12 @@ export function deepgramListenUrl(options: {
   const base = (options.endpoint && options.endpoint.trim() !== '')
     ? options.endpoint.trim()
     : `https://${DEEPGRAM_API_HOST}/v1/listen`
-  const url = new URL(base)
+  let url: URL
+  try {
+    url = new URL(base)
+  } catch {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Invalid Deepgram endpoint: ${base}`)
+  }
   const model = options.model?.trim() || DEEPGRAM_DEFAULT_MODEL
   url.searchParams.set('model', model)
 
@@ -90,7 +95,12 @@ export function deepgramRealtimeUrl(options: {
   const base = (options.endpoint && options.endpoint.trim() !== '')
     ? options.endpoint.trim()
     : `wss://${DEEPGRAM_API_HOST}/v1/listen`
-  const url = new URL(base)
+  let url: URL
+  try {
+    url = new URL(base)
+  } catch {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, `Invalid Deepgram endpoint: ${base}`)
+  }
   const model = options.model?.trim() || DEEPGRAM_DEFAULT_MODEL
   url.searchParams.set('model', model)
   url.searchParams.set('encoding', 'linear16')
@@ -146,6 +156,7 @@ export function deepgramErrorDetail(body: unknown, status: number): string {
 }
 
 export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions): Promise<string> {
+  if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
   const key = options.credential.trim()
   if (key === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
 
@@ -232,7 +243,9 @@ export class DeepgramRealtimeAsrSession {
     this.options = options
   }
 
-  async open(): Promise<void> {
+  async open(signal?: AbortSignal): Promise<void> {
+    const effectiveSignal = signal ?? this.options.signal
+    effectiveSignal?.throwIfAborted()
     const apiKey = this.options.apiKey.trim()
     if (apiKey === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
     const url = deepgramRealtimeUrl({
@@ -250,7 +263,7 @@ export class DeepgramRealtimeAsrSession {
     this.socket.addEventListener('close', this.onClose)
 
     try {
-      await this.waitFor(() => this.opened || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS)
+      await this.waitFor(() => this.opened || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS, effectiveSignal)
       if (this.lastError !== undefined) throw this.lastError
       if (!this.opened) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition failed to connect')
     } catch (error) {
