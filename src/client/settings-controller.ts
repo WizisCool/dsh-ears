@@ -271,16 +271,19 @@ export class EarsSettingsController {
     }
   }
 
-  async refreshRoutes(): Promise<void> {
+  async refreshRoutes(silent = this.routeState.routes.length > 0): Promise<void> {
     if (this.disposed) return
     const request = ++this.routeRequest
-    this.routeState = { status: 'loading', routes: [] }
-    this.routeStore.set(this.routeState)
+    if (!silent) {
+      this.routeState = { status: 'loading', routes: this.routeState.routes }
+      this.routeStore.set(this.routeState)
+    }
     try {
       const result = await this.remote.listRoutes()
-      this.routeState = result.ok ? { status: 'ready', routes: result.value } : { status: 'ready', routes: [] }
+      const routes = result.ok ? result.value : this.routeState.routes
+      this.routeState = { status: 'ready', routes }
     } catch {
-      this.routeState = { status: 'ready', routes: [] }
+      this.routeState = { status: 'ready', routes: this.routeState.routes }
     }
     if (this.disposed || request !== this.routeRequest) return
     this.routeStore.set(this.routeState)

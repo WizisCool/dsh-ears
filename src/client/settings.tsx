@@ -83,6 +83,19 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   useEffect(() => () => {
     flushRef.current()
   }, [])
+  useEffect(() => {
+    // Silently refresh routes on mount and whenever the window regains focus
+    props.refreshRoutes()
+    const onFocus = () => {
+      props.refreshRoutes()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [props.refreshRoutes])
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
   const localWhisperAccelerations = state.localWhisperAccelerations ?? ['default']
@@ -203,11 +216,6 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         </div>
       ) : activeTab === 'polishing' ? (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-            <button type="button" className={styles.linkButton} disabled={!state.writable || routes.status === 'loading'} onClick={props.refreshRoutes}>
-              {routes.status === 'loading' ? t('loadingModels') : t('refreshRoutes')}
-            </button>
-          </div>
           <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
           {state.polishingEnabled.text === 'on' ? <>
             <SelectRow label={t('provider')} hint={t('providerHint')} value={state.polishProvider.text} options={providerOptions.map((provider) => [provider.provider, provider.providerName] as [string, string])} placeholder={t('providerPlaceholder')} disabled={!state.writable || routes.status === 'loading'} invalid={state.polishProvider.invalid} onChange={(value) => props.edit('polishProvider', value)} />
