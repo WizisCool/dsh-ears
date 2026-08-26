@@ -3,6 +3,9 @@ import {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
   CLOUD_ASR_PROVIDER_IDS,
+  DEEPGRAM_ASR_DEFAULT_SERVICE,
+  DEEPGRAM_ASR_SERVICE_IDS,
+  DEEPGRAM_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -17,6 +20,7 @@ import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
 import type {
   AsrBackendId,
   CloudAsrProviderId,
+  DeepgramAsrServiceId,
   TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
@@ -27,6 +31,9 @@ export {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
   CLOUD_ASR_PROVIDER_IDS,
+  DEEPGRAM_ASR_DEFAULT_SERVICE,
+  DEEPGRAM_ASR_SERVICE_IDS,
+  DEEPGRAM_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -41,6 +48,7 @@ export { SETTINGS_DISPLAY_NAME_IDS, settingsPageLabel } from './settings/general
 export type {
   AsrBackendId,
   CloudAsrProviderId,
+  DeepgramAsrServiceId,
   TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
@@ -61,6 +69,10 @@ export interface EarsSettings {
   cloudAsrGroqApiKey: string
   cloudAsrGroqModel: string
   cloudAsrGroqLanguage: string
+  cloudAsrDeepgramApiKey: string
+  cloudAsrDeepgramModel: string
+  cloudAsrDeepgramLanguage: string
+  cloudAsrDeepgramService: string
   cloudAsrCustomApiKey: string
   cloudAsrCustomEndpoint: string
   cloudAsrCustomModel: string
@@ -96,6 +108,10 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
   cloudAsrGroqLanguage: '',
+  cloudAsrDeepgramApiKey: '',
+  cloudAsrDeepgramModel: DEEPGRAM_DEFAULT_MODEL,
+  cloudAsrDeepgramLanguage: '',
+  cloudAsrDeepgramService: DEEPGRAM_ASR_DEFAULT_SERVICE,
   cloudAsrCustomApiKey: '',
   cloudAsrCustomEndpoint: '',
   cloudAsrCustomModel: '',
@@ -153,10 +169,12 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
   if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
+  if (settings.cloudAsrDeepgramApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Deepgram ASR API key is too long')
   if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
   if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
   if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
+  if (!(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrDeepgramService)) throw new Error('Unknown dsh-ears Deepgram ASR service')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')

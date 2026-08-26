@@ -17,6 +17,7 @@ describe('dsh-ears settings validation', () => {
     expect(DEFAULT_EARS_SETTINGS.webSpeechLanguage).toBe('')
     expect(DEFAULT_EARS_SETTINGS.localWhisperLanguage).toBe('')
     expect(DEFAULT_EARS_SETTINGS.cloudAsrGroqLanguage).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.cloudAsrDeepgramLanguage).toBe('')
     expect(DEFAULT_EARS_SETTINGS.cloudAsrCustomLanguage).toBe('')
     expect(DEFAULT_EARS_SETTINGS.cloudAsrBailianLanguage).toBe('')
     expect(effectiveRecognitionLanguage('', 'zh')).toBe('zh-CN')
@@ -32,6 +33,7 @@ describe('dsh-ears settings validation', () => {
   })
 
   it('rejects unknown backends and cloud ASR providers', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrDeepgramService: 'invalid' })).toThrow('Deepgram ASR service')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'unknown-backend' })).toThrow('ASR backend')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrProvider: 'unknown-provider' })).toThrow('cloud ASR provider')
   })
@@ -39,6 +41,7 @@ describe('dsh-ears settings validation', () => {
   it('bounds the inline cloud ASR API key length', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).not.toThrow()
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrDeepgramApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrCustomApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrBailianApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
   })

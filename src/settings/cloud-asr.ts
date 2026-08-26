@@ -14,6 +14,10 @@ export interface BailianSettings extends CloudAsrProviderSettings {
   host: string
 }
 
+export interface DeepgramSettings extends CloudAsrProviderSettings {
+  service: string
+}
+
 export interface TencentSettings {
   appId: string
   secretId: string
@@ -24,6 +28,7 @@ export interface TencentSettings {
 
 export interface CloudAsrSettings {
   groq: CloudAsrProviderSettings
+  deepgram: DeepgramSettings
   customOpenAi: CustomOpenAiSettings
   bailian: BailianSettings
   tencent: TencentSettings
@@ -31,6 +36,7 @@ export interface CloudAsrSettings {
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
   groq: Object.freeze({ apiKey: '', model: '', language: '' }),
+  deepgram: Object.freeze({ apiKey: '', model: 'nova-3', language: '', service: 'recording-file' }),
   customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '', language: '' }),
   bailian: Object.freeze({ apiKey: '', host: '', model: '', language: '' }),
   tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
