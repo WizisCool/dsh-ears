@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_SERVICE_IDS, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -19,6 +19,10 @@ export const earsSettingsSchema = z.object({
   cloudAsrGroqApiKey: z.string(),
   cloudAsrGroqModel: z.string(),
   cloudAsrGroqLanguage: z.string(),
+  cloudAsrDeepgramApiKey: z.string(),
+  cloudAsrDeepgramModel: z.string(),
+  cloudAsrDeepgramLanguage: z.string(),
+  cloudAsrDeepgramService: z.string(),
   cloudAsrCustomApiKey: z.string(),
   cloudAsrCustomEndpoint: z.string(),
   cloudAsrCustomModel: z.string(),
@@ -54,6 +58,10 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrGroqApiKey: z.string().max(1024).optional(),
   cloudAsrGroqModel: z.string().optional(),
   cloudAsrGroqLanguage: z.string().optional(),
+  cloudAsrDeepgramApiKey: z.string().max(1024).optional(),
+  cloudAsrDeepgramModel: z.string().optional(),
+  cloudAsrDeepgramLanguage: z.string().optional(),
+  cloudAsrDeepgramService: z.enum(DEEPGRAM_ASR_SERVICE_IDS).optional(),
   cloudAsrCustomApiKey: z.string().max(1024).optional(),
   cloudAsrCustomEndpoint: z.string().optional(),
   cloudAsrCustomModel: z.string().optional(),
@@ -84,6 +92,7 @@ export const earsSettingsViewSchema = z.object({
   writable: z.boolean(),
   settings: earsSettingsSchema,
   cloudAsrGroqApiKeyConfigured: z.boolean(),
+  cloudAsrDeepgramApiKeyConfigured: z.boolean(),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   cloudAsrTencentSecretKeyConfigured: z.boolean(),
@@ -197,6 +206,7 @@ export type EarsSettingsView = {
   writable: boolean
   settings: EarsSettings
   cloudAsrGroqApiKeyConfigured: boolean
+  cloudAsrDeepgramApiKeyConfigured: boolean
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrBailianApiKeyConfigured: boolean
   cloudAsrTencentSecretKeyConfigured: boolean

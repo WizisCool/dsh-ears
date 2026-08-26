@@ -32,6 +32,13 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
 
   const groqSlot = asRecord(cloudAsr?.groq)
   const groqLegacy = asRecord(record.groq)
+  const deepgramSlot = asRecord(cloudAsr?.deepgram)
+  const deepgramLegacy = asRecord(record.deepgram)
+  const deepgramService = normalizeDeepgramService(firstDefinedText(
+    ownText(deepgramSlot, 'service'),
+    ownText(deepgramLegacy, 'service'),
+    ownText(record, 'cloudAsrDeepgramService')
+  ) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.service)
   const customSlots = [
     asRecord(cloudAsr?.customOpenAi),
     asRecord(cloudAsr?.custom),
@@ -60,6 +67,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
     ownText(groqLegacy, 'model'),
     ownText(record, 'cloudAsrGroqModel')
   ) ?? (provider === 'groq' ? legacyModel ?? '' : '')
+  const deepgramModel = firstDefinedText(
+    ownText(deepgramSlot, 'model'),
+    ownText(deepgramLegacy, 'model'),
+    ownText(record, 'cloudAsrDeepgramModel')
+  ) ?? (provider === 'deepgram' ? legacyModel ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.model : DEFAULT_CLOUD_ASR_SETTINGS.deepgram.model)
   const customModel = firstDefinedText(
     ...customSlots.map((slot) => ownText(slot, 'model')),
     ownText(record, 'cloudAsrCustomModel')
@@ -137,6 +149,16 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.groq.apiKey,
         model: groqModel,
         language: ownText(groqSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.groq.language
+      },
+      deepgram: {
+        apiKey: firstDefinedText(
+          ownText(deepgramSlot, 'apiKey'),
+          ownText(deepgramLegacy, 'apiKey'),
+          ownText(record, 'cloudAsrDeepgramApiKey')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.apiKey,
+        model: deepgramModel,
+        language: ownText(deepgramSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.language,
+        service: deepgramService
       },
       customOpenAi: {
         apiKey: firstDefinedText(
@@ -229,6 +251,10 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     cloudAsrGroqApiKey: stored.cloudAsr.groq.apiKey,
     cloudAsrGroqModel: stored.cloudAsr.groq.model,
     cloudAsrGroqLanguage: stored.cloudAsr.groq.language,
+    cloudAsrDeepgramApiKey: stored.cloudAsr.deepgram.apiKey,
+    cloudAsrDeepgramModel: stored.cloudAsr.deepgram.model,
+    cloudAsrDeepgramLanguage: stored.cloudAsr.deepgram.language,
+    cloudAsrDeepgramService: stored.cloudAsr.deepgram.service,
     cloudAsrCustomApiKey: stored.cloudAsr.customOpenAi.apiKey,
     cloudAsrCustomEndpoint: stored.cloudAsr.customOpenAi.endpoint,
     cloudAsrCustomModel: stored.cloudAsr.customOpenAi.model,
@@ -285,6 +311,12 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         model: settings.cloudAsrGroqModel,
         language: settings.cloudAsrGroqLanguage
       },
+      deepgram: {
+        apiKey: settings.cloudAsrDeepgramApiKey,
+        model: settings.cloudAsrDeepgramModel,
+        language: settings.cloudAsrDeepgramLanguage,
+        service: settings.cloudAsrDeepgramService
+      },
       customOpenAi: {
         apiKey: settings.cloudAsrCustomApiKey,
         endpoint: settings.cloudAsrCustomEndpoint,
@@ -328,6 +360,10 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
     cloudAsrGroqApiKey: ['cloudAsr', 'groq', 'apiKey'],
     cloudAsrGroqModel: ['cloudAsr', 'groq', 'model'],
     cloudAsrGroqLanguage: ['cloudAsr', 'groq', 'language'],
+    cloudAsrDeepgramApiKey: ['cloudAsr', 'deepgram', 'apiKey'],
+    cloudAsrDeepgramModel: ['cloudAsr', 'deepgram', 'model'],
+    cloudAsrDeepgramLanguage: ['cloudAsr', 'deepgram', 'language'],
+    cloudAsrDeepgramService: ['cloudAsr', 'deepgram', 'service'],
     cloudAsrCustomApiKey: ['cloudAsr', 'customOpenAi', 'apiKey'],
     cloudAsrCustomEndpoint: ['cloudAsr', 'customOpenAi', 'endpoint'],
     cloudAsrCustomModel: ['cloudAsr', 'customOpenAi', 'model'],
@@ -395,6 +431,10 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsrGroqApiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['cloudAsrGroqModel'], field: 'cloudAsrGroqModel' },
     { path: ['cloudAsrGroqLanguage'], field: 'cloudAsrGroqLanguage' },
+    { path: ['cloudAsrDeepgramApiKey'], field: 'cloudAsrDeepgramApiKey' },
+    { path: ['cloudAsrDeepgramModel'], field: 'cloudAsrDeepgramModel' },
+    { path: ['cloudAsrDeepgramLanguage'], field: 'cloudAsrDeepgramLanguage' },
+    { path: ['cloudAsrDeepgramService'], field: 'cloudAsrDeepgramService' },
     { path: ['cloudAsrCustomApiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsrCustomEndpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['cloudAsrCustomModel'], field: 'cloudAsrCustomModel' },
@@ -432,6 +472,10 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['cloudAsr', 'groq', 'model'], field: 'cloudAsrGroqModel' },
     { path: ['cloudAsr', 'groq', 'language'], field: 'cloudAsrGroqLanguage' },
+    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
+    { path: ['cloudAsr', 'deepgram', 'model'], field: 'cloudAsrDeepgramModel' },
+    { path: ['cloudAsr', 'deepgram', 'language'], field: 'cloudAsrDeepgramLanguage' },
+    { path: ['cloudAsr', 'deepgram', 'service'], field: 'cloudAsrDeepgramService' },
     { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsr', 'customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['cloudAsr', 'customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
@@ -452,6 +496,10 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['polishing', 'prompt'], field: 'polishPrompt' },
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['groq', 'model'], field: 'cloudAsrGroqModel' },
+    { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
+    { path: ['deepgram', 'model'], field: 'cloudAsrDeepgramModel' },
+    { path: ['deepgram', 'language'], field: 'cloudAsrDeepgramLanguage' },
+    { path: ['deepgram', 'service'], field: 'cloudAsrDeepgramService' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
@@ -472,10 +520,12 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
   }
   const secretMappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
     { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
+    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
+    { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' }
@@ -486,6 +536,10 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     if (mapping !== undefined && !fields.includes(mapping.field)) fields.push(mapping.field)
   }
   return fields
+}
+
+function normalizeDeepgramService(value: string): string {
+  return value === 'recording-file' || value === 'realtime' ? value : DEFAULT_CLOUD_ASR_SETTINGS.deepgram.service
 }
 
 function normalizeTencentService(value: string): string {
@@ -508,6 +562,10 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
     && hasPath(record, ['cloudAsr', 'groq', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'groq', 'model'])
     && hasPath(record, ['cloudAsr', 'groq', 'language'])
+    && hasPath(record, ['cloudAsr', 'deepgram', 'apiKey'])
+    && hasPath(record, ['cloudAsr', 'deepgram', 'model'])
+    && hasPath(record, ['cloudAsr', 'deepgram', 'language'])
+    && hasPath(record, ['cloudAsr', 'deepgram', 'service'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'endpoint'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'model'])

@@ -67,6 +67,12 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'unsupported-service' })).toThrow()
   })
 
+  it('accepts the supported Deepgram service identifiers', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'recording-file' })).toEqual({ cloudAsrDeepgramService: 'recording-file' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'realtime' })).toEqual({ cloudAsrDeepgramService: 'realtime' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'unsupported-service' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',
@@ -118,6 +124,10 @@ describe('settings Remote contract', () => {
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: '',
         cloudAsrGroqModel: '',
+        cloudAsrDeepgramApiKey: '',
+        cloudAsrDeepgramModel: 'nova-3',
+        cloudAsrDeepgramLanguage: '',
+        cloudAsrDeepgramService: 'recording-file',
         cloudAsrCustomApiKey: '',
         cloudAsrCustomEndpoint: '',
         cloudAsrCustomModel: '',
@@ -146,6 +156,7 @@ describe('settings Remote contract', () => {
         polishPrompt: ''
       },
       cloudAsrGroqApiKeyConfigured: false,
+      cloudAsrDeepgramApiKeyConfigured: false,
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       cloudAsrTencentSecretKeyConfigured: false,

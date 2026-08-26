@@ -3,7 +3,7 @@ import { EARS_SETTINGS_SCHEMA_VERSION } from './config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
+import { DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
 
 /** Host settings schema. */
 export const EarsSettingsSchema = s.object({
@@ -26,7 +26,7 @@ export const EarsSettingsSchema = s.object({
       acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform'),
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection')
     }).description('Local Whisper model and native acceleration').collapse(),
-    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, custom, bailian, or tencent'),
+    cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, deepgram, custom, bailian, or tencent'),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds')
   }).description('Audio recognition routing and limits').collapse(),
   cloudAsr: s.object({
@@ -35,6 +35,12 @@ export const EarsSettingsSchema = s.object({
       model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.groq.model).description('Groq Whisper model id'),
       language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.groq.language).description('Transcription language; leave empty for automatic detection')
     }).description('Groq cloud ASR').collapse(),
+    deepgram: s.object({
+      apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.deepgram.apiKey).description('Deepgram API key'),
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.deepgram.model).description('Deepgram ASR model, for example nova-3'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.deepgram.language).description('Transcription language; leave empty for automatic detection'),
+      service: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.deepgram.service).description(`Deepgram ASR service: ${DEEPGRAM_ASR_SERVICE_IDS.join(', ')}`)
+    }).description('Deepgram cloud ASR').collapse(),
     customOpenAi: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.apiKey).description('OpenAI-compatible ASR API key'),
       endpoint: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.endpoint).description('Transcription endpoint URL'),
