@@ -2,12 +2,35 @@
 
 All notable changes to dsh-ears are recorded here.
 
-## [Unreleased]
+## [0.1.5] - 2026-08-26
+
+Cloud ASR recognition and recognition-language ownership release.
+
+### Added
+
+- [Deepgram](https://deepgram.com) as a cloud ASR provider on the Recognition tab: API key, model selector (live-fetched via `GET /v1/models` with a static `nova-3` fallback and "Custom model" branch), recognition-language, and `recording-file` / `realtime` service toggle. Recording uses `POST https://api.deepgram.com/v1/listen`; realtime uses `wss://api.deepgram.com/v1/listen` with `linear16` / `16000` / `interim_results` / `vad_events`.
+- Deepgram Host storage under `cloudAsr.deepgram` (`apiKey` with `role('secret')`, `model`, `language`, `service`), Typert / `remote-contract` wire fields, and settings-store migration that drops the legacy top-level `recognitionLanguage` on upgrade to schema version 4.
+- Tencent Cloud realtime recognition: an `realtime` branch next to `recording-file` on the Recognition tab, backed by WebSocket recognition in `PolishService` (`startRealtime` / `sendRealtimeAudio` / `finishRealtime` / `cancelRealtime`) and a shared realtime PCM capture path.
+- Recognition-tab microphone routing for `tencent` / `deepgram` realtime modes; realtime backends reuse Web Speech-style gating semantics via `isRealtimeAudioCaptureAvailable`.
 
 ### Changed
 
-- The General-tab recognition-language row is removed (D-042). Every backend now owns its recognition-language field on the Recognition tab: a language row inside the Web Speech, Local Whisper, Groq, Bailian, and custom OpenAI-compatible branches; Tencent Cloud keeps its engine-type selector and gains no language row.
-- Leaving the recognition-language field blank now means automatic detection for Local Whisper and the cloud providers (Groq, Bailian, custom OpenAI-compatible) — the language parameter is omitted — and following the interface language for Web Speech. Previously stored recognition-language values are dropped when the settings store upgrades to schema version 4.
+- The General-tab recognition-language row is removed (D-042). Every backend now owns its recognition-language field on the Recognition tab: a language row inside the Web Speech, Local Whisper, Groq, Deepgram, Bailian, and custom OpenAI-compatible branches; Tencent Cloud keeps its engine-type selector and gains no language row.
+- Leaving the recognition-language field blank now means automatic detection for Local Whisper and the cloud providers (Groq, Deepgram, Bailian, custom OpenAI-compatible) — the language parameter is omitted — and following the interface language for Web Speech. Previously stored recognition-language values are dropped when the settings store upgrades to schema version 4.
+- Tencent Cloud recognized-engine field renamed to `cloudAsrTencentEngineType` with a tightened hint string.
+- Recognition-tab copy and provider presets simplified; Tencent / Deepgram service-row copy refined.
+- Deepgram recording / realtime recognition URLs reject non-`https:` / non-`wss:` schemes and purge stale `language` / `detect_language` query parameters when switching to `auto` / empty detection, so `auto` cannot leak a prior explicit language.
+- Recognition-tab polishing and settings copy use a stricter one-clause hint style.
+
+### Fixed
+
+- Primary action button focus no longer flickers the microphone button: `MicrophoneButton` no longer relies on a fragile `:last-child` flex order, and its active state icon stays white in dark mode.
+- Polishing LLM route discovery now refreshes automatically on window focus / tab visibility instead of requiring an explicit button, fixing stale provider/model lists after the Host is reconfigured.
+- Deepgram realtime recognition no longer blocks on a 120 ms grace window per chunk: the realtime path sends PCM with a non-blocking grace and enables `interim_results` / `endpointing=300` / `vad_events=true`, so transcription streams promptly and finishes without a post-recording hang.
+- Realtime WebSocket sessions clean up listeners correctly on server-initiated close, preserve `EarsError` business codes for `startRealtime`, and close leaked sockets when `open()` fails.
+- `fetchCloudProviderModels` no longer misses an already-aborted signal before installing its forward listener. Deepgram's `/v1/models` response is parsed from `stt` rather than `data` and empty filtered results are rejected with `cloudModelsNoModels`. Deepgram `stt` model names that are internal / test entries are filtered and family aliases are injected before ranking.
+- The Recognition -> Polishing tab's provider/model/route race no longer replaces the current `routeState` with a stale request's fallback routes.
+- Cross-Host/Client version pairs no longer fail `dshEars/getSettings`: the `earsSettingsView` schema provides defaults for the Deepgram fields so an older Host's response validates, and the settings store migrates top-level `recognitionLanguage` without clobbering per-provider languages.
 
 ## [0.1.4] - 2026-08-26
 
