@@ -18,8 +18,8 @@ describe('Tencent Cloud Recording File Recognition Flash Edition request shape',
       timestamp: 1_700_000_000
     })
     expect(query).not.toHaveProperty('appid')
-    expect(tencentFlashCanonicalQuery(query)).toBe('engine_type=16k_zh&filter_dirty=0&filter_modal=0&filter_punc=0&first_channel_only=1&secretid=AKIDexample&timestamp=1700000000&voice_format=wav&word_info=0')
-    expect(tencentFlashSignature({ appId: '1250000000', secretId: 'AKIDexample', engineType: '16k_zh', voiceFormat: 'wav', timestamp: 1_700_000_000, secretKey: 'secret-key' })).toBe('S5LFxky0VGU1RcE06+P37TQChiw=')
+    expect(tencentFlashCanonicalQuery(query)).toBe('convert_num_mode=1&customization_id=&engine_type=16k_zh&filter_dirty=0&filter_modal=0&filter_punc=0&first_channel_only=1&reinforce_hotword=0&secretid=AKIDexample&sentence_max_length=0&speaker_diarization=0&timestamp=1700000000&voice_format=wav&word_info=0')
+    expect(tencentFlashSignature({ appId: '1250000000', secretId: 'AKIDexample', engineType: '16k_zh', voiceFormat: 'wav', timestamp: 1_700_000_000, secretKey: 'secret-key' })).toBe('ygc5yqKzDrwgxu4HHiyIzv6Z9e4=')
   })
 })
 
@@ -48,14 +48,13 @@ describe('transcribeTencentFlashAsr', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
+          Host: 'asr.cloud.tencent.com',
           Authorization: expect.any(String),
-          'Content-Type': 'application/octet-stream'
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': '3'
         }),
         body: expect.any(Uint8Array),
-        redirect: 'manual',
-        headers: expect.objectContaining({
-          'Content-Length': '3'
-        })
+        redirect: 'manual'
       })
     )
   })

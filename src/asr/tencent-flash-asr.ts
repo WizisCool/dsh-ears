@@ -37,12 +37,17 @@ export function tencentFlashQuery(options: {
   timestamp: number
 }): Record<string, string> {
   return {
+    convert_num_mode: '1',
+    customization_id: '',
     engine_type: options.engineType.trim(),
-    first_channel_only: '1',
     filter_dirty: '0',
     filter_modal: '0',
     filter_punc: '0',
+    first_channel_only: '1',
+    reinforce_hotword: '0',
     secretid: options.secretId.trim(),
+    sentence_max_length: '0',
+    speaker_diarization: '0',
     timestamp: String(options.timestamp),
     voice_format: options.voiceFormat,
     word_info: '0'
@@ -96,6 +101,7 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
       response = await fetch(endpoint, {
         method: 'POST',
         headers: {
+          Host: TENCENT_HOST,
           Authorization: signature,
           'Content-Type': 'application/octet-stream',
           'Content-Length': String(options.audio.byteLength)
