@@ -5,7 +5,7 @@ import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
@@ -283,7 +283,6 @@ export class PolishService extends TypertRemoteService {
       signal.throwIfAborted()
       const settings = this.requireSettings()
       const audio = decodeAudio(audioBase64)
-      const language = effectiveRecognitionLanguage(settings.language, hostUiLocale(this.ctx))
       const backend = asrBackend(settings.asrBackend)
       if (backend === 'web-speech') throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Web Speech recordings are transcribed in the browser')
       if (backend === 'local-whisper') {
@@ -295,7 +294,7 @@ export class PolishService extends TypertRemoteService {
         const text = await transcribeWithWhisper({
           audio,
           mimeType,
-          language,
+          language: settings.localWhisperLanguage,
           model,
           variant: acceleration,
           signal
@@ -328,7 +327,7 @@ export class PolishService extends TypertRemoteService {
         const text = await transcribeDashScopeAsr({
           audio,
           mimeType,
-          language,
+          language: settings.cloudAsrBailianLanguage,
           endpoint,
           model,
           credential,
@@ -337,6 +336,7 @@ export class PolishService extends TypertRemoteService {
         signal.throwIfAborted()
         return remoteTextSuccess(text)
       }
+      const language = settings.cloudAsrProvider === 'custom' ? settings.cloudAsrCustomLanguage : settings.cloudAsrGroqLanguage
       const text = await transcribeOpenAICompatible({
         audio,
         mimeType,
@@ -734,21 +734,6 @@ function decodeAudio(value: string): Uint8Array {
   if (audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
   if (audio.byteLength > 24 * 1024 * 1024) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   return new Uint8Array(audio)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function hostUiLocale(ctx: Context): string {
-  try {
-    const provider = ctx.get('settings') as { get?: (ns: unknown) => unknown } | undefined
-    const value = provider?.get?.(settingsNamespace('locale'))
-    if (isRecord(value) && (value.preference === 'en' || value.preference === 'zh')) return value.preference
-  } catch {
-    // Tests and hosts without the locale namespace keep the Chinese fallback.
-  }
-  return 'zh'
 }
 
 async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: number): Promise<string> {

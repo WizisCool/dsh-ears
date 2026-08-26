@@ -21,23 +21,25 @@ describe('canonical Host settings slots', () => {
       polishPrompt: 'Keep it short.'
     })
 
-    expect(stored.schemaVersion).toBe(3)
+    expect(stored.schemaVersion).toBe(4)
     expect(stored.general).toEqual({
       displayName: 'dsh-ears',
       shortcut: { enabled: true, value: 'ctrl+shift+space' },
       soundsEnabled: true
     })
-    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'cuda' })
-    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_groq', model: 'whisper-large-v3-turbo' })
+    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'cuda', language: '' })
+    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_groq', model: 'whisper-large-v3-turbo', language: '' })
     expect(stored.cloudAsr.customOpenAi).toEqual({
       apiKey: 'sk_openai',
       endpoint: 'https://asr.example.test/audio/transcriptions',
-      model: 'whisper-1'
+      model: 'whisper-1',
+      language: ''
     })
     expect(stored.cloudAsr.bailian).toEqual({
       apiKey: 'sk_bailian',
       host: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
-      model: 'fun-asr-flash'
+      model: 'fun-asr-flash',
+      language: ''
     })
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.polishing).toEqual({
@@ -68,24 +70,25 @@ describe('canonical Host settings slots', () => {
       cloudAsrBailianHost: 'https://ws-legacy.cn-beijing.maas.aliyuncs.com',
       cloudAsrEndpoint: 'https://legacy.example.test/audio/transcriptions',
       cloudAsrModel: 'fun-asr-flash-2026-06-15',
-      language: 'en-US',
       polishPrompt: 'legacy prompt'
     }
     const stored = normalizeStoredEarsSettings(raw)
 
-    expect(stored.schemaVersion).toBe(3)
+    expect(stored.schemaVersion).toBe(4)
     expect(stored.recognition.backend).toBe('cloud-openai')
     expect(stored.recognition.localWhisper.model).toBe('base')
-    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_legacy_groq', model: '' })
+    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_legacy_groq', model: '', language: '' })
     expect(stored.cloudAsr.customOpenAi).toEqual({
       apiKey: 'sk_legacy_custom',
       endpoint: 'https://legacy.example.test/audio/transcriptions',
-      model: ''
+      model: '',
+      language: ''
     })
     expect(stored.cloudAsr.bailian).toEqual({
       apiKey: 'sk_legacy_bailian',
       host: 'https://ws-legacy.cn-beijing.maas.aliyuncs.com',
-      model: 'fun-asr-flash-2026-06-15'
+      model: 'fun-asr-flash-2026-06-15',
+      language: ''
     })
     expect(flattenStoredSettings(raw).cloudAsrBailianApiKey).toBe('sk_legacy_bailian')
     expect(storedSettingsNeedRewrite(raw)).toBe(true)
@@ -99,12 +102,36 @@ describe('canonical Host settings slots', () => {
       polishing: { prompt: 'partial prompt' }
     })
 
-    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'vulkan' })
-    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_grouped', model: '' })
-    expect(stored.cloudAsr.customOpenAi).toEqual({ apiKey: '', endpoint: '', model: '' })
+    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'vulkan', language: '' })
+    expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_grouped', model: '', language: '' })
+    expect(stored.cloudAsr.customOpenAi).toEqual({ apiKey: '', endpoint: '', model: '', language: '' })
     expect(stored.polishing.prompt).toBe('partial prompt')
     expect(stored.general.shortcut.value).toBe('ctrl+shift+space')
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
+  })
+
+  it('drops the V3 recognition language when rewriting to per-provider language fields', () => {
+    const raw = {
+      schemaVersion: 3,
+      recognition: {
+        backend: 'web-speech',
+        localWhisper: { model: 'tiny', acceleration: 'default' },
+        cloudProvider: 'groq',
+        language: 'en-US',
+        maxRecordingSeconds: 120
+      }
+    }
+    const stored = normalizeStoredEarsSettings(raw)
+
+    expect(stored.schemaVersion).toBe(4)
+    expect(stored.recognition.webSpeech).toEqual({ language: '' })
+    expect(stored.recognition.localWhisper.language).toBe('')
+    expect(stored.cloudAsr.groq.language).toBe('')
+    expect(storedSettingsNeedRewrite(raw)).toBe(true)
+
+    const flat = flattenStoredSettings(raw)
+    expect(flat.webSpeechLanguage).toBe('')
+    expect(flat.localWhisperLanguage).toBe('')
   })
 
   it('applies a flat patch without mixing provider slots and preserves acceleration', () => {
@@ -133,14 +160,14 @@ describe('canonical Host settings slots', () => {
       recognition: {
         ...base.recognition,
         backend: '',
-        localWhisper: { ...base.recognition.localWhisper, model: '', acceleration: 'default' },
-        cloudProvider: '',
-        language: ''
+        localWhisper: { ...base.recognition.localWhisper, model: '', acceleration: 'default', language: '' },
+        webSpeech: { language: '' },
+        cloudProvider: ''
       },
       cloudAsr: {
-        groq: { apiKey: '', model: '' },
-        customOpenAi: { apiKey: '', endpoint: '', model: '' },
-        bailian: { apiKey: '', host: '', model: '' }
+        groq: { apiKey: '', model: '', language: '' },
+        customOpenAi: { apiKey: '', endpoint: '', model: '', language: '' },
+        bailian: { apiKey: '', host: '', model: '', language: '' }
       },
       polishing: { enabled: false, provider: '', model: '', reasoningEffort: '', prompt: '' },
       // These stale keys must not revive explicit V2 clears.
@@ -162,7 +189,11 @@ describe('canonical Host settings slots', () => {
     expect(flat.polishProvider).toBe('')
     expect(flat.polishModel).toBe('')
     expect(flat.polishPrompt).toBe('')
-    expect(flat.language).toBe('')
+    expect(flat.webSpeechLanguage).toBe('')
+    expect(flat.localWhisperLanguage).toBe('')
+    expect(flat.cloudAsrGroqLanguage).toBe('')
+    expect(flat.cloudAsrCustomLanguage).toBe('')
+    expect(flat.cloudAsrBailianLanguage).toBe('')
     expect(flat.asrBackend).toBe('web-speech')
     expect(flat.localWhisperModel).toBe('tiny')
     expect(flat.cloudAsrProvider).toBe('groq')
@@ -173,7 +204,7 @@ describe('canonical Host settings slots', () => {
   it('flattens nested and legacy override paths to stable flat field names', () => {
     expect(flattenOverriddenSettings({
       general: { shortcut: { value: 'ctrl+a' } },
-      recognition: { localWhisper: { acceleration: 'cuda' }, language: 'en-US' },
+      recognition: { localWhisper: { acceleration: 'cuda' }, webSpeech: { language: 'en-US' } },
       cloudAsr: { groq: {} },
       tencent: { appId: '1250000000', secretId: 'AKIDexample', secretKey: 'secret-placeholder', engineType: '16k_zh', service: 'realtime' },
       polishing: { prompt: '' }
@@ -182,8 +213,8 @@ describe('canonical Host settings slots', () => {
       { path: ['cloudAsr', 'customOpenAi', 'apiKey'], set: false }
     ])).toEqual([
       'voiceShortcut',
+      'webSpeechLanguage',
       'localWhisperAcceleration',
-      'language',
       'polishPrompt',
       'cloudAsrTencentAppId',
       'cloudAsrTencentSecretId',

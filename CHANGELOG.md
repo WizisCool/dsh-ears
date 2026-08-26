@@ -2,6 +2,13 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [Unreleased]
+
+### Changed
+
+- The General-tab recognition-language row is removed (D-042). Every backend now owns its recognition-language field on the Recognition tab: a language row inside the Web Speech, Local Whisper, Groq, Bailian, and custom OpenAI-compatible branches; Tencent Cloud keeps its engine-type selector and gains no language row.
+- Leaving the recognition-language field blank now means automatic detection for Local Whisper and the cloud providers (Groq, Bailian, custom OpenAI-compatible) — the language parameter is omitted — and following the interface language for Web Speech. Previously stored recognition-language values are dropped when the settings store upgrades to schema version 4.
+
 ## [0.1.4] - 2026-08-26
 
 Local Whisper native runtime release with voice-input quality fixes.

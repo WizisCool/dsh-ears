@@ -26,8 +26,10 @@ export interface EarsCardState {
   dirty: boolean
   invalid: boolean
   asrBackend: FieldState
+  webSpeechLanguage: FieldState
   localWhisperModel: FieldState
   localWhisperAcceleration: FieldState
+  localWhisperLanguage: FieldState
   localWhisperAccelerations: readonly WhisperAccelerationId[]
   cloudAsrProvider: FieldState
   cloudAsrGroqApiKey: FieldState
@@ -44,14 +46,16 @@ export interface EarsCardState {
   cloudAsrTencentSecretKeyClearPending: boolean
   cloudAsrCustomEndpoint: FieldState
   cloudAsrCustomModel: FieldState
+  cloudAsrCustomLanguage: FieldState
   cloudAsrBailianHost: FieldState
   cloudAsrGroqModel: FieldState
+  cloudAsrGroqLanguage: FieldState
   cloudAsrBailianModel: FieldState
+  cloudAsrBailianLanguage: FieldState
   cloudAsrTencentAppId: FieldState
   cloudAsrTencentSecretId: FieldState
   cloudAsrTencentEngineType: FieldState
   cloudAsrTencentService: FieldState
-  language: FieldState
   maxRecordingSeconds: FieldState
   voiceShortcutEnabled: FieldState
   voiceShortcut: FieldState
@@ -788,8 +792,10 @@ export class EarsSettingsController {
     const current = this.settingsView.settings
     const field = (name: FieldName, text: string): FieldState => ({ text, overridden: this.settingsView.overridden.includes(name), invalid: this.drafts.has(name) && isSettingsFieldInvalid(name, text) })
     const asrBackend = field('asrBackend', this.drafts.get('asrBackend') ?? current.asrBackend)
+    const webSpeechLanguage = field('webSpeechLanguage', this.drafts.get('webSpeechLanguage') ?? current.webSpeechLanguage)
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
     const localWhisperAcceleration = field('localWhisperAcceleration', this.drafts.get('localWhisperAcceleration') ?? current.localWhisperAcceleration ?? DEFAULT_EARS_SETTINGS.localWhisperAcceleration)
+    const localWhisperLanguage = field('localWhisperLanguage', this.drafts.get('localWhisperLanguage') ?? current.localWhisperLanguage)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
     const cloudAsrGroqApiKey = field('cloudAsrGroqApiKey', this.drafts.get('cloudAsrGroqApiKey') ?? '')
     const cloudAsrCustomApiKey = field('cloudAsrCustomApiKey', this.drafts.get('cloudAsrCustomApiKey') ?? '')
@@ -797,14 +803,16 @@ export class EarsSettingsController {
     const cloudAsrTencentSecretKey = field('cloudAsrTencentSecretKey', this.drafts.get('cloudAsrTencentSecretKey') ?? '')
     const cloudAsrCustomEndpoint = field('cloudAsrCustomEndpoint', this.drafts.get('cloudAsrCustomEndpoint') ?? current.cloudAsrCustomEndpoint)
     const cloudAsrCustomModel = field('cloudAsrCustomModel', this.drafts.get('cloudAsrCustomModel') ?? current.cloudAsrCustomModel)
+    const cloudAsrCustomLanguage = field('cloudAsrCustomLanguage', this.drafts.get('cloudAsrCustomLanguage') ?? current.cloudAsrCustomLanguage)
     const cloudAsrBailianHost = field('cloudAsrBailianHost', this.drafts.get('cloudAsrBailianHost') ?? current.cloudAsrBailianHost)
     const cloudAsrGroqModel = field('cloudAsrGroqModel', this.drafts.get('cloudAsrGroqModel') ?? current.cloudAsrGroqModel)
+    const cloudAsrGroqLanguage = field('cloudAsrGroqLanguage', this.drafts.get('cloudAsrGroqLanguage') ?? current.cloudAsrGroqLanguage)
     const cloudAsrBailianModel = field('cloudAsrBailianModel', this.drafts.get('cloudAsrBailianModel') ?? current.cloudAsrBailianModel)
+    const cloudAsrBailianLanguage = field('cloudAsrBailianLanguage', this.drafts.get('cloudAsrBailianLanguage') ?? current.cloudAsrBailianLanguage)
     const cloudAsrTencentAppId = field('cloudAsrTencentAppId', this.drafts.get('cloudAsrTencentAppId') ?? current.cloudAsrTencentAppId)
     const cloudAsrTencentSecretId = field('cloudAsrTencentSecretId', this.drafts.get('cloudAsrTencentSecretId') ?? current.cloudAsrTencentSecretId)
     const cloudAsrTencentEngineType = field('cloudAsrTencentEngineType', this.drafts.get('cloudAsrTencentEngineType') ?? current.cloudAsrTencentEngineType)
     const cloudAsrTencentService = field('cloudAsrTencentService', this.drafts.get('cloudAsrTencentService') ?? current.cloudAsrTencentService)
-    const language = field('language', this.drafts.get('language') ?? current.language)
     const maxRecordingSeconds = field('maxRecordingSeconds', this.drafts.get('maxRecordingSeconds') ?? String(current.maxRecordingSeconds))
     const voiceShortcutEnabled = field('voiceShortcutEnabled', this.drafts.get('voiceShortcutEnabled') ?? (current.voiceShortcutEnabled === false ? 'off' : 'on'))
     const voiceShortcut = field('voiceShortcut', this.drafts.get('voiceShortcut') ?? (current.voiceShortcut ?? DEFAULT_EARS_SETTINGS.voiceShortcut))
@@ -815,7 +823,7 @@ export class EarsSettingsController {
     const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
-    const stagedFields = [asrBackend, localWhisperModel, localWhisperAcceleration, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrBailianModel, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, language, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
+    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -826,8 +834,10 @@ export class EarsSettingsController {
       dirty: this.drafts.size > 0 || this.clearKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending,
       invalid: stagedFields.some((candidate) => candidate.invalid),
       asrBackend,
+      webSpeechLanguage,
       localWhisperModel,
       localWhisperAcceleration,
+      localWhisperLanguage,
       localWhisperAccelerations: this.settingsView.localWhisperAccelerations ?? ['default'],
       cloudAsrProvider,
       cloudAsrGroqApiKey,
@@ -844,14 +854,16 @@ export class EarsSettingsController {
       cloudAsrTencentSecretKeyClearPending: this.clearTencentKeyPending,
       cloudAsrCustomEndpoint,
       cloudAsrCustomModel,
+      cloudAsrCustomLanguage,
       cloudAsrBailianHost,
       cloudAsrGroqModel,
+      cloudAsrGroqLanguage,
       cloudAsrBailianModel,
+      cloudAsrBailianLanguage,
       cloudAsrTencentAppId,
       cloudAsrTencentSecretId,
       cloudAsrTencentEngineType,
       cloudAsrTencentService,
-      language,
       maxRecordingSeconds,
       voiceShortcutEnabled,
       voiceShortcut,

@@ -48,7 +48,7 @@ export type {
 export type { SettingsDisplayNameId } from './settings/general.js'
 
 export const SETTINGS_NAMESPACE = 'dsh-ears'
-export const EARS_SETTINGS_SCHEMA_VERSION = 3 as const
+export const EARS_SETTINGS_SCHEMA_VERSION = 4 as const
 
 /**
  * Flat settings are the compatibility view used by the existing Remote and
@@ -56,23 +56,27 @@ export const EARS_SETTINGS_SCHEMA_VERSION = 3 as const
  */
 export interface EarsSettings {
   asrBackend: AsrBackendId | string
+  webSpeechLanguage: string
   localWhisperModel: WhisperModelId | string
   localWhisperAcceleration: WhisperAccelerationId | string
+  localWhisperLanguage: string
   cloudAsrProvider: CloudAsrProviderId | string
   cloudAsrGroqApiKey: string
   cloudAsrGroqModel: string
+  cloudAsrGroqLanguage: string
   cloudAsrCustomApiKey: string
   cloudAsrCustomEndpoint: string
   cloudAsrCustomModel: string
+  cloudAsrCustomLanguage: string
   cloudAsrBailianApiKey: string
   cloudAsrBailianHost: string
   cloudAsrBailianModel: string
+  cloudAsrBailianLanguage: string
   cloudAsrTencentAppId: string
   cloudAsrTencentSecretId: string
   cloudAsrTencentSecretKey: string
   cloudAsrTencentEngineType: string
   cloudAsrTencentService: string
-  language: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
@@ -87,23 +91,27 @@ export interface EarsSettings {
 
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   asrBackend: 'web-speech',
+  webSpeechLanguage: '',
   localWhisperModel: 'tiny',
   localWhisperAcceleration: 'default',
+  localWhisperLanguage: '',
   cloudAsrProvider: 'groq',
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
+  cloudAsrGroqLanguage: '',
   cloudAsrCustomApiKey: '',
   cloudAsrCustomEndpoint: '',
   cloudAsrCustomModel: '',
+  cloudAsrCustomLanguage: '',
   cloudAsrBailianApiKey: '',
   cloudAsrBailianHost: '',
   cloudAsrBailianModel: '',
+  cloudAsrBailianLanguage: '',
   cloudAsrTencentAppId: '',
   cloudAsrTencentSecretId: '',
   cloudAsrTencentSecretKey: '',
   cloudAsrTencentEngineType: TENCENT_DEFAULT_ENGINE,
   cloudAsrTencentService: TENCENT_ASR_DEFAULT_SERVICE,
-  language: '',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',

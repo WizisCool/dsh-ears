@@ -302,17 +302,17 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().edit('language', 'en-US')
+      controller.actions().edit('webSpeechLanguage', 'en-US')
       controller.actions().save()
       expect(updateSettings).toHaveBeenCalledTimes(1)
 
-      controller.actions().edit('language', 'ja-JP')
+      controller.actions().edit('webSpeechLanguage', 'ja-JP')
       first.resolve({
         ok: true,
         value: {
           available: true,
           writable: true,
-          settings: { ...DEFAULT_EARS_SETTINGS, language: 'en-US' },
+          settings: { ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'en-US' },
           cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
@@ -321,7 +321,7 @@ describe('EarsSettingsController settings lifecycle', () => {
         }
       })
       await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
-      expect(controller.getCardStore().getSnapshot().language.text).toBe('ja-JP')
+      expect(controller.getCardStore().getSnapshot().webSpeechLanguage.text).toBe('ja-JP')
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
 
       second.resolve({
@@ -329,7 +329,7 @@ describe('EarsSettingsController settings lifecycle', () => {
         value: {
           available: true,
           writable: true,
-          settings: { ...DEFAULT_EARS_SETTINGS, language: 'ja-JP' },
+          settings: { ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'ja-JP' },
           cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
@@ -609,10 +609,10 @@ describe('EarsSettingsController settings lifecycle', () => {
       expect(updateSettings).not.toHaveBeenCalled()
 
       controller.actions().edit('maxRecordingSeconds', '120')
-      controller.actions().edit('language', 'en-US')
+      controller.actions().edit('webSpeechLanguage', 'en-US')
       controller.actions().edit('cloudAsrCustomEndpoint', 'not-a-url')
       controller.actions().save()
-      expect(updateSettings).toHaveBeenCalledWith({ maxRecordingSeconds: 120, language: 'en-US' })
+      expect(updateSettings).toHaveBeenCalledWith({ maxRecordingSeconds: 120, webSpeechLanguage: 'en-US' })
       expect(controller.getCardStore().getSnapshot().cloudAsrCustomEndpoint.invalid).toBe(true)
 
       controller.actions().setApiKey('x'.repeat(513))
@@ -628,14 +628,14 @@ describe('EarsSettingsController settings lifecycle', () => {
   })
 
   it('never marks an untouched persisted value invalid', async () => {
-    const getSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, language: '' }) }))
+    const getSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: '' }) }))
     const controller = new EarsSettingsController(createRemote({ getSettings }))
 
     await controller.refreshSettings()
 
     const snapshot = controller.getCardStore().getSnapshot()
-    expect(snapshot.language.text).toBe('')
-    expect(snapshot.language.invalid).toBe(false)
+    expect(snapshot.webSpeechLanguage.text).toBe('')
+    expect(snapshot.webSpeechLanguage.invalid).toBe(false)
     controller.dispose()
   })
 
@@ -726,14 +726,14 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().edit('language', 'en-US')
+      controller.actions().edit('webSpeechLanguage', 'en-US')
       await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS)
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().failed).toBe(true))
       expect(updateSettings).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS * 4)
       expect(updateSettings).toHaveBeenCalledTimes(1)
-      expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
+      expect(controller.getCardStore().getSnapshot().webSpeechLanguage.text).toBe('en-US')
       expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
     } finally {
       controller.dispose()
@@ -746,19 +746,19 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ updateSettings }))
     try {
       await controller.refreshSettings()
-      controller.actions().edit('language', 'en-US')
+      controller.actions().edit('webSpeechLanguage', 'en-US')
       controller.actions().save()
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().failed).toBe(true))
 
       const snapshot = controller.getCardStore().getSnapshot()
       expect(snapshot.dirty).toBe(true)
-      expect(snapshot.language.text).toBe('en-US')
+      expect(snapshot.webSpeechLanguage.text).toBe('en-US')
 
       controller.actions().discard()
       const after = controller.getCardStore().getSnapshot()
       expect(after.dirty).toBe(false)
       expect(after.failed).toBe(false)
-      expect(after.language.text).toBe('')
+      expect(after.webSpeechLanguage.text).toBe('')
     } finally {
       controller.dispose()
     }
@@ -951,11 +951,11 @@ describe('EarsSettingsController voice shortcut fields', () => {
     expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
     expect(controller.getCardStore().getSnapshot().invalid).toBe(true)
 
-    controller.actions().edit('language', 'en-US')
+    controller.actions().edit('webSpeechLanguage', 'en-US')
     await controller.actions().save()
 
-    expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
-    expect(controller.getCardStore().getSnapshot().language.text).toBe('en-US')
+    expect(updateSettings).toHaveBeenCalledWith({ webSpeechLanguage: 'en-US' })
+    expect(controller.getCardStore().getSnapshot().webSpeechLanguage.text).toBe('en-US')
     expect(controller.getCardStore().getSnapshot().voiceShortcut.text).toBe('alt+a')
     expect(controller.getCardStore().getSnapshot().voiceShortcut.invalid).toBe(true)
     controller.dispose()
@@ -1037,9 +1037,9 @@ describe('EarsSettingsController custom polish prompt', () => {
     expect(over.polishPrompt.invalid).toBe(true)
     expect(over.invalid).toBe(true)
 
-    controller.actions().edit('language', 'en-US')
+    controller.actions().edit('webSpeechLanguage', 'en-US')
     await controller.actions().save()
-    expect(updateSettings).toHaveBeenCalledWith({ language: 'en-US' })
+    expect(updateSettings).toHaveBeenCalledWith({ webSpeechLanguage: 'en-US' })
     expect(controller.getCardStore().getSnapshot().polishPrompt.invalid).toBe(true)
 
     controller.actions().edit('polishPrompt', 'p'.repeat(MAX_POLISH_PROMPT_LENGTH))

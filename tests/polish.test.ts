@@ -3,7 +3,9 @@ import { Context } from '@deepseek-ai/cordis'
 import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
+import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
+import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
 import { PolishService, validateSettings } from '../src/polish/service.js'
@@ -39,6 +41,14 @@ vi.mock('../src/asr/local-whisper.js', () => {
     WhisperRestartRequiredError
   }
 })
+
+vi.mock('../src/asr/dashscope-asr.js', () => ({
+  transcribeDashScopeAsr: vi.fn()
+}))
+
+vi.mock('../src/asr/openai-compatible.js', () => ({
+  transcribeOpenAICompatible: vi.fn()
+}))
 
 type FakeSettingsScope = {
   get: () => typeof DEFAULT_EARS_SETTINGS
@@ -443,10 +453,10 @@ describe('PolishService', () => {
 
     const canonical = replace.mock.calls[0]?.[0] as {
       schemaVersion: number
-      cloudAsr: { groq: { apiKey: string; model: string } }
+      cloudAsr: { groq: { apiKey: string; model: string; language: string } }
     }
-    expect(canonical.schemaVersion).toBe(3)
-    expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo' })
+    expect(canonical.schemaVersion).toBe(4)
+    expect(canonical.cloudAsr.groq).toEqual({ apiKey: 'gsk_raw_legacy', model: 'whisper-large-v3-turbo', language: '' })
 
     service.getSettings()
     await service.listAsrBackends()
@@ -511,7 +521,7 @@ describe('PolishService', () => {
   it('preserves inherited settings when only the resolved snapshot is visible', async () => {
     whisperCapabilities.available = ['default']
     whisperCapabilities.default = 'default'
-    const resolved = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, language: 'base-language', localWhisperAcceleration: 'cuda' })
+    const resolved = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'base-language', localWhisperAcceleration: 'cuda' })
     const update = vi.fn(async () => undefined)
     const replace = vi.fn(async () => undefined)
     const scope = {
@@ -633,6 +643,71 @@ describe('PolishService', () => {
     expect(transcribe).toHaveBeenCalledWith(expect.objectContaining({ model: 'tiny', variant: 'cuda' }))
   })
 
+  it('passes each cloud provider its own recognition language', async () => {
+    const openAi = vi.mocked(transcribeOpenAICompatible)
+    const dashscope = vi.mocked(transcribeDashScopeAsr)
+    openAi.mockResolvedValue('openai result')
+    dashscope.mockResolvedValue('dashscope result')
+
+    const groqContext = new Context()
+    groqContext.provide('llm', {} as never)
+    groqContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'groq',
+        cloudAsrGroqApiKey: 'gsk_test',
+        cloudAsrGroqModel: 'whisper-large-v3-turbo',
+        cloudAsrGroqLanguage: 'zh'
+      })
+    } as never)
+    fibers.push(await groqContext.plugin(PolishService))
+    const groqService = groqContext.get('dshEarsPolish')
+    if (groqService === undefined) throw new Error('Polish service is missing')
+    await expect(groqService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'openai result' })
+    expect(openAi).toHaveBeenCalledWith(expect.objectContaining({ language: 'zh', model: 'whisper-large-v3-turbo' }))
+
+    const customContext = new Context()
+    customContext.provide('llm', {} as never)
+    customContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'custom',
+        cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions',
+        cloudAsrCustomModel: 'whisper-1',
+        cloudAsrCustomLanguage: 'en'
+      })
+    } as never)
+    fibers.push(await customContext.plugin(PolishService))
+    const customService = customContext.get('dshEarsPolish')
+    if (customService === undefined) throw new Error('Polish service is missing')
+    await expect(customService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'openai result' })
+    expect(openAi).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en', model: 'whisper-1' }))
+
+    const bailianContext = new Context()
+    bailianContext.provide('llm', {} as never)
+    bailianContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'bailian',
+        cloudAsrBailianApiKey: 'sk_test',
+        cloudAsrBailianHost: 'https://dashscope.aliyuncs.com',
+        cloudAsrBailianModel: 'fun-asr-flash',
+        cloudAsrBailianLanguage: 'ja'
+      })
+    } as never)
+    fibers.push(await bailianContext.plugin(PolishService))
+    const bailianService = bailianContext.get('dshEarsPolish')
+    if (bailianService === undefined) throw new Error('Polish service is missing')
+    await expect(bailianService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'dashscope result' })
+    expect(dashscope).toHaveBeenCalledWith(expect.objectContaining({ language: 'ja', model: 'fun-asr-flash' }))
+  })
+
   it('does not cache a transient restart-required availability rejection', async () => {
     const availability = vi.mocked(isWhisperAvailable)
     availability.mockClear()
@@ -680,7 +755,7 @@ describe('PolishService', () => {
     await service.updateSettings({ localWhisperAcceleration: 'vulkan' }, new AbortController().signal)
     const after = await service.listAsrBackends()
     expect(after.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
-    await service.updateSettings({ language: 'en-US' }, new AbortController().signal)
+    await service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)
     const unchanged = await service.listAsrBackends()
     expect(unchanged.find((backend) => backend.id === 'local-whisper')).toMatchObject({ available: true })
     expect(availability.mock.calls).toEqual([['default'], ['vulkan']])
@@ -897,7 +972,7 @@ describe('PolishService', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(context.get('dshEarsPolish')?.updateSettings({ language: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(context.get('dshEarsPolish')?.updateSettings({ webSpeechLanguage: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
     expect(update).not.toHaveBeenCalled()
   })
 

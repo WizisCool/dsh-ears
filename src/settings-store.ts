@@ -25,6 +25,7 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   const record = isRecord(raw) ? raw : {}
   const general = asRecord(record.general)
   const recognition = asRecord(record.recognition)
+  const webSpeech = asRecord(recognition?.webSpeech)
   const localWhisper = asRecord(recognition?.localWhisper)
   const cloudAsr = asRecord(record.cloudAsr)
   const polishing = asRecord(record.polishing)
@@ -113,13 +114,13 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(recognition, 'localWhisperAcceleration'),
           ownText(record, 'localWhisperAcceleration'),
           DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration
-        ))
+        )),
+        language: ownText(localWhisper, 'language') ?? DEFAULT_RECOGNITION_SETTINGS.localWhisper.language
       },
       cloudProvider: provider,
-      language: firstDefinedText(
-        ownText(recognition, 'language'),
-        ownText(record, 'language')
-      ) ?? DEFAULT_RECOGNITION_SETTINGS.language,
+      webSpeech: {
+        language: ownText(webSpeech, 'language') ?? DEFAULT_RECOGNITION_SETTINGS.webSpeech.language
+      },
       maxRecordingSeconds: firstDefinedNumber(
         ownNumber(recognition, 'maxRecordingSeconds'),
         ownNumber(record, 'maxRecordingSeconds'),
@@ -134,7 +135,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'cloudAsrApiKey'),
           ownText(record, 'cloudAsrGroqApiKey')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.groq.apiKey,
-        model: groqModel
+        model: groqModel,
+        language: ownText(groqSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.groq.language
       },
       customOpenAi: {
         apiKey: firstDefinedText(
@@ -146,7 +148,10 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'cloudAsrEndpoint'),
           ownText(record, 'cloudAsrCustomEndpoint')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.endpoint,
-        model: customModel
+        model: customModel,
+        language: firstDefinedText(
+          ...customSlots.map((slot) => ownText(slot, 'language'))
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.language
       },
       bailian: {
         apiKey: firstDefinedText(
@@ -159,7 +164,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(bailianLegacy, 'host'),
           ownText(record, 'cloudAsrBailianHost')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.bailian.host,
-        model: bailianModel
+        model: bailianModel,
+        language: ownText(bailianSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.bailian.language
       },
       tencent: {
         appId: firstDefinedText(
@@ -215,23 +221,27 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
   const stored = normalizeStoredEarsSettings(raw)
   return {
     asrBackend: stored.recognition.backend,
+    webSpeechLanguage: stored.recognition.webSpeech.language,
     localWhisperModel: stored.recognition.localWhisper.model,
     localWhisperAcceleration: stored.recognition.localWhisper.acceleration,
+    localWhisperLanguage: stored.recognition.localWhisper.language,
     cloudAsrProvider: stored.recognition.cloudProvider,
     cloudAsrGroqApiKey: stored.cloudAsr.groq.apiKey,
     cloudAsrGroqModel: stored.cloudAsr.groq.model,
+    cloudAsrGroqLanguage: stored.cloudAsr.groq.language,
     cloudAsrCustomApiKey: stored.cloudAsr.customOpenAi.apiKey,
     cloudAsrCustomEndpoint: stored.cloudAsr.customOpenAi.endpoint,
     cloudAsrCustomModel: stored.cloudAsr.customOpenAi.model,
+    cloudAsrCustomLanguage: stored.cloudAsr.customOpenAi.language,
     cloudAsrBailianApiKey: stored.cloudAsr.bailian.apiKey,
     cloudAsrBailianHost: stored.cloudAsr.bailian.host,
     cloudAsrBailianModel: stored.cloudAsr.bailian.model,
+    cloudAsrBailianLanguage: stored.cloudAsr.bailian.language,
     cloudAsrTencentAppId: stored.cloudAsr.tencent.appId,
     cloudAsrTencentSecretId: stored.cloudAsr.tencent.secretId,
     cloudAsrTencentSecretKey: stored.cloudAsr.tencent.secretKey,
     cloudAsrTencentEngineType: stored.cloudAsr.tencent.engineType,
     cloudAsrTencentService: stored.cloudAsr.tencent.service,
-    language: stored.recognition.language,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
     voiceShortcut: stored.general.shortcut.value,
@@ -258,28 +268,34 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
     },
     recognition: {
       backend: settings.asrBackend,
+      webSpeech: {
+        language: settings.webSpeechLanguage
+      },
       localWhisper: {
         model: settings.localWhisperModel,
-        acceleration: normalizeWhisperAcceleration(acceleration)
+        acceleration: normalizeWhisperAcceleration(acceleration),
+        language: settings.localWhisperLanguage
       },
       cloudProvider: settings.cloudAsrProvider,
-      language: settings.language,
       maxRecordingSeconds: settings.maxRecordingSeconds
     },
     cloudAsr: {
       groq: {
         apiKey: settings.cloudAsrGroqApiKey,
-        model: settings.cloudAsrGroqModel
+        model: settings.cloudAsrGroqModel,
+        language: settings.cloudAsrGroqLanguage
       },
       customOpenAi: {
         apiKey: settings.cloudAsrCustomApiKey,
         endpoint: settings.cloudAsrCustomEndpoint,
-        model: settings.cloudAsrCustomModel
+        model: settings.cloudAsrCustomModel,
+        language: settings.cloudAsrCustomLanguage
       },
       bailian: {
         apiKey: settings.cloudAsrBailianApiKey,
         host: settings.cloudAsrBailianHost,
-        model: settings.cloudAsrBailianModel
+        model: settings.cloudAsrBailianModel,
+        language: settings.cloudAsrBailianLanguage
       },
       tencent: {
         appId: settings.cloudAsrTencentAppId,
@@ -303,19 +319,23 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
   const result: Record<string, unknown> = {}
   const paths: Record<string, readonly string[]> = {
     asrBackend: ['recognition', 'backend'],
+    webSpeechLanguage: ['recognition', 'webSpeech', 'language'],
     localWhisperModel: ['recognition', 'localWhisper', 'model'],
     localWhisperAcceleration: ['recognition', 'localWhisper', 'acceleration'],
+    localWhisperLanguage: ['recognition', 'localWhisper', 'language'],
     cloudAsrProvider: ['recognition', 'cloudProvider'],
-    language: ['recognition', 'language'],
     maxRecordingSeconds: ['recognition', 'maxRecordingSeconds'],
     cloudAsrGroqApiKey: ['cloudAsr', 'groq', 'apiKey'],
     cloudAsrGroqModel: ['cloudAsr', 'groq', 'model'],
+    cloudAsrGroqLanguage: ['cloudAsr', 'groq', 'language'],
     cloudAsrCustomApiKey: ['cloudAsr', 'customOpenAi', 'apiKey'],
     cloudAsrCustomEndpoint: ['cloudAsr', 'customOpenAi', 'endpoint'],
     cloudAsrCustomModel: ['cloudAsr', 'customOpenAi', 'model'],
+    cloudAsrCustomLanguage: ['cloudAsr', 'customOpenAi', 'language'],
     cloudAsrBailianApiKey: ['cloudAsr', 'bailian', 'apiKey'],
     cloudAsrBailianHost: ['cloudAsr', 'bailian', 'host'],
     cloudAsrBailianModel: ['cloudAsr', 'bailian', 'model'],
+    cloudAsrBailianLanguage: ['cloudAsr', 'bailian', 'language'],
     cloudAsrTencentAppId: ['cloudAsr', 'tencent', 'appId'],
     cloudAsrTencentSecretId: ['cloudAsr', 'tencent', 'secretId'],
     cloudAsrTencentSecretKey: ['cloudAsr', 'tencent', 'secretKey'],
@@ -367,23 +387,27 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
   const fields: string[] = []
   const mappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
     { path: ['asrBackend'], field: 'asrBackend' },
+    { path: ['webSpeechLanguage'], field: 'webSpeechLanguage' },
     { path: ['localWhisperModel'], field: 'localWhisperModel' },
     { path: ['localWhisperAcceleration'], field: 'localWhisperAcceleration' },
+    { path: ['localWhisperLanguage'], field: 'localWhisperLanguage' },
     { path: ['cloudAsrProvider'], field: 'cloudAsrProvider' },
     { path: ['cloudAsrGroqApiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['cloudAsrGroqModel'], field: 'cloudAsrGroqModel' },
+    { path: ['cloudAsrGroqLanguage'], field: 'cloudAsrGroqLanguage' },
     { path: ['cloudAsrCustomApiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsrCustomEndpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['cloudAsrCustomModel'], field: 'cloudAsrCustomModel' },
+    { path: ['cloudAsrCustomLanguage'], field: 'cloudAsrCustomLanguage' },
     { path: ['cloudAsrBailianApiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsrBailianHost'], field: 'cloudAsrBailianHost' },
     { path: ['cloudAsrBailianModel'], field: 'cloudAsrBailianModel' },
+    { path: ['cloudAsrBailianLanguage'], field: 'cloudAsrBailianLanguage' },
     { path: ['cloudAsrTencentAppId'], field: 'cloudAsrTencentAppId' },
     { path: ['cloudAsrTencentSecretId'], field: 'cloudAsrTencentSecretId' },
     { path: ['cloudAsrTencentSecretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['cloudAsrTencentEngineType'], field: 'cloudAsrTencentEngineType' },
     { path: ['cloudAsrTencentService'], field: 'cloudAsrTencentService' },
-    { path: ['language'], field: 'language' },
     { path: ['maxRecordingSeconds'], field: 'maxRecordingSeconds' },
     { path: ['voiceShortcutEnabled'], field: 'voiceShortcutEnabled' },
     { path: ['voiceShortcut'], field: 'voiceShortcut' },
@@ -399,19 +423,23 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['general', 'shortcut', 'value'], field: 'voiceShortcut' },
     { path: ['general', 'soundsEnabled'], field: 'voiceSoundsEnabled' },
     { path: ['recognition', 'backend'], field: 'asrBackend' },
+    { path: ['recognition', 'webSpeech', 'language'], field: 'webSpeechLanguage' },
     { path: ['recognition', 'localWhisper', 'model'], field: 'localWhisperModel' },
     { path: ['recognition', 'localWhisper', 'acceleration'], field: 'localWhisperAcceleration' },
+    { path: ['recognition', 'localWhisper', 'language'], field: 'localWhisperLanguage' },
     { path: ['recognition', 'cloudProvider'], field: 'cloudAsrProvider' },
-    { path: ['recognition', 'language'], field: 'language' },
     { path: ['recognition', 'maxRecordingSeconds'], field: 'maxRecordingSeconds' },
     { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['cloudAsr', 'groq', 'model'], field: 'cloudAsrGroqModel' },
+    { path: ['cloudAsr', 'groq', 'language'], field: 'cloudAsrGroqLanguage' },
     { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsr', 'customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
     { path: ['cloudAsr', 'customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
+    { path: ['cloudAsr', 'customOpenAi', 'language'], field: 'cloudAsrCustomLanguage' },
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsr', 'bailian', 'host'], field: 'cloudAsrBailianHost' },
     { path: ['cloudAsr', 'bailian', 'model'], field: 'cloudAsrBailianModel' },
+    { path: ['cloudAsr', 'bailian', 'language'], field: 'cloudAsrBailianLanguage' },
     { path: ['cloudAsr', 'tencent', 'appId'], field: 'cloudAsrTencentAppId' },
     { path: ['cloudAsr', 'tencent', 'secretId'], field: 'cloudAsrTencentSecretId' },
     { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
@@ -471,19 +499,23 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
     && hasPath(record, ['general', 'shortcut', 'value'])
     && hasPath(record, ['general', 'soundsEnabled'])
     && hasPath(record, ['recognition', 'backend'])
+    && hasPath(record, ['recognition', 'webSpeech', 'language'])
     && hasPath(record, ['recognition', 'localWhisper', 'model'])
     && hasPath(record, ['recognition', 'localWhisper', 'acceleration'])
+    && hasPath(record, ['recognition', 'localWhisper', 'language'])
     && hasPath(record, ['recognition', 'cloudProvider'])
-    && hasPath(record, ['recognition', 'language'])
     && hasPath(record, ['recognition', 'maxRecordingSeconds'])
     && hasPath(record, ['cloudAsr', 'groq', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'groq', 'model'])
+    && hasPath(record, ['cloudAsr', 'groq', 'language'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'endpoint'])
     && hasPath(record, ['cloudAsr', 'customOpenAi', 'model'])
+    && hasPath(record, ['cloudAsr', 'customOpenAi', 'language'])
     && hasPath(record, ['cloudAsr', 'bailian', 'apiKey'])
     && hasPath(record, ['cloudAsr', 'bailian', 'host'])
     && hasPath(record, ['cloudAsr', 'bailian', 'model'])
+    && hasPath(record, ['cloudAsr', 'bailian', 'language'])
     && hasPath(record, ['cloudAsr', 'tencent', 'appId'])
     && hasPath(record, ['cloudAsr', 'tencent', 'secretId'])
     && hasPath(record, ['cloudAsr', 'tencent', 'secretKey'])

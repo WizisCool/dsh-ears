@@ -7,7 +7,7 @@ describe('parseSettingsField', () => {
     expect(parseSettingsField('maxRecordingSeconds', '180')).toBe(180)
     expect(parseSettingsField('polishingEnabled', 'on')).toBe(true)
     expect(parseSettingsField('voiceShortcutEnabled', 'off')).toBe(false)
-    expect(parseSettingsField('language', 'en-US')).toBe('en-US')
+    expect(parseSettingsField('webSpeechLanguage', 'en-US')).toBe('en-US')
   })
 })
 
@@ -37,8 +37,12 @@ describe('isSettingsFieldInvalid', () => {
     expect(isSettingsFieldInvalid('maxRecordingSeconds', '')).toBe(false)
   })
 
-  it('never marks an empty language or a valid shortcut invalid', () => {
-    expect(isSettingsFieldInvalid('language', '')).toBe(false)
+  it('never marks an empty language field or a valid shortcut invalid', () => {
+    expect(isSettingsFieldInvalid('webSpeechLanguage', '')).toBe(false)
+    expect(isSettingsFieldInvalid('localWhisperLanguage', '')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrGroqLanguage', '')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrCustomLanguage', '')).toBe(false)
+    expect(isSettingsFieldInvalid('cloudAsrBailianLanguage', '')).toBe(false)
     expect(isSettingsFieldInvalid('voiceShortcut', 'ctrl+shift+space')).toBe(false)
     expect(isSettingsFieldInvalid('voiceShortcut', 'alt+a')).toBe(true)
   })

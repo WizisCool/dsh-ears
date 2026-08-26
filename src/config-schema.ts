@@ -18,28 +18,34 @@ export const EarsSettingsSchema = s.object({
   }).description('General dsh-ears presentation and input settings').collapse(),
   recognition: s.object({
     backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend: web-speech, local-whisper, or cloud-openai'),
+    webSpeech: s.object({
+      language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.webSpeech.language).description('Web Speech recognition language; leave empty to follow the dsh interface locale')
+    }).description('Web Speech live recognition').collapse(),
     localWhisper: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id'),
-      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform')
+      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform'),
+      language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection')
     }).description('Local Whisper model and native acceleration').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description('Active cloud ASR provider: groq, custom, bailian, or tencent'),
-    language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.language).description('Recognition language'),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds')
   }).description('Audio recognition routing and limits').collapse(),
   cloudAsr: s.object({
     groq: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.groq.apiKey).description('Groq API key (Whisper)'),
-      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.groq.model).description('Groq Whisper model id')
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.groq.model).description('Groq Whisper model id'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.groq.language).description('Transcription language; leave empty for automatic detection')
     }).description('Groq cloud ASR').collapse(),
     customOpenAi: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.apiKey).description('OpenAI-compatible ASR API key'),
       endpoint: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.endpoint).description('Full /audio/transcriptions URL'),
-      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.model).description('Transcription model, for example whisper-1')
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.model).description('Transcription model, for example whisper-1'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.language).description('Transcription language; leave empty for automatic detection')
     }).description('Custom OpenAI-compatible ASR').collapse(),
     bailian: s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.apiKey).description('Alibaba Cloud Model Studio API key'),
       host: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.host).description('HTTPS DashScope origin'),
-      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.model).description('Synchronous transcription model id')
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.model).description('Synchronous transcription model id'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.bailian.language).description('Transcription language; leave empty for automatic detection')
     }).description('Alibaba Cloud Model Studio (Bailian) ASR').collapse(),
     tencent: s.object({
       appId: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.tencent.appId).description('Tencent Cloud AppID'),

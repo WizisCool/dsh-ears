@@ -91,8 +91,8 @@ Persisted Host configuration is organized into four fixed slots: `general`, `rec
 
 The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The browser registers `settings.section` id `dsh-ears` (nav order 16). Tabs:
 
-- **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), language (empty = follow the dsh English/中文 locale), recording limit (default 120 seconds).
-- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Tencent Cloud / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Tencent Cloud expands to a service selector with standard recording and realtime recognition enabled. Changing acceleration after the first native load requires restarting the dsh Host.
+- **General** (default landing): voice-shortcut enable + recorder (default `ctrl+shift+space`), voice-sound toggle, display name (`dsh-ears` or Voice / 语音), recording limit (default 120 seconds).
+- **Recognition**: grouped backend/provider menu (Local: Web Speech / Local Whisper; Cloud: Groq / Bailian / Tencent Cloud / Custom), Whisper model lifecycle, Default/Vulkan/CUDA acceleration selector, and per-provider key/endpoint/host/model. Each backend branch carries its own recognition-language row (none for Tencent Cloud; D-042): empty follows the dsh English/中文 locale for Web Speech and means automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, and custom OpenAI-compatible; Tencent Cloud keeps engine type as its language/engine selector with no separate row. Tencent Cloud expands to a service selector with standard recording and realtime recognition enabled. Changing acceleration after the first native load requires restarting the dsh Host.
 - **Polishing**: enable toggle, dsh provider/model/reasoning-effort, custom prompt (D-029).
 - **About**: repository, installed version, MIT, dsh range, click-only npm `latest` check (D-033).
 
@@ -133,7 +133,7 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 
 ## Open protocol boundaries
 
-- `transcribe()` reads recognition settings when the Host RPC begins (D-018). Snapshotting backend/model/language at recording start, or locking settings during capture, is not silently chosen.
+- `transcribe()` reads recognition settings when the Host RPC begins (D-018). Snapshotting backend/model plus the per-provider recognition-language fields (D-042) at recording start, or locking settings during capture, is not silently chosen.
 - D-019 is closed by the D-020 completion sidecar.
 
 ## Design research

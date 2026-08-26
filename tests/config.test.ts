@@ -13,12 +13,16 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'metal' })).toThrow('acceleration')
   })
 
-  it('follows the dsh UI locale when recognition language is unset', () => {
-    expect(DEFAULT_EARS_SETTINGS.language).toBe('')
+  it('follows the dsh UI locale when the Web Speech language is unset', () => {
+    expect(DEFAULT_EARS_SETTINGS.webSpeechLanguage).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.localWhisperLanguage).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.cloudAsrGroqLanguage).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.cloudAsrCustomLanguage).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.cloudAsrBailianLanguage).toBe('')
     expect(effectiveRecognitionLanguage('', 'zh')).toBe('zh-CN')
     expect(effectiveRecognitionLanguage('', 'en')).toBe('en-US')
     expect(effectiveRecognitionLanguage('ja-JP', 'en')).toBe('ja-JP')
-    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, language: '' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: '' })).not.toThrow()
   })
 
   it('accepts HTTP(S) endpoints without embedded credentials', () => {
