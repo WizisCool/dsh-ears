@@ -51,7 +51,8 @@ describe('transcribeTencentFlashAsr', () => {
           Authorization: expect.any(String),
           'Content-Type': 'application/octet-stream'
         }),
-        body: expect.any(Uint8Array)
+        body: expect.any(Uint8Array),
+        redirect: 'manual'
       })
     )
   })

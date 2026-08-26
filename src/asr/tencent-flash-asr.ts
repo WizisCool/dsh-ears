@@ -100,6 +100,7 @@ export async function transcribeTencentFlashAsr(options: TencentFlashAsrOptions)
           'Content-Type': 'application/octet-stream'
         },
         body: new Uint8Array(options.audio),
+        redirect: 'manual',
         signal: timeout.signal
       })
     } catch (error) {
