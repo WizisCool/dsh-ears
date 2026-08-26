@@ -77,6 +77,7 @@ Transcription results are always written to an editable draft and are never sent
 | Web Speech | Live in-browser recognition | A Chromium-based browser |
 | Local Whisper | Host transcribes locally after recording stops | Download a GGML model from settings |
 | [Groq](https://console.groq.com) | Host calls the Groq Whisper API | API key |
+| [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription | API key and model name; max 300 s per recording |
 | [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
