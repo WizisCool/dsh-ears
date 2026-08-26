@@ -46,6 +46,7 @@ interface EarsSettingsSectionProps {
   readonly clearTencentSecretKey: () => void
   readonly undoClearTencentSecretKey: () => void
   readonly flush: () => void
+  readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
   readonly downloadModel: () => void
   readonly cancelModel: () => void
@@ -116,7 +117,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
           const selected = tab.id === activeTab
           return (
             <button key={tab.id} ref={(element) => { tabRefs.current[index] = element }} id={`${tabsId}-tab-${tab.id}`} type="button" role="tab" className={styles.tab} aria-selected={selected} aria-controls={`${tabsId}-panel-${tab.id}`} data-active={selected ? 'true' : undefined} tabIndex={selected ? 0 : -1}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                if (tab.id === 'polishing') props.refreshRoutes()
+              }}
               onKeyDown={(event) => {
                 let nextIndex: number
                 switch (event.key) {
@@ -199,6 +203,11 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         </div>
       ) : activeTab === 'polishing' ? (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+            <button type="button" className={styles.linkButton} disabled={!state.writable || routes.status === 'loading'} onClick={props.refreshRoutes}>
+              {routes.status === 'loading' ? t('loadingModels') : t('refreshRoutes')}
+            </button>
+          </div>
           <SelectRow label={t('polishing')} hint={t('polishingHint')} value={state.polishingEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.polishingEnabled.invalid} onChange={(value) => props.edit('polishingEnabled', value)} />
           {state.polishingEnabled.text === 'on' ? <>
             <SelectRow label={t('provider')} hint={t('providerHint')} value={state.polishProvider.text} options={providerOptions.map((provider) => [provider.provider, provider.providerName] as [string, string])} placeholder={t('providerPlaceholder')} disabled={!state.writable || routes.status === 'loading'} invalid={state.polishProvider.invalid} onChange={(value) => props.edit('polishProvider', value)} />

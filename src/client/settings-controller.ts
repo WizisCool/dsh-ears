@@ -205,6 +205,7 @@ export class EarsSettingsController {
       save: () => void this.save(),
       flush: () => void this.save(),
       discard: () => this.discard(),
+      refreshRoutes: () => void this.refreshRoutes(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
@@ -248,6 +249,7 @@ export class EarsSettingsController {
         if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
         this.retryTimer = undefined
         this.publishCard()
+        void this.refreshRoutes()
         void this.refreshReasoningEfforts()
         void this.refreshWhisperState()
         void this.refreshCloudModels()
