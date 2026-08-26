@@ -25,8 +25,10 @@ describe('cloud ASR provider registry', () => {
     expect(cloudProviderEntry('groq')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('bailian')?.protocol).toBe('dashscope-asr')
+    expect(cloudProviderEntry('tencent')?.protocol).toBe('tencent')
     expect(isKnownCloudProvider('groq')).toBe(true)
     expect(isKnownCloudProvider('bailian')).toBe(true)
+    expect(isKnownCloudProvider('tencent')).toBe(true)
     expect(isKnownCloudProvider('custom')).toBe(true)
     expect(isKnownCloudProvider('unknown')).toBe(false)
   })
@@ -56,6 +58,12 @@ describe('cloud ASR provider registry', () => {
     expect(groq.modelFilter.test('whisper-large-v3-turbo')).toBe(true)
     expect(groq.modelFilter.test('llama-3.3-70b-versatile')).toBe(false)
     expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'groq', cloudAsrGroqModel: '' }))).toBe('')
+  })
+
+  it('keeps Tencent Cloud as one provider with a recording file recognition service default', () => {
+    expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'tencent' }))).toBe('https://asr.tencentcloudapi.com/')
+    expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'tencent' }))).toBe('16k_zh')
+    expect(cloudProviderEntry('tencent')?.name.zh).toBe('腾讯云')
   })
 })
 
@@ -88,6 +96,12 @@ describe('cloud ASR runtime readiness', () => {
   it('reports cloud readiness independent of the selected backend', () => {
     expect(isCloudAsrReady(settings({ asrBackend: 'web-speech', cloudAsrProvider: 'groq', cloudAsrGroqModel: 'whisper-large-v3-turbo', cloudAsrGroqApiKey: 'gsk_test' }))).toBe(true)
     expect(isCloudAsrReady(settings({ asrBackend: 'web-speech', cloudAsrGroqApiKey: '' }))).toBe(false)
+  })
+
+  it('requires Tencent Cloud credentials and an executable service', () => {
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'tencent', cloudAsrTencentService: 'recording-file', cloudAsrTencentAppId: '1250000000', cloudAsrTencentSecretId: 'AKID', cloudAsrTencentSecretKey: 'secret' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'tencent', cloudAsrTencentService: 'recording-file', cloudAsrTencentAppId: '1250000000', cloudAsrTencentSecretId: '', cloudAsrTencentSecretKey: 'secret' }))).toBe(false)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'tencent', cloudAsrTencentService: 'unsupported', cloudAsrTencentAppId: '1250000000', cloudAsrTencentSecretId: 'AKID', cloudAsrTencentSecretKey: 'secret' }))).toBe(false)
   })
 
   it('rejects embedded credentials in a custom endpoint', () => {

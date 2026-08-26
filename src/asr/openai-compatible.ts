@@ -18,7 +18,8 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
   if (options.audio.byteLength > MAX_AUDIO_BYTES) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   options.signal.throwIfAborted()
-  const endpoint = validateEndpoint(options.endpoint)
+  const credential = options.credential?.trim()
+  const endpoint = validateEndpoint(options.endpoint, Boolean(credential))
   const model = options.model.trim()
   if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The cloud ASR model is not configured')
 
@@ -29,7 +30,6 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   if (language !== 'auto') form.set('language', language)
 
   const headers: Record<string, string> = {}
-  const credential = options.credential?.trim()
   if (credential) headers.Authorization = `Bearer ${credential}`
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Cloud ASR request timed out')), REQUEST_TIMEOUT_MS)
@@ -40,6 +40,7 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
       method: 'POST',
       headers,
       body: form,
+      redirect: 'manual',
       signal: timeout.signal
     })
     const body = await readBoundedText(response)
@@ -59,7 +60,7 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
   }
 }
 
-function validateEndpoint(value: string): string {
+function validateEndpoint(value: string, credentialConfigured: boolean): string {
   let url: URL
   try {
     url = new URL(value.trim())
@@ -67,6 +68,7 @@ function validateEndpoint(value: string): string {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  if (credentialConfigured && url.protocol !== 'https:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoints with credentials must use HTTPS')
   if (url.username !== '' || url.password !== '') throw new EarsError(EARS_ERROR_CODES.asrEndpointHasCredentials, 'Cloud ASR endpoint must not contain credentials')
   return url.toString()
 }

@@ -303,7 +303,7 @@ describe('OpenAI-compatible cloud ASR backend', () => {
       request.on('end', () => {
         const body = Buffer.concat(chunks).toString('utf8')
         response.setHeader('content-type', 'application/json')
-        response.end(JSON.stringify({ text: request.headers.authorization === 'Bearer test-credential-placeholder' && body.includes('whisper-1') ? '云端转录结果' : '' }))
+        response.end(JSON.stringify({ text: body.includes('whisper-1') ? '云端转录结果' : '' }))
       })
     })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -316,12 +316,32 @@ describe('OpenAI-compatible cloud ASR backend', () => {
         language: 'zh-CN',
         endpoint: `http://127.0.0.1:${address.port}/audio/transcriptions`,
         model: 'whisper-1',
-        credential: 'test-credential-placeholder',
         signal: new AbortController().signal
       })).resolves.toBe('云端转录结果')
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
     }
+  })
+
+  it('forwards a credential to an HTTPS endpoint', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('Bearer test-credential-placeholder')
+      expect(init?.redirect).toBe('manual')
+      return new Response(JSON.stringify({ text: 'authenticated transcription' }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(transcribeOpenAICompatible({
+      audio: Uint8Array.from([1]),
+      mimeType: 'audio/wav',
+      language: 'en-US',
+      endpoint: 'https://asr.example.test/audio/transcriptions',
+      model: 'whisper-1',
+      credential: 'test-credential-placeholder',
+      signal: new AbortController().signal
+    })).resolves.toBe('authenticated transcription')
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('rejects endpoints that embed credentials in the URL', async () => {
@@ -333,6 +353,18 @@ describe('OpenAI-compatible cloud ASR backend', () => {
       model: 'whisper-1',
       signal: new AbortController().signal
     })).rejects.toThrow('must not contain credentials')
+  })
+
+  it('requires HTTPS when an endpoint credential is configured', async () => {
+    await expect(transcribeOpenAICompatible({
+      audio: Uint8Array.from([1]),
+      mimeType: 'audio/wav',
+      language: 'en-US',
+      endpoint: 'http://127.0.0.1:12345/audio/transcriptions',
+      model: 'whisper-1',
+      credential: 'test-credential-placeholder',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrEndpointInvalid })
   })
 
   it('bounds a chunked response before parsing it', async () => {

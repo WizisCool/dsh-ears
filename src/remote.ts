@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
-import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -20,6 +20,10 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     cancelWhisperModelDownload: (model: string) => Promise<RemoteResult<WhisperModelState>>
     deleteWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
     transcribe: (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    startRealtime: (signal?: AbortSignal) => Promise<RemoteResult<RealtimeSession>>
+    sendRealtimeAudio: (sessionId: string, audioBase64: string, signal?: AbortSignal) => Promise<RemoteResult<RealtimeTranscript>>
+    finishRealtime: (sessionId: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    cancelRealtime: (sessionId: string) => Promise<RemoteResult<{ cancelled: true }>>
     polish: (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
   }
 
@@ -37,6 +41,10 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/cancelWhisperModelDownload': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/deleteWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/transcribe': (audioBase64: string, mimeType: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    'dshEars/startRealtime': (signal?: AbortSignal) => Promise<RemoteResult<RealtimeSession>>
+    'dshEars/sendRealtimeAudio': (sessionId: string, audioBase64: string, signal?: AbortSignal) => Promise<RemoteResult<RealtimeTranscript>>
+    'dshEars/finishRealtime': (sessionId: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
+    'dshEars/cancelRealtime': (sessionId: string) => Promise<RemoteResult<{ cancelled: true }>>
     'dshEars/polish': (transcript: string, provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<RemoteTextResult>>
   }
 
@@ -227,6 +235,48 @@ export const TYPERT_REMOTE: TypertRemoteContribution = {
         codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
       }],
       result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/startRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'startRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeSession', schema: realtimeSessionSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/sendRealtimeAudio',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'sendRealtimeAudio',
+      invocation: { kind: 'direct' },
+      parameters: [
+        { name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } },
+        { name: 'audioBase64', wire: 'audioBase64', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema } }
+      ],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeTranscript', schema: realtimeTranscriptSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/finishRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'finishRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/cancelRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'cancelRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeCancelled', schema: realtimeCancelledSchema }
     },
     {
       id: 'dsh-ears#dshEars/polish',

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -22,6 +22,11 @@ export const earsSettingsSchema = z.object({
   cloudAsrBailianApiKey: z.string(),
   cloudAsrBailianHost: z.string(),
   cloudAsrBailianModel: z.string(),
+  cloudAsrTencentAppId: z.string(),
+  cloudAsrTencentSecretId: z.string(),
+  cloudAsrTencentSecretKey: z.string(),
+  cloudAsrTencentEngineType: z.string(),
+  cloudAsrTencentService: z.string(),
   language: z.string(),
   maxRecordingSeconds: z.number(),
   voiceShortcutEnabled: z.boolean(),
@@ -48,6 +53,11 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrBailianApiKey: z.string().max(1024).optional(),
   cloudAsrBailianHost: z.string().optional(),
   cloudAsrBailianModel: z.string().optional(),
+  cloudAsrTencentAppId: z.string().optional(),
+  cloudAsrTencentSecretId: z.string().optional(),
+  cloudAsrTencentSecretKey: z.string().max(1024).optional(),
+  cloudAsrTencentEngineType: z.string().optional(),
+  cloudAsrTencentService: z.enum(TENCENT_ASR_SERVICE_IDS).optional(),
   language: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
@@ -68,6 +78,7 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrGroqApiKeyConfigured: z.boolean(),
   cloudAsrCustomApiKeyConfigured: z.boolean(),
   cloudAsrBailianApiKeyConfigured: z.boolean(),
+  cloudAsrTencentSecretKeyConfigured: z.boolean(),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
@@ -134,10 +145,15 @@ export const remoteTextResultSchema = z.discriminatedUnion('status', [
 ])
 export const transcribeResultSchema = remoteTextResultSchema
 export const polishResultSchema = remoteTextResultSchema
+export const realtimeSessionSchema = z.object({ sessionId: z.string().min(1) })
+export const realtimeTranscriptSchema = z.object({ text: z.string(), final: z.boolean() })
+export const realtimeCancelledSchema = z.object({ cancelled: z.literal(true) })
 
 export type RemoteTextResult = z.infer<typeof remoteTextResultSchema>
 export type RemoteTextSuccess = Extract<RemoteTextResult, { status: 'ok' }>
 export type RemoteTextFailure = Extract<RemoteTextResult, { status: 'error' }>
+export type RealtimeSession = z.infer<typeof realtimeSessionSchema>
+export type RealtimeTranscript = z.infer<typeof realtimeTranscriptSchema>
 
 export function remoteTextSuccess(text: string): RemoteTextSuccess {
   return { status: 'ok', text }
@@ -175,6 +191,7 @@ export type EarsSettingsView = {
   cloudAsrGroqApiKeyConfigured: boolean
   cloudAsrCustomApiKeyConfigured: boolean
   cloudAsrBailianApiKeyConfigured: boolean
+  cloudAsrTencentSecretKeyConfigured: boolean
   localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }

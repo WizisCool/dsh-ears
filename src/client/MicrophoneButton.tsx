@@ -7,6 +7,7 @@ import type { EarsSettings } from '../config.js'
 import type { AsrBackendInfo } from '../remote-contract.js'
 import { AudioLevelMonitor } from '../asr/audio-level.js'
 import { MediaRecorderSession, isMediaRecorderAvailable, warmMicrophone } from '../asr/media-recorder.js'
+import { RealtimeAudioCaptureSession, isRealtimeAudioCaptureAvailable } from './realtime-audio-capture.js'
 import { WebSpeechSession, isWebSpeechAvailable } from '../asr/web-speech.js'
 import type { EarsRemote } from '../remote.js'
 import styles from './MicrophoneButton.module.css'
@@ -45,6 +46,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const setState = createVoiceStateSetter(voiceSession)
   const speechSessionRef = useRef<WebSpeechSession | null>(null)
   const mediaSessionRef = useRef<MediaRecorderSession | null>(null)
+  const realtimeCaptureRef = useRef<RealtimeAudioCaptureSession | null>(null)
+  const realtimeRemoteSessionIdRef = useRef<string | null>(null)
+  const realtimeStartAbortRef = useRef<AbortController | null>(null)
+  const realtimeBaseDraftRef = useRef('')
+  const realtimeDraftRef = useRef('')
   const levelMonitorRef = useRef<AudioLevelMonitor | null>(null)
   const mediaBaseDraftRef = useRef('')
   const mediaStartedAtRef = useRef(0)
@@ -112,6 +118,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const cancel = voiceSession.onCancelRequested(() => {
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
+      mediaStartCancelledRef.current = true
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
+      realtimeCaptureRef.current?.abort()
+      const sessionId = realtimeRemoteSessionIdRef.current
+      realtimeRemoteSessionIdRef.current = null
+      if (sessionId !== null) void remote.cancelRealtime(sessionId)
     })
     return () => {
       stop()
@@ -132,6 +145,13 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       speechSessionRef.current = null
       mediaSessionRef.current?.abort()
       mediaSessionRef.current = null
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
+      realtimeCaptureRef.current?.abort()
+      realtimeCaptureRef.current = null
+      const realtimeSessionId = realtimeRemoteSessionIdRef.current
+      realtimeRemoteSessionIdRef.current = null
+      if (realtimeSessionId !== null) void remote.cancelRealtime(realtimeSessionId)
       mediaBackendRef.current = null
       transcribeAbortRef.current?.abort()
       polishAbortRef.current?.abort()
@@ -180,7 +200,11 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     )
   }
 
-  const backendAvailable = backend === 'web-speech' ? isWebSpeechAvailable() : isMediaRecorderAvailable()
+  const backendAvailable = backend === 'web-speech'
+    ? isWebSpeechAvailable()
+    : backend === 'cloud-openai' && settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime'
+      ? isRealtimeAudioCaptureAvailable()
+      : isMediaRecorderAvailable()
   if (!active && !busy && !backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
@@ -292,11 +316,131 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     }
   }
 
+  const stopRealtimeRecording = async () => {
+    const capture = realtimeCaptureRef.current
+    const sessionId = realtimeRemoteSessionIdRef.current
+    if (capture === null || sessionId === null) return
+    playToggleClick(settingsRef.current, 0.4)
+    realtimeCaptureRef.current = null
+    realtimeRemoteSessionIdRef.current = null
+    levelMonitorRef.current?.stop()
+    levelMonitorRef.current = null
+    const controller = new AbortController()
+    transcribeAbortRef.current = controller
+    const epoch = voiceSession.captureEpoch()
+    try {
+      await capture.stop()
+      if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
+      setState('transcribing')
+      const result = await remote.finishRealtime(sessionId, controller.signal)
+      if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
+      if (!result.ok) {
+        applyVoiceFailure(voiceSession, 'asr', result.error)
+        return
+      }
+      if (result.value.status === 'error') {
+        applyVoiceFailure(voiceSession, 'asr', result.value)
+        return
+      }
+      const transcript = result.value.text.trim()
+      if (transcript === '') {
+        setState('idle')
+        return
+      }
+      const baseDraft = realtimeBaseDraftRef.current
+      updateDraft(baseDraft, transcript, latestDraftRef, actionsRef)
+      commitTranscript({
+        transcript,
+        baseDraft,
+        expectedDraft: latestDraftRef.current,
+        requireUnchanged: true,
+        transcriptAlreadyApplied: true,
+        settings: settingsRef.current,
+        remote,
+        setState,
+        latestDraftRef,
+        actionsRef,
+        polishAbortRef,
+        isCurrent: () => voiceSession.isCurrentEpoch(epoch)
+      })
+    } catch (error) {
+      if (mountedRef.current && !controller.signal.aborted) applyVoiceFailure(voiceSession, 'asr', error)
+    } finally {
+      if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
+      void remote.cancelRealtime(sessionId)
+    }
+  }
+
+  const startRealtimeRecording = async () => {
+    const baseDraft = input.draft
+    const startController = new AbortController()
+    realtimeStartAbortRef.current = startController
+    const generation = ++mediaStartGenerationRef.current
+    mediaStartCancelledRef.current = false
+    setState('starting')
+    let capture: RealtimeAudioCaptureSession | undefined
+    let sessionId: string | undefined
+    try {
+      const started = await remote.startRealtime(startController.signal)
+      if (!started.ok) throw started.error
+      if (!mountedRef.current || startController.signal.aborted || realtimeStartAbortRef.current !== startController) {
+        await remote.cancelRealtime(started.value.sessionId)
+        return
+      }
+      sessionId = started.value.sessionId
+      capture = await RealtimeAudioCaptureSession.create()
+      if (!mountedRef.current || startController.signal.aborted || realtimeStartAbortRef.current !== startController || isSupersededMediaCapture(mediaStartGenerationRef.current, generation) || shouldAbandonPendingCapture(mountedRef.current, mediaStartCancelledRef.current)) {
+        capture.abort()
+        await remote.cancelRealtime(sessionId)
+        return
+      }
+      const epoch = voiceSession.captureEpoch()
+      realtimeCaptureRef.current = capture
+      realtimeRemoteSessionIdRef.current = sessionId
+      realtimeBaseDraftRef.current = baseDraft
+      realtimeDraftRef.current = baseDraft
+      capture.start(async (audioBase64) => {
+        const result = await remote.sendRealtimeAudio(sessionId!, audioBase64)
+        if (!mountedRef.current || !voiceSession.isCurrentEpoch(epoch)) return
+        if (!result.ok) throw result.error
+        const transcript = result.value.text.trim()
+        if (transcript === '') return
+        if (latestDraftRef.current !== realtimeDraftRef.current) {
+          if (latestDraftRef.current.trim() !== '') return
+          realtimeBaseDraftRef.current = ''
+        }
+        realtimeDraftRef.current = updateDraft(realtimeBaseDraftRef.current, transcript, latestDraftRef, actionsRef)
+      })
+      setState('recording')
+      armRecordingTimer(recordingTimerRef, effectiveRecordingSeconds(settingsRef.current), () => void stopRecording())
+      try {
+        levelMonitorRef.current = capture.createLevelMonitor((level) => voiceSession.pushAudioLevel(level))
+      } catch {
+        // Realtime recognition remains usable when the optional waveform analyser is unavailable.
+      }
+      realtimeStartAbortRef.current = null
+    } catch (error) {
+      capture?.abort()
+      if (sessionId !== undefined) await remote.cancelRealtime(sessionId)
+      if (realtimeCaptureRef.current === capture) realtimeCaptureRef.current = null
+      if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
+      const ownsStart = realtimeStartAbortRef.current === startController
+      if (ownsStart) realtimeStartAbortRef.current = null
+      if (!mountedRef.current || startController.signal.aborted || !ownsStart || isSupersededMediaCapture(mediaStartGenerationRef.current, generation)) return
+      levelMonitorRef.current?.stop()
+      levelMonitorRef.current = null
+      if (mediaStartCancelledRef.current) setState('idle')
+      else applyVoiceFailure(voiceSession, 'asr', error)
+    }
+  }
+
   const stopRecording = async () => {
     clearRecordingTimer(recordingTimerRef)
-    if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null) {
+    if (state === 'starting' && speechSessionRef.current === null && mediaSessionRef.current === null && realtimeCaptureRef.current === null && realtimeRemoteSessionIdRef.current === null) {
       playToggleClick(settingsRef.current, 0.4)
       mediaStartCancelledRef.current = true
+      realtimeStartAbortRef.current?.abort()
+      realtimeStartAbortRef.current = null
       levelMonitorRef.current?.stop()
       levelMonitorRef.current = null
       setState('idle')
@@ -305,6 +449,10 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     if (speechSessionRef.current !== null) {
       playToggleClick(settingsRef.current, 0.4)
       speechSessionRef.current.stop()
+      return
+    }
+    if (realtimeCaptureRef.current !== null || realtimeRemoteSessionIdRef.current !== null) {
+      await stopRealtimeRecording()
       return
     }
     const session = mediaSessionRef.current
@@ -332,7 +480,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       setState('transcribing')
       const epoch = voiceSession.captureEpoch()
-      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal })
+      const transcribeAudio = await prepareRecordedAudioForBackend(mediaBackend, audio, { signal: controller.signal, cloudProvider: settingsRef.current.cloudAsrProvider })
       if (!isTranscriptionStillCurrent({
         mounted: mountedRef.current,
         signal: controller.signal,
@@ -436,6 +584,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
     if (nextBackend === 'web-speech') {
       void startWebSpeech()
+    } else if (nextBackend === 'cloud-openai' && settingsRef.current.cloudAsrProvider === 'tencent' && settingsRef.current.cloudAsrTencentService === 'realtime') {
+      void startRealtimeRecording()
     } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
       void startMediaRecording(nextBackend)
     }

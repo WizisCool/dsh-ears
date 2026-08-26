@@ -16,6 +16,7 @@ export interface CommitTranscriptOptions {
   baseDraft: string
   expectedDraft?: string
   requireUnchanged: boolean
+  transcriptAlreadyApplied?: boolean
   settings: EarsSettings
   remote: EarsRemote
   setState: (state: VoiceInputState, detail?: string, detailCode?: string, detailParams?: VoiceStateDetailParams) => void
@@ -37,7 +38,7 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
     return
   }
 
-  const draftAtStop = appendToDraft(draftBase, transcript)
+  const draftAtStop = options.transcriptAlreadyApplied ? options.latestDraftRef.current : appendToDraft(draftBase, transcript)
   options.latestDraftRef.current = draftAtStop
   options.actionsRef.current.setDraft(draftAtStop)
   // Honor the local toggle so an off switch never flashes "polishing".

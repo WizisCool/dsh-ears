@@ -1,4 +1,4 @@
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -106,6 +106,48 @@ export const TYPERT = {
       ],
       cancellation: { parameter: 'signal' },
       result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/startRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'startRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeSession', schema: realtimeSessionSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/sendRealtimeAudio',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'sendRealtimeAudio',
+      invocation: { kind: 'direct' },
+      parameters: [
+        { name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } },
+        { name: 'audioBase64', wire: 'audioBase64', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema } }
+      ],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeTranscript', schema: realtimeTranscriptSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/finishRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'finishRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
+      cancellation: { parameter: 'signal' },
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
+    },
+    {
+      id: 'dsh-ears#dshEars/cancelRealtime',
+      service: 'dshEarsPolish',
+      namespace: 'dshEars',
+      method: 'cancelRealtime',
+      invocation: { kind: 'direct' },
+      parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
+      result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeCancelled', schema: realtimeCancelledSchema }
     },
     {
       id: 'dsh-ears#dshEars/listReasoningEfforts',
@@ -244,7 +286,7 @@ export const TYPERT = {
   model: {
     services: [
       {
-        description: 'Host-side dsh route discovery and text-only transcript polishing.',
+        description: 'Host-side ASR, realtime recognition, dsh route discovery, and transcript polishing.',
         summary: 'Voice transcript polishing service.',
         tags: [],
         jsDoc: '/** Host-side dsh route discovery and text-only transcript polishing. */',
@@ -337,6 +379,34 @@ export const TYPERT = {
           },
           {
             kind: 'method',
+            name: 'startRealtime',
+            signature: 'startRealtime(signal: AbortSignal): Promise<RealtimeSession>',
+            summary: 'Open a Host-owned Tencent Cloud realtime recognition session.',
+            jsDoc: '/** Open a Host-owned Tencent Cloud realtime recognition session. */'
+          },
+          {
+            kind: 'method',
+            name: 'sendRealtimeAudio',
+            signature: 'sendRealtimeAudio(sessionId: string, audioBase64: string, signal: AbortSignal): Promise<RealtimeTranscript>',
+            summary: 'Send one PCM audio chunk to a realtime recognition session.',
+            jsDoc: '/** Send one PCM audio chunk to a realtime recognition session. */'
+          },
+          {
+            kind: 'method',
+            name: 'finishRealtime',
+            signature: 'finishRealtime(sessionId: string, signal: AbortSignal): Promise<RemoteTextResult>',
+            summary: 'Finish a realtime recognition session and return its final transcript.',
+            jsDoc: '/** Finish a realtime recognition session and return its final transcript. */'
+          },
+          {
+            kind: 'method',
+            name: 'cancelRealtime',
+            signature: 'cancelRealtime(sessionId: string): Promise<RealtimeCancelled>',
+            summary: 'Close a realtime recognition session without committing its transcript.',
+            jsDoc: '/** Close a realtime recognition session without committing its transcript. */'
+          },
+          {
+            kind: 'method',
             name: 'polish',
             signature: 'polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult>',
             summary: 'Polish one transcript through a selected dsh route.',
@@ -350,11 +420,11 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettings',
-            declaration: 'export interface EarsSettings { asrBackend: string; localWhisperModel: string; localWhisperAcceleration: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; language: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
+            declaration: 'export interface EarsSettings { asrBackend: string; localWhisperModel: string; localWhisperAcceleration: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; language: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
           },
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',
@@ -387,6 +457,18 @@ export const TYPERT = {
           {
             name: 'CloudProviderModelsView',
             declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; error?: string; errorCode?: string; errorParams?: Record<string, string | number> }"
+          },
+          {
+            name: 'RealtimeSession',
+            declaration: 'export interface RealtimeSession { sessionId: string }'
+          },
+          {
+            name: 'RealtimeTranscript',
+            declaration: 'export interface RealtimeTranscript { text: string; final: boolean }'
+          },
+          {
+            name: 'RealtimeCancelled',
+            declaration: 'export interface RealtimeCancelled { cancelled: true }'
           }
         ]
       }

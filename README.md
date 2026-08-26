@@ -92,6 +92,7 @@ dsh plugin --profile web remove dsh-ears
 | 本地 Whisper | 浏览器停止录音后标准化为单声道 16 kHz PCM16 WAV，再由 Host 通过内置 whisper.node native 依赖转写 | npm 安装会带来对应平台的 native 变体；在设置页下载 whisper.cpp GGML 模型，模型不随 npm 包打包 | — |
 | [Groq](https://console.groq.com) | Host 将录音发送到 Groq Whisper API | Groq API key | Always Free，[Rate Limits](https://console.groq.com/docs/rate-limits) |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写（Flash 系列） | HTTPS 源站、API key 和模型名；单次录音最长 300 秒 | [新人免费额度](https://help.aliyun.com/zh/model-studio/new-free-quota) |
+| [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [标准录音文件识别（API 3.0）](https://cloud.tencent.com/document/api/1093/37823) 或 [实时语音识别（WebSocket）](https://cloud.tencent.com/document/api/1093/48982)；录音文件任务由 Host 提交并轮询，实时模式由 Host 持有 WebSocket 会话 | AppID、SecretID、SecretKey 和 `engine_type` | [计费概述](https://cloud.tencent.com/document/product/1093/35686) |
 | 自定义 OpenAI 兼容 | 向指定的 `/audio/transcriptions` 端点发送请求 | 端点地址、API key 和模型名 | — |
 | 贡献新后端 | — | 欢迎通过 [提交 PR](https://github.com/WizisCool/dsh-ears/pulls) 接入更多转写服务 | — |
 

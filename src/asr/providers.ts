@@ -6,7 +6,7 @@ import type { CloudAsrProviderId, EarsSettings } from '../config.js'
  * OpenAI-compatible is pure data over the existing adapter; a provider with a
  * different protocol additionally ships an adapter and declares it here.
  */
-export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr'
+export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr' | 'tencent'
 
 export interface CloudAsrProviderEntry {
   readonly id: CloudAsrProviderId
@@ -44,6 +44,14 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     apiKeyRequired: true
   },
   {
+    id: 'tencent',
+    name: { en: 'Tencent Cloud', zh: '腾讯云' },
+    protocol: 'tencent',
+    defaultModel: '16k_zh',
+    endpointEditable: false,
+    apiKeyRequired: true
+  },
+  {
     id: 'custom',
     name: { en: 'Custom OpenAI-compatible', zh: '自定义 OpenAI 兼容' },
     protocol: 'openai-compatible',
@@ -68,6 +76,7 @@ export function supportsModelListing(id: string): boolean {
 
 export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost'>): string {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
+  if (entry?.protocol === 'tencent') return 'https://asr.tencentcloudapi.com/'
   if (entry?.protocol === 'dashscope-asr') {
     const host = settings.cloudAsrBailianHost.trim()
     return host === '' ? '' : bailianGenerationUrl(host)
@@ -85,18 +94,21 @@ export function bailianGenerationUrl(host: string): string {
   return url.toString()
 }
 
-export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): string {
+export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey'>): string {
   if (settings.cloudAsrProvider === 'bailian') return settings.cloudAsrBailianApiKey.trim()
+  if (settings.cloudAsrProvider === 'tencent') return settings.cloudAsrTencentSecretKey.trim()
   if (settings.cloudAsrProvider === 'custom') return settings.cloudAsrCustomApiKey.trim()
   return settings.cloudAsrGroqApiKey.trim()
 }
 
-export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel'>): string {
+export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): string {
   const model = settings.cloudAsrProvider === 'bailian'
     ? settings.cloudAsrBailianModel
-    : settings.cloudAsrProvider === 'custom'
-      ? settings.cloudAsrCustomModel
-      : settings.cloudAsrGroqModel
+    : settings.cloudAsrProvider === 'tencent'
+      ? settings.cloudAsrTencentEngineType
+      : settings.cloudAsrProvider === 'custom'
+        ? settings.cloudAsrCustomModel
+        : settings.cloudAsrGroqModel
   const trimmed = model.trim()
   if (trimmed !== '') return trimmed
   return cloudProviderEntry(settings.cloudAsrProvider)?.defaultModel ?? ''
@@ -108,12 +120,13 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
  * part of validity — a keyless configuration must remain saveable so the key
  * can be entered first; key readiness is a runtime/availability concern.
  */
-export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel'>): boolean {
+export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): boolean {
   if (settings.asrBackend !== 'cloud-openai') return true
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false
   if (entry.protocol === 'dashscope-asr') return isBailianAsrHost(settings.cloudAsrBailianHost)
+  if (entry.protocol === 'tencent') return true
   if (entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) return false
   return true
 }
@@ -123,11 +136,12 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
  * against the cloud configuration itself, independent of the backend
  * currently selected, because `listAsrBackends` reports every backend.
  */
-export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey'>): boolean {
+export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey'>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false
   if (entry.protocol === 'dashscope-asr' && !isBailianAsrHost(settings.cloudAsrBailianHost)) return false
+  if (entry.protocol === 'tencent' && (!['recording-file', 'realtime'].includes(settings.cloudAsrTencentService) || settings.cloudAsrTencentAppId.trim() === '' || settings.cloudAsrTencentSecretId.trim() === '')) return false
   if (entry.protocol !== 'dashscope-asr' && entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) return false
   if (entry.apiKeyRequired && cloudAsrCredentialFor(settings) === '') return false
   return true

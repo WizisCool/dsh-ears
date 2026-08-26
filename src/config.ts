@@ -3,6 +3,9 @@ import {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
   CLOUD_ASR_PROVIDER_IDS,
+  TENCENT_ASR_DEFAULT_SERVICE,
+  TENCENT_ASR_SERVICE_IDS,
+  TENCENT_DEFAULT_ENGINE,
   effectiveRecognitionLanguage,
   isValidRecordingLimit,
   WHISPER_ACCELERATION_IDS,
@@ -14,6 +17,7 @@ import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
 import type {
   AsrBackendId,
   CloudAsrProviderId,
+  TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
 } from './settings/recognition.js'
@@ -23,6 +27,9 @@ export {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
   CLOUD_ASR_PROVIDER_IDS,
+  TENCENT_ASR_DEFAULT_SERVICE,
+  TENCENT_ASR_SERVICE_IDS,
+  TENCENT_DEFAULT_ENGINE,
   effectiveRecognitionLanguage,
   isValidRecordingLimit,
   WHISPER_ACCELERATION_IDS,
@@ -34,13 +41,14 @@ export { SETTINGS_DISPLAY_NAME_IDS, settingsPageLabel } from './settings/general
 export type {
   AsrBackendId,
   CloudAsrProviderId,
+  TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
 } from './settings/recognition.js'
 export type { SettingsDisplayNameId } from './settings/general.js'
 
 export const SETTINGS_NAMESPACE = 'dsh-ears'
-export const EARS_SETTINGS_SCHEMA_VERSION = 2 as const
+export const EARS_SETTINGS_SCHEMA_VERSION = 3 as const
 
 /**
  * Flat settings are the compatibility view used by the existing Remote and
@@ -59,6 +67,11 @@ export interface EarsSettings {
   cloudAsrBailianApiKey: string
   cloudAsrBailianHost: string
   cloudAsrBailianModel: string
+  cloudAsrTencentAppId: string
+  cloudAsrTencentSecretId: string
+  cloudAsrTencentSecretKey: string
+  cloudAsrTencentEngineType: string
+  cloudAsrTencentService: string
   language: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
@@ -85,6 +98,11 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrBailianApiKey: '',
   cloudAsrBailianHost: '',
   cloudAsrBailianModel: '',
+  cloudAsrTencentAppId: '',
+  cloudAsrTencentSecretId: '',
+  cloudAsrTencentSecretKey: '',
+  cloudAsrTencentEngineType: TENCENT_DEFAULT_ENGINE,
+  cloudAsrTencentService: TENCENT_ASR_DEFAULT_SERVICE,
   language: '',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
@@ -132,6 +150,8 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
   if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
+  if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
+  if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')

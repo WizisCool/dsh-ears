@@ -3,7 +3,7 @@ import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { applyFlatSettingsPatch, defaultStoredEarsSettings, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
 
 describe('canonical Host settings slots', () => {
-  it('round-trips flat app settings into schemaVersion 2 slots', () => {
+  it('round-trips flat app settings into current schema slots', () => {
     const stored = unflattenEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       localWhisperAcceleration: 'cuda',
@@ -21,7 +21,7 @@ describe('canonical Host settings slots', () => {
       polishPrompt: 'Keep it short.'
     })
 
-    expect(stored.schemaVersion).toBe(2)
+    expect(stored.schemaVersion).toBe(3)
     expect(stored.general).toEqual({
       displayName: 'dsh-ears',
       shortcut: { enabled: true, value: 'ctrl+shift+space' },
@@ -39,6 +39,7 @@ describe('canonical Host settings slots', () => {
       host: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
       model: 'fun-asr-flash'
     })
+    expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.polishing).toEqual({
       enabled: false,
       provider: 'provider',
@@ -72,7 +73,7 @@ describe('canonical Host settings slots', () => {
     }
     const stored = normalizeStoredEarsSettings(raw)
 
-    expect(stored.schemaVersion).toBe(2)
+    expect(stored.schemaVersion).toBe(3)
     expect(stored.recognition.backend).toBe('cloud-openai')
     expect(stored.recognition.localWhisper.model).toBe('base')
     expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_legacy_groq', model: '' })
@@ -174,6 +175,7 @@ describe('canonical Host settings slots', () => {
       general: { shortcut: { value: 'ctrl+a' } },
       recognition: { localWhisper: { acceleration: 'cuda' }, language: 'en-US' },
       cloudAsr: { groq: {} },
+      tencent: { appId: '1250000000', secretId: 'AKIDexample', secretKey: 'secret-placeholder', engineType: '16k_zh', service: 'realtime' },
       polishing: { prompt: '' }
     }, [
       { path: ['cloudAsr', 'groq', 'apiKey'], set: true },
@@ -183,6 +185,11 @@ describe('canonical Host settings slots', () => {
       'localWhisperAcceleration',
       'language',
       'polishPrompt',
+      'cloudAsrTencentAppId',
+      'cloudAsrTencentSecretId',
+      'cloudAsrTencentSecretKey',
+      'cloudAsrTencentEngineType',
+      'cloudAsrTencentService',
       'cloudAsrGroqApiKey'
     ])
   })

@@ -316,6 +316,7 @@ describe('EarsSettingsController settings lifecycle', () => {
           cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
+          cloudAsrTencentSecretKeyConfigured: false,
           overridden: []
         }
       })
@@ -332,6 +333,7 @@ describe('EarsSettingsController settings lifecycle', () => {
           cloudAsrGroqApiKeyConfigured: false,
           cloudAsrCustomApiKeyConfigured: false,
           cloudAsrBailianApiKeyConfigured: false,
+          cloudAsrTencentSecretKeyConfigured: false,
           overridden: []
         }
       })
@@ -848,6 +850,7 @@ function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
     cloudAsrGroqApiKeyConfigured: false,
     cloudAsrCustomApiKeyConfigured: false,
     cloudAsrBailianApiKeyConfigured: false,
+    cloudAsrTencentSecretKeyConfigured: false,
     overridden: []
   }
   return {
@@ -883,6 +886,7 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     cloudAsrGroqApiKeyConfigured: settings.cloudAsrGroqApiKey.trim() !== '',
     cloudAsrCustomApiKeyConfigured: settings.cloudAsrCustomApiKey.trim() !== '',
     cloudAsrBailianApiKeyConfigured: settings.cloudAsrBailianApiKey.trim() !== '',
+    cloudAsrTencentSecretKeyConfigured: settings.cloudAsrTencentSecretKey.trim() !== '',
     overridden: []
   }
 }

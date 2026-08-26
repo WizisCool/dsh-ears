@@ -44,6 +44,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
 | D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
+| D-039 | Native whisper.node runtime and fixed configuration slots | Accepted |
+| D-040 | Tencent Cloud product selector | Superseded by D-041 |
 
 ## D-001 — Project identity
 
@@ -354,3 +356,18 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: runtime diagnostics are short and concrete: the selected native package or acceleration variant is unavailable, or the Host must restart to apply a changed variant. The old Python/FFmpeg/openai-whisper setup guide is deleted.
 - Decision: persisted Host configuration has four fixed slots — `general`, `recognition`, `cloudAsr`, and `polishing`. The Remote/browser contract remains flat for compatibility with per-field drafts and auto-save. This is a fixed dsh-ears data shape, not a registry, factory, generic slot interface, or provider framework.
 - Rationale: one native dependency and one concrete Host runtime remove the old TypeScript-to-Python process boundary without introducing a second abstraction layer. Keeping the flat wire avoids coupling this runtime refactor to a client protocol rewrite, while nested Host storage makes ownership and migration legible.
+
+## D-040 — Tencent Cloud provider selection
+
+- Status: superseded by D-041.
+- Current Tencent Cloud behavior and rationale are recorded in D-041.
+
+## D-041 — Tencent Cloud standard and realtime recognition
+
+- Status: accepted (2026-08-26); supersedes D-040.
+- Decision: expose one Tencent Cloud provider with two executable service ids, `recording-file` and `realtime`, using the same AppID, SecretID, SecretKey, and engine type settings.
+- Decision: `recording-file` uses the API 3.0 `CreateRecTask` and `DescribeTaskStatus` operations at `asr.tencentcloudapi.com`. Local mono 16 kHz PCM16 WAV audio is submitted as base64 data with its original byte length, and the Host polls until a final transcript is available.
+- Decision: `realtime` uses the documented WebSocket V2 protocol at `asr.cloud.tencent.com`. The Host creates and owns the signed session, accepts browser PCM chunks through Remote calls, streams them to Tencent Cloud, returns incremental text, and closes the session after the final response.
+- Decision: stopping commits the final transcript to the editable draft and then follows the existing optional polishing flow. Cancelling closes the Host session and discards the in-flight transcript.
+- Decision: AppID and SecretID remain Host settings, SecretKey is a Schemastery `role('secret')` field, and no Tencent credential value crosses the browser Remote boundary.
+- Rationale: both supported Tencent Cloud interaction modes now use their current documented protocols while preserving one provider-level configuration and the existing Host/Client ownership boundary.

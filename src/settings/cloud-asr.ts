@@ -13,16 +13,26 @@ export interface BailianSettings extends CloudAsrProviderSettings {
   host: string
 }
 
+export interface TencentSettings {
+  appId: string
+  secretId: string
+  secretKey: string
+  engineType: string
+  service: string
+}
+
 export interface CloudAsrSettings {
   groq: CloudAsrProviderSettings
   customOpenAi: CustomOpenAiSettings
   bailian: BailianSettings
+  tencent: TencentSettings
 }
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
   groq: Object.freeze({ apiKey: '', model: '' }),
   customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '' }),
-  bailian: Object.freeze({ apiKey: '', host: '', model: '' })
+  bailian: Object.freeze({ apiKey: '', host: '', model: '' }),
+  tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
 })
 
 export function isHttpEndpoint(value: string): boolean {
