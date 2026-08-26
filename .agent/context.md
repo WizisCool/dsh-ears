@@ -68,14 +68,15 @@ Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhis
 
 ### Cloud ASR
 
-A Host-side registry (`src/asr/providers.ts`) owns Groq, Bailian, Tencent Cloud, and Custom:
+A Host-side registry (`src/asr/providers.ts`) owns Groq, Deepgram, Bailian, Tencent Cloud, and Custom:
 
 - Groq: pinned OpenAI-compatible endpoint, live `GET {baseUrl}/models` listing, required inline key.
+- Deepgram: dedicated REST (`/v1/listen`) and streaming protocols at `api.deepgram.com` with `recording-file` and `realtime` services, `nova-3` default model, automatic language detection on pre-recorded audio (`detect_language=true`), and smart formatting.
 - Custom: user HTTP(S) `/audio/transcriptions` endpoint, `whisper-1` default.
 - Bailian (Alibaba Cloud Model Studio): DashScope sync `multimodal-generation` at `{origin}/api/v1/services/aigc/multimodal-generation/generation`. Qwen3-ASR-Flash and Fun-ASR-Flash / Qwen-Audio-3.0-ASR-Flash use different request shapes. Filetrans and realtime are not implemented. Recordings cap at 300 seconds.
 - Tencent Cloud: one provider entry with `recording-file` and `realtime` service choices. Standard recording uses the Host-side API 3.0 `CreateRecTask` and `DescribeTaskStatus` calls; realtime uses a Host-owned WebSocket session and browser PCM chunks. AppID, SecretID, SecretKey, engine type, audio payloads, and signing material stay inside the Host adapter.
 
-Each provider has its own write-only `role('secret')` key (D-023, D-032, D-040). The Host settings file groups them as `groq`, `customOpenAi`, `bailian`, and `tencent`. The plugin wire uses explicit per-provider fields, including `cloudAsrTencentSecretKey`; `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
+Each provider has its own write-only `role('secret')` key (D-023, D-032, D-040, D-043). The Host settings file groups them as `groq`, `deepgram`, `customOpenAi`, `bailian`, and `tencent`. The plugin wire uses explicit per-provider fields, including `cloudAsrDeepgramApiKey` and `cloudAsrTencentSecretKey`; `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
 
 This reverses D-014's dsh credential-reference model for the cloud ASR surface. LLM polishing still uses dsh-owned credentials.
 
