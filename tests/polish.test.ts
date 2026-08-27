@@ -4,6 +4,7 @@ import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
+import { transcribeMimoAsr } from '../src/asr/mimo-asr.js'
 import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
@@ -48,6 +49,11 @@ vi.mock('../src/asr/dashscope-asr.js', () => ({
 
 vi.mock('../src/asr/openai-compatible.js', () => ({
   transcribeOpenAICompatible: vi.fn()
+}))
+
+vi.mock('../src/asr/mimo-asr.js', () => ({
+  transcribeMimoAsr: vi.fn(),
+  mimoEndpoint: vi.fn((service: string) => service === 'token-plan' ? 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions' : 'https://api.xiaomimimo.com/v1/chat/completions')
 }))
 
 type FakeSettingsScope = {
@@ -394,7 +400,7 @@ describe('PolishService', () => {
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
+    await expect(service.listCloudProviderModels('groq', new AbortController().signal)).resolves.toEqual({
       status: 'error',
       models: [],
       error: 'Cloud model listing failed with HTTP 401',
@@ -402,7 +408,7 @@ describe('PolishService', () => {
       errorParams: { status: 401 }
     })
     await service.updateSettings({ cloudAsrGroqApiKey: 'gsk_new' }, new AbortController().signal)
-    await expect(service.listCloudProviderModels(new AbortController().signal)).resolves.toEqual({
+    await expect(service.listCloudProviderModels('groq', new AbortController().signal)).resolves.toEqual({
       status: 'ok',
       models: ['whisper-large-v3-turbo']
     })
@@ -706,6 +712,28 @@ describe('PolishService', () => {
     if (bailianService === undefined) throw new Error('Polish service is missing')
     await expect(bailianService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'dashscope result' })
     expect(dashscope).toHaveBeenCalledWith(expect.objectContaining({ language: 'ja', model: 'fun-asr-flash' }))
+
+    const mimo = vi.mocked(transcribeMimoAsr)
+    mimo.mockResolvedValue('mimo result')
+    const mimoContext = new Context()
+    mimoContext.provide('llm', {} as never)
+    mimoContext.provide('settings', {
+      writable: true,
+      register: () => createMutableSettingsScope({
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'mimo',
+        cloudAsrMimoApiKey: 'sk_test',
+        cloudAsrMimoService: 'api',
+        cloudAsrMimoModel: 'mimo-v2.5-asr',
+        cloudAsrMimoLanguage: 'zh'
+      })
+    } as never)
+    fibers.push(await mimoContext.plugin(PolishService))
+    const mimoService = mimoContext.get('dshEarsPolish')
+    if (mimoService === undefined) throw new Error('Polish service is missing')
+    await expect(mimoService.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'mimo result' })
+    expect(mimo).toHaveBeenCalledWith(expect.objectContaining({ language: 'zh', model: 'mimo-v2.5-asr', credential: 'sk_test' }))
   })
 
   it('does not cache a transient restart-required availability rejection', async () => {
