@@ -16,7 +16,7 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { CLOUD_ASR_PROVIDERS, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrBackendSelection, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
@@ -218,9 +218,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'mimo' || id === 'custom') {
-              props.edit('asrBackend', 'cloud-openai')
-              props.edit('cloudAsrProvider', id)
+            const selection = cloudAsrBackendSelection(id)
+            if (selection !== undefined) {
+              props.edit('asrBackend', selection.asrBackend)
+              props.edit('cloudAsrProvider', selection.cloudAsrProvider)
               return
             }
             props.edit('asrBackend', id)

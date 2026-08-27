@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, isHttpEndpoint } from '../src/config.js'
+import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_EARS_SETTINGS, isHttpEndpoint } from '../src/config.js'
 import {
   CLOUD_ASR_PROVIDERS,
   bailianGenerationUrl,
+  cloudAsrBackendSelection,
   cloudAsrCredentialFor,
   cloudAsrEndpointFor,
   cloudAsrModelFor,
@@ -35,6 +36,7 @@ describe('cloud ASR provider registry', () => {
   it('registers unique provider ids with the shared protocol', () => {
     const ids = CLOUD_ASR_PROVIDERS.map((entry) => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toEqual([...CLOUD_ASR_PROVIDER_IDS])
     expect(cloudProviderEntry('groq')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('deepgram')?.protocol).toBe('deepgram')
     expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
@@ -48,12 +50,21 @@ describe('cloud ASR provider registry', () => {
     expect(isKnownCloudProvider('unknown')).toBe(false)
   })
 
+  it('maps every registry provider to the cloud backend selection', () => {
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      expect(cloudAsrBackendSelection(entry.id)).toEqual({ asrBackend: 'cloud-openai', cloudAsrProvider: entry.id })
+    }
+    expect(cloudAsrBackendSelection('unknown')).toBeUndefined()
+  })
+
   it('pins the Groq transcription and listing base URL', () => {
     const groq = cloudProviderEntry('groq')
     expect(groq?.baseUrl).toBe('https://api.groq.com/openai/v1')
     expect(groq?.endpointEditable).toBe(false)
     expect(groq?.apiKeyRequired).toBe(true)
     expect(supportsModelListing('groq')).toBe(true)
+    expect(supportsModelListing('deepgram')).toBe(true)
+    expect(supportsModelListing('mimo')).toBe(false)
     expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'groq', cloudAsrCustomEndpoint: 'https://ignored.example.test' }))).toBe('https://api.groq.com/openai/v1/audio/transcriptions')
   })
 

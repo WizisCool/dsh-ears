@@ -203,7 +203,7 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     modelField: 'cloudAsrDeepgramModel',
     languageField: 'cloudAsrDeepgramLanguage',
     endpointKind: 'fixed',
-    modelStrategy: 'static',
+    modelStrategy: 'listing',
     realtime: true,
     baseUrl: 'https://api.deepgram.com/v1',
     defaultModel: DEEPGRAM_DEFAULT_MODEL,
@@ -306,6 +306,12 @@ export function cloudProviderEntry(id: string): CloudAsrProviderEntry | undefine
   return CLOUD_ASR_PROVIDERS.find((entry) => entry.id === id)
 }
 
+/** Translate a registry provider id into the flat backend selection used by the UI and Remote. */
+export function cloudAsrBackendSelection(providerId: string): { asrBackend: 'cloud-openai'; cloudAsrProvider: CloudAsrProviderId } | undefined {
+  const entry = cloudProviderEntry(providerId)
+  return entry === undefined ? undefined : { asrBackend: 'cloud-openai', cloudAsrProvider: entry.id }
+}
+
 export function isKnownCloudProvider(id: string): boolean {
   return cloudProviderEntry(id) !== undefined
 }
@@ -344,7 +350,8 @@ export function cloudAsrFieldValue(
 
 /** Whether the provider lists its models through `GET {baseUrl}/models`. */
 export function supportsModelListing(id: string): boolean {
-  return cloudProviderEntry(id)?.baseUrl !== undefined
+  const entry = cloudProviderEntry(id)
+  return entry?.modelStrategy === 'listing' && entry.baseUrl !== undefined
 }
 
 export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | CloudAsrSettingField>): string {

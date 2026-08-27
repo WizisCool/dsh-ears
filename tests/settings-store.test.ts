@@ -112,6 +112,26 @@ describe('canonical Host settings slots', () => {
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
   })
 
+  it('does not let versionless migration defaults mask nested or legacy provider data', () => {
+    const stored = normalizeStoredEarsSettings({
+      recognition: {
+        webSpeech: { language: 'en-US' },
+        localWhisper: { language: 'zh-CN' }
+      },
+      cloudAsr: {
+        groq: { language: 'en' }
+      },
+      deepgram: { apiKey: 'deepgram-test-key' },
+      mimo: { apiKey: 'mimo-test-key' }
+    })
+
+    expect(stored.recognition.webSpeech.language).toBe('en-US')
+    expect(stored.recognition.localWhisper.language).toBe('zh-CN')
+    expect(stored.cloudAsr.groq.language).toBe('en')
+    expect(stored.cloudAsr.deepgram.apiKey).toBe('deepgram-test-key')
+    expect(stored.cloudAsr.mimo.apiKey).toBe('mimo-test-key')
+  })
+
   it('normalizes unknown junk without attempting to rewrite a future schema', () => {
     const junk = { unrelated: true, nested: ['value'] }
     const normalized = normalizeStoredEarsSettings(junk)

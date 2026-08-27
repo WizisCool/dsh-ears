@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -111,11 +111,54 @@ async function stopServer(child) {
   if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
 }
 
+function peerDependencySpecs(manifest, dshVersion) {
+  return Object.keys(manifest.peerDependencies ?? {}).map((name) => {
+    if (name === '@deepseek-ai/cordis') return `${name}@4.0.1`
+    if (name === '@deepseek-ai/schemastery') return `${name}@3.18.1`
+    if (name.startsWith('@deepseek-ai/dsh-')) return `${name}@${dshVersion}`
+    if (name === 'react') return `${name}@18.3.1`
+    throw new Error(`compat smoke does not know how to pin peer dependency ${name}`)
+  })
+}
+
+async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env }) {
+  const manifest = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'))
+  await writeFile(join(smokeProject, 'package.json'), JSON.stringify({
+    name: 'dsh-ears-compat-smoke',
+    version: '0.0.0',
+    private: true
+  }, null, 2) + '\n')
+
+  const tarballName = `${String(manifest.name).replace(/^@/u, '').replaceAll('/', '-')}-${manifest.version}.tgz`
+  await runCommand(pnpm, ['pack', '--pack-destination', smokeProject], { cwd: projectRoot, env })
+  const tarball = join(smokeProject, tarballName)
+  const allowedBuilds = [
+    '@deepseek-ai/dsh-subprocess-local',
+    '@fugood/whisper.node',
+    '@google/genai',
+    'koffi',
+    'node-pty',
+    'protobufjs'
+  ]
+  const specs = [
+    `@deepseek-ai/dsh@${dshVersion}`,
+    ...peerDependencySpecs(manifest, dshVersion),
+    'react-dom@18.3.1',
+    tarball
+  ]
+  await runCommand(pnpm, ['add', '--ignore-workspace', '--save-exact', ...allowedBuilds.map((name) => `--allow-build=${name}`), ...specs], { cwd: smokeProject, env })
+  const pluginRoot = join(smokeProject, 'node_modules', manifest.name)
+  const installedManifest = JSON.parse(await readFile(join(pluginRoot, 'package.json'), 'utf8'))
+  if (installedManifest.version !== manifest.version) throw new Error(`compat smoke installed an unexpected plugin version: ${installedManifest.version}`)
+  return { manifest, pluginRoot }
+}
+
 /**
- * Exercise the real dsh CLI against a temporary profile: install this local
- * package, boot the web Host, serve the Client contribution, and invoke the
- * strict getSettings Remote endpoint. This is intentionally not called an
- * end-to-end ASR test; it does not contact an ASR provider or an LLM.
+ * Exercise the real dsh CLI against a temporary package project: pack this
+ * local package, install the target DSH peer family, boot the web Host, serve
+ * the Client contribution, and invoke the strict getSettings Remote endpoint.
+ * This is intentionally not called an end-to-end ASR test; it does not contact
+ * an ASR provider or an LLM.
  */
 export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion, pnpm = commandName() } = {}) {
   if (!VERIFIED_DSH_SMOKE_VERSIONS.includes(dshVersion)) {
@@ -123,12 +166,14 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
   }
 
   const smokeHome = await mkdtemp(join(tmpdir(), 'dsh-ears-compat-'))
+  const smokeProject = await mkdtemp(join(tmpdir(), 'dsh-ears-compat-project-'))
   const env = { ...process.env, DSH_HOME: smokeHome, CI: 'true' }
   let server
   try {
-    await runCommand(pnpm, ['dlx', '--yes', `@deepseek-ai/dsh@${dshVersion}`, 'plugin', '--profile', 'web', 'add', projectRoot], { cwd: projectRoot, env })
-    server = startServer(pnpm, ['dlx', '--yes', `@deepseek-ai/dsh@${dshVersion}`, 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'], {
-      cwd: projectRoot,
+    const prepared = await prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env })
+    await runCommand(pnpm, ['exec', 'dsh', 'plugin', '--profile', 'web', 'add', prepared.pluginRoot], { cwd: smokeProject, env })
+    server = startServer(pnpm, ['exec', 'dsh', 'web', '--no-open', '--host', '127.0.0.1', '--port', '0'], {
+      cwd: smokeProject,
       env,
       timeoutMs: 90_000
     })
@@ -163,6 +208,7 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     return { dshVersion, baseUrl, clientLoaded: true, settingsLoaded: true }
   } finally {
     if (server !== undefined) await stopServer(server.child)
+    await rm(smokeProject, { recursive: true, force: true })
     await rm(smokeHome, { recursive: true, force: true })
   }
 }

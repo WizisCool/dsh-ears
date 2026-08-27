@@ -66,6 +66,34 @@ describe('settings migrations', () => {
     expect(((migrated.cloudAsr as Record<string, unknown>).groq as Record<string, unknown>).language).toBe('')
   })
 
+  it('preserves versionless nested provider fields and legacy provider slots', () => {
+    const versionless = {
+      recognition: {
+        webSpeech: { language: 'en-US' },
+        localWhisper: { model: 'base', acceleration: 'cuda', language: 'zh-CN' }
+      },
+      cloudAsr: {
+        groq: { model: 'whisper-large-v3', language: 'en' },
+        customOpenAi: { endpoint: 'https://asr.example.test/transcriptions', language: 'ja' },
+        bailian: { host: 'https://dashscope.example.test', language: 'ko' }
+      },
+      deepgram: { apiKey: 'deepgram-test-key', model: 'nova-2', language: 'en-US', service: 'realtime' },
+      mimo: { apiKey: 'mimo-test-key', model: 'mimo-v2.5-asr', language: 'zh-CN', service: 'api', cluster: 'cn' }
+    }
+
+    const migrated = migrateSettingsToCurrent(versionless)
+    const recognition = migrated.recognition as Record<string, unknown>
+    const cloudAsr = migrated.cloudAsr as Record<string, unknown>
+
+    expect((recognition.webSpeech as Record<string, unknown>).language).toBe('en-US')
+    expect((recognition.localWhisper as Record<string, unknown>).language).toBe('zh-CN')
+    expect((cloudAsr.groq as Record<string, unknown>).language).toBe('en')
+    expect((cloudAsr.customOpenAi as Record<string, unknown>).language).toBe('ja')
+    expect((cloudAsr.bailian as Record<string, unknown>).language).toBe('ko')
+    expect(cloudAsr.deepgram).toMatchObject({ apiKey: 'deepgram-test-key', model: 'nova-2', language: 'en-US', service: 'realtime' })
+    expect(cloudAsr.mimo).toMatchObject({ apiKey: 'mimo-test-key', model: 'mimo-v2.5-asr', language: 'zh-CN', service: 'api', cluster: 'cn' })
+  })
+
   it('is idempotent for the current schema and conservative for future schemas', () => {
     const current = {
       schemaVersion: 4,

@@ -18,10 +18,15 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
     DEFAULT_RECOGNITION_SETTINGS.cloudProvider
   )
   const legacyModel = textAt(source, ['cloudAsrModel'])
+  const recognition = asRecord(source.recognition)
+  const localWhisper = firstRecord(recognition?.localWhisper, source.localWhisper)
+  const webSpeech = firstRecord(recognition?.webSpeech, source.webSpeech)
   const cloudAsr = asRecord(source.cloudAsr)
   const groq = firstRecord(cloudAsr?.groq, source.groq)
+  const deepgram = firstRecord(cloudAsr?.deepgram, source.deepgram)
   const customOpenAi = firstRecord(cloudAsr?.customOpenAi, cloudAsr?.custom, source.customOpenAi, source.custom)
   const bailian = firstRecord(cloudAsr?.bailian, source.bailian)
+  const mimo = firstRecord(cloudAsr?.mimo, source.mimo)
 
   return {
     ...source,
@@ -43,12 +48,17 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
       )
     },
     recognition: {
+      ...recognition,
       backend: firstNonEmpty(textAt(source, ['recognition', 'backend']), textAt(source, ['asrBackend']), DEFAULT_RECOGNITION_SETTINGS.backend),
       localWhisper: {
+        ...localWhisper,
         model: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'model']), textAt(source, ['localWhisperModel']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.model),
         acceleration: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'acceleration']), textAt(source, ['localWhisperAcceleration']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration)
       },
       cloudProvider: provider,
+      webSpeech: {
+        ...webSpeech
+      },
       language: firstDefinedText(textAt(source, ['recognition', 'language']), textAt(source, ['language'])) ?? '',
       maxRecordingSeconds: firstDefinedNumber(
         numberAt(source, ['recognition', 'maxRecordingSeconds']),
@@ -59,6 +69,7 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
     cloudAsr: {
       ...cloudAsr,
       groq: {
+        ...groq,
         apiKey: firstDefinedText(
           textAt(groq, ['apiKey']),
           textAt(source, ['cloudAsrApiKey']),
@@ -66,7 +77,14 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.groq.apiKey,
         model: firstDefinedText(textAt(groq, ['model']), textAt(source, ['cloudAsrGroqModel'])) ?? (provider === 'groq' ? legacyModel ?? '' : '')
       },
+      deepgram: {
+        ...deepgram,
+        apiKey: firstDefinedText(textAt(deepgram, ['apiKey']), textAt(source, ['cloudAsrDeepgramApiKey'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.apiKey,
+        model: firstDefinedText(textAt(deepgram, ['model']), textAt(source, ['cloudAsrDeepgramModel'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.model,
+        service: firstDefinedText(textAt(deepgram, ['service']), textAt(source, ['cloudAsrDeepgramService'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.deepgram.service
+      },
       customOpenAi: {
+        ...customOpenAi,
         apiKey: firstDefinedText(textAt(customOpenAi, ['apiKey']), textAt(source, ['cloudAsrCustomApiKey'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.customOpenAi.apiKey,
         endpoint: firstDefinedText(
           textAt(customOpenAi, ['endpoint']),
@@ -76,9 +94,17 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
         model: firstDefinedText(textAt(customOpenAi, ['model']), textAt(source, ['cloudAsrCustomModel'])) ?? (provider === 'custom' ? legacyModel ?? '' : '')
       },
       bailian: {
+        ...bailian,
         apiKey: firstDefinedText(textAt(bailian, ['apiKey']), textAt(source, ['cloudAsrBailianApiKey'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.bailian.apiKey,
         host: firstDefinedText(textAt(bailian, ['host']), textAt(source, ['cloudAsrBailianHost'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.bailian.host,
         model: firstDefinedText(textAt(bailian, ['model']), textAt(source, ['cloudAsrBailianModel'])) ?? (provider === 'bailian' ? legacyModel ?? '' : '')
+      },
+      mimo: {
+        ...mimo,
+        apiKey: firstDefinedText(textAt(mimo, ['apiKey']), textAt(source, ['cloudAsrMimoApiKey'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.apiKey,
+        service: firstDefinedText(textAt(mimo, ['service']), textAt(source, ['cloudAsrMimoService'])) ?? MIMO_ASR_DEFAULT_SERVICE,
+        cluster: firstDefinedText(textAt(mimo, ['cluster']), textAt(source, ['cloudAsrMimoCluster'])) ?? MIMO_ASR_DEFAULT_CLUSTER,
+        model: firstDefinedText(textAt(mimo, ['model']), textAt(source, ['cloudAsrMimoModel'])) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.model
       }
     },
     polishing: {
@@ -126,12 +152,12 @@ export function migrateV3ToV4(raw: unknown): SettingsMigrationRecord {
   const localWhisper = asRecord(recognition?.localWhisper)
   const webSpeech = asRecord(recognition?.webSpeech)
   const cloudAsr = asRecord(source.cloudAsr)
-  const groq = asRecord(cloudAsr?.groq)
-  const deepgram = asRecord(cloudAsr?.deepgram)
-  const customOpenAi = asRecord(cloudAsr?.customOpenAi ?? cloudAsr?.custom)
-  const bailian = asRecord(cloudAsr?.bailian)
-  const tencent = asRecord(cloudAsr?.tencent)
-  const mimo = asRecord(cloudAsr?.mimo)
+  const groq = firstRecord(cloudAsr?.groq, source.groq)
+  const deepgram = firstRecord(cloudAsr?.deepgram, source.deepgram)
+  const customOpenAi = firstRecord(cloudAsr?.customOpenAi, cloudAsr?.custom, source.customOpenAi, source.custom)
+  const bailian = firstRecord(cloudAsr?.bailian, source.bailian)
+  const tencent = firstRecord(cloudAsr?.tencent, source.tencent)
+  const mimo = firstRecord(cloudAsr?.mimo, source.mimo)
   const { language: _legacyLanguage, ...recognitionWithoutLanguage } = recognition ?? {}
 
   return {

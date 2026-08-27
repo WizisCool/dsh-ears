@@ -18,6 +18,15 @@ describe('release metadata check', () => {
 
   it('rejects a placeholder version or an empty release section', () => {
     expect(() => validateReleaseMetadata({ packageText: JSON.stringify({ version: '0.0.0-dev' }), changelogText })).toThrow(/concrete semver/)
+    expect(() => validateReleaseMetadata({ packageText: JSON.stringify({ version: '01.2.3' }), changelogText })).toThrow(/concrete semver/)
+    expect(() => validateReleaseMetadata({ packageText: JSON.stringify({ version: '1.2.3-.' }), changelogText })).toThrow(/concrete semver/)
     expect(() => validateReleaseMetadata({ packageText, changelogText: '# Changelog\n\n## [0.1.6] - 2026-08-27\n\n## [0.1.5] - 2026-08-26\n\nOlder notes' })).toThrow(/empty/)
+  })
+
+  it('accepts valid build metadata', () => {
+    const version = '1.2.3+build.7'
+    const packageWithBuild = JSON.stringify({ name: 'dsh-ears', version })
+    const changelogWithBuild = `# Changelog\n\n## [${version}]\n\nRelease notes\n`
+    expect(validateReleaseMetadata({ packageText: packageWithBuild, changelogText: changelogWithBuild, tag: `v${version}` })).toEqual({ version, tag: `v${version}` })
   })
 })

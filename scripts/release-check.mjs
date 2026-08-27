@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u
+const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u
 const CHANGELOG_HEADING = /^## \[([^\]]+)\](?:\s+-\s+[^\n]*)?$/gmu
 
 /**
@@ -23,7 +23,7 @@ export function validateReleaseMetadata({ packageText, changelogText, tag } = {}
   }
 
   const version = manifest?.version
-  if (typeof version !== 'string' || !SEMVER.test(version) || /^0\.0\.0(?:-|$)/u.test(version)) {
+  if (typeof version !== 'string' || !SEMVER.test(version) || /^0\.0\.0(?:[-+]|$)/u.test(version)) {
     throw new Error(`package.json version must be a concrete semver value, got ${JSON.stringify(version)}`)
   }
 

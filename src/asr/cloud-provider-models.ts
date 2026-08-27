@@ -6,7 +6,7 @@ const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 /** Fetch transcription-capable model IDs for a cloud provider. */
 export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, apiKey: string, signal: AbortSignal): Promise<string[]> {
-  if (entry.baseUrl === undefined) return entry.staticModels === undefined ? [] : [...entry.staticModels]
+  if (entry.modelStrategy !== 'listing' || entry.baseUrl === undefined) return entry.staticModels === undefined ? [] : [...entry.staticModels]
   const endpoint = `${entry.baseUrl.replace(/\/+$/, '')}/models`
   const headers: Record<string, string> = { accept: 'application/json' }
   const key = apiKey.trim()
