@@ -43,6 +43,7 @@ describe('canonical Host settings slots', () => {
       language: ''
     })
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
+    expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
     expect(stored.polishing).toEqual({
       enabled: false,
       provider: 'provider',
@@ -140,13 +141,19 @@ describe('canonical Host settings slots', () => {
     const next = applyFlatSettingsPatch(stored, {
       localWhisperAcceleration: 'cuda',
       cloudAsrGroqApiKey: 'gsk_new',
-      cloudAsrCustomApiKey: 'sk_custom'
+      cloudAsrCustomApiKey: 'sk_custom',
+      cloudAsrMimoApiKey: 'mimo_secret',
+      cloudAsrMimoService: 'token-plan',
+      cloudAsrMimoCluster: 'sgp'
     })
 
     expect(next.recognition.localWhisper.acceleration).toBe('cuda')
     expect(next.cloudAsr.groq.apiKey).toBe('gsk_new')
     expect(next.cloudAsr.customOpenAi.apiKey).toBe('sk_custom')
     expect(next.cloudAsr.bailian.apiKey).toBe('')
+    expect(next.cloudAsr.mimo.apiKey).toBe('mimo_secret')
+    expect(next.cloudAsr.mimo.service).toBe('token-plan')
+    expect(next.cloudAsr.mimo.cluster).toBe('sgp')
   })
 
   it('keeps explicit V2 empty secrets and values from being resurrected by legacy aliases', () => {

@@ -49,6 +49,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-041 | Tencent Cloud standard and realtime recognition | Accepted |
 | D-042 | Per-provider recognition language | Accepted. Supersedes the D-028 recognition-language row placement and the D-032 shared-row reference. |
 | D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
+| D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Accepted |
 
 ## D-001 — Project identity
 
@@ -397,3 +398,14 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: `realtime` establishes a Host-managed duplex WebSocket connection to the Deepgram streaming endpoint with raw linear16 16kHz mono audio. Streaming does not support `detect_language=true` (Deepgram API restricts language detection to pre-recorded audio), so empty language omits the parameter while explicit language appends `language=<lang>`. The Host buffers interim and final results, merges segments using CJK-aware spacing (`joinSpacedSegments`), and exposes incremental text to the browser client through standard Realtime RPC.
 - Decision: Deepgram API key is managed as a Schemastery `role('secret')` field under `cloudAsr.deepgram.apiKey`, mapped to `cloudAsrDeepgramApiKey` on the flat Remote wire. The browser never receives the secret key.
 - Rationale: Deepgram's REST and streaming protocols require proprietary endpoints and payload shapes that differ from OpenAI-compatible and DashScope adapters. Reusing the dual-service pattern established by Tencent Cloud (D-041) allows users to choose between high-accuracy one-shot recording transcription and low-latency realtime live recognition under a single unified provider configuration.
+
+## D-044 — Xiaomi MiMo cloud ASR with API and Token Plan access
+
+- Status: accepted (2026-08-28).
+- Decision: add Xiaomi MiMo (`mimo`) as a first-class cloud ASR provider with protocol `'mimo'`, default model `mimo-v2.5-asr`, and two selectable access methods: `api` (standard platform API, `https://api.xiaomimimo.com/v1`) and `token-plan` (Token Plan subscription, OpenAI-compatible endpoint).
+- Decision: Token Plan supports three regional clusters configured via `cloudAsrMimoCluster`: `cn` (China, `https://token-plan-cn.xiaomimimo.com/v1`), `sgp` (Singapore, `https://token-plan-sgp.xiaomimimo.com/v1`), and `ams` (Europe/Amsterdam, `https://token-plan-ams.xiaomimimo.com/v1`). Default cluster is `cn`. The Host derives the transcription endpoint by appending `/chat/completions`.
+- Decision: MiMo ASR uses the multimodal Chat Completions protocol (`messages[].content[].type = "input_audio"` with base64 data URL and format `wav`). Audio input is restricted by MiMo to WAV and MP3; the browser converts captured audio to mono 16 kHz PCM16 WAV before the final Host RPC (matching the Tencent Cloud audio path in `local-whisper-audio.ts`).
+- Decision: recognition language follows D-042: stored under `cloudAsr.mimo.language` (flat wire `cloudAsrMimoLanguage`), empty field defaults to `auto`, and explicit inputs support `zh` and `en`.
+- Decision: API Key validation follows D-024 (per-field independent validation without cross-field deadlocks). The UI surfaces guidance hints for key formats (`sk-...` for API, `tp-...` for Token Plan) without hard-blocking or cross-field auto-switching.
+- Decision: the secret key is stored under `cloudAsr.mimo.apiKey` as a Schemastery `role('secret')` field and masked across the Remote boundary (`cloudAsrMimoApiKeyConfigured: boolean`).
+- Rationale: MiMo provides flagship transcription performance with cost-effective Token Plan tiers. Unifying API and Token Plan access under a single `mimo` provider preserves a clean top-level provider list while giving users full access to regional Token Plan clusters.

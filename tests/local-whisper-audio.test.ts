@@ -64,6 +64,15 @@ describe('prepareRecordedAudioForBackend', () => {
     })
     expect(tencent.mimeType).toBe('audio/wav')
 
+    const mimo = await prepareRecordedAudioForBackend('cloud-openai', raw, {
+      cloudProvider: 'mimo',
+      createAudioContext: () => ({
+        decodeAudioData: async () => audioBuffer([Float32Array.from([0])]),
+        close: async () => undefined
+      })
+    })
+    expect(mimo.mimeType).toBe('audio/wav')
+
     const local = await prepareRecordedAudioForBackend('local-whisper', raw, {
       createAudioContext: () => ({
         decodeAudioData: async () => audioBuffer([Float32Array.from([0])]),

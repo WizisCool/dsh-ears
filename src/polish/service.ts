@@ -13,6 +13,7 @@ import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
+import { transcribeMimoAsr } from '../asr/mimo-asr.js'
 import { TencentRealtimeAsrSession, transcribeTencentCloudRecording } from '../asr/tencent-cloud-asr.js'
 import { DeepgramRealtimeAsrSession, transcribeDeepgramAsr } from '../asr/deepgram-asr.js'
 import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
@@ -92,6 +93,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrCustomApiKeyConfigured: false,
         cloudAsrBailianApiKeyConfigured: false,
         cloudAsrTencentSecretKeyConfigured: false,
+        cloudAsrMimoApiKeyConfigured: false,
         localWhisperAccelerations: [...this.whisperCapabilities.available],
         overridden: []
       }
@@ -110,13 +112,15 @@ export class PolishService extends TypertRemoteService {
         cloudAsrDeepgramApiKey: '',
         cloudAsrCustomApiKey: '',
         cloudAsrBailianApiKey: '',
-        cloudAsrTencentSecretKey: ''
+        cloudAsrTencentSecretKey: '',
+        cloudAsrMimoApiKey: ''
       },
       cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
       cloudAsrDeepgramApiKeyConfigured: snapshot.cloudAsrDeepgramApiKey.trim() !== '',
       cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
       cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
       cloudAsrTencentSecretKeyConfigured: snapshot.cloudAsrTencentSecretKey.trim() !== '',
+      cloudAsrMimoApiKeyConfigured: snapshot.cloudAsrMimoApiKey.trim() !== '',
       localWhisperAccelerations: [...this.whisperCapabilities.available],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
@@ -204,11 +208,11 @@ export class PolishService extends TypertRemoteService {
     ]
   }
 
-  async listCloudProviderModels(signal: AbortSignal): Promise<CloudProviderModelsView> {
+  async listCloudProviderModels(provider: string, signal: AbortSignal): Promise<CloudProviderModelsView> {
     const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : this.readSettingsSnapshot().settings
-    const entry = cloudProviderEntry(settings.cloudAsrProvider)
+    const entry = cloudProviderEntry(provider)
     if (entry === undefined || entry.baseUrl === undefined) return { status: 'unsupported' }
-    const key = cloudAsrCredentialFor(settings)
+    const key = cloudAsrCredentialFor({ ...settings, cloudAsrProvider: provider })
     if (key === '') return { status: 'no-key' }
     signal.throwIfAborted()
     const now = Date.now()
@@ -353,6 +357,19 @@ export class PolishService extends TypertRemoteService {
           audio,
           mimeType,
           language: settings.cloudAsrBailianLanguage,
+          endpoint,
+          model,
+          credential,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
+      if (providerEntry.protocol === 'mimo') {
+        const text = await transcribeMimoAsr({
+          audio,
+          mimeType,
+          language: settings.cloudAsrMimoLanguage,
           endpoint,
           model,
           credential,
