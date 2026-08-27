@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -41,6 +41,9 @@ export const earsSettingsSchema = z.object({
   cloudAsrMimoCluster: z.string().default(MIMO_ASR_DEFAULT_CLUSTER),
   cloudAsrMimoModel: z.string().default(MIMO_DEFAULT_MODEL),
   cloudAsrMimoLanguage: z.string().default(''),
+  cloudAsrSiliconFlowApiKey: z.string().default(''),
+  cloudAsrSiliconFlowModel: z.string().default(SILICONFLOW_DEFAULT_MODEL),
+  cloudAsrSiliconFlowLanguage: z.string().default(''),
   maxRecordingSeconds: z.number(),
   voiceShortcutEnabled: z.boolean(),
   voiceShortcut: z.string(),
@@ -85,6 +88,9 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrMimoCluster: z.enum(MIMO_ASR_CLUSTERS).optional(),
   cloudAsrMimoModel: z.string().optional(),
   cloudAsrMimoLanguage: z.string().optional(),
+  cloudAsrSiliconFlowApiKey: z.string().max(1024).optional(),
+  cloudAsrSiliconFlowModel: z.string().optional(),
+  cloudAsrSiliconFlowLanguage: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
   voiceShortcut: z.string().optional(),
@@ -107,6 +113,7 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   cloudAsrTencentSecretKeyConfigured: z.boolean(),
   cloudAsrMimoApiKeyConfigured: z.boolean().default(false),
+  cloudAsrSiliconFlowApiKeyConfigured: z.boolean().default(false),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
@@ -222,6 +229,7 @@ export type EarsSettingsView = {
   cloudAsrBailianApiKeyConfigured: boolean
   cloudAsrTencentSecretKeyConfigured: boolean
   cloudAsrMimoApiKeyConfigured: boolean
+  cloudAsrSiliconFlowApiKeyConfigured: boolean
   localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }

@@ -9,6 +9,7 @@ import {
   DeepgramIcon,
   GroqIcon,
   OpenAiIcon,
+  SiliconFlowIcon,
   TencentCloudIcon,
   XiaomiMimoIcon
 } from './provider-icons.js'
@@ -56,6 +57,9 @@ interface EarsSettingsSectionProps {
   readonly setMimoApiKey: (text: string) => void
   readonly clearMimoApiKey: () => void
   readonly undoClearMimoApiKey: () => void
+  readonly setSiliconFlowApiKey: (text: string) => void
+  readonly clearSiliconFlowApiKey: () => void
+  readonly undoClearSiliconFlowApiKey: () => void
   readonly flush: () => void
   readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
@@ -129,6 +133,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { id: 'bailian', label: t('bailianProvider'), icon: <AlibabaCloudIcon /> },
     { id: 'tencent', label: t('tencentProvider'), icon: <TencentCloudIcon /> },
     { id: 'mimo', label: t('mimoProvider'), icon: <XiaomiMimoIcon /> },
+    { id: 'siliconflow', label: t('siliconflowProvider'), icon: <SiliconFlowIcon /> },
     { id: 'custom', label: t('customProvider'), icon: <OpenAiIcon /> }
   ]
   const tabs: Array<{ id: 'general' | 'recognition' | 'polishing' | 'about'; label: string }> = [
@@ -183,7 +188,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'mimo' || id === 'custom') {
+            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'mimo' || id === 'siliconflow' || id === 'custom') {
               props.edit('asrBackend', 'cloud-openai')
               props.edit('cloudAsrProvider', id)
               return
@@ -244,6 +249,10 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <KeyRow label={t('cloudKey')} hint={t('mimoApiKeyHint')} value={state.cloudAsrMimoApiKey.text} configured={state.cloudAsrMimoApiKeyConfigured} clearPending={state.cloudAsrMimoApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrMimoApiKey.invalid} onEdit={props.setMimoApiKey} onClear={props.clearMimoApiKey} onUndoClear={props.undoClearMimoApiKey} onBlur={props.flush} t={t} />
             <TextRow label={t('cloudModel')} hint={t('mimoModelHint')} value={state.cloudAsrMimoModel.text} disabled={!state.writable} invalid={state.cloudAsrMimoModel.invalid} onChange={(event) => props.edit('cloudAsrMimoModel', event.target.value)} onBlur={props.flush} />
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrMimoLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrMimoLanguage.invalid} onChange={(event) => props.edit('cloudAsrMimoLanguage', event.target.value)} onBlur={props.flush} />
+          </> : state.cloudAsrProvider.text === 'siliconflow' ? <>
+            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrSiliconFlowApiKey.text} configured={state.cloudAsrSiliconFlowApiKeyConfigured} clearPending={state.cloudAsrSiliconFlowApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrSiliconFlowApiKey.invalid} onEdit={props.setSiliconFlowApiKey} onClear={props.clearSiliconFlowApiKey} onUndoClear={props.undoClearSiliconFlowApiKey} onBlur={props.flush} t={t} />
+            <CloudModelRow label={t('cloudModel')} value={state.cloudAsrSiliconFlowModel.text} models={cloudModels} disabled={!state.writable} hintKey="cloudModelSiliconflowHint" onChange={(value) => props.edit('cloudAsrSiliconFlowModel', value)} onRetry={props.retryCloudModels} t={t} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrSiliconFlowLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrSiliconFlowLanguage.invalid} onChange={(event) => props.edit('cloudAsrSiliconFlowLanguage', event.target.value)} onBlur={props.flush} />
           </> : <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrCustomEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrCustomEndpoint.invalid} onChange={(event) => props.edit('cloudAsrCustomEndpoint', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrCustomApiKey.text} configured={state.cloudAsrCustomApiKeyConfigured} clearPending={state.cloudAsrCustomApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrCustomApiKey.invalid} onEdit={props.setCustomApiKey} onClear={props.clearCustomApiKey} onUndoClear={props.undoClearCustomApiKey} onBlur={props.flush} t={t} />
@@ -543,9 +552,9 @@ function KeyRow({ label, hint, value, configured, clearPending, disabled, invali
   )
 }
 
-function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; onChange: (value: string) => void; onRetry: () => void; t: Translate }) {
+function CloudModelRow({ label, value, models, disabled, onChange, onRetry, hintKey = 'cloudModelGroqHint', t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; onChange: (value: string) => void; onRetry: () => void; hintKey?: 'cloudModelGroqHint' | 'cloudModelSiliconflowHint'; t: Translate }) {
   if (models.status === 'loading') {
-    return <RowField label={label} hint={t('loadingModels')} invalid={false}><div className={styles.rowDescInline}><span className={styles.spinner} aria-hidden="true" /><span>{t('loadingModels')}</span></div></RowField>
+    return <RowField label={label} hint={t('loadingCloudModels')} invalid={false}><div className={styles.rowDescInline}><span className={styles.spinner} aria-hidden="true" /><span>{t('loadingCloudModels')}</span></div></RowField>
   }
   const view = models.view
   if (view.status === 'error') {
@@ -564,7 +573,7 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   const noModels = view.status !== 'ok' || options.length === 0
   return (
     <>
-      <SelectRow label={label} hint={t('cloudModelGroqHint')} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled || noModels} invalid={false} onChange={onChange} />
+      <SelectRow label={label} hint={t(hintKey)} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled || noModels} invalid={false} onChange={onChange} />
       {stale ? <p className={styles.statusError}>{t('cloudModelStale')}</p> : null}
     </>
   )
@@ -764,6 +773,7 @@ function backendHint(backend: string, provider: string, t: Translate): string {
     if (provider === 'bailian') return t('backendHintBailian')
     if (provider === 'tencent') return t('backendHintTencent')
     if (provider === 'mimo') return t('backendHintMimo')
+    if (provider === 'siliconflow') return t('backendHintSiliconflow')
     return t('backendHintCustom')
   }
   return t('backendHintWebSpeech')

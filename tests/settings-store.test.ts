@@ -16,6 +16,9 @@ describe('canonical Host settings slots', () => {
       cloudAsrBailianApiKey: 'sk_bailian',
       cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
       cloudAsrBailianModel: 'fun-asr-flash',
+      cloudAsrSiliconFlowApiKey: 'sk_siliconflow',
+      cloudAsrSiliconFlowModel: 'Qwen/Qwen3-ASR-1.7B',
+      cloudAsrSiliconFlowLanguage: 'zh',
       polishProvider: 'provider',
       polishModel: 'model',
       polishPrompt: 'Keep it short.'
@@ -44,6 +47,7 @@ describe('canonical Host settings slots', () => {
     })
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
+    expect(stored.cloudAsr.siliconflow).toEqual({ apiKey: 'sk_siliconflow', model: 'Qwen/Qwen3-ASR-1.7B', language: 'zh' })
     expect(stored.polishing).toEqual({
       enabled: false,
       provider: 'provider',
@@ -144,7 +148,9 @@ describe('canonical Host settings slots', () => {
       cloudAsrCustomApiKey: 'sk_custom',
       cloudAsrMimoApiKey: 'sk_mimo',
       cloudAsrMimoService: 'token-plan',
-      cloudAsrMimoCluster: 'sgp'
+      cloudAsrMimoCluster: 'sgp',
+      cloudAsrSiliconFlowApiKey: 'sk_sf',
+      cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall'
     })
 
     expect(next.recognition.localWhisper.acceleration).toBe('cuda')
@@ -154,6 +160,8 @@ describe('canonical Host settings slots', () => {
     expect(next.cloudAsr.mimo.apiKey).toBe('sk_mimo')
     expect(next.cloudAsr.mimo.service).toBe('token-plan')
     expect(next.cloudAsr.mimo.cluster).toBe('sgp')
+    expect(next.cloudAsr.siliconflow.apiKey).toBe('sk_sf')
+    expect(next.cloudAsr.siliconflow.model).toBe('FunAudioLLM/SenseVoiceSmall')
   })
 
   it('keeps explicit V2 empty secrets and values from being resurrected by legacy aliases', () => {
@@ -213,12 +221,13 @@ describe('canonical Host settings slots', () => {
     expect(flattenOverriddenSettings({
       general: { shortcut: { value: 'ctrl+a' } },
       recognition: { localWhisper: { acceleration: 'cuda' }, webSpeech: { language: 'en-US' } },
-      cloudAsr: { groq: {} },
+      cloudAsr: { groq: {}, siliconflow: {} },
       tencent: { appId: '1250000000', secretId: 'AKIDexample', secretKey: 'secret-placeholder', engineType: '16k_zh', service: 'realtime' },
       polishing: { prompt: '' }
     }, [
       { path: ['cloudAsr', 'groq', 'apiKey'], set: true },
-      { path: ['cloudAsr', 'customOpenAi', 'apiKey'], set: false }
+      { path: ['cloudAsr', 'customOpenAi', 'apiKey'], set: false },
+      { path: ['cloudAsr', 'siliconflow', 'apiKey'], set: true }
     ])).toEqual([
       'voiceShortcut',
       'webSpeechLanguage',
@@ -229,7 +238,8 @@ describe('canonical Host settings slots', () => {
       'cloudAsrTencentSecretKey',
       'cloudAsrTencentEngineType',
       'cloudAsrTencentService',
-      'cloudAsrGroqApiKey'
+      'cloudAsrGroqApiKey',
+      'cloudAsrSiliconFlowApiKey'
     ])
   })
 })

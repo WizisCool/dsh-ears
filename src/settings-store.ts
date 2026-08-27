@@ -57,6 +57,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
 
   const mimoSlot = asRecord(cloudAsr?.mimo)
   const mimoLegacy = asRecord(record.mimo)
+  const siliconflowSlot = asRecord(cloudAsr?.siliconflow)
+  const siliconflowLegacy = asRecord(record.siliconflow)
   const mimoService = normalizeMimoService(firstDefinedText(
     ownText(mimoSlot, 'service'),
     ownText(mimoLegacy, 'service'),
@@ -99,6 +101,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
     ownText(mimoLegacy, 'model'),
     ownText(record, 'cloudAsrMimoModel')
   ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.model
+  const siliconflowModel = firstDefinedText(
+    ownText(siliconflowSlot, 'model'),
+    ownText(siliconflowLegacy, 'model'),
+    ownText(record, 'cloudAsrSiliconFlowModel')
+  ) ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.model
 
   return {
     schemaVersion: EARS_SETTINGS_SCHEMA_VERSION,
@@ -248,6 +255,19 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(mimoLegacy, 'language'),
           ownText(record, 'cloudAsrMimoLanguage')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.language
+      },
+      siliconflow: {
+        apiKey: firstDefinedText(
+          ownText(siliconflowSlot, 'apiKey'),
+          ownText(siliconflowLegacy, 'apiKey'),
+          ownText(record, 'cloudAsrSiliconFlowApiKey')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.apiKey,
+        model: siliconflowModel,
+        language: firstDefinedText(
+          ownText(siliconflowSlot, 'language'),
+          ownText(siliconflowLegacy, 'language'),
+          ownText(record, 'cloudAsrSiliconFlowLanguage')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.language
       }
     },
     polishing: {
@@ -310,6 +330,9 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     cloudAsrMimoCluster: stored.cloudAsr.mimo.cluster,
     cloudAsrMimoModel: stored.cloudAsr.mimo.model,
     cloudAsrMimoLanguage: stored.cloudAsr.mimo.language,
+    cloudAsrSiliconFlowApiKey: stored.cloudAsr.siliconflow.apiKey,
+    cloudAsrSiliconFlowModel: stored.cloudAsr.siliconflow.model,
+    cloudAsrSiliconFlowLanguage: stored.cloudAsr.siliconflow.language,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
     voiceShortcut: stored.general.shortcut.value,
@@ -384,6 +407,11 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         cluster: normalizeMimoCluster(settings.cloudAsrMimoCluster),
         model: settings.cloudAsrMimoModel,
         language: settings.cloudAsrMimoLanguage
+      },
+      siliconflow: {
+        apiKey: settings.cloudAsrSiliconFlowApiKey,
+        model: settings.cloudAsrSiliconFlowModel,
+        language: settings.cloudAsrSiliconFlowLanguage
       }
     },
     polishing: {
@@ -431,6 +459,9 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
     cloudAsrMimoCluster: ['cloudAsr', 'mimo', 'cluster'],
     cloudAsrMimoModel: ['cloudAsr', 'mimo', 'model'],
     cloudAsrMimoLanguage: ['cloudAsr', 'mimo', 'language'],
+    cloudAsrSiliconFlowApiKey: ['cloudAsr', 'siliconflow', 'apiKey'],
+    cloudAsrSiliconFlowModel: ['cloudAsr', 'siliconflow', 'model'],
+    cloudAsrSiliconFlowLanguage: ['cloudAsr', 'siliconflow', 'language'],
     voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
     voiceShortcut: ['general', 'shortcut', 'value'],
     voiceSoundsEnabled: ['general', 'soundsEnabled'],
@@ -548,6 +579,9 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
     { path: ['cloudAsr', 'mimo', 'model'], field: 'cloudAsrMimoModel' },
     { path: ['cloudAsr', 'mimo', 'language'], field: 'cloudAsrMimoLanguage' },
+    { path: ['cloudAsr', 'siliconflow', 'apiKey'], field: 'cloudAsrSiliconFlowApiKey' },
+    { path: ['cloudAsr', 'siliconflow', 'model'], field: 'cloudAsrSiliconFlowModel' },
+    { path: ['cloudAsr', 'siliconflow', 'language'], field: 'cloudAsrSiliconFlowLanguage' },
     { path: ['polishing', 'enabled'], field: 'polishingEnabled' },
     { path: ['polishing', 'provider'], field: 'polishProvider' },
     { path: ['polishing', 'model'], field: 'polishModel' },
@@ -573,6 +607,9 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
     { path: ['mimo', 'model'], field: 'cloudAsrMimoModel' },
     { path: ['mimo', 'language'], field: 'cloudAsrMimoLanguage' },
+    { path: ['siliconflow', 'apiKey'], field: 'cloudAsrSiliconFlowApiKey' },
+    { path: ['siliconflow', 'model'], field: 'cloudAsrSiliconFlowModel' },
+    { path: ['siliconflow', 'language'], field: 'cloudAsrSiliconFlowLanguage' },
     { path: ['bailian', 'host'], field: 'cloudAsrBailianHost' },
     { path: ['bailian', 'model'], field: 'cloudAsrBailianModel' },
     { path: ['recognition', 'localWhisperAcceleration'], field: 'localWhisperAcceleration' }
@@ -589,12 +626,14 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    { path: ['cloudAsr', 'siliconflow', 'apiKey'], field: 'cloudAsrSiliconFlowApiKey' },
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' }
+    { path: ['mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    { path: ['siliconflow', 'apiKey'], field: 'cloudAsrSiliconFlowApiKey' }
   ]
   for (const secret of secrets) {
     if (!secret.set) continue
@@ -658,6 +697,9 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
     && hasPath(record, ['cloudAsr', 'mimo', 'cluster'])
     && hasPath(record, ['cloudAsr', 'mimo', 'model'])
     && hasPath(record, ['cloudAsr', 'mimo', 'language'])
+    && hasPath(record, ['cloudAsr', 'siliconflow', 'apiKey'])
+    && hasPath(record, ['cloudAsr', 'siliconflow', 'model'])
+    && hasPath(record, ['cloudAsr', 'siliconflow', 'language'])
     && hasPath(record, ['polishing', 'enabled'])
     && hasPath(record, ['polishing', 'provider'])
     && hasPath(record, ['polishing', 'model'])

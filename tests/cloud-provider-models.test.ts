@@ -19,6 +19,12 @@ function deepgramEntry() {
   return entry
 }
 
+function siliconflowEntry() {
+  const entry = cloudProviderEntry('siliconflow')
+  if (entry === undefined) throw new Error('SiliconFlow provider entry is missing')
+  return entry
+}
+
 describe('cloud provider model listing', () => {
   it('lists models with a bearer header and applies the registry filter', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
@@ -32,8 +38,8 @@ describe('cloud provider model listing', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(fetchCloudProviderModels(groqEntry(), ' gsk_test ', new AbortController().signal)).resolves.toEqual([
-      'whisper-large-v3-turbo',
-      'whisper-large-v3'
+      'whisper-large-v3',
+      'whisper-large-v3-turbo'
     ])
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.groq.com/openai/v1/models',
@@ -44,6 +50,29 @@ describe('cloud provider model listing', () => {
   it('answers from static models when the provider has no listing endpoint', async () => {
     const entry = { ...groqEntry(), baseUrl: undefined, staticModels: ['static-whisper'] }
     await expect(fetchCloudProviderModels(entry, 'gsk_test', new AbortController().signal)).resolves.toEqual(['static-whisper'])
+  })
+
+  it('lists SiliconFlow models with the sub_type speech-to-text query', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      data: [
+        { id: 'FunAudioLLM/SenseVoiceSmall' },
+        { id: 'Qwen/Qwen3-ASR-1.7B' },
+        { id: 'XingChenAGI/XingChenASR-V3.2' },
+        { id: 'XingChenAGI/XingChenASR-Diarize-V3.0' }
+      ]
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const models = await fetchCloudProviderModels(siliconflowEntry(), 'sk_test', new AbortController().signal)
+    expect(models).toEqual(['FunAudioLLM/SenseVoiceSmall', 'Qwen/Qwen3-ASR-1.7B', 'XingChenAGI/XingChenASR-Diarize-V3.0', 'XingChenAGI/XingChenASR-V3.2'])
+    const calledUrl = fetchMock.mock.calls[0][0] as string
+    const url = new URL(calledUrl)
+    expect(url.origin + url.pathname).toBe('https://api.siliconflow.cn/v1/models')
+    expect(url.searchParams.get('sub_type')).toBe('speech-to-text')
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('sub_type=speech-to-text'),
+      expect.objectContaining({ headers: { accept: 'application/json', authorization: 'Bearer sk_test' } })
+    )
   })
 
   it('lists Deepgram models with Token authorization and scientific filtering/ranking', async () => {
@@ -63,14 +92,14 @@ describe('cloud provider model listing', () => {
 
     const models = await fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)
     expect(models).toEqual([
-      'nova-3',
-      'nova-3-general',
-      'nova-3-medical',
+      'enhanced',
+      'enhanced-general',
       'nova-2',
       'nova-2-general',
       'nova-2-meeting',
-      'enhanced',
-      'enhanced-general',
+      'nova-3',
+      'nova-3-general',
+      'nova-3-medical',
       'whisper-large'
     ])
     expect(fetchMock).toHaveBeenCalledWith(

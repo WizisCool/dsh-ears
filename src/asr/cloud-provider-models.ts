@@ -7,7 +7,7 @@ const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 /** Fetch transcription-capable model IDs for a cloud provider. */
 export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, apiKey: string, signal: AbortSignal): Promise<string[]> {
   if (entry.baseUrl === undefined) return entry.staticModels === undefined ? [] : [...entry.staticModels]
-  const endpoint = `${entry.baseUrl.replace(/\/+$/, '')}/models`
+  const endpoint = modelListingEndpoint(entry)
   const headers: Record<string, string> = { accept: 'application/json' }
   const key = apiKey.trim()
   if (key !== '') {
@@ -38,7 +38,7 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
         if (!isRecord(parsed) || !Array.isArray(parsed.stt)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
         const models = filterDeepgramModels(parsed.stt)
         if (models.length === 0) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
-        return models
+        return sortModels(models)
       }
 
       if (!isRecord(parsed) || !Array.isArray(parsed.data)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Cloud model listing returned no models')
@@ -51,7 +51,7 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
         if (entry.modelFilter !== undefined && !entry.modelFilter.test(id)) continue
         models.push(id)
       }
-      return models
+      return sortModels(models)
     } catch (error) {
       if (timedOut && !signal.aborted) throw new EarsError(EARS_ERROR_CODES.cloudModelsTimedOut, 'Cloud model listing timed out')
       throw error
@@ -143,4 +143,17 @@ export function filterDeepgramModels(stt: unknown[]): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Case-insensitive A→Z sort so a fetched model list reads in a natural order. */
+function sortModels(models: readonly string[]): string[] {
+  return [...models].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+}
+
+function modelListingEndpoint(entry: CloudAsrProviderEntry): string {
+  const base = `${entry.baseUrl?.replace(/\/+$/, '') ?? ''}/models`
+  if (entry.modelQuery === undefined) return base
+  const url = new URL(base)
+  for (const [key, value] of Object.entries(entry.modelQuery)) url.searchParams.set(key, value)
+  return url.toString()
 }

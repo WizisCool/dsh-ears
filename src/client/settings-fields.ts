@@ -4,11 +4,12 @@ import { shortcutRejectReason } from '../shortcut.js'
 
 export type FieldName = keyof EarsSettings
 
-export function cloudAsrModelField(provider: string): 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel' {
+export function cloudAsrModelField(provider: string): 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel' | 'cloudAsrSiliconFlowModel' {
   if (provider === 'deepgram') return 'cloudAsrDeepgramModel'
   if (provider === 'bailian') return 'cloudAsrBailianModel'
   if (provider === 'tencent') return 'cloudAsrTencentEngineType'
   if (provider === 'mimo') return 'cloudAsrMimoModel'
+  if (provider === 'siliconflow') return 'cloudAsrSiliconFlowModel'
   if (provider === 'custom') return 'cloudAsrCustomModel'
   return 'cloudAsrGroqModel'
 }
@@ -25,7 +26,7 @@ export function isSettingsFieldInvalid(field: FieldName, text: string): boolean 
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperAcceleration') return !(WHISPER_ACCELERATION_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrProvider') return !(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(text)
-  if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrDeepgramApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey' || field === 'cloudAsrMimoApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
+  if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrDeepgramApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey' || field === 'cloudAsrMimoApiKey' || field === 'cloudAsrSiliconFlowApiKey') return text.length > MAX_CLOUD_API_KEY_LENGTH
   if (field === 'cloudAsrCustomEndpoint') {
     if (text.trim() === '') return false
     return !isHttpEndpoint(text)
@@ -38,7 +39,7 @@ export function isSettingsFieldInvalid(field: FieldName, text: string): boolean 
   if (field === 'cloudAsrDeepgramService') return !(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrMimoService') return !(MIMO_ASR_SERVICE_IDS as readonly string[]).includes(text)
   if (field === 'cloudAsrMimoCluster') return !(MIMO_ASR_CLUSTERS as readonly string[]).includes(text)
-  if (field === 'cloudAsrGroqModel' || field === 'cloudAsrDeepgramModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentAppId' || field === 'cloudAsrTencentSecretId' || field === 'cloudAsrTencentEngineType' || field === 'cloudAsrMimoModel') return false
+  if (field === 'cloudAsrGroqModel' || field === 'cloudAsrDeepgramModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentAppId' || field === 'cloudAsrTencentSecretId' || field === 'cloudAsrTencentEngineType' || field === 'cloudAsrMimoModel' || field === 'cloudAsrSiliconFlowModel') return false
   if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort' || field === 'polishPrompt') {
     if (field === 'polishPrompt') return text.trim().length > MAX_POLISH_PROMPT_LENGTH
     return false

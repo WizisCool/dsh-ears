@@ -107,6 +107,12 @@ describe('settings Remote contract', () => {
     })
     expect(earsSettingsPatchSchema.parse({ cloudAsrCustomApiKey: '' })).toEqual({ cloudAsrCustomApiKey: '' })
     expect(earsSettingsPatchSchema.parse({ cloudAsrGroqApiKey: '' })).toEqual({ cloudAsrGroqApiKey: '' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrSiliconFlowApiKey: 'sk_test' })).toEqual({
+      cloudAsrSiliconFlowApiKey: 'sk_test'
+    })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall' })).toEqual({
+      cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall'
+    })
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
   })
 
@@ -171,6 +177,7 @@ describe('settings Remote contract', () => {
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       cloudAsrTencentSecretKeyConfigured: false,
+      cloudAsrSiliconFlowApiKeyConfigured: false,
       localWhisperAccelerations: ['default'],
       overridden: []
     }).settings.maxRecordingSeconds).toBe(120)
@@ -225,6 +232,10 @@ describe('settings Remote contract', () => {
     expect(parsed.settings.cloudAsrDeepgramModel).toBe('nova-3')
     expect(parsed.settings.cloudAsrDeepgramService).toBe('recording-file')
     expect(parsed.cloudAsrDeepgramApiKeyConfigured).toBe(false)
+    expect(parsed.settings.cloudAsrSiliconFlowApiKey).toBe('')
+    expect(parsed.settings.cloudAsrSiliconFlowModel).toBe('FunAudioLLM/SenseVoiceSmall')
+    expect(parsed.settings.cloudAsrSiliconFlowLanguage).toBe('')
+    expect(parsed.cloudAsrSiliconFlowApiKeyConfigured).toBe(false)
   })
 
   it('keeps Host and Client Remote descriptors aligned', () => {

@@ -70,5 +70,6 @@ describe('cloudAsrModelField', () => {
     expect(cloudAsrModelField('bailian')).toBe('cloudAsrBailianModel')
     expect(cloudAsrModelField('tencent')).toBe('cloudAsrTencentEngineType')
     expect(cloudAsrModelField('mimo')).toBe('cloudAsrMimoModel')
+    expect(cloudAsrModelField('siliconflow')).toBe('cloudAsrSiliconFlowModel')
   })
 })

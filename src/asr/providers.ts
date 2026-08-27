@@ -1,5 +1,5 @@
 import { isBailianAsrHost, isHttpEndpoint } from '../config.js'
-import { mimoEndpoint } from '../settings/recognition.js'
+import { mimoEndpoint, SILICONFLOW_ASR_SUB_TYPE } from '../settings/recognition.js'
 import type { CloudAsrProviderId, EarsSettings } from '../config.js'
 
 /**
@@ -17,6 +17,8 @@ export interface CloudAsrProviderEntry {
   readonly baseUrl?: string
   /** Filters the live `/models` reply to transcription-capable models. */
   readonly modelFilter?: RegExp
+  /** Query parameters appended to `GET {baseUrl}/models` (e.g. `sub_type`). */
+  readonly modelQuery?: Record<string, string>
   /** Static fallback model list for providers without a listing endpoint. */
   readonly staticModels?: readonly string[]
   /** Model used when the settings value is empty (custom keeps whisper-1). */
@@ -86,6 +88,16 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     apiKeyRequired: true
   },
   {
+    id: 'siliconflow',
+    name: { en: 'SiliconFlow', zh: '硅基流动' },
+    protocol: 'openai-compatible',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    modelQuery: { sub_type: SILICONFLOW_ASR_SUB_TYPE },
+    defaultModel: 'FunAudioLLM/SenseVoiceSmall',
+    endpointEditable: false,
+    apiKeyRequired: true
+  },
+  {
     id: 'custom',
     name: { en: 'Custom OpenAI-compatible', zh: '自定义 OpenAI 兼容' },
     protocol: 'openai-compatible',
@@ -130,16 +142,17 @@ export function bailianGenerationUrl(host: string): string {
   return url.toString()
 }
 
-export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey'>): string {
+export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey' | 'cloudAsrSiliconFlowApiKey'>): string {
   if (settings.cloudAsrProvider === 'deepgram') return settings.cloudAsrDeepgramApiKey.trim()
   if (settings.cloudAsrProvider === 'bailian') return settings.cloudAsrBailianApiKey.trim()
   if (settings.cloudAsrProvider === 'tencent') return settings.cloudAsrTencentSecretKey.trim()
   if (settings.cloudAsrProvider === 'mimo') return settings.cloudAsrMimoApiKey.trim()
+  if (settings.cloudAsrProvider === 'siliconflow') return settings.cloudAsrSiliconFlowApiKey.trim()
   if (settings.cloudAsrProvider === 'custom') return settings.cloudAsrCustomApiKey.trim()
   return settings.cloudAsrGroqApiKey.trim()
 }
 
-export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel'>): string {
+export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel' | 'cloudAsrSiliconFlowModel'>): string {
   let model = ''
   if (settings.cloudAsrProvider === 'deepgram') {
     model = settings.cloudAsrDeepgramModel
@@ -149,6 +162,8 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
     model = settings.cloudAsrTencentEngineType
   } else if (settings.cloudAsrProvider === 'mimo') {
     model = settings.cloudAsrMimoModel
+  } else if (settings.cloudAsrProvider === 'siliconflow') {
+    model = settings.cloudAsrSiliconFlowModel
   } else if (settings.cloudAsrProvider === 'custom') {
     model = settings.cloudAsrCustomModel
   } else {
@@ -165,7 +180,7 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
  * — a keyless configuration must remain saveable so the key can be entered
  * first; key readiness is a runtime/availability concern.
  */
-export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel'>): boolean {
+export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel' | 'cloudAsrSiliconFlowModel'>): boolean {
   if (settings.asrBackend !== 'cloud-openai') return true
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
@@ -177,7 +192,7 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
 }
 
 /** Whether the cloud ASR backend has all required credentials and configuration to transcribe. */
-export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey' | 'cloudAsrMimoModel'>): boolean {
+export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey' | 'cloudAsrMimoModel' | 'cloudAsrSiliconFlowApiKey' | 'cloudAsrSiliconFlowModel'>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false

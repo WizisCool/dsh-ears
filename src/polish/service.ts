@@ -94,6 +94,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrBailianApiKeyConfigured: false,
         cloudAsrTencentSecretKeyConfigured: false,
         cloudAsrMimoApiKeyConfigured: false,
+        cloudAsrSiliconFlowApiKeyConfigured: false,
         localWhisperAccelerations: [...this.whisperCapabilities.available],
         overridden: []
       }
@@ -113,7 +114,8 @@ export class PolishService extends TypertRemoteService {
         cloudAsrCustomApiKey: '',
         cloudAsrBailianApiKey: '',
         cloudAsrTencentSecretKey: '',
-        cloudAsrMimoApiKey: ''
+        cloudAsrMimoApiKey: '',
+        cloudAsrSiliconFlowApiKey: ''
       },
       cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
       cloudAsrDeepgramApiKeyConfigured: snapshot.cloudAsrDeepgramApiKey.trim() !== '',
@@ -121,6 +123,7 @@ export class PolishService extends TypertRemoteService {
       cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
       cloudAsrTencentSecretKeyConfigured: snapshot.cloudAsrTencentSecretKey.trim() !== '',
       cloudAsrMimoApiKeyConfigured: snapshot.cloudAsrMimoApiKey.trim() !== '',
+      cloudAsrSiliconFlowApiKeyConfigured: snapshot.cloudAsrSiliconFlowApiKey.trim() !== '',
       localWhisperAccelerations: [...this.whisperCapabilities.available],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
@@ -378,7 +381,11 @@ export class PolishService extends TypertRemoteService {
         signal.throwIfAborted()
         return remoteTextSuccess(text)
       }
-      const language = settings.cloudAsrProvider === 'custom' ? settings.cloudAsrCustomLanguage : settings.cloudAsrGroqLanguage
+      const language = settings.cloudAsrProvider === 'custom'
+        ? settings.cloudAsrCustomLanguage
+        : settings.cloudAsrProvider === 'siliconflow'
+          ? settings.cloudAsrSiliconFlowLanguage
+          : settings.cloudAsrGroqLanguage
       const text = await transcribeOpenAICompatible({
         audio,
         mimeType,

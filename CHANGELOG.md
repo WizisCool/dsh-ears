@@ -2,6 +2,16 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.1.7] - 2026-08-27
+
+SiliconFlow cloud ASR provider release.
+
+### Added
+
+- [SiliconFlow](https://siliconflow.cn) as a cloud ASR provider on the Recognition tab: API key, live-fetched model selector (`GET /v1/models?sub_type=speech-to-text`), recognition-language, and `FunAudioLLM/SenseVoiceSmall` as the default model. Transcription uses the existing OpenAI-compatible contract at `https://api.siliconflow.cn/v1/audio/transcriptions`. Only the domestic edition is exposed; the international `api.siliconflow.com` edition is deferred until it exposes ASR models and is reachable with its own credential.
+- SiliconFlow vendor icon in the client bundle.
+- The cloud provider model-listing helper now supports a registry-level `modelQuery` so a provider can append query parameters (such as `sub_type=speech-to-text`) to its `/models` request.
+
 ## [0.1.6] - 2026-08-27
 
 Xiaomi MiMo cloud ASR provider release.

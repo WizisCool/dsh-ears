@@ -27,10 +27,14 @@ describe('cloud ASR provider registry', () => {
     expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('bailian')?.protocol).toBe('dashscope-asr')
     expect(cloudProviderEntry('tencent')?.protocol).toBe('tencent')
+    expect(cloudProviderEntry('mimo')?.protocol).toBe('mimo')
+    expect(cloudProviderEntry('siliconflow')?.protocol).toBe('openai-compatible')
     expect(isKnownCloudProvider('groq')).toBe(true)
     expect(isKnownCloudProvider('deepgram')).toBe(true)
     expect(isKnownCloudProvider('bailian')).toBe(true)
     expect(isKnownCloudProvider('tencent')).toBe(true)
+    expect(isKnownCloudProvider('mimo')).toBe(true)
+    expect(isKnownCloudProvider('siliconflow')).toBe(true)
     expect(isKnownCloudProvider('custom')).toBe(true)
     expect(isKnownCloudProvider('unknown')).toBe(false)
   })
@@ -75,6 +79,21 @@ describe('cloud ASR provider registry', () => {
     expect(cloudProviderEntry('deepgram')?.name.en).toBe('Deepgram')
     expect(cloudProviderEntry('deepgram')?.apiKeyRequired).toBe(true)
     expect(cloudProviderEntry('deepgram')?.endpointEditable).toBe(false)
+  })
+
+  it('registers the SiliconFlow domestic OpenAI-compatible provider with a sub_type model query', () => {
+    const siliconflow = cloudProviderEntry('siliconflow')
+    expect(siliconflow?.protocol).toBe('openai-compatible')
+    expect(siliconflow?.baseUrl).toBe('https://api.siliconflow.cn/v1')
+    expect(siliconflow?.modelQuery).toEqual({ sub_type: 'speech-to-text' })
+    expect(siliconflow?.defaultModel).toBe('FunAudioLLM/SenseVoiceSmall')
+    expect(siliconflow?.name.zh).toBe('硅基流动')
+    expect(siliconflow?.apiKeyRequired).toBe(true)
+    expect(siliconflow?.endpointEditable).toBe(false)
+    expect(supportsModelListing('siliconflow')).toBe(true)
+    expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'siliconflow', cloudAsrCustomEndpoint: 'https://ignored.example.test' }))).toBe('https://api.siliconflow.cn/v1/audio/transcriptions')
+    expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowModel: '' }))).toBe('FunAudioLLM/SenseVoiceSmall')
+    expect(cloudAsrModelFor(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowModel: 'Qwen/Qwen3-ASR-1.7B' }))).toBe('Qwen/Qwen3-ASR-1.7B')
   })
 })
 
@@ -126,17 +145,19 @@ describe('cloud ASR runtime readiness', () => {
     expect(isHttpEndpoint('https://user:pass@asr.example.test/audio/transcriptions')).toBe(false)
   })
 
-  it('keeps Groq, custom, and Bailian API keys on separate fields', () => {
+  it('keeps Groq, custom, Bailian, and SiliconFlow API keys on separate fields', () => {
     const mixed = settings({
       cloudAsrProvider: 'bailian',
       cloudAsrGroqApiKey: 'gsk_groq',
       cloudAsrDeepgramApiKey: 'dg_key',
       cloudAsrCustomApiKey: 'sk_custom',
-      cloudAsrBailianApiKey: 'sk_bailian'
+      cloudAsrBailianApiKey: 'sk_bailian',
+      cloudAsrSiliconFlowApiKey: 'sk_siliconflow'
     })
     expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'groq' })).toBe('gsk_groq')
     expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'deepgram' })).toBe('dg_key')
     expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'custom' })).toBe('sk_custom')
+    expect(cloudAsrCredentialFor({ ...mixed, cloudAsrProvider: 'siliconflow' })).toBe('sk_siliconflow')
     expect(cloudAsrCredentialFor(mixed)).toBe('sk_bailian')
   })
 
@@ -173,5 +194,11 @@ describe('cloud ASR runtime readiness', () => {
     expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr' }))).toBe(true)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr', cloudAsrMimoApiKey: '' }))).toBe(false)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr', cloudAsrMimoApiKey: 'sk-123' }))).toBe(true)
+  })
+
+  it('validates SiliconFlow configuration and readiness', () => {
+    expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall', cloudAsrSiliconFlowApiKey: '' }))).toBe(false)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoiceSmall', cloudAsrSiliconFlowApiKey: 'sk-test' }))).toBe(true)
   })
 })

@@ -11,6 +11,7 @@ import {
   MIMO_ASR_DEFAULT_SERVICE,
   MIMO_ASR_SERVICE_IDS,
   MIMO_DEFAULT_MODEL,
+  SILICONFLOW_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -46,6 +47,7 @@ export {
   MIMO_ASR_DEFAULT_SERVICE,
   MIMO_ASR_SERVICE_IDS,
   MIMO_DEFAULT_MODEL,
+  SILICONFLOW_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -105,6 +107,9 @@ export interface EarsSettings {
   cloudAsrMimoCluster: string
   cloudAsrMimoModel: string
   cloudAsrMimoLanguage: string
+  cloudAsrSiliconFlowApiKey: string
+  cloudAsrSiliconFlowModel: string
+  cloudAsrSiliconFlowLanguage: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
@@ -149,6 +154,9 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrMimoCluster: MIMO_ASR_DEFAULT_CLUSTER,
   cloudAsrMimoModel: MIMO_DEFAULT_MODEL,
   cloudAsrMimoLanguage: '',
+  cloudAsrSiliconFlowApiKey: '',
+  cloudAsrSiliconFlowModel: SILICONFLOW_DEFAULT_MODEL,
+  cloudAsrSiliconFlowLanguage: '',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
@@ -198,6 +206,7 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
   if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
   if (settings.cloudAsrMimoApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears MiMo ASR API key is too long')
+  if (settings.cloudAsrSiliconFlowApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears SiliconFlow ASR API key is too long')
   if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
   if (!(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrDeepgramService)) throw new Error('Unknown dsh-ears Deepgram ASR service')
   if (!(MIMO_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrMimoService)) throw new Error('Unknown dsh-ears MiMo ASR service')
