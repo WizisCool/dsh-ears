@@ -401,7 +401,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 
 ## D-044 — Xiaomi MiMo cloud ASR with API and Token Plan access
 
-- Status: accepted (2026-08-28).
+- Status: accepted (2026-08-27).
 - Decision: add Xiaomi MiMo (`mimo`) as a first-class cloud ASR provider with protocol `'mimo'`, default model `mimo-v2.5-asr`, and two selectable access methods: `api` (standard platform API, `https://api.xiaomimimo.com/v1`) and `token-plan` (Token Plan subscription, OpenAI-compatible endpoint).
 - Decision: Token Plan supports three regional clusters configured via `cloudAsrMimoCluster`: `cn` (China, `https://token-plan-cn.xiaomimimo.com/v1`), `sgp` (Singapore, `https://token-plan-sgp.xiaomimimo.com/v1`), and `ams` (Europe/Amsterdam, `https://token-plan-ams.xiaomimimo.com/v1`). Default cluster is `cn`. The Host derives the transcription endpoint by appending `/chat/completions`.
 - Decision: MiMo ASR uses the multimodal Chat Completions protocol (`messages[].content[].type = "input_audio"` with base64 data URL and format `wav`). Audio input is restricted by MiMo to WAV and MP3; the browser converts captured audio to mono 16 kHz PCM16 WAV before the final Host RPC (matching the Tencent Cloud audio path in `local-whisper-audio.ts`).
