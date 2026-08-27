@@ -16,14 +16,14 @@ import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../asr/mimo-asr.js'
 import { TencentRealtimeAsrSession, transcribeTencentCloudRecording } from '../asr/tencent-cloud-asr.js'
 import { DeepgramRealtimeAsrSession, transcribeDeepgramAsr } from '../asr/deepgram-asr.js'
-import { cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, type CloudAsrCredentialConfiguredField } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, RemoteTextResult } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute } from './route.js'
-import { applyFlatSettingsPatch, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
+import { applyFlatSettingsPatch, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, isFutureSettingsSchema, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
 import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
@@ -103,24 +103,17 @@ export class PolishService extends TypertRemoteService {
     const provider = this.ctx.get('settings') as { describe?: (options: { redactSecrets: boolean }) => Array<{ ns: unknown; user?: unknown; secrets?: Array<{ path: string[]; set: boolean }> }>; writable?: boolean } | undefined
     const descriptor = provider?.describe?.({ redactSecrets: true })?.find((item) => String(item.ns) === SETTINGS_NAMESPACE)
     const user = descriptor?.user
+    const redactedSettings = { ...snapshot }
+    const configuredCredentials = {} as Record<CloudAsrCredentialConfiguredField, boolean>
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      redactedSettings[entry.credentialField] = ''
+      configuredCredentials[`${entry.credentialField}Configured`] = snapshot[entry.credentialField].trim() !== ''
+    }
     return {
       available: true,
       writable: provider?.writable ?? false,
-      settings: {
-        ...snapshot,
-        cloudAsrGroqApiKey: '',
-        cloudAsrDeepgramApiKey: '',
-        cloudAsrCustomApiKey: '',
-        cloudAsrBailianApiKey: '',
-        cloudAsrTencentSecretKey: '',
-        cloudAsrMimoApiKey: ''
-      },
-      cloudAsrGroqApiKeyConfigured: snapshot.cloudAsrGroqApiKey.trim() !== '',
-      cloudAsrDeepgramApiKeyConfigured: snapshot.cloudAsrDeepgramApiKey.trim() !== '',
-      cloudAsrCustomApiKeyConfigured: snapshot.cloudAsrCustomApiKey.trim() !== '',
-      cloudAsrBailianApiKeyConfigured: snapshot.cloudAsrBailianApiKey.trim() !== '',
-      cloudAsrTencentSecretKeyConfigured: snapshot.cloudAsrTencentSecretKey.trim() !== '',
-      cloudAsrMimoApiKeyConfigured: snapshot.cloudAsrMimoApiKey.trim() !== '',
+      settings: redactedSettings,
+      ...configuredCredentials,
       localWhisperAccelerations: [...this.whisperCapabilities.available],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
@@ -131,7 +124,7 @@ export class PolishService extends TypertRemoteService {
     signal.throwIfAborted()
     const current = this.readSettingsSnapshot()
     const normalizedPatch = normalizeWhisperPatch(patch, this.whisperCapabilities)
-    if (current.userLayerAvailable) {
+    if (current.userLayerAvailable && !isFutureSettingsSchema(current.raw)) {
       const next = normalizeWhisperStoredSettings(applyFlatSettingsPatch(current.raw, normalizedPatch), this.whisperCapabilities)
       await this.replaceSettings(next)
     } else {
@@ -378,7 +371,7 @@ export class PolishService extends TypertRemoteService {
         signal.throwIfAborted()
         return remoteTextSuccess(text)
       }
-      const language = settings.cloudAsrProvider === 'custom' ? settings.cloudAsrCustomLanguage : settings.cloudAsrGroqLanguage
+      const language = providerEntry.languageField === undefined ? '' : settings[providerEntry.languageField]
       const text = await transcribeOpenAICompatible({
         audio,
         mimeType,
@@ -601,7 +594,7 @@ export class PolishService extends TypertRemoteService {
     const canonical = normalizeStoredEarsSettings(rawState.raw)
     const normalized = normalizeWhisperStoredSettings(canonical, this.whisperCapabilities)
     const settings = flattenStoredSettings(normalized)
-    if (!this.settingsMigrationAttempted && (storedSettingsNeedRewrite(rawState.raw) || normalized !== canonical)) {
+    if (!this.settingsMigrationAttempted && !isFutureSettingsSchema(rawState.raw) && (storedSettingsNeedRewrite(rawState.raw) || normalized !== canonical)) {
       // Mark before starting the write. A read-only provider or a rejected
       // migration must not turn every runtime read into another write attempt.
       this.settingsMigrationAttempted = true

@@ -10,7 +10,8 @@ import {
   isCloudAsrReady,
   isCloudConfigurationValid,
   isKnownCloudProvider,
-  supportsModelListing
+  supportsModelListing,
+  validateCloudAsrFieldValue
 } from '../src/asr/providers.js'
 import type { EarsSettings } from '../src/config.js'
 
@@ -19,6 +20,18 @@ function settings(overrides: Partial<EarsSettings> = {}): EarsSettings {
 }
 
 describe('cloud ASR provider registry', () => {
+  it('covers every persisted cloud field exactly once', () => {
+    const fields = CLOUD_ASR_PROVIDERS.flatMap((entry) => entry.fields)
+    const fieldNames = fields.map((definition) => definition.field)
+    expect(new Set(fieldNames).size).toBe(fieldNames.length)
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      expect(entry.fields.some((definition) => definition.field === entry.credentialField)).toBe(true)
+      expect(entry.fields.some((definition) => definition.field === entry.modelField)).toBe(true)
+      if (entry.languageField !== undefined) expect(entry.fields.some((definition) => definition.field === entry.languageField)).toBe(true)
+      expect(entry.fields.every((definition) => definition.labelKey !== '' && definition.hintKey !== '')).toBe(true)
+    }
+  })
+
   it('registers unique provider ids with the shared protocol', () => {
     const ids = CLOUD_ASR_PROVIDERS.map((entry) => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
@@ -75,6 +88,16 @@ describe('cloud ASR provider registry', () => {
     expect(cloudProviderEntry('deepgram')?.name.en).toBe('Deepgram')
     expect(cloudProviderEntry('deepgram')?.apiKeyRequired).toBe(true)
     expect(cloudProviderEntry('deepgram')?.endpointEditable).toBe(false)
+  })
+
+  it('validates registry-declared choices and credential bounds', () => {
+    const deepgramService = cloudProviderEntry('deepgram')?.fields.find((definition) => definition.field === 'cloudAsrDeepgramService')
+    const groqKey = cloudProviderEntry('groq')?.fields.find((definition) => definition.field === 'cloudAsrGroqApiKey')
+    if (deepgramService === undefined || groqKey === undefined) throw new Error('registry field missing')
+    expect(validateCloudAsrFieldValue(deepgramService, 'realtime')).toBe(true)
+    expect(validateCloudAsrFieldValue(deepgramService, 'invalid')).toBe(false)
+    expect(validateCloudAsrFieldValue(groqKey, 'x'.repeat(512))).toBe(true)
+    expect(validateCloudAsrFieldValue(groqKey, 'x'.repeat(513))).toBe(false)
   })
 })
 

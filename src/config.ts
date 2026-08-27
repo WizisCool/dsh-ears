@@ -22,6 +22,7 @@ import {
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
 import { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
 import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
 import type {
   AsrBackendId,
   CloudAsrProviderId,
@@ -192,20 +193,31 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
-  if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
-  if (settings.cloudAsrDeepgramApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Deepgram ASR API key is too long')
-  if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
-  if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
-  if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
-  if (settings.cloudAsrMimoApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears MiMo ASR API key is too long')
-  if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
-  if (!(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrDeepgramService)) throw new Error('Unknown dsh-ears Deepgram ASR service')
-  if (!(MIMO_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrMimoService)) throw new Error('Unknown dsh-ears MiMo ASR service')
-  if (!(MIMO_ASR_CLUSTERS as readonly string[]).includes(settings.cloudAsrMimoCluster)) throw new Error('Unknown dsh-ears MiMo cluster')
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    for (const definition of provider.fields) {
+      const value = cloudAsrFieldValue(settings, definition.field)
+      if ((definition.kind === 'endpoint' || definition.kind === 'host') && value.trim() === '') continue
+      if (!validateCloudAsrFieldValue(definition, value)) throw new Error(cloudAsrFieldValidationMessage(definition.field))
+    }
+  }
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
-  if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')
-  if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
+}
+
+function cloudAsrFieldValidationMessage(field: string): string {
+  if (field === 'cloudAsrGroqApiKey') return 'dsh-ears Groq ASR API key is too long'
+  if (field === 'cloudAsrDeepgramApiKey') return 'dsh-ears Deepgram ASR API key is too long'
+  if (field === 'cloudAsrCustomApiKey') return 'dsh-ears custom OpenAI-compatible ASR API key is too long'
+  if (field === 'cloudAsrBailianApiKey') return 'dsh-ears Bailian ASR API key is too long'
+  if (field === 'cloudAsrTencentSecretKey') return 'dsh-ears Tencent Cloud SecretKey is too long'
+  if (field === 'cloudAsrMimoApiKey') return 'dsh-ears MiMo ASR API key is too long'
+  if (field === 'cloudAsrTencentService') return 'Unknown dsh-ears Tencent Cloud ASR service'
+  if (field === 'cloudAsrDeepgramService') return 'Unknown dsh-ears Deepgram ASR service'
+  if (field === 'cloudAsrMimoService') return 'Unknown dsh-ears MiMo ASR service'
+  if (field === 'cloudAsrMimoCluster') return 'Unknown dsh-ears MiMo cluster'
+  if (field === 'cloudAsrCustomEndpoint') return 'Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials'
+  if (field === 'cloudAsrBailianHost') return 'Bailian ASR host must use HTTPS without credentials'
+  return `Invalid dsh-ears cloud ASR setting: ${field}`
 }

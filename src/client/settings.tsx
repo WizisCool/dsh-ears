@@ -13,15 +13,16 @@ import {
   XiaomiMimoIcon
 } from './provider-icons.js'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { DEEPGRAM_DEFAULT_MODEL, MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
+import { CLOUD_ASR_PROVIDERS, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
 import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
-import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
-import { localeEn, localizedErrorText, type Translate } from './settings-locale.js'
+import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
+import { localeEn, localizedErrorText, type LocaleKey, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
 
 export { LOCALE_NAMESPACE, localeEn, localeZh } from './settings-locale.js'
@@ -38,6 +39,9 @@ interface EarsSettingsSectionProps {
   readonly useUiLocale?: () => string
   readonly earsT: Translate
   readonly edit: (field: FieldName, text: string) => void
+  readonly setCredential?: (field: CloudAsrCredentialField, text: string) => void
+  readonly clearCredential?: (field: CloudAsrCredentialField) => void
+  readonly undoCredentialClear?: (field: CloudAsrCredentialField) => void
   readonly setApiKey: (text: string) => void
   readonly clearApiKey: () => void
   readonly undoClearApiKey: () => void
@@ -66,6 +70,15 @@ interface EarsSettingsSectionProps {
   readonly checkForUpdate: () => Promise<UpdateCheckResult>
 }
 
+const providerIcons: Record<string, () => ReactNode> = {
+  groq: () => <GroqIcon />,
+  deepgram: () => <DeepgramIcon />,
+  bailian: () => <AlibabaCloudIcon />,
+  tencent: () => <TencentCloudIcon />,
+  mimo: () => <XiaomiMimoIcon />,
+  custom: () => <OpenAiIcon />
+}
+
 
 
 export function createSnapshotHook<T>(store: SnapshotStore<T>, fallback: T): SnapshotSelectorHook<T> {
@@ -91,6 +104,33 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const [activeTab, setActiveTab] = useState<'general' | 'recognition' | 'polishing' | 'about'>('general')
   const t = props.earsT
   const uiLocale = props.useUiLocale?.() ?? 'zh'
+  const legacyCredentialSetters: Record<CloudAsrCredentialField, (text: string) => void> = {
+    cloudAsrGroqApiKey: props.setApiKey,
+    cloudAsrDeepgramApiKey: props.setDeepgramApiKey,
+    cloudAsrCustomApiKey: props.setCustomApiKey,
+    cloudAsrBailianApiKey: props.setBailianApiKey,
+    cloudAsrTencentSecretKey: props.setTencentSecretKey,
+    cloudAsrMimoApiKey: props.setMimoApiKey
+  }
+  const legacyCredentialClearers: Record<CloudAsrCredentialField, () => void> = {
+    cloudAsrGroqApiKey: props.clearApiKey,
+    cloudAsrDeepgramApiKey: props.clearDeepgramApiKey,
+    cloudAsrCustomApiKey: props.clearCustomApiKey,
+    cloudAsrBailianApiKey: props.clearBailianApiKey,
+    cloudAsrTencentSecretKey: props.clearTencentSecretKey,
+    cloudAsrMimoApiKey: props.clearMimoApiKey
+  }
+  const legacyCredentialUndoers: Record<CloudAsrCredentialField, () => void> = {
+    cloudAsrGroqApiKey: props.undoClearApiKey,
+    cloudAsrDeepgramApiKey: props.undoClearDeepgramApiKey,
+    cloudAsrCustomApiKey: props.undoClearCustomApiKey,
+    cloudAsrBailianApiKey: props.undoClearBailianApiKey,
+    cloudAsrTencentSecretKey: props.undoClearTencentSecretKey,
+    cloudAsrMimoApiKey: props.undoClearMimoApiKey
+  }
+  const setCredential = props.setCredential ?? ((field: CloudAsrCredentialField, text: string) => legacyCredentialSetters[field](text))
+  const clearCredential = props.clearCredential ?? ((field: CloudAsrCredentialField) => legacyCredentialClearers[field]())
+  const undoCredentialClear = props.undoCredentialClear ?? ((field: CloudAsrCredentialField) => legacyCredentialUndoers[field]())
   useEffect(() => () => {
     flushRef.current()
   }, [])
@@ -124,12 +164,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { id: 'local-whisper', label: t('localWhisperBackend') },
     { type: 'separator', id: 'separator-cloud' },
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
-    { id: 'groq', label: t('groqProvider'), icon: <GroqIcon /> },
-    { id: 'deepgram', label: t('deepgramProvider'), icon: <DeepgramIcon /> },
-    { id: 'bailian', label: t('bailianProvider'), icon: <AlibabaCloudIcon /> },
-    { id: 'tencent', label: t('tencentProvider'), icon: <TencentCloudIcon /> },
-    { id: 'mimo', label: t('mimoProvider'), icon: <XiaomiMimoIcon /> },
-    { id: 'custom', label: t('customProvider'), icon: <OpenAiIcon /> }
+    ...CLOUD_ASR_PROVIDERS.map((provider) => ({ id: provider.id, label: t(provider.providerLabelKey as LocaleKey), icon: providerIcons[provider.id]?.() }))
   ]
   const tabs: Array<{ id: 'general' | 'recognition' | 'polishing' | 'about'; label: string }> = [
     { id: 'general', label: t('groupGeneral') },
@@ -198,58 +233,21 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.localWhisperLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.localWhisperLanguage.invalid} onChange={(event) => props.edit('localWhisperLanguage', event.target.value)} onBlur={props.flush} />
           </> : null}
-          {state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text === 'groq' ? <>
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrGroqApiKey.text} configured={state.cloudAsrGroqApiKeyConfigured} clearPending={state.cloudAsrGroqApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrGroqApiKey.invalid} onEdit={props.setApiKey} onClear={props.clearApiKey} onUndoClear={props.undoClearApiKey} onBlur={props.flush} t={t} />
-            <CloudModelRow label={t('cloudModel')} value={state.cloudAsrGroqModel.text} models={cloudModels} disabled={!state.writable} onChange={(value) => props.edit('cloudAsrGroqModel', value)} onRetry={props.retryCloudModels} t={t} />
-            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrGroqLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrGroqLanguage.invalid} onChange={(event) => props.edit('cloudAsrGroqLanguage', event.target.value)} onBlur={props.flush} />
-          </> : state.cloudAsrProvider.text === 'deepgram' ? <>
-            <SelectRow label={t('deepgramService')} hint={t('deepgramServiceHint')} value={state.cloudAsrDeepgramService.text} entries={[
-              { id: 'recording-file', label: t('deepgramRecordingService') },
-              { id: 'realtime', label: t('deepgramRealtimeService') }
-            ]} disabled={!state.writable} invalid={state.cloudAsrDeepgramService.invalid} onChange={(value) => props.edit('cloudAsrDeepgramService', value)} />
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrDeepgramApiKey.text} configured={state.cloudAsrDeepgramApiKeyConfigured} clearPending={state.cloudAsrDeepgramApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrDeepgramApiKey.invalid} onEdit={props.setDeepgramApiKey} onClear={props.clearDeepgramApiKey} onUndoClear={props.undoClearDeepgramApiKey} onBlur={props.flush} t={t} />
-            <DeepgramModelRow label={t('cloudModel')} value={state.cloudAsrDeepgramModel.text} models={cloudModels} disabled={!state.writable} invalid={state.cloudAsrDeepgramModel.invalid} onChange={(value) => props.edit('cloudAsrDeepgramModel', value)} onBlur={props.flush} onRetry={props.retryCloudModels} t={t} />
-            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrDeepgramLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrDeepgramLanguage.invalid} onChange={(event) => props.edit('cloudAsrDeepgramLanguage', event.target.value)} onBlur={props.flush} />
-          </> : state.cloudAsrProvider.text === 'bailian' ? <>
-            <TextRow label={t('bailianHost')} hint={t('bailianHostHint')} value={state.cloudAsrBailianHost.text} disabled={!state.writable} invalid={state.cloudAsrBailianHost.invalid} onChange={(event) => props.edit('cloudAsrBailianHost', event.target.value)} onBlur={props.flush} />
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrBailianApiKey.text} configured={state.cloudAsrBailianApiKeyConfigured} clearPending={state.cloudAsrBailianApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrBailianApiKey.invalid} onEdit={props.setBailianApiKey} onClear={props.clearBailianApiKey} onUndoClear={props.undoClearBailianApiKey} onBlur={props.flush} t={t} />
-            <TextRow label={t('cloudModel')} hint={t('bailianModelHint')} value={state.cloudAsrBailianModel.text} disabled={!state.writable} invalid={state.cloudAsrBailianModel.invalid} onChange={(event) => props.edit('cloudAsrBailianModel', event.target.value)} onBlur={props.flush} />
-            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrBailianLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrBailianLanguage.invalid} onChange={(event) => props.edit('cloudAsrBailianLanguage', event.target.value)} onBlur={props.flush} />
-          </> : state.cloudAsrProvider.text === 'tencent' ? <>
-            <SelectRow label={t('tencentService')} hint={t('tencentServiceHint')} value={state.cloudAsrTencentService.text} entries={[
-              { id: 'recording-file', label: t('tencentRecordingService') },
-              { id: 'realtime', label: t('tencentRealtimeService') }
-            ]} disabled={!state.writable} invalid={state.cloudAsrTencentService.invalid} onChange={(value) => props.edit('cloudAsrTencentService', value)} />
-            <TextRow label={t('tencentAppId')} hint={t('tencentAppIdHint')} value={state.cloudAsrTencentAppId.text} disabled={!state.writable} invalid={state.cloudAsrTencentAppId.invalid} onChange={(event) => props.edit('cloudAsrTencentAppId', event.target.value)} onBlur={props.flush} />
-            <TextRow label={t('tencentSecretId')} hint={t('tencentSecretIdHint')} value={state.cloudAsrTencentSecretId.text} disabled={!state.writable} invalid={state.cloudAsrTencentSecretId.invalid} onChange={(event) => props.edit('cloudAsrTencentSecretId', event.target.value)} onBlur={props.flush} />
-            <KeyRow label={t('tencentSecretKey')} hint={t('tencentSecretKeyHint')} value={state.cloudAsrTencentSecretKey.text} configured={state.cloudAsrTencentSecretKeyConfigured} clearPending={state.cloudAsrTencentSecretKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrTencentSecretKey.invalid} onEdit={props.setTencentSecretKey} onClear={props.clearTencentSecretKey} onUndoClear={props.undoClearTencentSecretKey} onBlur={props.flush} t={t} />
-            <TextRow label={t('tencentEngineType')} hint={t('tencentEngineTypeHint')} value={state.cloudAsrTencentEngineType.text} disabled={!state.writable} invalid={state.cloudAsrTencentEngineType.invalid} onChange={(event) => props.edit('cloudAsrTencentEngineType', event.target.value)} onBlur={props.flush} />
-          </> : state.cloudAsrProvider.text === 'mimo' ? <>
-            <SelectRow label={t('mimoService')} hint={t('mimoServiceHint')} value={state.cloudAsrMimoService.text} entries={[
-              { id: 'api', label: t('mimoApiService') },
-              { id: 'token-plan', label: t('mimoTokenPlanService') }
-            ]} disabled={!state.writable} invalid={state.cloudAsrMimoService.invalid} onChange={(value) => {
-              props.edit('cloudAsrMimoService', value)
-              // Clusters only apply to the Token Plan access method, so a switch back
-              // to standard API clears the hidden cluster draft to avoid stale residue
-              if (value === 'api') props.edit('cloudAsrMimoCluster', MIMO_ASR_DEFAULT_CLUSTER)
-            }} />
-            {state.cloudAsrMimoService.text === 'token-plan' ? (
-              <SelectRow label={t('mimoCluster')} hint={t('mimoClusterHint')} value={state.cloudAsrMimoCluster.text} entries={[
-                { id: 'cn', label: t('mimoClusterCn') },
-                { id: 'sgp', label: t('mimoClusterSgp') },
-                { id: 'ams', label: t('mimoClusterAms') }
-              ]} disabled={!state.writable} invalid={state.cloudAsrMimoCluster.invalid} onChange={(value) => props.edit('cloudAsrMimoCluster', value)} />
-            ) : null}
-            <KeyRow label={t('cloudKey')} hint={t('mimoApiKeyHint')} value={state.cloudAsrMimoApiKey.text} configured={state.cloudAsrMimoApiKeyConfigured} clearPending={state.cloudAsrMimoApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrMimoApiKey.invalid} onEdit={props.setMimoApiKey} onClear={props.clearMimoApiKey} onUndoClear={props.undoClearMimoApiKey} onBlur={props.flush} t={t} />
-            <TextRow label={t('cloudModel')} hint={t('mimoModelHint')} value={state.cloudAsrMimoModel.text} disabled={!state.writable} invalid={state.cloudAsrMimoModel.invalid} onChange={(event) => props.edit('cloudAsrMimoModel', event.target.value)} onBlur={props.flush} />
-            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrMimoLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrMimoLanguage.invalid} onChange={(event) => props.edit('cloudAsrMimoLanguage', event.target.value)} onBlur={props.flush} />
-          </> : <>
-            <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrCustomEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrCustomEndpoint.invalid} onChange={(event) => props.edit('cloudAsrCustomEndpoint', event.target.value)} onBlur={props.flush} />
-            <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrCustomApiKey.text} configured={state.cloudAsrCustomApiKeyConfigured} clearPending={state.cloudAsrCustomApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrCustomApiKey.invalid} onEdit={props.setCustomApiKey} onClear={props.clearCustomApiKey} onUndoClear={props.undoClearCustomApiKey} onBlur={props.flush} t={t} />
-            <TextRow label={t('cloudModel')} hint={t('cloudModelHint')} value={state.cloudAsrCustomModel.text} disabled={!state.writable} invalid={state.cloudAsrCustomModel.invalid} onChange={(event) => props.edit('cloudAsrCustomModel', event.target.value)} onBlur={props.flush} />
-            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrCustomLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrCustomLanguage.invalid} onChange={(event) => props.edit('cloudAsrCustomLanguage', event.target.value)} onBlur={props.flush} />
-          </> : null}
+          {state.asrBackend.text === 'cloud-openai' ? (
+            <CloudProviderFields
+              provider={cloudProviderEntry(state.cloudAsrProvider.text)}
+              state={state}
+              models={cloudModels}
+              disabled={!state.writable}
+              edit={props.edit}
+              setCredential={setCredential}
+              clearCredential={clearCredential}
+              undoCredentialClear={undoCredentialClear}
+              onBlur={props.flush}
+              onRetry={props.retryCloudModels}
+              t={t}
+            />
+          ) : null}
         </div>
       ) : activeTab === 'polishing' ? (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
@@ -447,6 +445,42 @@ function ShortcutRecorderRow({ label, hint, value, disabled, invalid, onChange, 
   )
 }
 
+function CloudProviderFields({ provider, state, models, disabled, edit, setCredential, clearCredential, undoCredentialClear, onBlur, onRetry, t }: { provider?: CloudAsrProviderEntry; state: EarsCardState; models: CloudModelsView; disabled: boolean; edit: (field: FieldName, text: string) => void; setCredential: (field: CloudAsrCredentialField, text: string) => void; clearCredential: (field: CloudAsrCredentialField) => void; undoCredentialClear: (field: CloudAsrCredentialField) => void; onBlur: () => void; onRetry: () => void; t: Translate }): ReactNode {
+  const entry = provider ?? cloudProviderEntry('custom')
+  if (entry === undefined) return null
+  const editField = (field: FieldName, value: string): void => {
+    edit(field, value)
+    // The cluster is meaningful only for Token Plan. Keep the saved/default
+    // cluster deterministic when the selector returns to standard API.
+    if (field === 'cloudAsrMimoService' && value === 'api') edit('cloudAsrMimoCluster', MIMO_ASR_DEFAULT_CLUSTER)
+  }
+
+  return <>
+    {entry.fields.map((definition) => {
+      const definitionState = state[definition.field] as { text: string; invalid: boolean }
+      if (definition.visibleWhen !== undefined && (state[definition.visibleWhen.field] as { text: string }).text !== definition.visibleWhen.equals) return null
+      const label = t(definition.labelKey as LocaleKey)
+      const hint = t(definition.hintKey as LocaleKey)
+      if (definition.kind === 'credential') {
+        const configuredKey = `${definition.field}Configured` as keyof EarsCardState
+        const pendingKey = `${definition.field}ClearPending` as keyof EarsCardState
+        return <KeyRow key={definition.field} label={label} hint={hint} value={definitionState.text} configured={Boolean(state[configuredKey])} clearPending={Boolean(state[pendingKey])} disabled={disabled} invalid={definitionState.invalid} onEdit={(value) => setCredential(definition.field as CloudAsrCredentialField, value)} onClear={() => clearCredential(definition.field as CloudAsrCredentialField)} onUndoClear={() => undoCredentialClear(definition.field as CloudAsrCredentialField)} onBlur={onBlur} t={t} />
+      }
+      if (definition.allowedValues !== undefined && (definition.kind === 'service' || definition.kind === 'cluster')) {
+        const entries = definition.allowedValues.map((value) => ({ id: value, label: definition.optionLabelKeys?.[value] === undefined ? value : t(definition.optionLabelKeys[value] as LocaleKey) }))
+        return <SelectRow key={definition.field} label={label} hint={hint} value={definitionState.text} entries={entries} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} />
+      }
+      if (definition.kind === 'model' && definition.editor === 'deepgram-model') {
+        return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
+      }
+      if (definition.kind === 'model' && entry.modelStrategy === 'listing') {
+        return <CloudModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} onChange={(value) => editField(definition.field, value)} onRetry={onRetry} t={t} />
+      }
+      return <TextRow key={definition.field} label={label} hint={hint} value={definitionState.text} disabled={disabled} invalid={definitionState.invalid} onChange={(event) => editField(definition.field, event.target.value)} onBlur={onBlur} />
+    })}
+  </>
+}
+
 function SelectRow({ label, hint, value, options, entries, placeholder, disabled, invalid, onChange }: { label: string; hint: string; value: string; options?: [string, string][]; entries?: readonly MenuEntry[]; placeholder?: string; disabled: boolean; invalid: boolean; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false)
   const menuItems: readonly MenuEntry[] = entries ?? (options ?? []).map(([id, optionLabel]) => ({ id, label: optionLabel }))
@@ -570,21 +604,8 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   )
 }
 
-const DEEPGRAM_STATIC_FALLBACK_MODELS = [
-  DEEPGRAM_DEFAULT_MODEL,
-  'nova-3-general',
-  'nova-3-medical',
-  'nova-2',
-  'nova-2-general',
-  'nova-2-meeting',
-  'nova-2-phonecall',
-  'nova-2-conversationalai',
-  'nova-2-finance',
-  'nova-2-medical',
-  'enhanced',
-  'base',
-  'whisper-large'
-]
+const DEEPGRAM_DEFAULT_MODEL = cloudProviderEntry('deepgram')?.defaultModel ?? 'nova-3'
+const DEEPGRAM_STATIC_FALLBACK_MODELS = cloudProviderEntry('deepgram')?.staticModels ?? [DEEPGRAM_DEFAULT_MODEL]
 
 function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
   const [explicitCustom, setExplicitCustom] = useState(false)
@@ -759,12 +780,7 @@ function uniqueProviders(routes: readonly PolishRoute[]): PolishRoute[] {
 function backendHint(backend: string, provider: string, t: Translate): string {
   if (backend === 'local-whisper') return t('backendHintLocalWhisper')
   if (backend === 'cloud-openai') {
-    if (provider === 'groq') return t('backendHintGroq')
-    if (provider === 'deepgram') return t('backendHintDeepgram')
-    if (provider === 'bailian') return t('backendHintBailian')
-    if (provider === 'tencent') return t('backendHintTencent')
-    if (provider === 'mimo') return t('backendHintMimo')
-    return t('backendHintCustom')
+    return t((cloudProviderEntry(provider)?.backendHintKey ?? 'backendHintCustom') as LocaleKey)
   }
   return t('backendHintWebSpeech')
 }
