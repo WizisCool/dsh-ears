@@ -80,6 +80,7 @@ dsh plugin --profile web remove dsh-ears
 | [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写 | API key、模型名；单次最长 300 秒 |
 | [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
+| [小米 MiMo](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition) | Host 调用 MiMo 语音识别，支持[标准 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
 所有 API key 和凭据由 Host 保存，浏览器不接触。

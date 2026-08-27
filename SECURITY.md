@@ -17,9 +17,9 @@ Users should review the retention, processing, and jurisdiction policy of any cl
 
 ## Credentials
 
-Never put a secret in source code, tests, screenshots, logs, or commits. Cloud ASR API keys are stored on the dsh Host through schemastery `role('secret')` settings fields, one per provider (`groq.apiKey`, `customOpenAi.apiKey`, `bailian.apiKey`, `tencent.secretKey`), following the shipped `dsh-web-search-deepseek` pattern: values are write-only across the plugin wire — `getSettings` redacts them and reports only configured booleans, and `updateSettings` uses absent=keep / set / empty=clear semantics. Browser code never receives the key, and the key is never included in the repository.
+Never put a secret in source code, tests, screenshots, logs, or commits. Cloud ASR API keys are stored on the dsh Host through schemastery `role('secret')` settings fields, one per provider (`groq.apiKey`, `deepgram.apiKey`, `customOpenAi.apiKey`, `bailian.apiKey`, `tencent.secretKey`, `mimo.apiKey`), following the shipped `dsh-web-search-deepseek` pattern: values are write-only across the plugin wire — `getSettings` redacts them and reports only configured booleans, and `updateSettings` uses absent=keep / set / empty=clear semantics. Browser code never receives the key, and the key is never included in the repository.
 
-Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. Custom endpoints with an API key must use HTTPS; credential-free local HTTP endpoints remain available for local deployments. Preset providers (Groq and Tencent Cloud) pin their endpoint on the Host side; only the Custom OpenAI-compatible provider accepts a user-supplied endpoint.
+Cloud endpoint URLs must use HTTP(S) and must not contain embedded credentials. Custom endpoints with an API key must use HTTPS; credential-free local HTTP endpoints remain available for local deployments. Preset providers (Groq, Deepgram, Tencent Cloud, and MiMo) pin their endpoint on the Host side; Bailian accepts a user-supplied HTTPS origin and the Custom OpenAI-compatible provider accepts a user-supplied endpoint.
 
 ## Host safety
 
