@@ -121,7 +121,7 @@ describe('transcribeMimoAsr', () => {
       language: '',
       endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
       model: 'mimo-v2.5-asr',
-      credential: 'sk-test',
+      credential: 'sk_test',
       signal: new AbortController().signal
     })
     expect(result).toBe('')
@@ -135,7 +135,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
         model: '   ',
-        credential: 'sk-test',
+        credential: 'sk_test',
         signal: new AbortController().signal
       })
     ).rejects.toThrowError(expect.objectContaining({ code: EARS_ERROR_CODES.asrModelNotConfigured }))
@@ -163,7 +163,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
         model: 'mimo-v2.5-asr',
-        credential: 'sk-test',
+        credential: 'sk_test',
         signal: new AbortController().signal
       })
     ).rejects.toThrowError(expect.objectContaining({ code: EARS_ERROR_CODES.asrMimeTypeMismatch }))
@@ -177,7 +177,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'http://api.xiaomimimo.com/v1/chat/completions',
         model: 'mimo-v2.5-asr',
-        credential: 'sk-test',
+        credential: 'sk_test',
         signal: new AbortController().signal
       })
     ).rejects.toThrowError(expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid }))
@@ -207,7 +207,7 @@ describe('transcribeMimoAsr', () => {
       language: 'zh-CN',
       endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
       model: 'mimo-v2.5-asr',
-      credential: 'sk-my-key',
+      credential: 'sk_mimo',
       signal: new AbortController().signal
     })
 
@@ -216,7 +216,7 @@ describe('transcribeMimoAsr', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://api.xiaomimimo.com/v1/chat/completions')
     expect(init.headers).toEqual({
-      Authorization: 'Bearer sk-my-key',
+      Authorization: 'Bearer sk_mimo',
       'Content-Type': 'application/json'
     })
     const parsedBody = JSON.parse(init.body)
@@ -242,7 +242,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
         model: 'mimo-v2.5-asr',
-        credential: 'sk-invalid',
+        credential: 'sk_invalid',
         signal: new AbortController().signal
       })
     ).rejects.toThrowError(
@@ -271,7 +271,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
         model: 'mimo-v2.5-asr',
-        credential: 'sk-test',
+        credential: 'sk_test',
         signal: new AbortController().signal
       })
     ).rejects.toThrowError(
@@ -292,7 +292,7 @@ describe('transcribeMimoAsr', () => {
         language: '',
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
         model: 'mimo-v2.5-asr',
-        credential: 'sk-test',
+        credential: 'sk_test',
         signal: controller.signal
       })
     ).rejects.toThrow()

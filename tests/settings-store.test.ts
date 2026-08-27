@@ -142,7 +142,7 @@ describe('canonical Host settings slots', () => {
       localWhisperAcceleration: 'cuda',
       cloudAsrGroqApiKey: 'gsk_new',
       cloudAsrCustomApiKey: 'sk_custom',
-      cloudAsrMimoApiKey: 'mimo_secret',
+      cloudAsrMimoApiKey: 'sk_mimo',
       cloudAsrMimoService: 'token-plan',
       cloudAsrMimoCluster: 'sgp'
     })
@@ -151,7 +151,7 @@ describe('canonical Host settings slots', () => {
     expect(next.cloudAsr.groq.apiKey).toBe('gsk_new')
     expect(next.cloudAsr.customOpenAi.apiKey).toBe('sk_custom')
     expect(next.cloudAsr.bailian.apiKey).toBe('')
-    expect(next.cloudAsr.mimo.apiKey).toBe('mimo_secret')
+    expect(next.cloudAsr.mimo.apiKey).toBe('sk_mimo')
     expect(next.cloudAsr.mimo.service).toBe('token-plan')
     expect(next.cloudAsr.mimo.cluster).toBe('sgp')
   })
