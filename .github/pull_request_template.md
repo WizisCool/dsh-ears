@@ -1,4 +1,6 @@
 <!--
+The PR title becomes the single squash-merge commit message on master.
+It must start with a Conventional Commit prefix (feat:, fix:, docs:, chore:, test:).
 Fixes #NN closes the issue. Related to #NN only links it.
 Non-draft PRs should name an issue unless the change is trivial (typo, changelog).
 -->
