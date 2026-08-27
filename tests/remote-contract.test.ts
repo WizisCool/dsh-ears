@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, remoteTextResultSchema, whisperModelStateSchema } from '../src/remote-contract.js'
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
+import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
 
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
@@ -228,6 +229,8 @@ describe('settings Remote contract', () => {
   })
 
   it('keeps Host and Client Remote descriptors aligned', () => {
+    expect(TYPERT.invocations).toBe(EARS_REMOTE_DESCRIPTORS)
+    expect(TYPERT_REMOTE.descriptors).toBe(EARS_REMOTE_DESCRIPTORS)
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
