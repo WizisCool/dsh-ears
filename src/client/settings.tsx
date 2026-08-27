@@ -4,8 +4,16 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
+import {
+  AlibabaCloudIcon,
+  DeepgramIcon,
+  GroqIcon,
+  OpenAiIcon,
+  TencentCloudIcon,
+  XiaomiMimoIcon
+} from './provider-icons.js'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { DEEPGRAM_DEFAULT_MODEL, MAX_POLISH_PROMPT_LENGTH, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { DEEPGRAM_DEFAULT_MODEL, MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
@@ -45,6 +53,9 @@ interface EarsSettingsSectionProps {
   readonly setTencentSecretKey: (text: string) => void
   readonly clearTencentSecretKey: () => void
   readonly undoClearTencentSecretKey: () => void
+  readonly setMimoApiKey: (text: string) => void
+  readonly clearMimoApiKey: () => void
+  readonly undoClearMimoApiKey: () => void
   readonly flush: () => void
   readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
@@ -113,11 +124,12 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     { id: 'local-whisper', label: t('localWhisperBackend') },
     { type: 'separator', id: 'separator-cloud' },
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
-    { id: 'groq', label: t('groqProvider') },
-    { id: 'deepgram', label: t('deepgramProvider') },
-    { id: 'bailian', label: t('bailianProvider') },
-    { id: 'tencent', label: t('tencentProvider') },
-    { id: 'custom', label: t('customProvider') }
+    { id: 'groq', label: t('groqProvider'), icon: <GroqIcon /> },
+    { id: 'deepgram', label: t('deepgramProvider'), icon: <DeepgramIcon /> },
+    { id: 'bailian', label: t('bailianProvider'), icon: <AlibabaCloudIcon /> },
+    { id: 'tencent', label: t('tencentProvider'), icon: <TencentCloudIcon /> },
+    { id: 'mimo', label: t('mimoProvider'), icon: <XiaomiMimoIcon /> },
+    { id: 'custom', label: t('customProvider'), icon: <OpenAiIcon /> }
   ]
   const tabs: Array<{ id: 'general' | 'recognition' | 'polishing' | 'about'; label: string }> = [
     { id: 'general', label: t('groupGeneral') },
@@ -171,7 +183,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
           <SelectRow label={t('backend')} hint={backendHint(state.asrBackend.text, state.cloudAsrProvider.text, t)} value={selectedEntryId} entries={backendMenu} disabled={!state.writable} invalid={state.asrBackend.invalid || state.cloudAsrProvider.invalid} onChange={(id) => {
-            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'custom') {
+            if (id === 'groq' || id === 'deepgram' || id === 'bailian' || id === 'tencent' || id === 'mimo' || id === 'custom') {
               props.edit('asrBackend', 'cloud-openai')
               props.edit('cloudAsrProvider', id)
               return
@@ -212,6 +224,26 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('tencentSecretId')} hint={t('tencentSecretIdHint')} value={state.cloudAsrTencentSecretId.text} disabled={!state.writable} invalid={state.cloudAsrTencentSecretId.invalid} onChange={(event) => props.edit('cloudAsrTencentSecretId', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('tencentSecretKey')} hint={t('tencentSecretKeyHint')} value={state.cloudAsrTencentSecretKey.text} configured={state.cloudAsrTencentSecretKeyConfigured} clearPending={state.cloudAsrTencentSecretKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrTencentSecretKey.invalid} onEdit={props.setTencentSecretKey} onClear={props.clearTencentSecretKey} onUndoClear={props.undoClearTencentSecretKey} onBlur={props.flush} t={t} />
             <TextRow label={t('tencentEngineType')} hint={t('tencentEngineTypeHint')} value={state.cloudAsrTencentEngineType.text} disabled={!state.writable} invalid={state.cloudAsrTencentEngineType.invalid} onChange={(event) => props.edit('cloudAsrTencentEngineType', event.target.value)} onBlur={props.flush} />
+          </> : state.cloudAsrProvider.text === 'mimo' ? <>
+            <SelectRow label={t('mimoService')} hint={t('mimoServiceHint')} value={state.cloudAsrMimoService.text} entries={[
+              { id: 'api', label: t('mimoApiService') },
+              { id: 'token-plan', label: t('mimoTokenPlanService') }
+            ]} disabled={!state.writable} invalid={state.cloudAsrMimoService.invalid} onChange={(value) => {
+              props.edit('cloudAsrMimoService', value)
+              // Clusters only apply to the Token Plan access method, so a switch back
+              // to standard API clears the hidden cluster draft to avoid stale residue.
+              if (value === 'api') props.edit('cloudAsrMimoCluster', MIMO_ASR_DEFAULT_CLUSTER)
+            }} />
+            {state.cloudAsrMimoService.text === 'token-plan' ? (
+              <SelectRow label={t('mimoCluster')} hint={t('mimoClusterHint')} value={state.cloudAsrMimoCluster.text} entries={[
+                { id: 'cn', label: t('mimoClusterCn') },
+                { id: 'sgp', label: t('mimoClusterSgp') },
+                { id: 'ams', label: t('mimoClusterAms') }
+              ]} disabled={!state.writable} invalid={state.cloudAsrMimoCluster.invalid} onChange={(value) => props.edit('cloudAsrMimoCluster', value)} />
+            ) : null}
+            <KeyRow label={t('cloudKey')} hint={t('mimoApiKeyHint')} value={state.cloudAsrMimoApiKey.text} configured={state.cloudAsrMimoApiKeyConfigured} clearPending={state.cloudAsrMimoApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrMimoApiKey.invalid} onEdit={props.setMimoApiKey} onClear={props.clearMimoApiKey} onUndoClear={props.undoClearMimoApiKey} onBlur={props.flush} t={t} />
+            <TextRow label={t('cloudModel')} hint={t('mimoModelHint')} value={state.cloudAsrMimoModel.text} disabled={!state.writable} invalid={state.cloudAsrMimoModel.invalid} onChange={(event) => props.edit('cloudAsrMimoModel', event.target.value)} onBlur={props.flush} />
+            <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.cloudAsrMimoLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.cloudAsrMimoLanguage.invalid} onChange={(event) => props.edit('cloudAsrMimoLanguage', event.target.value)} onBlur={props.flush} />
           </> : <>
             <TextRow label={t('cloudEndpoint')} hint={t('cloudEndpointHint')} value={state.cloudAsrCustomEndpoint.text} disabled={!state.writable} invalid={state.cloudAsrCustomEndpoint.invalid} onChange={(event) => props.edit('cloudAsrCustomEndpoint', event.target.value)} onBlur={props.flush} />
             <KeyRow label={t('cloudKey')} hint={t('cloudKeyHint')} value={state.cloudAsrCustomApiKey.text} configured={state.cloudAsrCustomApiKeyConfigured} clearPending={state.cloudAsrCustomApiKeyClearPending} disabled={!state.writable} invalid={state.cloudAsrCustomApiKey.invalid} onEdit={props.setCustomApiKey} onClear={props.clearCustomApiKey} onUndoClear={props.undoClearCustomApiKey} onBlur={props.flush} t={t} />
@@ -731,6 +763,7 @@ function backendHint(backend: string, provider: string, t: Translate): string {
     if (provider === 'deepgram') return t('backendHintDeepgram')
     if (provider === 'bailian') return t('backendHintBailian')
     if (provider === 'tencent') return t('backendHintTencent')
+    if (provider === 'mimo') return t('backendHintMimo')
     return t('backendHintCustom')
   }
   return t('backendHintWebSpeech')

@@ -107,7 +107,6 @@
   },
   "dependencies": {
     "@fugood/whisper.node": "1.1.2",
-    "@thesvg/react": "^3.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -127,6 +126,7 @@
     "@deepseek-ai/schemastery": "3.18.1",
     "@types/node": "^22.20.1",
     "@types/react": "~18.3.31",
+    "@thesvg/react": "^3.3.1",
     "lightningcss": "^1.33.0",
     "react": "^18.3.1",
     "tsdown": "^0.22.14",
