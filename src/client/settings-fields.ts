@@ -21,7 +21,7 @@ export function parseSettingsField(field: FieldName, text: string): unknown {
 }
 
 export function isSettingsFieldInvalid(field: FieldName, text: string): boolean {
-  if (field === 'webSpeechLanguage' || field === 'localWhisperLanguage' || field === 'cloudAsrGroqLanguage' || field === 'cloudAsrDeepgramLanguage' || field === 'cloudAsrCustomLanguage' || field === 'cloudAsrBailianLanguage' || field === 'cloudAsrMimoLanguage') return false
+  if (field === 'webSpeechLanguage' || field === 'localWhisperLanguage' || field === 'cloudAsrGroqLanguage' || field === 'cloudAsrDeepgramLanguage' || field === 'cloudAsrCustomLanguage' || field === 'cloudAsrBailianLanguage' || field === 'cloudAsrMimoLanguage' || field === 'cloudAsrSiliconFlowLanguage') return false
   if (field === 'asrBackend') return !(ASR_BACKEND_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperModel') return !(WHISPER_MODEL_IDS as readonly string[]).includes(text)
   if (field === 'localWhisperAcceleration') return !(WHISPER_ACCELERATION_IDS as readonly string[]).includes(text)

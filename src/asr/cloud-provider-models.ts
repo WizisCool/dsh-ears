@@ -38,7 +38,9 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
         if (!isRecord(parsed) || !Array.isArray(parsed.stt)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
         const models = filterDeepgramModels(parsed.stt)
         if (models.length === 0) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Deepgram model listing returned no models')
-        return sortModels(models)
+        // Deepgram keeps its curated priority ordering (nova-3 → base); it is
+        // already sorted, so an A→Z sort here would push nova-3 below enhanced.
+        return models
       }
 
       if (!isRecord(parsed) || !Array.isArray(parsed.data)) throw new EarsError(EARS_ERROR_CODES.cloudModelsNoModels, 'Cloud model listing returned no models')

@@ -381,11 +381,9 @@ export class PolishService extends TypertRemoteService {
         signal.throwIfAborted()
         return remoteTextSuccess(text)
       }
-      const language = settings.cloudAsrProvider === 'custom'
-        ? settings.cloudAsrCustomLanguage
-        : settings.cloudAsrProvider === 'siliconflow'
-          ? settings.cloudAsrSiliconFlowLanguage
-          : settings.cloudAsrGroqLanguage
+      let language = settings.cloudAsrGroqLanguage
+      if (settings.cloudAsrProvider === 'custom') language = settings.cloudAsrCustomLanguage
+      else if (settings.cloudAsrProvider === 'siliconflow') language = settings.cloudAsrSiliconFlowLanguage
       const text = await transcribeOpenAICompatible({
         audio,
         mimeType,

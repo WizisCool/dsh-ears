@@ -1,5 +1,5 @@
 import { isBailianAsrHost, isHttpEndpoint } from '../config.js'
-import { mimoEndpoint, SILICONFLOW_ASR_SUB_TYPE } from '../settings/recognition.js'
+import { mimoEndpoint, SILICONFLOW_ASR_SUB_TYPE, SILICONFLOW_DEFAULT_MODEL } from '../settings/recognition.js'
 import type { CloudAsrProviderId, EarsSettings } from '../config.js'
 
 /**
@@ -93,7 +93,7 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     protocol: 'openai-compatible',
     baseUrl: 'https://api.siliconflow.cn/v1',
     modelQuery: { sub_type: SILICONFLOW_ASR_SUB_TYPE },
-    defaultModel: 'FunAudioLLM/SenseVoiceSmall',
+    defaultModel: SILICONFLOW_DEFAULT_MODEL,
     endpointEditable: false,
     apiKeyRequired: true
   },

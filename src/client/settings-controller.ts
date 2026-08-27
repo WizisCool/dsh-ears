@@ -869,7 +869,7 @@ export class EarsSettingsController {
   }
 
   private hasPersistableDrafts(): boolean {
-    if (this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending || this.clearMimoKeyPending) return true
+    if (this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending || this.clearMimoKeyPending || this.clearSiliconFlowKeyPending) return true
     for (const [field, text] of this.drafts.entries()) {
       if (!isSettingsFieldInvalid(field, text)) return true
     }

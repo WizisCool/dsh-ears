@@ -92,14 +92,14 @@ describe('cloud provider model listing', () => {
 
     const models = await fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)
     expect(models).toEqual([
-      'enhanced',
-      'enhanced-general',
-      'nova-2',
-      'nova-2-general',
-      'nova-2-meeting',
       'nova-3',
       'nova-3-general',
       'nova-3-medical',
+      'nova-2',
+      'nova-2-general',
+      'nova-2-meeting',
+      'enhanced',
+      'enhanced-general',
       'whisper-large'
     ])
     expect(fetchMock).toHaveBeenCalledWith(
