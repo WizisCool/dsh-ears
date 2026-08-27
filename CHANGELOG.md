@@ -2,6 +2,26 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.1.6] - 2026-08-27
+
+Xiaomi MiMo cloud ASR provider release.
+
+### Added
+
+- [Xiaomi MiMo](https://mimo.mi.com) as a cloud ASR provider on the Recognition tab: API key, model selector (`mimo-v2.5-asr` static list), recognition-language, and an access-method toggle between the standard `api` and the `token-plan` subscription. Standard API posts to `https://api.xiaomimimo.com/v1/chat/completions`; Token Plan selects a regional cluster (`cn` default, `sgp`, `ams`) and derives the matching `token-plan-<cluster>.xiaomimimo.com` endpoint. Recording uses authenticated, OpenAI-compatible `/chat/completions` transcription with a bounded response, abort propagation, and an HTTPS-enforced endpoint.
+- MiMo Host storage under `cloudAsr.mimo` (`apiKey` with `role('secret')`, `model`, `language`, `endpoint`, `cluster`, `service`), Typert / `remote-contract` wire fields, and settings-store backing.
+- Cloud provider vendor icons in the client bundle (Groq, Deepgram, Alibaba Cloud, Tencent Cloud, Xiaomi MiMo, OpenAI); `@thesvg/react` moves to devDependencies so the icons are inlined at build time rather than shipped as a runtime icon dependency.
+
+### Changed
+
+- Cloud provider model listing is isolated per provider: `listCloudProviderModels(provider, signal)` now takes an explicit provider argument and Resolves it by id on the Host instead of trusting a stale settings snapshot, so model lists no longer leak across providers.
+- The recognition-language row is unified so every auto-detection backend (Local Whisper, Groq, Deepgram, Bailian, MiMo, and the custom OpenAI-compatible branch) uses a `placeholder="auto"` input whose empty value means automatic detection; Web Speech keeps its locale-following placeholder.
+- Recognition-tab copy, provider presets, and the About/Context translation strings updated for the MiMo provider.
+
+### Fixed
+
+- Cloud model listing and validation no longer depend on the previously applied settings snapshot, preventing cross-provider model list contamination.
+
 ## [0.1.5] - 2026-08-26
 
 Cloud ASR recognition and recognition-language ownership release.
