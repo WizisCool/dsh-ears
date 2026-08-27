@@ -29,7 +29,7 @@ Client-only UI changes need a rebuild and a browser refresh. Host, settings regi
 
 ## Atomic commits
 
-Use Conventional Commits:
+Use Conventional Commits (and remember `master` only accepts squash merges, so `feat:`-style prefixes belong on the PR title, which becomes the single merged commit message):
 
 - `docs:` documentation and context
 - `chore:` build, packaging, and development infrastructure

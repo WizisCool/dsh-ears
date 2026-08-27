@@ -103,10 +103,12 @@ Do not file a public issue that contains a secret, recording, transcript, or exp
 
 PRs should stay on one concern, use Conventional Commits, and name a related issue (`Fixes #NN` or `Related to #NN`) unless the change is a typo or changelog-only edit. The pull request template lists the validation expected before review.
 
+This repository only allows **squash merging** into `master`. When a PR is merged, GitHub collapses its commits into a single commit and uses the **PR title** as the commit message. Therefore the Conventional Commit prefix (`feat:`, `fix:`, `docs:`…) belongs on the PR title, and it is that title that appears in `master` history and in `CHANGELOG.md`. Individual commits inside a branch still matter for review clarity, but they are not preserved verbatim after the squash, so do not spend effort micro-editing them for final-history correctness.
+
 ## Change expectations
 
 - State the goal, scope, and acceptance evidence.
-- Keep one commit on one atomic concern.
+- Keep the PR on one atomic concern. Because `master` only accepts squash merges, the merged result is one commit whose message is the PR title — make that title a clean Conventional Commit summarizing the whole change.
 - Use English for source, comments, docs, context, issue-ready text, and commit messages. Runtime product prompts may be Chinese when the product requires it.
 - Follow official dsh package conventions for manifest fields, exports, lifecycle, and README structure.
 - Use explicit Git paths; do not use an unreviewed `git add -A`.
