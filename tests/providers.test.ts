@@ -168,4 +168,10 @@ describe('cloud ASR runtime readiness', () => {
       cloudAsrBailianModel: 'qwen3-asr-flash'
     }))).toBe(false)
   })
+
+  it('validates MiMo configuration and readiness', () => {
+    expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr', cloudAsrMimoApiKey: '' }))).toBe(false)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'mimo', cloudAsrMimoModel: 'mimo-v2.5-asr', cloudAsrMimoApiKey: 'sk-123' }))).toBe(true)
+  })
 })

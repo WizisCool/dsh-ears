@@ -50,7 +50,7 @@ src/config.ts             Shared constants and validation
 src/config-schema.ts      Host-only schemastery schema
 src/remote-contract.ts    Strict Host/Client wire schemas
 src/shortcut.ts           Shared voice-shortcut logic
-src/asr/                  Web Speech, Whisper, Groq, Bailian, custom cloud
+src/asr/                  Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, custom cloud
 src/polish/               Host LLM polish
 tests/                    Vitest suites next to the shipped modules
 .agent/                   Plan, architecture, ADRs, optional research

@@ -774,7 +774,25 @@ describe('EarsSettingsController settings lifecycle', () => {
       status: 'ready',
       view: { status: 'ok', models: ['whisper-large-v3-turbo'] }
     })
+    expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
     controller.dispose()
+  })
+
+  it('requests the model listing for the staged provider before the save lands', async () => {
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'no-key' as const } }))
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) }))
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels, updateSettings }))
+    try {
+      await controller.refreshSettings()
+      expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
+
+      controller.actions().edit('cloudAsrProvider', 'deepgram')
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledWith('deepgram'))
+      // The staged switch is sent even though updateSettings has not committed yet.
+      expect(updateSettings).not.toHaveBeenCalled()
+    } finally {
+      controller.dispose()
+    }
   })
 
   it('marks the custom provider model listing as unsupported', async () => {
@@ -884,9 +902,11 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     writable: true,
     settings,
     cloudAsrGroqApiKeyConfigured: settings.cloudAsrGroqApiKey.trim() !== '',
+    cloudAsrDeepgramApiKeyConfigured: settings.cloudAsrDeepgramApiKey.trim() !== '',
     cloudAsrCustomApiKeyConfigured: settings.cloudAsrCustomApiKey.trim() !== '',
     cloudAsrBailianApiKeyConfigured: settings.cloudAsrBailianApiKey.trim() !== '',
     cloudAsrTencentSecretKeyConfigured: settings.cloudAsrTencentSecretKey.trim() !== '',
+    cloudAsrMimoApiKeyConfigured: settings.cloudAsrMimoApiKey.trim() !== '',
     overridden: []
   }
 }

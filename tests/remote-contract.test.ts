@@ -73,6 +73,17 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrDeepgramService: 'unsupported-service' })).toThrow()
   })
 
+  it('accepts the supported MiMo service and cluster identifiers', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrMimoService: 'api' })).toEqual({ cloudAsrMimoService: 'api' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrMimoService: 'token-plan' })).toEqual({ cloudAsrMimoService: 'token-plan' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrMimoService: 'invalid' })).toThrow()
+
+    expect(earsSettingsPatchSchema.parse({ cloudAsrMimoCluster: 'cn' })).toEqual({ cloudAsrMimoCluster: 'cn' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrMimoCluster: 'sgp' })).toEqual({ cloudAsrMimoCluster: 'sgp' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrMimoCluster: 'ams' })).toEqual({ cloudAsrMimoCluster: 'ams' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrMimoCluster: 'us' })).toThrow()
+  })
+
   it('accepts an empty provider/model pair as the no-polish state', () => {
     expect(earsSettingsPatchSchema.parse({ polishProvider: '', polishModel: '' })).toEqual({
       polishProvider: '',

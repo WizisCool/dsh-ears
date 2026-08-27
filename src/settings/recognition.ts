@@ -1,8 +1,27 @@
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
+
+export const MIMO_DEFAULT_MODEL = 'mimo-v2.5-asr'
+export const MIMO_ASR_SERVICE_IDS = ['api', 'token-plan'] as const
+export type MimoAsrServiceId = typeof MIMO_ASR_SERVICE_IDS[number]
+export const MIMO_ASR_DEFAULT_SERVICE: MimoAsrServiceId = 'api'
+
+export const MIMO_ASR_CLUSTERS = ['cn', 'sgp', 'ams'] as const
+export type MimoAsrClusterId = typeof MIMO_ASR_CLUSTERS[number]
+export const MIMO_ASR_DEFAULT_CLUSTER: MimoAsrClusterId = 'cn'
+
+/** Derive the transcription endpoint for a MiMo access method + cluster (client-safe, no Node globals). */
+export function mimoEndpoint(service: string, cluster: string): string {
+  if (service === 'token-plan') {
+    if (cluster === 'sgp') return 'https://token-plan-sgp.xiaomimimo.com/v1/chat/completions'
+    if (cluster === 'ams') return 'https://token-plan-ams.xiaomimimo.com/v1/chat/completions'
+    return 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions'
+  }
+  return 'https://api.xiaomimimo.com/v1/chat/completions'
+}
 
 export const DEEPGRAM_DEFAULT_MODEL = 'nova-3'
 export const DEEPGRAM_ASR_SERVICE_IDS = ['recording-file', 'realtime'] as const

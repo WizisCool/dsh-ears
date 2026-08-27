@@ -2,7 +2,7 @@ import { DEFAULT_EARS_SETTINGS, EARS_SETTINGS_SCHEMA_VERSION, type EarsSettings,
 import { DEFAULT_CLOUD_ASR_SETTINGS, type CloudAsrSettings } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS, type GeneralSettings } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS, type PolishingSettings } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
+import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
 import type { EarsSettingsPatch } from './remote-contract.js'
 
 /** Canonical Host persistence. The browser-facing EarsSettings shape stays flat. */
@@ -55,6 +55,19 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
     ownText(record, 'cloudAsrTencentService')
   ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.service)
 
+  const mimoSlot = asRecord(cloudAsr?.mimo)
+  const mimoLegacy = asRecord(record.mimo)
+  const mimoService = normalizeMimoService(firstDefinedText(
+    ownText(mimoSlot, 'service'),
+    ownText(mimoLegacy, 'service'),
+    ownText(record, 'cloudAsrMimoService')
+  ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.service)
+  const mimoCluster = normalizeMimoCluster(firstDefinedText(
+    ownText(mimoSlot, 'cluster'),
+    ownText(mimoLegacy, 'cluster'),
+    ownText(record, 'cloudAsrMimoCluster')
+  ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.cluster)
+
   const provider = defaultSlotText(
     ownText(recognition, 'cloudProvider'),
     ownText(record, 'cloudAsrProvider'),
@@ -81,6 +94,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
     ownText(bailianLegacy, 'model'),
     ownText(record, 'cloudAsrBailianModel')
   ) ?? (provider === 'bailian' ? legacyModel ?? '' : '')
+  const mimoModel = firstDefinedText(
+    ownText(mimoSlot, 'model'),
+    ownText(mimoLegacy, 'model'),
+    ownText(record, 'cloudAsrMimoModel')
+  ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.model
 
   return {
     schemaVersion: EARS_SETTINGS_SCHEMA_VERSION,
@@ -215,6 +233,21 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'cloudAsrTencentEngineType')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.tencent.engineType,
         service: tencentService
+      },
+      mimo: {
+        apiKey: firstDefinedText(
+          ownText(mimoSlot, 'apiKey'),
+          ownText(mimoLegacy, 'apiKey'),
+          ownText(record, 'cloudAsrMimoApiKey')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.apiKey,
+        service: mimoService,
+        cluster: mimoCluster,
+        model: mimoModel,
+        language: firstDefinedText(
+          ownText(mimoSlot, 'language'),
+          ownText(mimoLegacy, 'language'),
+          ownText(record, 'cloudAsrMimoLanguage')
+        ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.language
       }
     },
     polishing: {
@@ -272,6 +305,11 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     cloudAsrTencentSecretKey: stored.cloudAsr.tencent.secretKey,
     cloudAsrTencentEngineType: stored.cloudAsr.tencent.engineType,
     cloudAsrTencentService: stored.cloudAsr.tencent.service,
+    cloudAsrMimoApiKey: stored.cloudAsr.mimo.apiKey,
+    cloudAsrMimoService: stored.cloudAsr.mimo.service,
+    cloudAsrMimoCluster: stored.cloudAsr.mimo.cluster,
+    cloudAsrMimoModel: stored.cloudAsr.mimo.model,
+    cloudAsrMimoLanguage: stored.cloudAsr.mimo.language,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
     voiceShortcut: stored.general.shortcut.value,
@@ -339,6 +377,13 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
         secretKey: settings.cloudAsrTencentSecretKey,
         engineType: settings.cloudAsrTencentEngineType,
         service: settings.cloudAsrTencentService
+      },
+      mimo: {
+        apiKey: settings.cloudAsrMimoApiKey,
+        service: normalizeMimoService(settings.cloudAsrMimoService),
+        cluster: normalizeMimoCluster(settings.cloudAsrMimoCluster),
+        model: settings.cloudAsrMimoModel,
+        language: settings.cloudAsrMimoLanguage
       }
     },
     polishing: {
@@ -381,6 +426,11 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
     cloudAsrTencentSecretKey: ['cloudAsr', 'tencent', 'secretKey'],
     cloudAsrTencentEngineType: ['cloudAsr', 'tencent', 'engineType'],
     cloudAsrTencentService: ['cloudAsr', 'tencent', 'service'],
+    cloudAsrMimoApiKey: ['cloudAsr', 'mimo', 'apiKey'],
+    cloudAsrMimoService: ['cloudAsr', 'mimo', 'service'],
+    cloudAsrMimoCluster: ['cloudAsr', 'mimo', 'cluster'],
+    cloudAsrMimoModel: ['cloudAsr', 'mimo', 'model'],
+    cloudAsrMimoLanguage: ['cloudAsr', 'mimo', 'language'],
     voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
     voiceShortcut: ['general', 'shortcut', 'value'],
     voiceSoundsEnabled: ['general', 'soundsEnabled'],
@@ -493,6 +543,11 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['cloudAsr', 'tencent', 'engineType'], field: 'cloudAsrTencentEngineType' },
     { path: ['cloudAsr', 'tencent', 'service'], field: 'cloudAsrTencentService' },
+    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    { path: ['cloudAsr', 'mimo', 'service'], field: 'cloudAsrMimoService' },
+    { path: ['cloudAsr', 'mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
+    { path: ['cloudAsr', 'mimo', 'model'], field: 'cloudAsrMimoModel' },
+    { path: ['cloudAsr', 'mimo', 'language'], field: 'cloudAsrMimoLanguage' },
     { path: ['polishing', 'enabled'], field: 'polishingEnabled' },
     { path: ['polishing', 'provider'], field: 'polishProvider' },
     { path: ['polishing', 'model'], field: 'polishModel' },
@@ -513,6 +568,11 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
     { path: ['tencent', 'engineType'], field: 'cloudAsrTencentEngineType' },
     { path: ['tencent', 'service'], field: 'cloudAsrTencentService' },
+    { path: ['mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    { path: ['mimo', 'service'], field: 'cloudAsrMimoService' },
+    { path: ['mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
+    { path: ['mimo', 'model'], field: 'cloudAsrMimoModel' },
+    { path: ['mimo', 'language'], field: 'cloudAsrMimoLanguage' },
     { path: ['bailian', 'host'], field: 'cloudAsrBailianHost' },
     { path: ['bailian', 'model'], field: 'cloudAsrBailianModel' },
     { path: ['recognition', 'localWhisperAcceleration'], field: 'localWhisperAcceleration' }
@@ -528,11 +588,13 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
     { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
+    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
     { path: ['bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' }
+    { path: ['tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
+    { path: ['mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' }
   ]
   for (const secret of secrets) {
     if (!secret.set) continue
@@ -548,6 +610,14 @@ function normalizeDeepgramService(value: string): string {
 
 function normalizeTencentService(value: string): string {
   return value === 'recording-file' || value === 'realtime' ? value : DEFAULT_CLOUD_ASR_SETTINGS.tencent.service
+}
+
+function normalizeMimoService(value: string): string {
+  return (MIMO_ASR_SERVICE_IDS as readonly string[]).includes(value) ? value : DEFAULT_CLOUD_ASR_SETTINGS.mimo.service
+}
+
+function normalizeMimoCluster(value: string): string {
+  return (MIMO_ASR_CLUSTERS as readonly string[]).includes(value) ? value : DEFAULT_CLOUD_ASR_SETTINGS.mimo.cluster
 }
 
 function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
@@ -583,6 +653,11 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
     && hasPath(record, ['cloudAsr', 'tencent', 'secretKey'])
     && hasPath(record, ['cloudAsr', 'tencent', 'engineType'])
     && hasPath(record, ['cloudAsr', 'tencent', 'service'])
+    && hasPath(record, ['cloudAsr', 'mimo', 'apiKey'])
+    && hasPath(record, ['cloudAsr', 'mimo', 'service'])
+    && hasPath(record, ['cloudAsr', 'mimo', 'cluster'])
+    && hasPath(record, ['cloudAsr', 'mimo', 'model'])
+    && hasPath(record, ['cloudAsr', 'mimo', 'language'])
     && hasPath(record, ['polishing', 'enabled'])
     && hasPath(record, ['polishing', 'provider'])
     && hasPath(record, ['polishing', 'model'])

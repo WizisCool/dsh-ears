@@ -1,4 +1,5 @@
 import { isBailianAsrHost, isHttpEndpoint } from '../config.js'
+import { mimoEndpoint } from '../settings/recognition.js'
 import type { CloudAsrProviderId, EarsSettings } from '../config.js'
 
 /**
@@ -6,7 +7,7 @@ import type { CloudAsrProviderId, EarsSettings } from '../config.js'
  * OpenAI-compatible is pure data over the existing adapter; a provider with a
  * different protocol additionally ships an adapter and declares it here.
  */
-export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr' | 'tencent' | 'deepgram'
+export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr' | 'tencent' | 'deepgram' | 'mimo'
 
 export interface CloudAsrProviderEntry {
   readonly id: CloudAsrProviderId
@@ -76,6 +77,15 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     apiKeyRequired: true
   },
   {
+    id: 'mimo',
+    name: { en: 'Xiaomi MiMo', zh: '小米 MiMo' },
+    protocol: 'mimo',
+    defaultModel: 'mimo-v2.5-asr',
+    staticModels: ['mimo-v2.5-asr'],
+    endpointEditable: false,
+    apiKeyRequired: true
+  },
+  {
     id: 'custom',
     name: { en: 'Custom OpenAI-compatible', zh: '自定义 OpenAI 兼容' },
     protocol: 'openai-compatible',
@@ -98,10 +108,11 @@ export function supportsModelListing(id: string): boolean {
   return cloudProviderEntry(id)?.baseUrl !== undefined
 }
 
-export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost'>): string {
+export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrMimoService' | 'cloudAsrMimoCluster'>): string {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry?.protocol === 'deepgram') return 'https://api.deepgram.com/v1/listen'
   if (entry?.protocol === 'tencent') return 'https://asr.tencentcloudapi.com/'
+  if (entry?.protocol === 'mimo') return mimoEndpoint(settings.cloudAsrMimoService, settings.cloudAsrMimoCluster)
   if (entry?.protocol === 'dashscope-asr') {
     const host = settings.cloudAsrBailianHost.trim()
     return host === '' ? '' : bailianGenerationUrl(host)
@@ -119,15 +130,16 @@ export function bailianGenerationUrl(host: string): string {
   return url.toString()
 }
 
-export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey'>): string {
+export function cloudAsrCredentialFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey'>): string {
   if (settings.cloudAsrProvider === 'deepgram') return settings.cloudAsrDeepgramApiKey.trim()
   if (settings.cloudAsrProvider === 'bailian') return settings.cloudAsrBailianApiKey.trim()
   if (settings.cloudAsrProvider === 'tencent') return settings.cloudAsrTencentSecretKey.trim()
+  if (settings.cloudAsrProvider === 'mimo') return settings.cloudAsrMimoApiKey.trim()
   if (settings.cloudAsrProvider === 'custom') return settings.cloudAsrCustomApiKey.trim()
   return settings.cloudAsrGroqApiKey.trim()
 }
 
-export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): string {
+export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel'>): string {
   let model = ''
   if (settings.cloudAsrProvider === 'deepgram') {
     model = settings.cloudAsrDeepgramModel
@@ -135,6 +147,8 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
     model = settings.cloudAsrBailianModel
   } else if (settings.cloudAsrProvider === 'tencent') {
     model = settings.cloudAsrTencentEngineType
+  } else if (settings.cloudAsrProvider === 'mimo') {
+    model = settings.cloudAsrMimoModel
   } else if (settings.cloudAsrProvider === 'custom') {
     model = settings.cloudAsrCustomModel
   } else {
@@ -151,19 +165,19 @@ export function cloudAsrModelFor(settings: Pick<EarsSettings, 'cloudAsrProvider'
  * — a keyless configuration must remain saveable so the key can be entered
  * first; key readiness is a runtime/availability concern.
  */
-export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType'>): boolean {
+export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBackend' | 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrMimoModel'>): boolean {
   if (settings.asrBackend !== 'cloud-openai') return true
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false
   if (entry.protocol === 'dashscope-asr') return isBailianAsrHost(settings.cloudAsrBailianHost)
-  if (entry.protocol === 'tencent' || entry.protocol === 'deepgram') return true
+  if (entry.protocol === 'tencent' || entry.protocol === 'deepgram' || entry.protocol === 'mimo') return true
   if (entry.endpointEditable && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) return false
   return true
 }
 
 /** Whether the cloud ASR backend has all required credentials and configuration to transcribe. */
-export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey'>): boolean {
+export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrCustomEndpoint' | 'cloudAsrBailianHost' | 'cloudAsrGroqModel' | 'cloudAsrDeepgramModel' | 'cloudAsrCustomModel' | 'cloudAsrBailianModel' | 'cloudAsrTencentEngineType' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService' | 'cloudAsrTencentAppId' | 'cloudAsrTencentSecretId' | 'cloudAsrGroqApiKey' | 'cloudAsrDeepgramApiKey' | 'cloudAsrCustomApiKey' | 'cloudAsrBailianApiKey' | 'cloudAsrTencentSecretKey' | 'cloudAsrMimoApiKey' | 'cloudAsrMimoModel'>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return false
   if (cloudAsrModelFor(settings) === '') return false

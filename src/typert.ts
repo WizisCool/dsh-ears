@@ -1,4 +1,4 @@
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 export const TYPERT = {
   package: 'dsh-ears',
@@ -52,7 +52,14 @@ export const TYPERT = {
       namespace: 'dshEars',
       method: 'listCloudProviderModels',
       invocation: { kind: 'direct' },
-      parameters: [],
+      parameters: [
+        {
+          name: 'provider',
+          wire: 'provider',
+          source: 'json',
+          codec: { mode: 'strict', typeSymbol: 'string', schema: cloudAsrProviderSchema }
+        }
+      ],
       cancellation: { parameter: 'signal' },
       result: { mode: 'strict', typeSymbol: 'dsh-ears#CloudProviderModelsView', schema: cloudProviderModelsViewSchema }
     },
@@ -324,9 +331,9 @@ export const TYPERT = {
           {
             kind: 'method',
             name: 'listCloudProviderModels',
-            signature: 'listCloudProviderModels(signal: AbortSignal): Promise<CloudProviderModelsView>',
-            summary: 'List the selected cloud provider transcription models from its live catalog.',
-            jsDoc: '/** List the selected cloud provider transcription models from its live catalog. */'
+            signature: 'listCloudProviderModels(provider: string, signal: AbortSignal): Promise<CloudProviderModelsView>',
+            summary: "List a cloud provider's transcription models from its live catalog.",
+            jsDoc: "/** List a cloud provider's transcription models from its live catalog. */"
           },
           {
             kind: 'method',

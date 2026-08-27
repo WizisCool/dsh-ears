@@ -25,8 +25,8 @@ export interface LocalWhisperAudioOptions {
 
 /**
  * Prepare the MediaRecorder payload for the selected ASR backend.
- * Local Whisper and Tencent Cloud standard recording get browser-decoded
- * PCM WAV; other cloud providers keep the original MediaRecorder codec.
+ * Local Whisper, Tencent Cloud standard recording, and Xiaomi MiMo get
+ * browser-decoded PCM WAV; other cloud providers keep the original MediaRecorder codec.
  */
 export function prepareRecordedAudioForBackend(
   backend: MediaCaptureBackend,
@@ -35,7 +35,9 @@ export function prepareRecordedAudioForBackend(
 ): Promise<RecordedAudioPayload> {
   if (backend === 'local-whisper') return normalizeRecordedAudioForLocalWhisper(audio, options)
   if (backend === 'cloud-openai') {
-    return options.cloudProvider === 'tencent' ? normalizeRecordedAudioForLocalWhisper(audio, options) : Promise.resolve(audio)
+    return (options.cloudProvider === 'tencent' || options.cloudProvider === 'mimo')
+      ? normalizeRecordedAudioForLocalWhisper(audio, options)
+      : Promise.resolve(audio)
   }
   throw new Error(`Unsupported media capture backend: ${String(backend)}`)
 }

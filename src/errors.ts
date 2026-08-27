@@ -29,6 +29,7 @@ export const EARS_ERROR_CODES = {
   asrAudioEmpty: 'asr.audioEmpty',
   asrAudioInvalid: 'asr.audioInvalid',
   asrAudioTooLarge: 'asr.audioTooLarge',
+  asrMimeTypeMismatch: 'asr.mimeTypeMismatch',
   asrRequestTimedOut: 'asr.requestTimedOut',
   asrHttpFailed: 'asr.httpFailed',
   asrInvalidResponse: 'asr.invalidResponse',

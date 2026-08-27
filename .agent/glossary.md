@@ -44,6 +44,22 @@ A selectable cloud ASR service entry in the Host-side registry. A provider may u
 
 A Tencent account-side usage allowance. It is not a plugin-controlled budget, entitlement, or guarantee that every account or engine remains free
 
+## MiMo
+
+Xiaomi's cloud ASR service. It is a first-class cloud ASR provider in dsh-ears (`protocol: 'mimo'`, default model `mimo-v2.5-asr`). MiMo speaks an OpenAI-compatible multimodal Chat Completions contract with base64 `input_audio` WAV payloads, not the `/audio/transcriptions` multipart form, so it needs its own adapter rather than the Custom backend
+
+## Access method
+
+MiMo's two connection schemes, `api` (standard platform API) and `token-plan` (Token Plan subscription). The selected method determines which base URL the Host calls. Only `token-plan` exposes a regional cluster
+
+## Token Plan
+
+MiMo's subscription billing tier. Its key format differs from the standard API key (`tp-...` vs `sk-...`), and it is served from one of three regional clusters rather than the single platform API origin
+
+## Token Plan cluster
+
+The regional MiMo Token Plan endpoint, one of `cn` (China), `sgp` (Singapore), or `ams` (Europe/Amsterdam). The Host derives the transcription endpoint from the selected cluster
+
 ## Recognition language
 
-The per-backend speech-recognition language setting (D-042). Each backend's field maps to its protocol's native language parameter, so there is no shared global language field. Empty means follow the dsh English/中文 locale for Web Speech and automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, and custom OpenAI-compatible backends. Tencent Cloud expresses language through `engine_type`
+The per-backend speech-recognition language setting (D-042). Each backend's field maps to its protocol's native language parameter, so there is no shared global language field. Empty means follow the dsh English/中文 locale for Web Speech and automatic detection — the language parameter is omitted — for Local Whisper, Groq, Bailian, MiMo, and custom OpenAI-compatible backends. Tencent Cloud expresses language through `engine_type`

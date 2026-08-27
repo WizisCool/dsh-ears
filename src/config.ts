@@ -6,6 +6,11 @@ import {
   DEEPGRAM_ASR_DEFAULT_SERVICE,
   DEEPGRAM_ASR_SERVICE_IDS,
   DEEPGRAM_DEFAULT_MODEL,
+  MIMO_ASR_CLUSTERS,
+  MIMO_ASR_DEFAULT_CLUSTER,
+  MIMO_ASR_DEFAULT_SERVICE,
+  MIMO_ASR_SERVICE_IDS,
+  MIMO_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -21,6 +26,8 @@ import type {
   AsrBackendId,
   CloudAsrProviderId,
   DeepgramAsrServiceId,
+  MimoAsrClusterId,
+  MimoAsrServiceId,
   TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
@@ -34,6 +41,11 @@ export {
   DEEPGRAM_ASR_DEFAULT_SERVICE,
   DEEPGRAM_ASR_SERVICE_IDS,
   DEEPGRAM_DEFAULT_MODEL,
+  MIMO_ASR_CLUSTERS,
+  MIMO_ASR_DEFAULT_CLUSTER,
+  MIMO_ASR_DEFAULT_SERVICE,
+  MIMO_ASR_SERVICE_IDS,
+  MIMO_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -49,6 +61,8 @@ export type {
   AsrBackendId,
   CloudAsrProviderId,
   DeepgramAsrServiceId,
+  MimoAsrClusterId,
+  MimoAsrServiceId,
   TencentAsrServiceId,
   WhisperAccelerationId,
   WhisperModelId
@@ -86,6 +100,11 @@ export interface EarsSettings {
   cloudAsrTencentSecretKey: string
   cloudAsrTencentEngineType: string
   cloudAsrTencentService: string
+  cloudAsrMimoApiKey: string
+  cloudAsrMimoService: string
+  cloudAsrMimoCluster: string
+  cloudAsrMimoModel: string
+  cloudAsrMimoLanguage: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
@@ -125,6 +144,11 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrTencentSecretKey: '',
   cloudAsrTencentEngineType: TENCENT_DEFAULT_ENGINE,
   cloudAsrTencentService: TENCENT_ASR_DEFAULT_SERVICE,
+  cloudAsrMimoApiKey: '',
+  cloudAsrMimoService: MIMO_ASR_DEFAULT_SERVICE,
+  cloudAsrMimoCluster: MIMO_ASR_DEFAULT_CLUSTER,
+  cloudAsrMimoModel: MIMO_DEFAULT_MODEL,
+  cloudAsrMimoLanguage: '',
   maxRecordingSeconds: 120,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
@@ -173,8 +197,11 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
   if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
   if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
+  if (settings.cloudAsrMimoApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears MiMo ASR API key is too long')
   if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
   if (!(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrDeepgramService)) throw new Error('Unknown dsh-ears Deepgram ASR service')
+  if (!(MIMO_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrMimoService)) throw new Error('Unknown dsh-ears MiMo ASR service')
+  if (!(MIMO_ASR_CLUSTERS as readonly string[]).includes(settings.cloudAsrMimoCluster)) throw new Error('Unknown dsh-ears MiMo cluster')
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')

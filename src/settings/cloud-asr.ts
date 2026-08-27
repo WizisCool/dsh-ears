@@ -1,4 +1,4 @@
-import { DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_DEFAULT_MODEL } from './recognition.js'
+import { DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_DEFAULT_MODEL } from './recognition.js'
 
 export const MAX_CLOUD_API_KEY_LENGTH = 512
 
@@ -28,12 +28,18 @@ export interface TencentSettings {
   service: string
 }
 
+export interface MimoSettings extends CloudAsrProviderSettings {
+  service: string
+  cluster: string
+}
+
 export interface CloudAsrSettings {
   groq: CloudAsrProviderSettings
   deepgram: DeepgramSettings
   customOpenAi: CustomOpenAiSettings
   bailian: BailianSettings
   tencent: TencentSettings
+  mimo: MimoSettings
 }
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
@@ -41,7 +47,8 @@ export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
   deepgram: Object.freeze({ apiKey: '', model: DEEPGRAM_DEFAULT_MODEL, language: '', service: DEEPGRAM_ASR_DEFAULT_SERVICE }),
   customOpenAi: Object.freeze({ apiKey: '', endpoint: '', model: '', language: '' }),
   bailian: Object.freeze({ apiKey: '', host: '', model: '', language: '' }),
-  tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
+  tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' }),
+  mimo: Object.freeze({ apiKey: '', service: MIMO_ASR_DEFAULT_SERVICE, cluster: MIMO_ASR_DEFAULT_CLUSTER, model: MIMO_DEFAULT_MODEL, language: '' })
 })
 
 export function isHttpEndpoint(value: string): boolean {
