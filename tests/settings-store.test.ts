@@ -112,6 +112,16 @@ describe('canonical Host settings slots', () => {
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
   })
 
+  it('normalizes unknown junk without attempting to rewrite a future schema', () => {
+    const junk = { unrelated: true, nested: ['value'] }
+    const normalized = normalizeStoredEarsSettings(junk)
+    expect(normalized.schemaVersion).toBe(4)
+    expect(normalized.recognition.backend).toBe(DEFAULT_EARS_SETTINGS.asrBackend)
+    expect(normalized.cloudAsr.mimo.model).toBe(DEFAULT_EARS_SETTINGS.cloudAsrMimoModel)
+
+    expect(storedSettingsNeedRewrite({ schemaVersion: 5, futureSetting: true })).toBe(false)
+  })
+
   it('drops the V3 recognition language when rewriting to per-provider language fields', () => {
     const raw = {
       schemaVersion: 3,
