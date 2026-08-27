@@ -9,7 +9,7 @@ dsh-ears handles microphone recordings, transcripts, dsh model routes, and optio
 - Web Speech recognition is performed by the browser API and may transmit audio to the browser vendor.
 - Local/cloud backends capture one recording with `MediaRecorder`, then send it to the Host through a bounded RPC.
 - Local Whisper uses the bundled whisper.node native runtime, writes normalized PCM16 WAV audio only to a private temporary directory, and removes that directory after success, failure, or cancellation. The model is downloaded separately into the plugin cache and is not bundled into the npm tarball.
-- The cloud adapter sends audio only to the endpoint selected by the configured provider: preset providers use their Host-pinned endpoint, while Custom uses the user-supplied endpoint. It does not crawl, discover, or probe endpoints.
+- The cloud adapter sends audio only to the endpoint selected by the configured provider: preset providers (Groq, Deepgram, Tencent Cloud, and MiMo) use their Host-pinned endpoint, while Bailian and Custom use a user-supplied endpoint. It does not crawl, discover, or probe endpoints.
 - Cloud responses are bounded before JSON parsing. Audio and transcript data are not intentionally logged or persisted by the plugin.
 - The draft remains user-editable. Late ASR or polishing results are discarded when the user has changed the draft.
 
