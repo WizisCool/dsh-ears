@@ -21,6 +21,7 @@ import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 import { isTranscriptionStillCurrent, prepareRecordedAudioForBackend, type MediaCaptureBackend } from './local-whisper-audio.js'
+import { isCloudAsrRealtime } from '../asr/providers.js'
 
 type VoiceInputButtonProps = {
   readonly input: {
@@ -203,7 +204,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   let backendAvailable: boolean
   if (backend === 'web-speech') {
     backendAvailable = isWebSpeechAvailable()
-  } else if (backend === 'cloud-openai' && isRealtimeCloudAsr(settings)) {
+  } else if (backend === 'cloud-openai' && isCloudAsrRealtime(settings)) {
     backendAvailable = isRealtimeAudioCaptureAvailable()
   } else {
     backendAvailable = isMediaRecorderAvailable()
@@ -585,7 +586,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const nextBackend = resolveCaptureBackend(settingsRef.current.asrBackend)
     if (nextBackend === 'web-speech') {
       void startWebSpeech()
-    } else if (nextBackend === 'cloud-openai' && isRealtimeCloudAsr(settingsRef.current)) {
+    } else if (nextBackend === 'cloud-openai' && isCloudAsrRealtime(settingsRef.current)) {
       void startRealtimeRecording()
     } else if (nextBackend === 'local-whisper' || nextBackend === 'cloud-openai') {
       void startMediaRecording(nextBackend)
@@ -626,11 +627,6 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       </button>
     </Tooltip>
   )
-}
-
-function isRealtimeCloudAsr(settings: Pick<EarsSettings, 'cloudAsrProvider' | 'cloudAsrTencentService' | 'cloudAsrDeepgramService'>): boolean {
-  return (settings.cloudAsrProvider === 'tencent' && settings.cloudAsrTencentService === 'realtime')
-    || (settings.cloudAsrProvider === 'deepgram' && settings.cloudAsrDeepgramService === 'realtime')
 }
 
 function armRecordingTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }, seconds: number, stop: () => void): void {

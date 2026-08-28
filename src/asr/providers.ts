@@ -15,6 +15,8 @@ import {
 } from '../settings/recognition.js'
 import type { CloudAsrProviderId } from '../settings/recognition.js'
 import type { EarsSettings } from '../config.js'
+import type { CloudAsrModelCapabilities } from './types.js'
+import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 
 /**
  * Static registry of cloud ASR providers. A preset whose wire protocol is
@@ -90,6 +92,7 @@ export interface CloudAsrFieldDefinition {
 
 export type CloudAsrEndpointKind = 'fixed' | 'custom' | 'bailian-host' | 'mimo'
 export type CloudAsrModelStrategy = 'listing' | 'static' | 'free-form'
+export type CloudAsrModelCapability = keyof CloudAsrModelCapabilities
 
 export interface CloudAsrProviderEntry {
   readonly id: CloudAsrProviderId
@@ -105,12 +108,18 @@ export interface CloudAsrProviderEntry {
   readonly endpointKind: CloudAsrEndpointKind
   readonly modelStrategy: CloudAsrModelStrategy
   readonly realtime: boolean
+  /** Service ids that use the realtime session protocol. */
+  readonly realtimeServices?: readonly string[]
   /** Base URL used to derive the transcription and model-listing endpoints. */
   readonly baseUrl?: string
   /** Filters the live `/models` reply to transcription-capable models. */
   readonly modelFilter?: RegExp
   /** Static fallback model list for providers without a listing endpoint. */
   readonly staticModels?: readonly string[]
+  /** Explicit capabilities for static fallback models. */
+  readonly staticModelCapabilities?: Readonly<Record<string, CloudAsrModelCapabilities>>
+  /** Maps a provider service identifier to the catalog capability it requires. */
+  readonly modelServiceCapabilities?: Readonly<Record<string, CloudAsrModelCapability>>
   /** Model used when the settings value is empty (custom keeps whisper-1). */
   readonly defaultModel?: string
   /** Whether the user edits the transcription endpoint instead of a preset. */
@@ -171,6 +180,28 @@ const CUSTOM_FIELDS = [
   field({ field: 'cloudAsrCustomLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
+/**
+ * Curated fallback metadata for when Deepgram's catalog cannot be reached.
+ * Live catalog metadata always takes precedence; these values are not inferred
+ * from model names at render time.
+ */
+const DEEPGRAM_STATIC_MODEL_CAPABILITIES: Readonly<Record<string, CloudAsrModelCapabilities>> = Object.freeze({
+  'nova-3': { batch: true, streaming: true },
+  'nova-3-general': { batch: true, streaming: true },
+  'nova-3-medical': { batch: true, streaming: true },
+  'nova-2': { batch: true, streaming: true },
+  'nova-2-general': { batch: true, streaming: true },
+  'nova-2-meeting': { batch: true, streaming: true },
+  'nova-2-phonecall': { batch: true, streaming: true },
+  'nova-2-conversationalai': { batch: true, streaming: true },
+  'nova-2-finance': { batch: true, streaming: true },
+  'nova-2-medical': { batch: true, streaming: true },
+  enhanced: { batch: true, streaming: true },
+  base: { batch: true, streaming: true },
+  'whisper-large': { batch: true, streaming: true }
+})
+const DEEPGRAM_STATIC_MODELS = Object.freeze(Object.keys(DEEPGRAM_STATIC_MODEL_CAPABILITIES))
+
 export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
   {
     id: 'groq',
@@ -205,23 +236,12 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     endpointKind: 'fixed',
     modelStrategy: 'listing',
     realtime: true,
+    realtimeServices: ['realtime'],
     baseUrl: 'https://api.deepgram.com/v1',
     defaultModel: DEEPGRAM_DEFAULT_MODEL,
-    staticModels: [
-      'nova-3',
-      'nova-3-general',
-      'nova-3-medical',
-      'nova-2',
-      'nova-2-general',
-      'nova-2-meeting',
-      'nova-2-phonecall',
-      'nova-2-conversationalai',
-      'nova-2-finance',
-      'nova-2-medical',
-      'enhanced',
-      'base',
-      'whisper-large'
-    ],
+    staticModels: DEEPGRAM_STATIC_MODELS,
+    staticModelCapabilities: DEEPGRAM_STATIC_MODEL_CAPABILITIES,
+    modelServiceCapabilities: { 'recording-file': 'batch', realtime: 'streaming' },
     endpointEditable: false,
     apiKeyRequired: true
   },
@@ -255,6 +275,7 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     endpointKind: 'fixed',
     modelStrategy: 'static',
     realtime: true,
+    realtimeServices: ['realtime'],
     defaultModel: TENCENT_DEFAULT_ENGINE,
     endpointEditable: false,
     apiKeyRequired: true
@@ -354,6 +375,28 @@ export function supportsModelListing(id: string): boolean {
   return entry?.modelStrategy === 'listing' && entry.baseUrl !== undefined
 }
 
+/** Whether catalog metadata explicitly permits a model for a provider service. */
+export function cloudAsrModelSupportsService(providerId: string, service: string, capabilities: CloudAsrModelCapabilities | undefined): boolean {
+  const requiredCapability = cloudProviderEntry(providerId)?.modelServiceCapabilities?.[service]
+  return requiredCapability === undefined || capabilities?.[requiredCapability] === true
+}
+
+/** Return registry-declared fallback models that are executable for a service. */
+export function cloudAsrStaticModelsFor(providerId: string, service?: string): readonly string[] {
+  const entry = cloudProviderEntry(providerId)
+  if (entry?.staticModels === undefined) return []
+  return entry.staticModels.filter((model) => cloudAsrModelSupportsService(providerId, service ?? '', entry.staticModelCapabilities?.[model]))
+}
+
+/** Whether the selected provider service is handled by the realtime dispatcher. */
+export function isCloudAsrRealtime(settings: Pick<EarsSettings, 'cloudAsrProvider' | CloudAsrSettingField>): boolean {
+  const entry = cloudProviderEntry(settings.cloudAsrProvider)
+  if (entry === undefined || !entry.realtime) return false
+  const serviceField = cloudAsrFieldFor(entry.id, 'service')
+  if (serviceField === undefined) return false
+  return (entry.realtimeServices ?? []).includes(cloudAsrFieldValue(settings, serviceField.field))
+}
+
 export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvider' | CloudAsrSettingField>): string {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
   if (entry === undefined) return settings.cloudAsrCustomEndpoint.trim()
@@ -375,7 +418,12 @@ export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvid
 }
 
 export function bailianGenerationUrl(host: string): string {
-  const url = new URL(host.trim())
+  let url: URL
+  try {
+    url = new URL(host.trim())
+  } catch {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Bailian ASR host must use HTTP or HTTPS')
+  }
   url.pathname = '/api/v1/services/aigc/multimodal-generation/generation'
   url.search = ''
   url.hash = ''
@@ -416,12 +464,30 @@ export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' 
   if (entry === undefined || cloudAsrModelFor(settings) === '') return false
   if (!isCloudConfigurationValid({ ...settings, asrBackend: 'cloud-openai' })) return false
 
+  // Settings remain saveable while incomplete, but readiness must match the
+  // OpenAI-compatible adapter: a credential-bearing custom HTTP endpoint is
+  // rejected before any request is sent.
+  if (entry.endpointKind === 'custom' || entry.endpointKind === 'bailian-host') {
+    const endpointField = entry.endpointKind === 'custom' ? 'cloudAsrCustomEndpoint' : 'cloudAsrBailianHost'
+    const endpoint = cloudAsrFieldValue(settings, endpointField).trim()
+    const credential = cloudAsrCredentialFor(settings)
+    if (credential !== '' && !isHttpsEndpoint(endpoint)) return false
+  }
+
   return entry.fields
     .filter((definition) => definition.required && definition.kind !== 'model')
     .every((definition) => {
       const value = cloudAsrFieldValue(settings, definition.field).trim()
       return value !== '' && validateCloudAsrFieldValue(definition, value)
     })
+}
+
+function isHttpsEndpoint(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 export function validateCloudAsrFieldValue(definition: CloudAsrFieldDefinition, value: string): boolean {

@@ -1,8 +1,8 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { CLOUD_ASR_PROVIDERS, cloudAsrModelField, supportsModelListing, type CloudAsrModelField } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrModelField, cloudAsrModelSupportsService, supportsModelListing, type CloudAsrModelField } from '../asr/providers.js'
 import type { EarsSettings } from '../config.js'
-import { EARS_ERROR_CODES } from '../errors.js'
+import { EARS_ERROR_CODES, isEarsErrorCode } from '../errors.js'
 import type { CloudProviderModelsView } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 
@@ -22,6 +22,7 @@ export class CloudProviderController {
   private readonly models = new Map<string, string>()
   private request = 0
   private disposed = false
+  private listingAbort: AbortController | undefined
   private view: CloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
 
   constructor() {
@@ -47,6 +48,16 @@ export class CloudProviderController {
   reset(settings: EarsSettings): void {
     this.models.clear()
     this.rememberSettings(settings)
+    this.invalidate()
+  }
+
+  /** Invalidate a catalog whose credentials or selected settings no longer match the request. */
+  invalidate(): void {
+    if (this.disposed) return
+    this.request += 1
+    this.listingAbort?.abort()
+    this.listingAbort = undefined
+    this.setView({ status: 'ready', view: { status: 'unsupported' } })
   }
 
   modelFor(provider: string, settings: EarsSettings, drafts: ReadonlyMap<string, string>): string {
@@ -61,32 +72,46 @@ export class CloudProviderController {
     return cloudAsrModelField(provider) ?? 'cloudAsrGroqModel'
   }
 
-  async refresh(remote: EarsRemote, provider: string): Promise<void> {
+  async refresh(remote: EarsRemote, provider: string, service = ''): Promise<void> {
     if (this.disposed) return
     const request = ++this.request
+    this.listingAbort?.abort()
+    const listingAbort = new AbortController()
+    this.listingAbort = listingAbort
     if (!this.isListable(provider)) {
       this.setView({ status: 'ready', view: { status: 'unsupported' } })
+      this.listingAbort = undefined
       return
     }
     this.setView({ status: 'loading', view: { status: 'unsupported' } })
     try {
       // The provider is captured at call time so a staged switch cannot make
       // a late response resolve credentials for a different provider.
-      const result = await remote.listCloudProviderModels(provider)
+      const result = await remote.listCloudProviderModels(provider, listingAbort.signal)
       if (!this.isCurrent(request)) return
       const view: CloudProviderModelsView = result.ok
-        ? result.value
-        : { status: 'error', models: [], error: result.error.message, errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: result.error.message } }
+        ? projectCloudProviderModels(provider, service, result.value)
+        : {
+            status: 'error',
+            models: [],
+            error: result.error.message,
+            errorCode: isEarsErrorCode(result.error.code) ? result.error.code : EARS_ERROR_CODES.cloudModelsListFailed,
+            errorParams: { detail: result.error.message }
+          }
       this.setView({ status: 'ready', view })
     } catch {
       if (!this.isCurrent(request)) return
       this.setView({ status: 'ready', view: { status: 'error', models: [], error: 'Could not fetch the model list', errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: 'Could not fetch the model list' } } })
+    } finally {
+      if (this.listingAbort === listingAbort) this.listingAbort = undefined
     }
   }
 
   dispose(): void {
     this.disposed = true
     this.request += 1
+    this.listingAbort?.abort()
+    this.listingAbort = undefined
   }
 
   private isListable(provider: string): boolean {
@@ -100,5 +125,16 @@ export class CloudProviderController {
   private setView(view: CloudModelsView): void {
     this.view = view
     this.store.set(view)
+  }
+}
+
+function projectCloudProviderModels(provider: string, service: string, view: CloudProviderModelsView): CloudProviderModelsView {
+  // Older Hosts/catalog endpoints do not carry capability metadata. Preserve
+  // their model list for compatibility; an explicitly supplied capability map
+  // is the point at which service filtering becomes authoritative.
+  if (view.models === undefined || view.modelCapabilities === undefined) return view
+  return {
+    ...view,
+    models: view.models.filter((model) => cloudAsrModelSupportsService(provider, service, view.modelCapabilities?.[model]))
   }
 }

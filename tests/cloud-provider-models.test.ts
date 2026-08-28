@@ -31,10 +31,12 @@ describe('cloud provider model listing', () => {
     }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(fetchCloudProviderModels(groqEntry(), ' gsk_test ', new AbortController().signal)).resolves.toEqual([
-      'whisper-large-v3-turbo',
-      'whisper-large-v3'
-    ])
+    await expect(fetchCloudProviderModels(groqEntry(), ' gsk_test ', new AbortController().signal)).resolves.toEqual({
+      models: [
+        'whisper-large-v3-turbo',
+        'whisper-large-v3'
+      ]
+    })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.groq.com/openai/v1/models',
       expect.objectContaining({ headers: { accept: 'application/json', authorization: 'Bearer gsk_test' } })
@@ -43,7 +45,7 @@ describe('cloud provider model listing', () => {
 
   it('answers from static models when the provider has no listing endpoint', async () => {
     const entry = { ...groqEntry(), baseUrl: undefined, staticModels: ['static-whisper'] }
-    await expect(fetchCloudProviderModels(entry, 'gsk_test', new AbortController().signal)).resolves.toEqual(['static-whisper'])
+    await expect(fetchCloudProviderModels(entry, 'gsk_test', new AbortController().signal)).resolves.toEqual({ models: ['static-whisper'] })
   })
 
   it('lists Deepgram models with Token authorization and scientific filtering/ranking', async () => {
@@ -62,17 +64,19 @@ describe('cloud provider model listing', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const models = await fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)
-    expect(models).toEqual([
-      'nova-3',
-      'nova-3-general',
-      'nova-3-medical',
-      'nova-2',
-      'nova-2-general',
-      'nova-2-meeting',
-      'enhanced',
-      'enhanced-general',
-      'whisper-large'
-    ])
+    expect(models).toEqual({
+      models: [
+        'nova-3',
+        'nova-3-general',
+        'nova-3-medical',
+        'nova-2',
+        'nova-2-general',
+        'nova-2-meeting',
+        'enhanced',
+        'enhanced-general',
+        'whisper-large'
+      ]
+    })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.deepgram.com/v1/models',
       expect.objectContaining({ headers: { accept: 'application/json', authorization: 'Token dg_token' } })
@@ -85,6 +89,52 @@ describe('cloud provider model listing', () => {
 
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200 })))
     await expect(fetchCloudProviderModels(groqEntry(), 'gsk_test', new AbortController().signal)).rejects.toThrow('no models')
+  })
+
+  it('retains explicit Deepgram batch and streaming capabilities', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      stt: [
+        { canonical_name: 'batch-only', batch: true, streaming: false },
+        { canonical_name: 'stream-only', batch: false, streaming: true },
+        { canonical_name: 'dual-mode', batch: true, streaming: true },
+        { canonical_name: 'unknown-mode' }
+      ]
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)).resolves.toEqual({
+      models: ['batch-only', 'dual-mode', 'stream-only', 'unknown-mode'],
+      modelCapabilities: {
+        'batch-only': { batch: true, streaming: false },
+        'stream-only': { batch: false, streaming: true },
+        'dual-mode': { batch: true, streaming: true }
+      }
+    })
+  })
+
+  it('copies exact capabilities to provider aliases without inferring from the alias name', () => {
+    expect(filterDeepgramModels([
+      { canonical_name: 'nova-3-general', batch: true, streaming: false }
+    ])).toEqual({
+      models: ['nova-3', 'nova-3-general'],
+      modelCapabilities: {
+        'nova-3': { batch: true, streaming: false },
+        'nova-3-general': { batch: true, streaming: false }
+      }
+    })
+  })
+
+  it('keeps exact alias metadata when the catalog also returns the alias itself', () => {
+    expect(filterDeepgramModels([
+      { canonical_name: 'nova-3', batch: false, streaming: true },
+      { canonical_name: 'nova-3-general', batch: true, streaming: false }
+    ])).toEqual({
+      models: ['nova-3', 'nova-3-general'],
+      modelCapabilities: {
+        'nova-3': { batch: false, streaming: true },
+        'nova-3-general': { batch: true, streaming: false }
+      }
+    })
   })
 
   it('surfaces a non-ok HTTP status', async () => {

@@ -16,7 +16,7 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { CLOUD_ASR_PROVIDERS, cloudAsrBackendSelection, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrBackendSelection, cloudAsrStaticModelsFor, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
@@ -472,7 +472,7 @@ function CloudProviderFields({ provider, state, models, disabled, edit, setCrede
         return <SelectRow key={definition.field} label={label} hint={hint} value={definitionState.text} entries={entries} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} />
       }
       if (definition.kind === 'model' && definition.editor === 'deepgram-model') {
-        return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
+        return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} service={state.cloudAsrDeepgramService.text} models={models} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
       }
       if (definition.kind === 'model' && entry.modelStrategy === 'listing') {
         return <CloudModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} onChange={(value) => editField(definition.field, value)} onRetry={onRetry} t={t} />
@@ -606,16 +606,17 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
 }
 
 const DEEPGRAM_DEFAULT_MODEL = cloudProviderEntry('deepgram')?.defaultModel ?? 'nova-3'
-const DEEPGRAM_STATIC_FALLBACK_MODELS = cloudProviderEntry('deepgram')?.staticModels ?? [DEEPGRAM_DEFAULT_MODEL]
 
-function DeepgramModelRow({ label, value, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
+export function deepgramModelCandidates(service: string, models: CloudModelsView): readonly string[] {
+  const view = models.view
+  if (view.status === 'ok' && Array.isArray(view.models)) return view.models
+  return [...cloudAsrStaticModelsFor('deepgram', service)]
+}
+
+function DeepgramModelRow({ label, value, service, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; service: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
   const [explicitCustom, setExplicitCustom] = useState(false)
   const view = models.view
-  const candidateModels = useMemo(() => (
-    (view.status === 'ok' && Array.isArray(view.models) && view.models.length > 0)
-      ? view.models
-      : DEEPGRAM_STATIC_FALLBACK_MODELS
-  ), [view])
+  const candidateModels = useMemo(() => deepgramModelCandidates(service, models), [service, models])
 
   const isKnown = candidateModels.includes(value)
   const isCustom = explicitCustom || (!isKnown && value.trim() !== '')

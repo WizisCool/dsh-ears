@@ -3,6 +3,7 @@ import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchS
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
 import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
+import { MAX_CLOUD_API_KEY_LENGTH } from '../src/config.js'
 
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
@@ -109,6 +110,32 @@ describe('settings Remote contract', () => {
     expect(earsSettingsPatchSchema.parse({ cloudAsrCustomApiKey: '' })).toEqual({ cloudAsrCustomApiKey: '' })
     expect(earsSettingsPatchSchema.parse({ cloudAsrGroqApiKey: '' })).toEqual({ cloudAsrGroqApiKey: '' })
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
+  })
+
+  it('uses the shared cloud credential limit at the Remote boundary', () => {
+    const credentialFields = [
+      'cloudAsrGroqApiKey',
+      'cloudAsrDeepgramApiKey',
+      'cloudAsrCustomApiKey',
+      'cloudAsrBailianApiKey',
+      'cloudAsrTencentSecretKey',
+      'cloudAsrMimoApiKey'
+    ] as const
+    for (const field of credentialFields) {
+      expect(earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).toEqual({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })
+      expect(() => earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow()
+    }
+  })
+
+  it('preserves optional model capability metadata for newer Hosts', () => {
+    expect(cloudProviderModelsViewSchema.parse({
+      status: 'ok',
+      models: ['batch-only', 'dual-mode'],
+      modelCapabilities: {
+        'batch-only': { batch: true, streaming: false },
+        'dual-mode': { batch: true, streaming: true }
+      }
+    })).toMatchObject({ modelCapabilities: { 'batch-only': { batch: true, streaming: false } } })
   })
 
   it('rejects settings patches with the wrong wire types', () => {
