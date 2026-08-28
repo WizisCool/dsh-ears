@@ -132,46 +132,30 @@ describe('local whisper native preflight', () => {
 })
 
 describe('local Whisper backend', () => {
-  it('waits for the first in-flight native load before requiring a restart', async () => {
-    let resolveLoad!: () => void
-    const loading = new Promise<void>((resolve) => { resolveLoad = resolve })
-    native.loadWhisperModule.mockImplementationOnce(() => loading.then(() => ({})))
+  it('preflights variants without initializing or locking the native runtime', async () => {
+    const requirePackage = ((name: string) => ({ WhisperContext: function WhisperContext() {} })) as NodeRequire
 
-    const first = isWhisperAvailable('default')
-    await vi.waitFor(() => expect(native.loadWhisperModule).toHaveBeenCalledWith('default'))
-    let waitingSettled = false
-    const waiting = isWhisperAvailable('cuda').then(
-      (value) => {
-        waitingSettled = true
-        return { status: 'fulfilled' as const, value }
-      },
-      (error: unknown) => {
-        waitingSettled = true
-        return { status: 'rejected' as const, error }
-      }
-    )
-    await Promise.resolve()
-    expect(waitingSettled).toBe(false)
+    await expect(Promise.all([
+      isWhisperAvailable('default', undefined, requirePackage),
+      isWhisperAvailable('cuda', undefined, requirePackage)
+    ])).resolves.toEqual([true, true])
+    expect(native.loadWhisperModule).not.toHaveBeenCalled()
+    expect(getLoadedWhisperVariant()).toBeUndefined()
+  })
 
-    resolveLoad()
-    await expect(first).resolves.toBe(true)
-    await expect(waiting).resolves.toMatchObject({
-      status: 'rejected',
-      error: {
-        code: WHISPER_RESTART_REQUIRED_CODE,
-        loadedVariant: 'default',
-        requestedVariant: 'cuda'
-      }
+  it('requires a Host restart only after an actual transcription initializes the variant', async () => {
+    native.initWhisper.mockResolvedValue({
+      transcribeFile: () => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'ok', segments: [], isAborted: false }) }),
+      release: vi.fn(async () => undefined)
     })
-  })
 
-  it('probes the requested variant before the high-level API can initialize it', async () => {
-    await expect(isWhisperAvailable('default')).resolves.toBe(true)
+    await expect(transcribeWithWhisper(transcriptionOptions({ variant: 'default' }))).resolves.toBe('ok')
     expect(getLoadedWhisperVariant()).toBe('default')
-  })
-
-  it('requires a Host restart instead of switching the process variant', async () => {
-    await expect(isWhisperAvailable('vulkan')).rejects.toMatchObject({ code: WHISPER_RESTART_REQUIRED_CODE })
+    await expect(isWhisperAvailable('vulkan', undefined, ((name: string) => ({ WhisperContext: function WhisperContext() {} })) as NodeRequire)).rejects.toMatchObject({
+      code: WHISPER_RESTART_REQUIRED_CODE,
+      loadedVariant: 'default',
+      requestedVariant: 'vulkan'
+    })
     expect(native.loadWhisperModule).not.toHaveBeenCalledWith('vulkan')
   })
 

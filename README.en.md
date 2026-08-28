@@ -83,6 +83,8 @@ Transcription results are always written to an editable draft and are never sent
 | [Xiaomi MiMo](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) | Host calls the MiMo speech model via the [standard API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) or a [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) subscription | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
+Local Whisper uses the automatic acceleration backend selected by the Host from the current platform and installed native variants; it falls back to `default` when unavailable. Vulkan/CUDA can also be selected manually in settings.
+
 All API keys and credentials are stored on the Host. The browser never receives them.
 
 ## Polishing

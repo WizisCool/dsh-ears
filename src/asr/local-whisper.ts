@@ -83,7 +83,9 @@ export function whisperNativePackageName(
 
 /**
  * Return the native acceleration packages supported by the current platform
- * and installed dependency tree without initializing whisper.node.
+ * and installed dependency tree without initializing whisper.node. `default`
+ * is the automatic selection: prefer the platform-default binary when it is
+ * installed, otherwise use the first available platform variant.
  */
 export function whisperAccelerationCapabilities(
   platform: NodeJS.Platform = process.platform,
@@ -386,8 +388,12 @@ export function defaultWhisperUseGpu(
   return platform === 'darwin' && arch === 'arm64'
 }
 
-export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal): Promise<boolean> {
+/** Check the exact native package without loading whisper.node's process-global module cache. */
+export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal, requirePackage?: NodeRequire): Promise<boolean> {
   if (signal?.aborted) return false
+  if (loadedVariant !== undefined && loadedVariant !== variant) {
+    throw new WhisperRestartRequiredError(loadedVariant, variant)
+  }
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), COMMAND_TIMEOUT_MS)
   let abortListener: (() => void) | undefined
@@ -399,8 +405,15 @@ export async function isWhisperAvailable(variant: LibVariant = 'default', signal
         if (signal.aborted) abortListener()
       })
   try {
-    const load = loadNativeModule(variant).then(() => true)
-    return abortPromise === undefined ? await Promise.race([load, waitForTimeout(timeout.signal)]) : await Promise.race([load, abortPromise, waitForTimeout(timeout.signal)])
+    const preflight = Promise.resolve().then(() => {
+      if (signal?.aborted) return false
+      if (loadedVariant !== undefined && loadedVariant !== variant) {
+        throw new WhisperRestartRequiredError(loadedVariant, variant)
+      }
+      preflightWhisperNativePackage(variant, requirePackage)
+      return true
+    })
+    return abortPromise === undefined ? await Promise.race([preflight, waitForTimeout(timeout.signal)]) : await Promise.race([preflight, abortPromise, waitForTimeout(timeout.signal)])
   } catch (error) {
     if (error instanceof WhisperRestartRequiredError) throw error
     return false
