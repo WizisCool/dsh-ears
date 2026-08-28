@@ -79,6 +79,8 @@ A Host-side registry (`src/asr/providers.ts`) owns Groq, Deepgram, Bailian, Tenc
 
 Each provider has its own write-only `role('secret')` key (D-023, D-032, D-040, D-043, D-044). The Host settings file groups them as `groq`, `deepgram`, `customOpenAi`, `bailian`, `tencent`, and `mimo`. The plugin wire uses explicit per-provider fields, including `cloudAsrDeepgramApiKey`, `cloudAsrTencentSecretKey`, and `cloudAsrMimoApiKey`; `getSettings` redacts secrets and reports configured booleans. `updateSettings` uses absent=keep / set / empty=clear per key. The browser never receives a key value. A first read rewrites a previous flat `cloudAsrApiKey` file into the grouped form.
 
+Model catalogs may include provider-reported capability metadata in addition to model IDs. The selected provider service determines which capability is executable; the registry and browser controller apply that mapping to live catalogs and explicit fallback metadata. Missing capability metadata is treated conservatively for mapped services, while an already-saved or manually entered model remains visible as a custom selection so catalog refresh cannot silently erase user configuration.
+
 This reverses D-014's dsh credential-reference model for the cloud ASR surface. LLM polishing still uses dsh-owned credentials.
 
 ## Draft and polishing flow
@@ -101,6 +103,8 @@ The Host registers `dsh-ears` under the `dsh-ears` settings namespace. The brows
 User-facing copy never ends with a full stop in either locale, across hints, errors, statuses, and notices (D-038); multi-sentence strings use commas or semicolons, and internal jargon such as "Host" is avoided. `tests/locale.test.ts` enforces the no-full-stop rule.
 
 Save model is per-field auto-save (D-031, supersedes D-026 Save/Discard): a 400 ms debounce, text-field blur, or section unmount flushes persistable fields. An invalid draft is skipped and stays local with a red hint. A Host rejection keeps the drafts, shows `saveFailed`, and does not retry in a loop. Empty text clears a field on flush (API keys keep absent=keep with a staged clear). Validation is per-field and edit-scoped (D-024): untouched fields are never marked invalid; unconfigured-but-valid states render quietly.
+
+Canonical persistence remains nested fixed slots; the flat Remote shape is a compatibility projection. Provider field-to-storage mappings and secret paths are derived from the Cloud ASR registry, while historical aliases stay explicit in migration code. The browser controllers use latest-intent guards: save revisions preserve newer drafts across an older response, model catalog requests cancel and ignore stale results, credential edits and discarded provider switches invalidate catalogs until the persisted settings can be queried again, route/reasoning responses are request-scoped, and Whisper download/cancel/delete mutations do not overlap.
 
 The composer microphone reads persisted settings only. Host-side changes (wire contracts, service code) require a `dsh web` restart; the browser bundle updates on refresh.
 
@@ -128,6 +132,7 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 - Host final ASR requests are bounded. Cloud ASR has a 120-second timeout. Unknown backend/model identifiers are rejected.
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
 - Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
+- Realtime sessions own their socket and idle timer; finish, cancel, failed send, idle expiry, Host disposal, and aborted startup all release the session. Local Whisper model deletion crosses an exclusive context-release barrier so no new inference can reopen the model between native release and file removal.
 - Strict Remote result objects keep optional fields absent rather than explicitly `undefined`; the wire test replays the gateway's JSON-safety check (D-036).
 - Local Whisper uses the bundled native package and a separately downloaded whisper.cpp GGML model. Browser capture is normalized to mono 16 kHz PCM16 WAV. Runtime failures stay concise: the settings page reports native package or selected acceleration unavailability, with no Python/FFmpeg/CLI setup guide.
 - The composer microphone grays out (D-021) on positive unavailability signals only. Active flow states stay enabled so stop remains reachable. Cloud readiness (key + model, plus Bailian host) is folded into the cloud backend's availability signal.
