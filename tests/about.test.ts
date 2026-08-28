@@ -63,6 +63,11 @@ describe('version compare', () => {
     expect(compareReleaseVersions('0.2.0-01', '0.2.0')).toBeNull()
   })
 
+  it('accepts alphanumeric prerelease identifiers beginning with zero', () => {
+    expect(compareReleaseVersions('0.2.0-01a', '0.2.0-01b')).toBe(-1)
+    expect(compareReleaseVersions('0.2.0-01-beta', '0.2.0')).toBe(-1)
+  })
+
   it('treats a greater latest as an update and equal or older as current', () => {
     expect(interpretUpdateCheck('0.1.0', '0.1.1')).toBe('update-available')
     expect(interpretUpdateCheck('0.1.0', '0.1.0')).toBe('up-to-date')

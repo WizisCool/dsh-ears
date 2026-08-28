@@ -184,7 +184,7 @@ function parseReleaseVersion(value: string): { core: number[]; prerelease?: stri
   const core = coreParts.map((part) => Number(part))
   if (core.some((part) => !Number.isSafeInteger(part))) return null
   const prerelease = match[4]?.split('.')
-  if (prerelease?.some((part) => part.length > 1 && /^0\d/.test(part))) return null
+  if (prerelease?.some((part) => part.length > 1 && /^0\d+$/.test(part))) return null
   return prerelease === undefined ? { core } : { core, prerelease }
 }
 
