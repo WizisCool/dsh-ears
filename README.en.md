@@ -52,6 +52,14 @@ dsh plugin --profile web add "$PWD"
 
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
+## Update
+
+```sh
+dsh plugin --profile web update dsh-ears
+```
+
+Refresh the Web UI after updating; the About panel in the settings page can also check for new versions.
+
 ## Uninstall
 
 ```sh

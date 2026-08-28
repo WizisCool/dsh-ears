@@ -52,6 +52,14 @@ dsh plugin --profile web add "$PWD"
 
 安装完成后刷新 Web UI，输入框右侧会显示麦克风图标。
 
+## 更新
+
+```sh
+dsh plugin --profile web update dsh-ears
+```
+
+更新后刷新 Web UI；也可以在设置页的“关于”面板检查新版本。
+
 ## 卸载
 
 ```sh
