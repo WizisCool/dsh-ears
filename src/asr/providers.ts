@@ -8,6 +8,8 @@ import {
   MIMO_ASR_DEFAULT_SERVICE,
   MIMO_ASR_SERVICE_IDS,
   MIMO_DEFAULT_MODEL,
+  SILICONFLOW_ASR_SUB_TYPE,
+  SILICONFLOW_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -44,6 +46,7 @@ export type CloudAsrCredentialField =
   | 'cloudAsrBailianApiKey'
   | 'cloudAsrTencentSecretKey'
   | 'cloudAsrMimoApiKey'
+  | 'cloudAsrSiliconFlowApiKey'
 
 export type CloudAsrCredentialConfiguredField = `${CloudAsrCredentialField}Configured`
 
@@ -54,6 +57,7 @@ export type CloudAsrModelField =
   | 'cloudAsrBailianModel'
   | 'cloudAsrTencentEngineType'
   | 'cloudAsrMimoModel'
+  | 'cloudAsrSiliconFlowModel'
 
 export type CloudAsrLanguageField =
   | 'cloudAsrGroqLanguage'
@@ -61,6 +65,7 @@ export type CloudAsrLanguageField =
   | 'cloudAsrCustomLanguage'
   | 'cloudAsrBailianLanguage'
   | 'cloudAsrMimoLanguage'
+  | 'cloudAsrSiliconFlowLanguage'
 
 export type CloudAsrSettingField =
   | CloudAsrCredentialField
@@ -99,7 +104,7 @@ export type CloudAsrModelCapability = keyof CloudAsrModelCapabilities
 
 export interface CloudAsrProviderEntry {
   readonly id: CloudAsrProviderId
-  readonly storageKey: 'groq' | 'deepgram' | 'customOpenAi' | 'bailian' | 'tencent' | 'mimo'
+  readonly storageKey: 'groq' | 'deepgram' | 'customOpenAi' | 'bailian' | 'tencent' | 'mimo' | 'siliconflow'
   readonly name: { readonly en: string; readonly zh: string }
   readonly providerLabelKey: string
   readonly backendHintKey: string
@@ -117,6 +122,8 @@ export interface CloudAsrProviderEntry {
   readonly baseUrl?: string
   /** Filters the live `/models` reply to transcription-capable models. */
   readonly modelFilter?: RegExp
+  /** Query parameters appended to `GET {baseUrl}/models` (e.g. SiliconFlow `sub_type`). */
+  readonly modelQuery?: Readonly<Record<string, string>>
   /** Static fallback model list for providers without a listing endpoint. */
   readonly staticModels?: readonly string[]
   /** Explicit capabilities for static fallback models. */
@@ -148,7 +155,7 @@ const field = (
 
 const GROQ_FIELDS = [
   field({ field: 'cloudAsrGroqApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Groq ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
-  field({ field: 'cloudAsrGroqModel', storageKey: 'model', kind: 'model', required: true, editor: 'model', labelKey: 'cloudModel', hintKey: 'cloudModelHint' }),
+  field({ field: 'cloudAsrGroqModel', storageKey: 'model', kind: 'model', required: true, editor: 'model', labelKey: 'cloudModel', hintKey: 'cloudModelGroqHint' }),
   field({ field: 'cloudAsrGroqLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
@@ -187,6 +194,12 @@ const CUSTOM_FIELDS = [
   field({ field: 'cloudAsrCustomApiKey', storageKey: 'apiKey', kind: 'credential', maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears custom OpenAI-compatible ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrCustomModel', storageKey: 'model', kind: 'model', required: true, editor: 'text', labelKey: 'cloudModel', hintKey: 'cloudModelHint' }),
   field({ field: 'cloudAsrCustomLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
+] as const
+
+const SILICONFLOW_FIELDS = [
+  field({ field: 'cloudAsrSiliconFlowApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears SiliconFlow ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
+  field({ field: 'cloudAsrSiliconFlowModel', storageKey: 'model', kind: 'model', required: true, editor: 'model', labelKey: 'cloudModel', hintKey: 'cloudModelSiliconflowHint' }),
+  field({ field: 'cloudAsrSiliconFlowLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
 /**
@@ -308,6 +321,26 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     realtime: false,
     defaultModel: MIMO_DEFAULT_MODEL,
     staticModels: [MIMO_DEFAULT_MODEL],
+    endpointEditable: false,
+    apiKeyRequired: true
+  },
+  {
+    id: 'siliconflow',
+    storageKey: 'siliconflow',
+    name: { en: 'SiliconFlow', zh: '硅基流动' },
+    providerLabelKey: 'siliconflowProvider',
+    backendHintKey: 'backendHintSiliconflow',
+    protocol: 'openai-compatible',
+    fields: SILICONFLOW_FIELDS,
+    credentialField: 'cloudAsrSiliconFlowApiKey',
+    modelField: 'cloudAsrSiliconFlowModel',
+    languageField: 'cloudAsrSiliconFlowLanguage',
+    endpointKind: 'fixed',
+    modelStrategy: 'listing',
+    realtime: false,
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    modelQuery: { sub_type: SILICONFLOW_ASR_SUB_TYPE },
+    defaultModel: SILICONFLOW_DEFAULT_MODEL,
     endpointEditable: false,
     apiKeyRequired: true
   },

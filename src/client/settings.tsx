@@ -9,6 +9,7 @@ import {
   DeepgramIcon,
   GroqIcon,
   OpenAiIcon,
+  SiliconFlowIcon,
   TencentCloudIcon,
   XiaomiMimoIcon
 } from './provider-icons.js'
@@ -60,6 +61,9 @@ interface EarsSettingsSectionProps {
   readonly setMimoApiKey: (text: string) => void
   readonly clearMimoApiKey: () => void
   readonly undoClearMimoApiKey: () => void
+  readonly setSiliconFlowApiKey: (text: string) => void
+  readonly clearSiliconFlowApiKey: () => void
+  readonly undoClearSiliconFlowApiKey: () => void
   readonly flush: () => void
   readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
@@ -76,6 +80,7 @@ const providerIcons: Record<string, () => ReactNode> = {
   bailian: () => <AlibabaCloudIcon />,
   tencent: () => <TencentCloudIcon />,
   mimo: () => <XiaomiMimoIcon />,
+  siliconflow: () => <SiliconFlowIcon />,
   custom: () => <OpenAiIcon />
 }
 
@@ -110,7 +115,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrCustomApiKey: props.setCustomApiKey,
     cloudAsrBailianApiKey: props.setBailianApiKey,
     cloudAsrTencentSecretKey: props.setTencentSecretKey,
-    cloudAsrMimoApiKey: props.setMimoApiKey
+    cloudAsrMimoApiKey: props.setMimoApiKey,
+    cloudAsrSiliconFlowApiKey: props.setSiliconFlowApiKey
   }
   const legacyCredentialClearers: Record<CloudAsrCredentialField, () => void> = {
     cloudAsrGroqApiKey: props.clearApiKey,
@@ -118,7 +124,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrCustomApiKey: props.clearCustomApiKey,
     cloudAsrBailianApiKey: props.clearBailianApiKey,
     cloudAsrTencentSecretKey: props.clearTencentSecretKey,
-    cloudAsrMimoApiKey: props.clearMimoApiKey
+    cloudAsrMimoApiKey: props.clearMimoApiKey,
+    cloudAsrSiliconFlowApiKey: props.clearSiliconFlowApiKey
   }
   const legacyCredentialUndoers: Record<CloudAsrCredentialField, () => void> = {
     cloudAsrGroqApiKey: props.undoClearApiKey,
@@ -126,7 +133,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrCustomApiKey: props.undoClearCustomApiKey,
     cloudAsrBailianApiKey: props.undoClearBailianApiKey,
     cloudAsrTencentSecretKey: props.undoClearTencentSecretKey,
-    cloudAsrMimoApiKey: props.undoClearMimoApiKey
+    cloudAsrMimoApiKey: props.undoClearMimoApiKey,
+    cloudAsrSiliconFlowApiKey: props.undoClearSiliconFlowApiKey
   }
   const setCredential = props.setCredential ?? ((field: CloudAsrCredentialField, text: string) => legacyCredentialSetters[field](text))
   const clearCredential = props.clearCredential ?? ((field: CloudAsrCredentialField) => legacyCredentialClearers[field]())
@@ -475,7 +483,7 @@ function CloudProviderFields({ provider, state, models, disabled, edit, setCrede
         return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} service={state.cloudAsrDeepgramService.text} models={models} dirty={state.dirty} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
       }
       if (definition.kind === 'model' && entry.modelStrategy === 'listing') {
-        return <CloudModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} onChange={(value) => editField(definition.field, value)} onRetry={onRetry} t={t} />
+        return <CloudModelRow key={definition.field} label={label} hint={hint} value={definitionState.text} models={models} disabled={disabled} onChange={(value) => editField(definition.field, value)} onRetry={onRetry} t={t} />
       }
       return <TextRow key={definition.field} label={label} hint={hint} value={definitionState.text} disabled={disabled} invalid={definitionState.invalid} onChange={(event) => editField(definition.field, event.target.value)} onBlur={onBlur} />
     })}
@@ -578,7 +586,7 @@ function KeyRow({ label, hint, value, configured, clearPending, disabled, invali
   )
 }
 
-function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }: { label: string; value: string; models: CloudModelsView; disabled: boolean; onChange: (value: string) => void; onRetry: () => void; t: Translate }) {
+function CloudModelRow({ label, hint, value, models, disabled, onChange, onRetry, t }: { label: string; hint: string; value: string; models: CloudModelsView; disabled: boolean; onChange: (value: string) => void; onRetry: () => void; t: Translate }) {
   if (models.status === 'loading') {
     return <RowField label={label} hint={t('loadingModels')} invalid={false}><div className={styles.rowDescInline}><span className={styles.spinner} aria-hidden="true" /><span>{t('loadingModels')}</span></div></RowField>
   }
@@ -599,7 +607,7 @@ function CloudModelRow({ label, value, models, disabled, onChange, onRetry, t }:
   const noModels = view.status !== 'ok' || options.length === 0
   return (
     <>
-      <SelectRow label={label} hint={t('cloudModelGroqHint')} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled || noModels} invalid={false} onChange={onChange} />
+      <SelectRow label={label} hint={hint} value={value} options={options} placeholder={t('modelPlaceholder')} disabled={disabled || noModels} invalid={false} onChange={onChange} />
       {stale ? <p className={styles.statusError}>{t('cloudModelStale')}</p> : null}
     </>
   )

@@ -1,8 +1,12 @@
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'siliconflow', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
+
+export const SILICONFLOW_DEFAULT_MODEL = 'FunAudioLLM/SenseVoiceSmall'
+/** SiliconFlow `/models` filter that limits the catalog to transcription models. */
+export const SILICONFLOW_ASR_SUB_TYPE = 'speech-to-text'
 
 export const MIMO_DEFAULT_MODEL = 'mimo-v2.5-asr'
 export const MIMO_ASR_SERVICE_IDS = ['api', 'token-plan'] as const

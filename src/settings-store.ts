@@ -99,6 +99,7 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
 
   const mimoSlot = asRecord(cloudAsr?.mimo)
   const mimoLegacy = asRecord(record.mimo)
+  const siliconflowSlot = asRecord(cloudAsr?.siliconflow)
   const mimoService = normalizeMimoService(firstDefinedText(
     ownText(mimoSlot, 'service'),
     ownText(mimoLegacy, 'service'),
@@ -290,6 +291,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(mimoLegacy, 'language'),
           ownText(record, 'cloudAsrMimoLanguage')
         ) ?? DEFAULT_CLOUD_ASR_SETTINGS.mimo.language
+      },
+      siliconflow: {
+        apiKey: ownText(siliconflowSlot, 'apiKey') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.apiKey,
+        model: ownText(siliconflowSlot, 'model') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.model,
+        language: ownText(siliconflowSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.language
       }
     },
     polishing: {

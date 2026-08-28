@@ -81,6 +81,7 @@ dsh plugin --profile web remove dsh-ears
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | DashScope 同步转写 | API key、模型名；单次最长 300 秒 |
 | [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
 | [小米 MiMo](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition) | Host 调用 MiMo 语音识别，支持[标准 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
+| [硅基流动](https://siliconflow.cn) | OpenAI 兼容转写（中国站） | API key、模型名（如 `FunAudioLLM/SenseVoiceSmall`） |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
 本地 Whisper 默认使用 Host 根据当前平台和已安装 native variant 选择的自动加速后端；无法使用时回退到 `default`，也可在设置页手动选择 Vulkan/CUDA。

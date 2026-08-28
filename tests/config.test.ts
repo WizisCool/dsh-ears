@@ -96,6 +96,7 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrDeepgramApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrCustomApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrBailianApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrSiliconFlowApiKey: 'k'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow('too long')
   })
 
   it('requires HTTPS for a public Bailian host and caps Bailian recordings at 300 seconds', () => {

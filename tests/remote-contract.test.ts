@@ -119,7 +119,8 @@ describe('settings Remote contract', () => {
       'cloudAsrCustomApiKey',
       'cloudAsrBailianApiKey',
       'cloudAsrTencentSecretKey',
-      'cloudAsrMimoApiKey'
+      'cloudAsrMimoApiKey',
+      'cloudAsrSiliconFlowApiKey'
     ] as const
     for (const field of credentialFields) {
       expect(earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).toEqual({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })
