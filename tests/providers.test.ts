@@ -120,6 +120,26 @@ describe('cloud ASR provider registry', () => {
     expect(cloudAsrBackendSelection('unknown')).toBeUndefined()
   })
 
+  it('pins the SiliconFlow domestic preset with the sub_type model query', () => {
+    const entry = cloudProviderEntry('siliconflow')
+    expect(entry?.protocol).toBe('openai-compatible')
+    expect(entry?.baseUrl).toBe('https://api.siliconflow.cn/v1')
+    expect(entry?.modelQuery).toEqual({ sub_type: 'speech-to-text' })
+    expect(entry?.defaultModel).toBe('FunAudioLLM/SenseVoiceSmall')
+    expect(entry?.endpointEditable).toBe(false)
+    expect(entry?.apiKeyRequired).toBe(true)
+    expect(supportsModelListing('siliconflow')).toBe(true)
+    expect(isKnownCloudProvider('siliconflow')).toBe(true)
+    expect(cloudAsrBackendSelection('siliconflow')).toEqual({ asrBackend: 'cloud-openai', cloudAsrProvider: 'siliconflow' })
+    const cloudSettings = settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'siliconflow' })
+    expect(cloudAsrEndpointFor(cloudSettings)).toBe('https://api.siliconflow.cn/v1/audio/transcriptions')
+    expect(cloudAsrModelFor(cloudSettings)).toBe('FunAudioLLM/SenseVoiceSmall')
+    expect(isCloudConfigurationValid({ ...cloudSettings, cloudAsrSiliconFlowApiKey: '' })).toBe(true)
+    expect(isCloudAsrReady(cloudSettings)).toBe(false)
+    expect(isCloudAsrReady(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowApiKey: 'sk-sf' }))).toBe(true)
+    expect(cloudAsrCredentialFor(settings({ cloudAsrProvider: 'siliconflow', cloudAsrSiliconFlowApiKey: ' sk-sf ' }))).toBe('sk-sf')
+  })
+
   it('pins the Groq transcription and listing base URL', () => {
     const groq = cloudProviderEntry('groq')
     expect(groq?.baseUrl).toBe('https://api.groq.com/openai/v1')

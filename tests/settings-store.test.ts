@@ -17,6 +17,9 @@ describe('canonical Host settings slots', () => {
       cloudAsrBailianApiKey: 'sk_bailian',
       cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
       cloudAsrBailianModel: 'fun-asr-flash',
+      cloudAsrSiliconFlowApiKey: 'sk_siliconflow',
+      cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoice',
+      cloudAsrSiliconFlowLanguage: 'zh',
       polishProvider: 'provider',
       polishModel: 'model',
       polishPrompt: 'Keep it short.'
@@ -45,6 +48,7 @@ describe('canonical Host settings slots', () => {
     })
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
+    expect(stored.cloudAsr.siliconflow).toEqual({ apiKey: 'sk_siliconflow', model: 'FunAudioLLM/SenseVoice', language: 'zh' })
     expect(stored.polishing).toEqual({
       enabled: true,
       provider: 'provider',
@@ -57,6 +61,7 @@ describe('canonical Host settings slots', () => {
       cloudAsrGroqApiKey: 'gsk_groq',
       cloudAsrCustomApiKey: 'sk_openai',
       cloudAsrBailianModel: 'fun-asr-flash',
+      cloudAsrSiliconFlowApiKey: 'sk_siliconflow',
       polishPrompt: 'Keep it short.'
     })
     expect(storedSettingsNeedRewrite(stored)).toBe(false)

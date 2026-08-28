@@ -66,7 +66,12 @@ export const EarsSettingsSchema = s.object({
       cluster: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.mimo.cluster).description(`MiMo Token Plan cluster: ${MIMO_ASR_CLUSTERS.join(', ')}`),
       model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.mimo.model).description('MiMo ASR model, for example mimo-v2.5-asr'),
       language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.mimo.language).description('Transcription language; leave empty for automatic detection')
-    }).description('Xiaomi MiMo cloud ASR').collapse()
+    }).description('Xiaomi MiMo cloud ASR').collapse(),
+    siliconflow: s.object({
+      apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.apiKey).description('SiliconFlow API key'),
+      model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.model).description('SiliconFlow ASR model, for example FunAudioLLM/SenseVoiceSmall'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.language).description('Transcription language; leave empty for automatic detection')
+    }).description('SiliconFlow cloud ASR').collapse()
   }).description('Cloud ASR provider credentials and models').collapse(),
   polishing: s.object({
     enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing by default'),

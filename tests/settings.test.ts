@@ -1162,6 +1162,7 @@ function settingsViewFrom(settings: EarsSettings): EarsSettingsView {
     cloudAsrBailianApiKeyConfigured: settings.cloudAsrBailianApiKey.trim() !== '',
     cloudAsrTencentSecretKeyConfigured: settings.cloudAsrTencentSecretKey.trim() !== '',
     cloudAsrMimoApiKeyConfigured: settings.cloudAsrMimoApiKey.trim() !== '',
+    cloudAsrSiliconFlowApiKeyConfigured: settings.cloudAsrSiliconFlowApiKey.trim() !== '',
     overridden: []
   }
 }

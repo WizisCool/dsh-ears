@@ -10,7 +10,7 @@ Give the dsh Web UI a native-feeling voice input flow:
 microphone → live transcript → optional dsh LLM polish → editable draft → manual send
 ```
 
-The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Deepgram, Alibaba Cloud Model Studio (Bailian / DashScope), Tencent Cloud standard recording file recognition and real-time speech recognition, Xiaomi MiMo (standard API and Token Plan subscription), and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
+The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Deepgram, Alibaba Cloud Model Studio (Bailian / DashScope), Tencent Cloud standard recording file recognition and real-time speech recognition, Xiaomi MiMo (standard API and Token Plan subscription), SiliconFlow CN cloud ASR, and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
 
 ## Status
 
@@ -77,7 +77,7 @@ dsh-ears/
 ├── src/
 │   ├── index.ts              # Host plugin entry
 │   ├── client.ts / client/   # Browser composition
-│   ├── asr/                  # Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, custom
+│   ├── asr/                  # Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, SiliconFlow, custom
 │   ├── polish/               # Host LLM polish
 │   ├── config.ts             # Shared constants and validation
 │   ├── config-schema.ts      # Host-only schemastery schema

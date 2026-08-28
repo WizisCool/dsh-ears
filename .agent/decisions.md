@@ -51,6 +51,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
 | D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Accepted |
 | D-045 | Local Whisper and Agent-default polish defaults | Partially superseded by D-046; polish defaults remain live |
+| D-047 | SiliconFlow CN cloud ASR with deferred international edition | Accepted |
 
 ## D-001 — Project identity
 
@@ -424,3 +425,12 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Status: accepted (2026-08-28).
 - Decision: new installations and settings without an explicit recognition backend default to browser Web Speech. Existing explicit backend values remain unchanged, and Local Whisper remains available as an opt-in backend with its existing model and native-runtime lifecycle.
 - Rationale: Web Speech lets a freshly installed plugin recognize speech without downloading model weights or initializing a Host native runtime; users who need local recognition can select Local Whisper explicitly.
+
+## D-047 — SiliconFlow CN cloud ASR with deferred international edition
+
+- Status: accepted (2026-08-29).
+- Decision: add SiliconFlow (`siliconflow`) as a first-class cloud ASR provider with protocol `openai-compatible`, pinned base URL `https://api.siliconflow.cn/v1`, and default model `FunAudioLLM/SenseVoiceSmall`. The transcript endpoint is `POST {baseUrl}/audio/transcriptions`; the model list is fetched from `GET {baseUrl}/models?sub_type=speech-to-text` through a registry-level `modelQuery` so the server already scopes the reply to transcription-capable models.
+- Decision: only the CN edition (`api.siliconflow.cn`, 中国站) is exposed. The international edition (`api.siliconflow.com`) is deferred: it requires a separate account/credential (a CN key returns `401` on that host) and currently exposes no ASR models (the `sub_type=speech-to-text` list is empty / TTS-only). The provider registry is data-driven, so a future international entry is a new `CLOUD_ASR_PROVIDERS` entry rather than a protocol change, and the `modelQuery` extension point already supports its own host.
+- Decision: SiliconFlow stores its own write-only `role('secret')` key under `cloudAsr.siliconflow.apiKey` (flat wire `cloudAsrSiliconFlowApiKey`, masked as `cloudAsrSiliconFlowApiKeyConfigured`), model `cloudAsr.siliconflow.model`, and recognition language `cloudAsr.siliconflow.language` (flat wire `cloudAsrSiliconFlowLanguage`). An empty language omits the parameter for automatic detection, following D-042 semantics.
+- Decision: transcription reuses the existing OpenAI-compatible adapter unchanged; the SiliconFlow wire needs no new adapter because its request/response shape matches the Groq/custom contract. Persisted settings keep schemaVersion 4: the provider slot is purely additive, normalization fills the defaults for stored files without it, and the canonical-shape check rewrites the file on the next save.
+- Rationale: SiliconFlow's transcription endpoint is OpenAI-compatible, so a preset is data over the existing adapter — the same reasoning that carried Groq (D-023). The `sub_type=speech-to-text` filter requires a listing query parameter, which the existing `GET /models` helper did not carry, so the registry entry gained an optional `modelQuery` rather than a per-provider special case. Exposing only the CN edition avoids a permanently unavailable/empty international option in the provider menu, consistent with the D-024 principle of surfacing only real problems. The dedicated icon follows the existing per-provider vendor-icon pattern.

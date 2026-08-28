@@ -12,6 +12,7 @@ import {
   MIMO_ASR_DEFAULT_SERVICE,
   MIMO_ASR_SERVICE_IDS,
   MIMO_DEFAULT_MODEL,
+  SILICONFLOW_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -48,6 +49,7 @@ export {
   MIMO_ASR_DEFAULT_SERVICE,
   MIMO_ASR_SERVICE_IDS,
   MIMO_DEFAULT_MODEL,
+  SILICONFLOW_DEFAULT_MODEL,
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
@@ -107,6 +109,9 @@ export interface EarsSettings {
   cloudAsrMimoCluster: string
   cloudAsrMimoModel: string
   cloudAsrMimoLanguage: string
+  cloudAsrSiliconFlowApiKey: string
+  cloudAsrSiliconFlowModel: string
+  cloudAsrSiliconFlowLanguage: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
@@ -151,6 +156,9 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrMimoCluster: MIMO_ASR_DEFAULT_CLUSTER,
   cloudAsrMimoModel: MIMO_DEFAULT_MODEL,
   cloudAsrMimoLanguage: '',
+  cloudAsrSiliconFlowApiKey: '',
+  cloudAsrSiliconFlowModel: SILICONFLOW_DEFAULT_MODEL,
+  cloudAsrSiliconFlowLanguage: '',
   maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',

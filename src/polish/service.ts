@@ -115,6 +115,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrBailianApiKeyConfigured: false,
         cloudAsrTencentSecretKeyConfigured: false,
         cloudAsrMimoApiKeyConfigured: false,
+        cloudAsrSiliconFlowApiKeyConfigured: false,
         recoveredSettingsFields: [],
         localWhisperAccelerations: whisperAccelerationOptions(this.whisperCapabilities),
         overridden: []

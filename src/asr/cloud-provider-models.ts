@@ -16,7 +16,7 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
       ...(entry.staticModelCapabilities === undefined ? {} : { modelCapabilities: entry.staticModelCapabilities })
     }
   }
-  const endpoint = `${entry.baseUrl.replace(/\/+$/, '')}/models`
+  const endpoint = modelListingEndpoint(entry)
   const headers: Record<string, string> = { accept: 'application/json' }
   const key = apiKey.trim()
   if (key !== '') {
@@ -71,6 +71,15 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
     clearTimeout(timer)
     signal.removeEventListener('abort', forwardAbort)
   }
+}
+
+/** Build the model-listing URL, appending registry-declared query parameters. */
+function modelListingEndpoint(entry: CloudAsrProviderEntry): string {
+  const base = `${entry.baseUrl?.replace(/\/+$/, '') ?? ''}/models`
+  if (entry.modelQuery === undefined) return base
+  const url = new URL(base)
+  for (const [key, value] of Object.entries(entry.modelQuery)) url.searchParams.set(key, value)
+  return url.toString()
 }
 
 export function filterDeepgramModels(stt: unknown[]): CloudAsrModelCatalog {

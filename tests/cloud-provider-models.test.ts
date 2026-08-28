@@ -43,6 +43,19 @@ describe('cloud provider model listing', () => {
     )
   })
 
+  it('appends registry model query parameters to the listing endpoint', async () => {
+    const entry = cloudProviderEntry('siliconflow')
+    if (entry === undefined) throw new Error('SiliconFlow provider entry is missing')
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: 'FunAudioLLM/SenseVoiceSmall' }] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchCloudProviderModels(entry, 'sk-sf', new AbortController().signal)).resolves.toEqual({ models: ['FunAudioLLM/SenseVoiceSmall'] })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.siliconflow.cn/v1/models?sub_type=speech-to-text',
+      expect.objectContaining({ headers: { accept: 'application/json', authorization: 'Bearer sk-sf' } })
+    )
+  })
+
   it('answers from static models when the provider has no listing endpoint', async () => {
     const entry = { ...groqEntry(), baseUrl: undefined, staticModels: ['static-whisper'] }
     await expect(fetchCloudProviderModels(entry, 'gsk_test', new AbortController().signal)).resolves.toEqual({ models: ['static-whisper'] })
