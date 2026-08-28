@@ -206,6 +206,41 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
 }
 
+export interface EarsSettingsRepairResult {
+  readonly settings: EarsSettings
+  readonly repairedFields: readonly string[]
+}
+
+/** Replace invalid persisted values with safe defaults without exposing their contents. */
+export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsRepairResult {
+  const repaired = { ...settings }
+  const repairedFields: string[] = []
+  const replaceWithDefault = (field: keyof EarsSettings): void => {
+    ;(repaired as unknown as Record<string, unknown>)[field] = DEFAULT_EARS_SETTINGS[field]
+    repairedFields.push(field)
+  }
+
+  if (!(ASR_BACKEND_IDS as readonly string[]).includes(repaired.asrBackend)) replaceWithDefault('asrBackend')
+  if (!(WHISPER_MODEL_IDS as readonly string[]).includes(repaired.localWhisperModel)) replaceWithDefault('localWhisperModel')
+  if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(repaired.localWhisperAcceleration)) replaceWithDefault('localWhisperAcceleration')
+  if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(repaired.cloudAsrProvider)) replaceWithDefault('cloudAsrProvider')
+
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    for (const definition of provider.fields) {
+      const value = cloudAsrFieldValue(repaired, definition.field)
+      if (!validateCloudAsrFieldValue(definition, value)) replaceWithDefault(definition.field)
+    }
+  }
+
+  if (!isValidRecordingLimit(repaired.maxRecordingSeconds)) replaceWithDefault('maxRecordingSeconds')
+  if (typeof repaired.voiceShortcut !== 'string' || !isValidStoredShortcut(repaired.voiceShortcut)) replaceWithDefault('voiceShortcut')
+  if (typeof repaired.polishPrompt !== 'string' || repaired.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) replaceWithDefault('polishPrompt')
+  if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(repaired.settingsDisplayName)) replaceWithDefault('settingsDisplayName')
+
+  validateEarsSettings(repaired)
+  return { settings: repaired, repairedFields }
+}
+
 function cloudAsrFieldValidationMessage(field: string): string {
   if (field === 'cloudAsrGroqApiKey') return 'dsh-ears Groq ASR API key is too long'
   if (field === 'cloudAsrDeepgramApiKey') return 'dsh-ears Deepgram ASR API key is too long'

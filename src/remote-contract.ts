@@ -98,6 +98,12 @@ export const earsSettingsPatchSchema = z.object({
   polishPrompt: z.string().optional()
 })
 
+const polishDefaultRouteSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  reasoningEffort: z.string().optional()
+})
+
 export const earsSettingsViewSchema = z.object({
   available: z.boolean(),
   writable: z.boolean(),
@@ -108,6 +114,8 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   cloudAsrTencentSecretKeyConfigured: z.boolean(),
   cloudAsrMimoApiKeyConfigured: z.boolean().default(false),
+  defaultPolishRoute: polishDefaultRouteSchema.optional(),
+  recoveredSettingsFields: z.array(z.string()).optional(),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
@@ -228,6 +236,8 @@ export type EarsSettingsView = {
   cloudAsrBailianApiKeyConfigured: boolean
   cloudAsrTencentSecretKeyConfigured: boolean
   cloudAsrMimoApiKeyConfigured: boolean
+  defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }
+  recoveredSettingsFields?: string[]
   localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }

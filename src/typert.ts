@@ -146,7 +146,7 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettingsView',
-            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrDeepgramApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; cloudAsrMimoApiKeyConfigured: boolean; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
+            declaration: 'export interface EarsSettingsView { available: boolean; writable: boolean; settings: EarsSettings; cloudAsrGroqApiKeyConfigured: boolean; cloudAsrDeepgramApiKeyConfigured: boolean; cloudAsrCustomApiKeyConfigured: boolean; cloudAsrBailianApiKeyConfigured: boolean; cloudAsrTencentSecretKeyConfigured: boolean; cloudAsrMimoApiKeyConfigured: boolean; defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }; recoveredSettingsFields?: string[]; localWhisperAccelerations?: WhisperAccelerationId[]; overridden: string[] }'
           },
           {
             name: 'EarsSettingsPatch',

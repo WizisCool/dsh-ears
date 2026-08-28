@@ -153,7 +153,7 @@ describe('settings Remote contract', () => {
   })
 
   it('validates the complete settings view returned by Host RPC', () => {
-    expect(earsSettingsViewSchema.parse({
+    const parsed = earsSettingsViewSchema.parse({
       available: true,
       writable: true,
       settings: {
@@ -199,9 +199,14 @@ describe('settings Remote contract', () => {
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       cloudAsrTencentSecretKeyConfigured: false,
+      defaultPolishRoute: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' },
+      recoveredSettingsFields: ['cloudAsrProvider'],
       localWhisperAccelerations: ['default'],
       overridden: []
-    }).settings.maxRecordingSeconds).toBe(120)
+    })
+    expect(parsed.settings.maxRecordingSeconds).toBe(120)
+    expect(parsed.defaultPolishRoute).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' })
+    expect(parsed.recoveredSettingsFields).toEqual(['cloudAsrProvider'])
   })
 
   it('parses older pre-Deepgram Host responses with backward-compatible defaults', () => {
@@ -262,6 +267,22 @@ describe('settings Remote contract', () => {
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
     expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'finishRealtime', 'listCloudProviderModels', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
+  })
+
+  it('keeps the cloud model capability metadata in the public Typert declaration', () => {
+    const service = TYPERT.model.services[0]
+    const cloudModelsType = service?.types.find((type) => type.name === 'CloudProviderModelsView')
+    if (cloudModelsType === undefined) throw new Error('CloudProviderModelsView declaration is missing')
+    expect(cloudModelsType.declaration).toContain("transport?: 'listen-v1' | 'listen-v2'")
+    const parsed = cloudProviderModelsViewSchema.parse({
+      status: 'ok',
+      models: ['flux-general-en'],
+      modelCapabilities: { 'flux-general-en': { streaming: true, transport: 'listen-v2' } }
+    })
+    expect(parsed.modelCapabilities?.['flux-general-en']?.transport).toBe('listen-v2')
+    const settingsViewType = TYPERT.model.services[0]?.types.find((type) => type.name === 'EarsSettingsView')
+    expect(settingsViewType?.declaration).toContain('defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }')
+    expect(settingsViewType?.declaration).toContain('recoveredSettingsFields?: string[]')
   })
 
   it('keeps every endpoint wire shape aligned across Host and Client', () => {

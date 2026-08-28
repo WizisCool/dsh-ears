@@ -5,7 +5,7 @@ import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
@@ -22,7 +22,7 @@ import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, RemoteTextResult } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
-import { resolvePolishRoute } from './route.js'
+import { resolvePolishRoute, type PolishRouteSelection } from './route.js'
 import { applyFlatSettingsPatch, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, isFutureSettingsSchema, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
 import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
@@ -44,6 +44,11 @@ interface GenericRealtimeAsrSession {
 type RealtimeSessionEntry = {
   session: GenericRealtimeAsrSession
   timer: ReturnType<typeof setTimeout>
+}
+
+/** Structural subset of dsh-agent-default-model, kept optional for older/minimal Hosts. */
+type AgentDefaultModelService = {
+  currentSelection: () => PolishRouteSelection
 }
 
 export class PolishService extends TypertRemoteService {
@@ -69,9 +74,25 @@ export class PolishService extends TypertRemoteService {
       await disposeWhisperRuntime()
     }, 'dsh-ears whisper runtime lifecycle')
     ctx.inject(['settings'], (settingsCtx) => {
-      this.settings = settingsCtx.settings.register(settingsNamespace(SETTINGS_NAMESPACE), EarsSettingsSchema, {
-        validate: validateSettings
-      })
+      let registering = true
+      const registrationValidator = (value: unknown): void => {
+        try {
+          validateSettings(value)
+        } catch (error) {
+          if (!registering) throw error
+          // dsh-settings validates the stored section synchronously during
+          // registration. Keep the Host alive long enough to expose safe
+          // defaults and let a later explicit write repair the section.
+          repairInvalidEarsSettings(flattenStoredSettings(value))
+        }
+      }
+      try {
+        this.settings = settingsCtx.settings.register(settingsNamespace(SETTINGS_NAMESPACE), EarsSettingsSchema, {
+          validate: registrationValidator
+        })
+      } finally {
+        registering = false
+      }
       this.settingsMigrationAttempted = false
       this.whisperAvailability = undefined
       settingsCtx.effect(() => () => {
@@ -94,27 +115,31 @@ export class PolishService extends TypertRemoteService {
         cloudAsrBailianApiKeyConfigured: false,
         cloudAsrTencentSecretKeyConfigured: false,
         cloudAsrMimoApiKeyConfigured: false,
-        localWhisperAccelerations: [...this.whisperCapabilities.available],
+        recoveredSettingsFields: [],
+        localWhisperAccelerations: whisperAccelerationOptions(this.whisperCapabilities),
         overridden: []
       }
     }
 
-    const snapshot = this.readSettingsSnapshot().settings
+    const snapshot = this.readSettingsSnapshot()
     const provider = this.ctx.get('settings') as { describe?: (options: { redactSecrets: boolean }) => Array<{ ns: unknown; user?: unknown; secrets?: Array<{ path: string[]; set: boolean }> }>; writable?: boolean } | undefined
     const descriptor = provider?.describe?.({ redactSecrets: true })?.find((item) => String(item.ns) === SETTINGS_NAMESPACE)
     const user = descriptor?.user
-    const redactedSettings = { ...snapshot }
+    const redactedSettings = { ...snapshot.settings }
+    const defaultPolishRoute = this.agentDefaultModelSelection()
     const configuredCredentials = {} as Record<CloudAsrCredentialConfiguredField, boolean>
     for (const entry of CLOUD_ASR_PROVIDERS) {
       redactedSettings[entry.credentialField] = ''
-      configuredCredentials[`${entry.credentialField}Configured`] = snapshot[entry.credentialField].trim() !== ''
+      configuredCredentials[`${entry.credentialField}Configured`] = snapshot.settings[entry.credentialField].trim() !== ''
     }
     return {
       available: true,
       writable: provider?.writable ?? false,
       settings: redactedSettings,
       ...configuredCredentials,
-      localWhisperAccelerations: [...this.whisperCapabilities.available],
+      ...(defaultPolishRoute === undefined ? {} : { defaultPolishRoute }),
+      localWhisperAccelerations: whisperAccelerationOptions(this.whisperCapabilities),
+      recoveredSettingsFields: [...snapshot.repairedFields],
       overridden: flattenOverriddenSettings(user, descriptor?.secrets)
     }
   }
@@ -123,12 +148,11 @@ export class PolishService extends TypertRemoteService {
     if (this.settings === undefined) return this.getSettings()
     signal.throwIfAborted()
     const current = this.readSettingsSnapshot()
-    const normalizedPatch = normalizeWhisperPatch(patch, this.whisperCapabilities)
-    if (current.userLayerAvailable && !isFutureSettingsSchema(current.raw)) {
-      const next = normalizeWhisperStoredSettings(applyFlatSettingsPatch(current.raw, normalizedPatch), this.whisperCapabilities)
+    if (!isFutureSettingsSchema(current.raw) && (current.userLayerAvailable || current.repairedFields.length > 0)) {
+      const next = applyFlatSettingsPatch(current.stored, patch)
       await this.replaceSettings(next)
     } else {
-      await this.settings.update(flatSettingsPatchToStoredPatch(normalizedPatch))
+      await this.settings.update(flatSettingsPatchToStoredPatch(patch))
     }
     // A successful acceleration write establishes a new availability context.
     // Unrelated settings writes keep the short-lived native availability cache.
@@ -162,7 +186,7 @@ export class PolishService extends TypertRemoteService {
 
   async listAsrBackends(): Promise<AsrBackendInfo[]> {
     const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : this.readSettingsSnapshot().settings
-    const acceleration = whisperAcceleration(settings.localWhisperAcceleration)
+    const acceleration = this.whisperAcceleration(settings.localWhisperAcceleration)
     let localAvailable = false
     let localRestart: WhisperRestartRequiredError | undefined
     try {
@@ -298,7 +322,7 @@ export class PolishService extends TypertRemoteService {
       if (backend === 'web-speech') throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Web Speech recordings are transcribed in the browser')
       if (backend === 'local-whisper') {
         const model = whisperModel(settings.localWhisperModel)
-        const acceleration = whisperAcceleration(settings.localWhisperAcceleration)
+        const acceleration = this.whisperAcceleration(settings.localWhisperAcceleration)
         const runtimeAvailable = await this.whisperIsAvailable(acceleration)
         const state = await this.whisperModels.getWhisperModelState(model, runtimeAvailable)
         validateWhisperTranscription(state)
@@ -604,24 +628,23 @@ export class PolishService extends TypertRemoteService {
     return this.readSettingsSnapshot().settings
   }
 
-  private readSettingsSnapshot(): { raw: unknown; userLayerAvailable: boolean; settings: EarsSettings } {
+  private readSettingsSnapshot(): { raw: unknown; userLayerAvailable: boolean; settings: EarsSettings; stored: ReturnType<typeof normalizeStoredEarsSettings>; repairedFields: readonly string[] } {
     const scope = this.settings
     if (scope === undefined) throw new EarsError(EARS_ERROR_CODES.polishSettingsUnavailable, 'dsh-ears settings are unavailable')
     const rawState = this.readRawSettings(scope)
     const canonical = normalizeStoredEarsSettings(rawState.raw)
-    const normalized = normalizeWhisperStoredSettings(canonical, this.whisperCapabilities)
-    const settings = flattenStoredSettings(normalized)
-    if (!this.settingsMigrationAttempted && !isFutureSettingsSchema(rawState.raw) && (storedSettingsNeedRewrite(rawState.raw) || normalized !== canonical)) {
+    const repair = repairInvalidEarsSettings(flattenStoredSettings(canonical))
+    const stored = unflattenEarsSettings(repair.settings, repair.settings.localWhisperAcceleration)
+    const settings = repair.settings
+    if (!this.settingsMigrationAttempted && !isFutureSettingsSchema(rawState.raw) && storedSettingsNeedRewrite(rawState.raw)) {
       // Mark before starting the write. A read-only provider or a rejected
       // migration must not turn every runtime read into another write attempt.
       this.settingsMigrationAttempted = true
       if (rawState.userLayerAvailable) {
-        void this.replaceSettings(normalized).catch(() => undefined)
-      } else if (normalized.recognition.localWhisper.acceleration !== canonical.recognition.localWhisper.acceleration) {
-        void scope.update({ recognition: { localWhisper: { acceleration: normalized.recognition.localWhisper.acceleration } } }).catch(() => undefined)
+        void this.replaceSettings(canonical).catch(() => undefined)
       }
     }
-    return { raw: rawState.raw, userLayerAvailable: rawState.userLayerAvailable, settings }
+    return { raw: rawState.raw, userLayerAvailable: rawState.userLayerAvailable, settings, stored, repairedFields: repair.repairedFields }
   }
 
   private readRawSettings(scope: SettingsScope<Record<string, unknown>>): { raw: unknown; userLayerAvailable: boolean } {
@@ -656,9 +679,35 @@ export class PolishService extends TypertRemoteService {
     }
   }
 
+  private agentDefaultModelSelection(): PolishRouteSelection | undefined {
+    const service = this.ctx.get('agentDefaultModel') as AgentDefaultModelService | undefined
+    if (service === undefined || typeof service.currentSelection !== 'function') return undefined
+    try {
+      const selection = service.currentSelection()
+      const provider = selection.provider.trim()
+      const model = selection.model.trim()
+      if (provider === '' || model === '') return undefined
+      const reasoningEffort = selection.reasoningEffort?.trim()
+      return {
+        provider,
+        model,
+        ...(reasoningEffort === undefined || reasoningEffort === '' ? {} : { reasoningEffort })
+      }
+    } catch {
+      return undefined
+    }
+  }
+
   private currentWhisperAcceleration(): WhisperAccelerationId {
     const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : this.readSettingsSnapshot().settings
-    return whisperAcceleration(settings.localWhisperAcceleration)
+    return this.whisperAcceleration(settings.localWhisperAcceleration)
+  }
+
+  private whisperAcceleration(value: string): WhisperAccelerationId {
+    if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(value)) {
+      throw new Error(`Unknown dsh-ears Whisper acceleration: ${value}`)
+    }
+    return value === 'default' ? this.whisperCapabilities.default : value as WhisperAccelerationId
   }
 
   private async whisperIsAvailable(variant: WhisperAccelerationId): Promise<boolean> {
@@ -752,30 +801,11 @@ function whisperModel(value: string): WhisperModelId {
   throw new Error(`Unknown dsh-ears Whisper model: ${value}`)
 }
 
-function whisperAcceleration(value: string): WhisperAccelerationId {
-  if ((WHISPER_ACCELERATION_IDS as readonly string[]).includes(value)) return value as WhisperAccelerationId
-  throw new Error(`Unknown dsh-ears Whisper acceleration: ${value}`)
-}
-
-function normalizeWhisperPatch(patch: EarsSettingsPatch, capabilities: WhisperAccelerationCapabilities): EarsSettingsPatch {
-  if (patch.localWhisperAcceleration === undefined) return patch
-  return {
-    ...patch,
-    localWhisperAcceleration: normalizeWhisperAcceleration(patch.localWhisperAcceleration, capabilities)
-  }
-}
-
-function normalizeWhisperStoredSettings(
-  stored: ReturnType<typeof normalizeStoredEarsSettings>,
-  capabilities: WhisperAccelerationCapabilities
-): ReturnType<typeof normalizeStoredEarsSettings> {
-  const settings = flattenStoredSettings(stored)
-  const acceleration = normalizeWhisperAcceleration(settings.localWhisperAcceleration, capabilities)
-  return acceleration === settings.localWhisperAcceleration ? stored : unflattenEarsSettings(settings, acceleration)
-}
-
-function normalizeWhisperAcceleration(value: string, capabilities: WhisperAccelerationCapabilities): WhisperAccelerationId {
-  return (capabilities.available as readonly string[]).includes(value) ? value as WhisperAccelerationId : capabilities.default
+function whisperAccelerationOptions(capabilities: WhisperAccelerationCapabilities): WhisperAccelerationId[] {
+  const available = capabilities.available as readonly WhisperAccelerationId[]
+  return available.length === 0
+    ? ['default']
+    : ['default', ...available.filter((variant) => variant !== 'default')]
 }
 
 function isWhisperRestartRequiredError(error: unknown): error is WhisperRestartRequiredError {

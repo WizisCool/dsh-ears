@@ -4,7 +4,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EarsSettings, WhisperAccelerationId } from '../config.js'
 import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { CLOUD_ASR_PROVIDERS, cloudAsrFieldFor, type CloudAsrCredentialField } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialField, cloudAsrFieldFor, type CloudAsrCredentialField } from '../asr/providers.js'
 import type { AboutInfo, AsrBackendInfo, EarsSettingsView, UpdateCheckResult } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import { CloudProviderController, type CloudModelsView } from './cloud-provider-controller.js'
@@ -24,6 +24,7 @@ export interface EarsCardState {
   writable: boolean
   loaded: boolean
   loadFailed: boolean
+  recoveredSettingsFields: readonly string[]
   saving: boolean
   failed: boolean
   dirty: boolean
@@ -112,6 +113,7 @@ export class EarsSettingsController {
   private backendState: BackendState = { status: 'loading', backends: [] }
   private saving = false
   private saveQueued = false
+  private readonly inFlightCredentialClears = new Set<CloudAsrCredentialField>()
   private loaded = false
   private loadFailed = false
   private failed = false
@@ -194,6 +196,7 @@ export class EarsSettingsController {
     if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
     this.saveTimer = undefined
     this.saveQueued = false
+    this.inFlightCredentialClears.clear()
   }
 
   async refreshSettings(): Promise<void> {
@@ -379,11 +382,13 @@ export class EarsSettingsController {
       if (provider !== undefined) this.cloudProviderController.remember(provider.id, text)
     } else if (this.draftsController.isCredentialField(field)) {
       if (text.trim() === '') {
+        const hadDraft = this.draftsController.has(field)
         this.draftsController.edit(field, text)
         this.failed = false
         this.publishCard()
         if (this.hasPersistableDrafts()) this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
         else this.cancelScheduledSave()
+        if (hadDraft && cloudAsrCredentialField(this.currentCloudAsrProvider()) === field) void this.refreshCloudModels()
         return
       }
       this.cloudProviderController.invalidate()
@@ -414,7 +419,7 @@ export class EarsSettingsController {
   }
 
   private undoCredentialClear(field: CloudAsrCredentialField): void {
-    if (this.disposed || this.saving) return
+    if (this.disposed || this.inFlightCredentialClears.has(field)) return
     this.draftRevision += 1
     const wasPending = this.draftsController.isCredentialClearPending(field)
     this.draftsController.undoCredentialClear(field)
@@ -437,7 +442,7 @@ export class EarsSettingsController {
   }
 
   private undoClearNamedApiKey(which: 'groq' | 'deepgram' | 'custom' | 'bailian' | 'tencent' | 'mimo'): void {
-    if (this.disposed || this.saving) return
+    if (this.disposed) return
     const provider = CLOUD_ASR_PROVIDERS.find((candidate) => candidate.id === which)
     if (provider === undefined) return
     this.undoCredentialClear(provider.credentialField)
@@ -484,6 +489,8 @@ export class EarsSettingsController {
     const { patch } = submission
     if (Object.keys(patch).length === 0) return
     const submissionRevision = this.draftRevision
+    this.inFlightCredentialClears.clear()
+    for (const field of submission.credentialClears) this.inFlightCredentialClears.add(field)
     this.saving = true
     this.saveQueued = false
     this.failed = false
@@ -509,6 +516,7 @@ export class EarsSettingsController {
       // older submission was rejected.
       if (!this.disposed && submissionRevision === this.draftRevision) this.failed = true
     } finally {
+      this.inFlightCredentialClears.clear()
       this.saving = false
       if (this.disposed) return
       this.publishCard()
@@ -575,6 +583,7 @@ export class EarsSettingsController {
       writable: this.settingsView.writable,
       loaded: this.loaded,
       loadFailed: this.loadFailed,
+      recoveredSettingsFields: this.settingsView.recoveredSettingsFields ?? [],
       saving: this.saving,
       failed: this.failed,
       dirty: this.draftsController.isDirty(),

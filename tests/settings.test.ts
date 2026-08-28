@@ -556,6 +556,26 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('restores the cloud model list when a temporary credential draft is cleared', async () => {
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, models: ['whisper-large-v3-turbo'] } }))
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('ok'))
+      expect(listCloudProviderModels).toHaveBeenCalledTimes(1)
+
+      controller.actions().setApiKey('temporary-key')
+      expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+      controller.actions().setApiKey('')
+
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('ok'))
+      expect(listCloudProviderModels).toHaveBeenLastCalledWith('groq', expect.any(AbortSignal))
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it('preserves each cloud provider model while switching between providers', async () => {
     const controller = new EarsSettingsController(createRemote())
     try {
@@ -759,6 +779,57 @@ describe('EarsSettingsController settings lifecycle', () => {
       controller.actions().setBailianApiKey('sk_bailian')
       controller.actions().save()
       await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ cloudAsrCustomApiKey: 'sk_custom', cloudAsrBailianApiKey: 'sk_bailian' }))
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('allows undoing a queued credential clear during an unrelated save', async () => {
+    const firstSave = deferred<RemoteResult<EarsSettingsView>>()
+    const patches: Record<string, unknown>[] = []
+    const updateSettings = vi.fn((patch: Record<string, unknown>) => {
+      patches.push(patch)
+      return firstSave.promise
+    })
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('webSpeechLanguage', 'en-US')
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      controller.actions().clearApiKey()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
+      controller.actions().undoClearApiKey()
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(false)
+
+      firstSave.resolve({ ok: true, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'en-US' }) })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().saving).toBe(false))
+      expect(patches).toEqual([{ webSpeechLanguage: 'en-US' }])
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('keeps a submitted credential clear pending until its save completes', async () => {
+    const clearSave = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn(() => clearSave.promise)
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().clearApiKey()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrGroqApiKey: '' })
+
+      controller.actions().undoClearApiKey()
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
+
+      clearSave.resolve({ ok: true, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().saving).toBe(false))
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(false)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
     } finally {
       controller.dispose()
     }

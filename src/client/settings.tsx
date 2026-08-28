@@ -176,6 +176,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     <section className={styles.section}>
       <h2 className={styles.title}>{settingsPageLabel(state.settingsDisplayName.text, { plugin: t('displayNamePlugin'), voice: t('displayNameVoice') })}</h2>
       <p className={styles.intro}>{t('description')}</p>
+      {state.recoveredSettingsFields?.length > 0 ? <p className={styles.notice} role="alert">{t('recoveredSettings')}</p> : null}
       {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : state.failed ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('saveFailed')}</p> : null}
       <div className={styles.tabs} role="tablist" aria-label={t('tabs')}>
         {tabs.map((tab, index) => {

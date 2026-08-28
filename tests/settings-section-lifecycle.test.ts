@@ -31,6 +31,7 @@ const cardState: EarsCardState = {
   writable: true,
   loaded: true,
   loadFailed: false,
+  recoveredSettingsFields: [],
   saving: false,
   failed: false,
   dirty: true,

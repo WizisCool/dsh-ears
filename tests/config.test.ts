@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, settingsPageLabel, validateEarsSettings } from '../src/config.js'
+import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, repairInvalidEarsSettings, settingsPageLabel, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
   it('defaults the settings page name to dsh-ears and accepts the voice label', () => {
@@ -36,6 +36,49 @@ describe('dsh-ears settings validation', () => {
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrDeepgramService: 'invalid' })).toThrow('Deepgram ASR service')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, asrBackend: 'unknown-backend' })).toThrow('ASR backend')
     expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, cloudAsrProvider: 'unknown-provider' })).toThrow('cloud ASR provider')
+  })
+
+  it('repairs invalid persisted selectors while preserving valid settings and credentials', () => {
+    const repaired = repairInvalidEarsSettings({
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'unknown-backend',
+      cloudAsrProvider: 'unknown-provider',
+      localWhisperModel: 'unknown-model',
+      localWhisperAcceleration: 'unknown-acceleration',
+      voiceShortcut: 'alt+a',
+      settingsDisplayName: 'unknown-name',
+      maxRecordingSeconds: 0,
+      cloudAsrGroqApiKey: 'gsk-valid-key',
+      cloudAsrCustomEndpoint: 'not-a-url',
+      cloudAsrMimoCluster: '',
+      polishPrompt: 'p'.repeat(MAX_POLISH_PROMPT_LENGTH + 1)
+    })
+
+    expect(repaired.settings.asrBackend).toBe(DEFAULT_EARS_SETTINGS.asrBackend)
+    expect(repaired.settings.cloudAsrProvider).toBe(DEFAULT_EARS_SETTINGS.cloudAsrProvider)
+    expect(repaired.settings.localWhisperModel).toBe(DEFAULT_EARS_SETTINGS.localWhisperModel)
+    expect(repaired.settings.localWhisperAcceleration).toBe(DEFAULT_EARS_SETTINGS.localWhisperAcceleration)
+    expect(repaired.settings.voiceShortcut).toBe(DEFAULT_EARS_SETTINGS.voiceShortcut)
+    expect(repaired.settings.settingsDisplayName).toBe(DEFAULT_EARS_SETTINGS.settingsDisplayName)
+    expect(repaired.settings.maxRecordingSeconds).toBe(DEFAULT_EARS_SETTINGS.maxRecordingSeconds)
+    expect(repaired.settings.cloudAsrGroqApiKey).toBe('gsk-valid-key')
+    expect(repaired.settings.cloudAsrCustomEndpoint).toBe(DEFAULT_EARS_SETTINGS.cloudAsrCustomEndpoint)
+    expect(repaired.settings.cloudAsrMimoCluster).toBe(DEFAULT_EARS_SETTINGS.cloudAsrMimoCluster)
+    expect(repaired.settings.polishPrompt).toBe(DEFAULT_EARS_SETTINGS.polishPrompt)
+    expect(repaired.repairedFields).toEqual(expect.arrayContaining([
+      'asrBackend',
+      'cloudAsrProvider',
+      'localWhisperModel',
+      'localWhisperAcceleration',
+      'voiceShortcut',
+      'settingsDisplayName',
+      'maxRecordingSeconds',
+      'cloudAsrCustomEndpoint',
+      'cloudAsrMimoCluster',
+      'polishPrompt'
+    ]))
+    expect(repaired.repairedFields).not.toContain('gsk-valid-key')
+    expect(() => validateEarsSettings(repaired.settings)).not.toThrow()
   })
 
   it('bounds the inline cloud ASR API key length', () => {
