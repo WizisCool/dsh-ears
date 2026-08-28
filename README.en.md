@@ -55,10 +55,10 @@ After installation, refresh the Web UI. A microphone icon appears to the right o
 ## Update
 
 ```sh
-dsh plugin --profile web update dsh-ears
+dsh plugin --profile web add dsh-ears
 ```
 
-Refresh the Web UI after updating; the About panel in the settings page can also check for new versions.
+`add` resolves the latest version from npm, so the same command works from any installed version. After updating, restart `dsh web` to load the new Host code and refresh the Web UI; the About panel in the settings page can also check for new versions.
 
 ## Uninstall
 

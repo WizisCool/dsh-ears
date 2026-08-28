@@ -8,7 +8,12 @@ export const PLUGIN_LICENSE = 'MIT'
 export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
 export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
 export const DSH_COMPATIBILITY = '0.1.0-rc.6 - 0.1.1-rc.2'
-export const UPDATE_COMMAND = 'dsh plugin --profile web update dsh-ears'
+/**
+ * `add` re-resolves `latest` from the registry and rewrites the saved range,
+ * so the one command works for first install, in-range updates, and crossings
+ * that `pnpm update` clamps to the existing semver range.
+ */
+export const UPDATE_COMMAND = 'dsh plugin --profile web add dsh-ears'
 export const NPM_LATEST_URL = 'https://registry.npmjs.org/dsh-ears/latest'
 
 const CHECK_TIMEOUT_MS = 15_000

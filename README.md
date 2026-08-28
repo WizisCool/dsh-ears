@@ -55,10 +55,10 @@ dsh plugin --profile web add "$PWD"
 ## 更新
 
 ```sh
-dsh plugin --profile web update dsh-ears
+dsh plugin --profile web add dsh-ears
 ```
 
-更新后刷新 Web UI；也可以在设置页的“关于”面板检查新版本。
+`add` 会从 npm 拉取最新版本，任何已装版本都可以直接运行。更新后需要重启 `dsh web` 加载新的 Host 代码，再刷新 Web UI；也可以在设置页的“关于”面板检查新版本。
 
 ## 卸载
 

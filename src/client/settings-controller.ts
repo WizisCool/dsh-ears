@@ -303,7 +303,7 @@ export class EarsSettingsController {
       status: 'error',
       installed: '',
       latest: null,
-      updateCommand: 'dsh plugin --profile web update dsh-ears'
+      updateCommand: 'dsh plugin --profile web add dsh-ears'
     }
     if (this.disposed) return fallback
     const result = await this.remote.checkForUpdate()
