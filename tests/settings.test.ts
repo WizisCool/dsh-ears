@@ -930,6 +930,32 @@ describe('Locale parity', () => {
   })
 })
 
+describe('EarsSettingsController backends race', () => {
+  it('keeps the latest backend response when a slow request resolves after a fast one', async () => {
+    const slow = deferred<RemoteResult<AsrBackendInfo[]>>()
+    const fast = deferred<RemoteResult<AsrBackendInfo[]>>()
+    const listAsrBackends = vi.fn()
+      .mockImplementationOnce(() => slow.promise)
+      .mockImplementationOnce(() => fast.promise)
+    const controller = new EarsSettingsController(createRemote({ listAsrBackends }))
+
+    const first = controller.refreshBackends()
+    const second = controller.refreshBackends()
+    // Fast request resolves first.
+    fast.resolve({ ok: true, value: [{ id: 'web-speech', name: 'Web Speech', available: true, detail: '' }] })
+    await second
+    // Slow request resolves last.
+    slow.resolve({ ok: true, value: [{ id: 'cloud-openai', name: 'Cloud ASR', available: true, detail: '' }] })
+    await first
+
+    expect(controller.getBackendStore().getSnapshot()).toEqual({
+      status: 'ready',
+      backends: [{ id: 'web-speech', name: 'Web Speech', available: true, detail: '' }]
+    })
+    controller.dispose()
+  })
+})
+
 function createRemote(overrides: Partial<EarsRemote> = {}): EarsRemote {
   const settingsView: EarsSettingsView = {
     available: true,

@@ -244,13 +244,18 @@ export class EarsSettingsController {
     const request = ++this.backendRequest
     this.backendState = { status: 'loading', backends: [] }
     this.backendStore.set(this.backendState)
+    let nextState: BackendState
     try {
       const result = await this.remote.listAsrBackends()
-      this.backendState = result.ok ? { status: 'ready', backends: result.value } : { status: 'ready', backends: [] }
+      nextState = result.ok ? { status: 'ready', backends: result.value } : { status: 'ready', backends: [] }
     } catch {
-      this.backendState = { status: 'ready', backends: [] }
+      nextState = { status: 'ready', backends: [] }
     }
+    // The latest-intent invariant: only a request that is still current may
+    // publish. A stale response must neither assign internal state nor touch
+    // the store.
     if (this.disposed || request !== this.backendRequest) return
+    this.backendState = nextState
     this.backendStore.set(this.backendState)
   }
 
