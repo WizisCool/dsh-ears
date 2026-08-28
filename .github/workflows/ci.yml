@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   test:
+    # Required branch-protection checks key on the OS only; keep the reported
+    # name stable when the Node matrix changes.
+    name: test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
