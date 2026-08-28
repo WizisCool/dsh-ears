@@ -1,5 +1,7 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 import { joinSpacedSegments } from '../text-join.js'
+import { assertDeepgramModelSupported } from './deepgram-compatibility.js'
+export { isDeepgramFluxModel } from './deepgram-compatibility.js'
 import { readBoundedText } from './transport.js'
 
 export const DEEPGRAM_API_HOST = 'api.deepgram.com'
@@ -174,6 +176,7 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
   const key = options.credential.trim()
   if (key === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
   options.signal?.throwIfAborted()
+  assertDeepgramModelSupported(options.model ?? DEEPGRAM_DEFAULT_MODEL)
 
   const fetchImpl = options.fetch ?? globalThis.fetch
   const url = deepgramListenUrl({
@@ -202,21 +205,13 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
       'Content-Type': contentType
     }
 
-    let response: Response
-    try {
-      response = await fetchImpl(url, {
-        method: 'POST',
-        headers,
-        body: options.audio as unknown as BodyInit,
-        redirect: 'manual',
-        signal: controller.signal
-      })
-    } catch (error) {
-      if (timedOut && !(options.signal?.aborted)) {
-        throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Deepgram ASR request timed out')
-      }
-      throw error
-    }
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers,
+      body: options.audio as unknown as BodyInit,
+      redirect: 'manual',
+      signal: controller.signal
+    })
 
     const textBody = await readBoundedText(response, DEEPGRAM_MAX_RESPONSE_BYTES, controller.signal)
     let parsed: unknown
@@ -271,6 +266,7 @@ export class DeepgramRealtimeAsrSession {
     effectiveSignal?.throwIfAborted()
     const apiKey = this.options.apiKey.trim()
     if (apiKey === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
+    assertDeepgramModelSupported(this.options.model ?? DEEPGRAM_DEFAULT_MODEL)
     const url = deepgramRealtimeUrl({
       endpoint: this.options.endpoint,
       model: this.options.model,

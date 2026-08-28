@@ -16,6 +16,7 @@ import {
 import type { CloudAsrProviderId } from '../settings/recognition.js'
 import type { EarsSettings } from '../config.js'
 import type { CloudAsrModelCapabilities, CloudAsrModelTransport } from './types.js'
+import { isDeepgramFluxModel } from './deepgram-compatibility.js'
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 
 /**
@@ -393,11 +394,15 @@ export function supportsModelListing(id: string): boolean {
  */
 export function cloudAsrModelSupportsService(providerId: string, service: string, capabilities: CloudAsrModelCapabilities | undefined): boolean {
   const entry = cloudProviderEntry(providerId)
-  const requiredCapability = entry?.modelServiceCapabilities?.[service]
-  if (requiredCapability === undefined || capabilities?.[requiredCapability] !== true) return false
+  if (entry === undefined) return false
+  const serviceCapabilities = entry.modelServiceCapabilities
+  if (serviceCapabilities !== undefined) {
+    const requiredCapability = serviceCapabilities[service]
+    if (requiredCapability === undefined || capabilities?.[requiredCapability] !== true) return false
+  }
   // A model whose provider metadata requires a transport this adapter cannot
   // issue is not executable, regardless of the reported service capability.
-  if (capabilities.transport !== undefined && entry?.adapterTransports !== undefined) {
+  if (capabilities?.transport !== undefined && entry.adapterTransports !== undefined) {
     if (!entry.adapterTransports.includes(capabilities.transport)) return false
   }
   return true
@@ -473,7 +478,7 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
   if (entry === undefined || cloudAsrModelFor(settings) === '') return false
 
   return entry.fields
-    .filter((definition) => definition.required && definition.kind !== 'credential' && definition.kind !== 'model')
+    .filter((definition) => definition.required && definition.kind !== 'credential' && definition.kind !== 'model' && isCloudAsrFieldActive(settings, definition))
     .every((definition) => {
       const value = cloudAsrFieldValue(settings, definition.field)
       return value.trim() !== '' && validateCloudAsrFieldValue(definition, value)
@@ -483,7 +488,9 @@ export function isCloudConfigurationValid(settings: Pick<EarsSettings, 'asrBacke
 /** Whether the cloud ASR backend has all required credentials and configuration to transcribe. */
 export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' | CloudAsrSettingField>): boolean {
   const entry = cloudProviderEntry(settings.cloudAsrProvider)
-  if (entry === undefined || cloudAsrModelFor(settings) === '') return false
+  const model = cloudAsrModelFor(settings)
+  if (entry === undefined || model === '') return false
+  if (entry.protocol === 'deepgram' && isDeepgramFluxModel(model)) return false
   if (!isCloudConfigurationValid({ ...settings, asrBackend: 'cloud-openai' })) return false
 
   // Settings remain saveable while incomplete, but readiness must match the
@@ -497,11 +504,16 @@ export function isCloudAsrReady(settings: Pick<EarsSettings, 'cloudAsrProvider' 
   }
 
   return entry.fields
-    .filter((definition) => definition.required && definition.kind !== 'model')
+    .filter((definition) => definition.required && definition.kind !== 'model' && isCloudAsrFieldActive(settings, definition))
     .every((definition) => {
       const value = cloudAsrFieldValue(settings, definition.field).trim()
       return value !== '' && validateCloudAsrFieldValue(definition, value)
     })
+}
+
+function isCloudAsrFieldActive(settings: Partial<Pick<EarsSettings, CloudAsrSettingField>>, definition: CloudAsrFieldDefinition): boolean {
+  const condition = definition.visibleWhen
+  return condition === undefined || cloudAsrFieldValue(settings, condition.field).trim() === condition.equals
 }
 
 function isHttpsEndpoint(value: string): boolean {

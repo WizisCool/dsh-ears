@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomInt } from 'node:crypto'
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { readBoundedText } from './transport.js'
 
 export const TENCENT_API_HOST = 'asr.tencentcloudapi.com'
 export const TENCENT_API_VERSION = '2019-06-14'
@@ -468,7 +469,7 @@ async function tencentApiRequest(options: {
       redirect: 'manual',
       signal: timeout.signal
     })
-    const text = await readBoundedText(response, timeout.signal)
+    const text = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal, 'Tencent Cloud response is too large')
     let parsed: unknown
     try {
       parsed = JSON.parse(text)
@@ -517,64 +518,6 @@ function extractTencentRecordingTranscript(data: Record<string, unknown> | undef
     .trim()
   if (result !== '') return result
   throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Tencent Cloud returned no transcript')
-}
-
-async function readBoundedText(response: Response, signal: AbortSignal): Promise<string> {
-  signal.throwIfAborted()
-  const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-    try {
-      await response.body?.cancel()
-    } catch {
-      // The size limit remains the primary failure even if transport cleanup fails.
-    }
-    throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-  }
-  if (response.body === null) {
-    const text = await response.text()
-    signal.throwIfAborted()
-    if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-    return text
-  }
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  const cancelOnAbort = () => {
-    try {
-      void reader.cancel(signal.reason).catch(() => undefined)
-    } catch {
-      // The abort itself remains authoritative even if a custom reader cannot cancel.
-    }
-  }
-  signal.addEventListener('abort', cancelOnAbort, { once: true })
-  try {
-    while (true) {
-      signal.throwIfAborted()
-      const next = await reader.read()
-      signal.throwIfAborted()
-      if (next.done) break
-      total += next.value.byteLength
-      if (total > MAX_RESPONSE_BYTES) {
-        try {
-          await reader.cancel()
-        } catch {
-          // Preserve the size-limit error when transport cleanup also fails.
-        }
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-      }
-      chunks.push(next.value)
-    }
-  } finally {
-    signal.removeEventListener('abort', cancelOnAbort)
-    reader.releaseLock()
-  }
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder().decode(bytes)
 }
 
 function encodeRfc3986(value: string): string {

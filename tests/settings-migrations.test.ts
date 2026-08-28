@@ -42,6 +42,26 @@ describe('settings migrations', () => {
     expect(((v4.cloudAsr as Record<string, unknown>).mimo as Record<string, unknown>).model).toBe('mimo-v2.5-asr')
   })
 
+  it('removes the deprecated nested custom slot while migrating its values', () => {
+    const migrated = migrateV3ToV4({
+      schemaVersion: 3,
+      cloudAsr: {
+        custom: {
+          apiKey: 'legacy-key',
+          endpoint: 'https://asr.example.test/transcriptions',
+          model: 'legacy-model'
+        }
+      }
+    })
+    const cloudAsr = migrated.cloudAsr as Record<string, unknown>
+    expect(cloudAsr.custom).toBeUndefined()
+    expect(cloudAsr.customOpenAi).toMatchObject({
+      apiKey: 'legacy-key',
+      endpoint: 'https://asr.example.test/transcriptions',
+      model: 'legacy-model'
+    })
+  })
+
   it('preserves explicit empty values in already-grouped versioned data', () => {
     const v3 = {
       schemaVersion: 3,

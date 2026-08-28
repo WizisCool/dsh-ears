@@ -472,7 +472,7 @@ function CloudProviderFields({ provider, state, models, disabled, edit, setCrede
         return <SelectRow key={definition.field} label={label} hint={hint} value={definitionState.text} entries={entries} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} />
       }
       if (definition.kind === 'model' && definition.editor === 'deepgram-model') {
-        return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} service={state.cloudAsrDeepgramService.text} models={models} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
+        return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} service={state.cloudAsrDeepgramService.text} models={models} dirty={state.dirty} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
       }
       if (definition.kind === 'model' && entry.modelStrategy === 'listing') {
         return <CloudModelRow key={definition.field} label={label} value={definitionState.text} models={models} disabled={disabled} onChange={(value) => editField(definition.field, value)} onRetry={onRetry} t={t} />
@@ -613,12 +613,18 @@ export function deepgramModelCandidates(service: string, models: CloudModelsView
   return [...cloudAsrStaticModelsFor('deepgram', service)]
 }
 
-function DeepgramModelRow({ label, value, service, models, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; service: string; models: CloudModelsView; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
+function DeepgramModelRow({ label, value, service, models, dirty, disabled, invalid, onChange, onBlur, onRetry, t }: { label: string; value: string; service: string; models: CloudModelsView; dirty: boolean; disabled: boolean; invalid: boolean; onChange: (value: string) => void; onBlur: () => void; onRetry: () => void; t: Translate }) {
   const [explicitCustom, setExplicitCustom] = useState(false)
+  const previousDirty = useRef(dirty)
   const view = models.view
   const candidateModels = useMemo(() => deepgramModelCandidates(service, models), [service, models])
 
   const isKnown = candidateModels.includes(value)
+  useEffect(() => {
+    const wasDirty = previousDirty.current
+    previousDirty.current = dirty
+    if (wasDirty && !dirty && isKnown) setExplicitCustom(false)
+  }, [dirty, isKnown])
   const isCustom = explicitCustom || (!isKnown && value.trim() !== '')
 
   const options: [string, string][] = [

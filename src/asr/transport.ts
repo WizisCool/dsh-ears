@@ -1,7 +1,7 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 
 /** Read a bounded HTTP response body, rejecting oversized payloads. */
-export async function readBoundedText(response: Response, maxBytes: number, signal?: AbortSignal): Promise<string> {
+export async function readBoundedText(response: Response, maxBytes: number, signal?: AbortSignal, tooLargeMessage = 'Cloud ASR response is too large'): Promise<string> {
   signal?.throwIfAborted()
   const contentLength = Number(response.headers.get('content-length') ?? '')
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
@@ -10,13 +10,13 @@ export async function readBoundedText(response: Response, maxBytes: number, sign
     } catch {
       // Preserve the size-limit error when transport cleanup also fails.
     }
-    throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+    throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, tooLargeMessage)
   }
   if (response.body === null) {
     const body = await response.text()
     signal?.throwIfAborted()
     if (new TextEncoder().encode(body).byteLength > maxBytes) {
-      throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+      throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, tooLargeMessage)
     }
     return body
   }
@@ -45,7 +45,7 @@ export async function readBoundedText(response: Response, maxBytes: number, sign
         } catch {
           // Preserve the size-limit error when transport cleanup also fails.
         }
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, tooLargeMessage)
       }
       chunks.push(next.value)
     }

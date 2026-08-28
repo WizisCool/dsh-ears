@@ -1,4 +1,5 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { deepgramCatalogCompatibility } from './deepgram-compatibility.js'
 import type { CloudAsrProviderEntry } from './providers.js'
 import type { CloudAsrModelCapabilities, CloudAsrModelCatalog } from './types.js'
 
@@ -196,27 +197,9 @@ function readModelCapabilities(item: Record<string, unknown>): CloudAsrModelCapa
     ...(typeof item.streaming === 'boolean' ? { streaming: item.streaming } : {}),
     // Provider-reported capabilities are corrected below for models the
     // in-repo Listen V1 adapters cannot actually execute.
-    ...(deepgramCompatibility(item))
+    ...(deepgramCatalogCompatibility(item))
   }
   return Object.keys(capabilities).length === 0 ? undefined : capabilities
-}
-
-/**
- * Centralized Deepgram compatibility corrections, resolved from the
- * provider-reported `architecture` metadata rather than model names. Two
- * catalog facts the Listen V1 endpoints cannot honor:
- *
- * - Whisper Cloud models are pre-recorded only (Deepgram documents streaming
- *   availability for the Nova and Flux generations), yet the catalog reports
- *   `streaming: true` for every Whisper entry, so streaming is forced off.
- * - Flux models require the Listen V2 `/v2/listen` endpoint, so they carry an
- *   explicit `transport` that Listen V1 adapters reject.
- */
-function deepgramCompatibility(item: Record<string, unknown>): Partial<CloudAsrModelCapabilities> {
-  const architecture = typeof item.architecture === 'string' ? item.architecture.trim().toLowerCase() : ''
-  if (architecture === 'whisper') return { streaming: false }
-  if (architecture === 'flux') return { transport: 'listen-v2' }
-  return {}
 }
 
 function mergeCapabilities(map: Map<string, CloudAsrModelCapabilities>, model: string, incoming: CloudAsrModelCapabilities): void {
@@ -226,18 +209,25 @@ function mergeCapabilities(map: Map<string, CloudAsrModelCapabilities>, model: s
     return
   }
   map.set(model, {
-    ...(current.batch === true || incoming.batch === true ? { batch: true } : current.batch !== undefined || incoming.batch !== undefined ? { batch: false } : {}),
-    ...(current.streaming === true || incoming.streaming === true ? { streaming: true } : current.streaming !== undefined || incoming.streaming !== undefined ? { streaming: false } : {}),
-    // A model that any duplicate entry routes to Listen V2 is not executable
-    // by the Listen V1 adapter, so that generation wins the merge.
-    ...(current.transport === 'listen-v2' || incoming.transport === 'listen-v2'
-      ? { transport: 'listen-v2' }
-      : incoming.transport !== undefined
-        ? { transport: incoming.transport }
-        : current.transport !== undefined
-          ? { transport: current.transport }
-          : {})
+    ...resolveBooleanCapability('batch', current.batch, incoming.batch),
+    ...resolveBooleanCapability('streaming', current.streaming, incoming.streaming),
+    ...resolveTransportCapability(current.transport, incoming.transport)
   })
+}
+
+function resolveBooleanCapability(key: 'batch' | 'streaming', current: boolean | undefined, incoming: boolean | undefined): Partial<CloudAsrModelCapabilities> {
+  if (current === true || incoming === true) return { [key]: true }
+  if (current !== undefined || incoming !== undefined) return { [key]: false }
+  return {}
+}
+
+function resolveTransportCapability(current: CloudAsrModelCapabilities['transport'], incoming: CloudAsrModelCapabilities['transport']): Partial<CloudAsrModelCapabilities> {
+  // A model that any duplicate entry routes to Listen V2 is not executable
+  // by the Listen V1 adapter, so that generation wins the merge.
+  if (current === 'listen-v2' || incoming === 'listen-v2') return { transport: 'listen-v2' }
+  if (incoming !== undefined) return { transport: incoming }
+  if (current !== undefined) return { transport: current }
+  return {}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

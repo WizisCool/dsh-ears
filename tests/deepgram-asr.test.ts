@@ -9,6 +9,7 @@ import {
   deepgramListenUrl,
   deepgramRealtimeUrl,
   extractDeepgramTranscript,
+  isDeepgramFluxModel,
   transcribeDeepgramAsr,
   type DeepgramWebSocket,
   type DeepgramWebSocketEvent
@@ -17,6 +18,15 @@ import {
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+})
+
+describe('Deepgram model compatibility', () => {
+  it('recognizes Flux model identifiers without rejecting ordinary prefixes', () => {
+    expect(isDeepgramFluxModel('flux-general-en')).toBe(true)
+    expect(isDeepgramFluxModel(' FLUX_v2 ')).toBe(true)
+    expect(isDeepgramFluxModel('fluxion')).toBe(false)
+    expect(isDeepgramFluxModel('nova-3')).toBe(false)
+  })
 })
 
 describe('Deepgram URL builder', () => {
@@ -223,6 +233,18 @@ describe('transcribeDeepgramAsr', () => {
     })
   })
 
+  it('rejects Flux models before issuing a recording request', async () => {
+    const fetchMock = vi.fn()
+    await expect(transcribeDeepgramAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      credential: 'test_token',
+      model: 'flux-general-en',
+      fetch: fetchMock
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrServiceUnavailable })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('bounds the recording response body before parsing it', async () => {
     const oversized = 'x'.repeat(1024 * 1024 + 1)
     await expect(transcribeDeepgramAsr({
@@ -359,6 +381,18 @@ describe('DeepgramRealtimeAsrSession', () => {
 
     const finalResult = await finishPromise
     expect(finalResult).toBe('Hello world.')
+  })
+
+  it('rejects Flux models before creating a realtime socket', async () => {
+    const webSocketFactory = vi.fn()
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      model: 'flux-general-en',
+      webSocketFactory
+    })
+
+    await expect(session.open()).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrServiceUnavailable })
+    expect(webSocketFactory).not.toHaveBeenCalled()
   })
 
   it('rejects on invalid auth error message from socket', async () => {

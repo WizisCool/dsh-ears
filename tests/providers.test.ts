@@ -223,6 +223,13 @@ describe('cloud ASR provider registry', () => {
     expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true })).toBe(true)
   })
 
+  it('does not capability-filter providers without service mappings', () => {
+    expect(cloudAsrModelSupportsService('mimo', 'api', undefined)).toBe(true)
+    expect(cloudAsrStaticModelsFor('mimo', 'api')).toEqual(['mimo-v2.5-asr'])
+    expect(cloudAsrModelSupportsService('deepgram', 'unknown', { batch: true, streaming: true })).toBe(false)
+    expect(cloudAsrModelSupportsService('unknown', 'api', undefined)).toBe(false)
+  })
+
   it('derives realtime routing from the registry instead of provider-specific UI checks', () => {
     expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramService: 'realtime' }))).toBe(true)
     expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramService: 'recording-file' }))).toBe(false)
@@ -246,6 +253,25 @@ describe('cloud ASR configuration validity', () => {
     expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'groq', cloudAsrGroqModel: 'whisper-large-v3-turbo', cloudAsrGroqApiKey: '' }))).toBe(true)
     expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'unknown' }))).toBe(false)
     expect(isCloudConfigurationValid(settings({ asrBackend: 'local-whisper' }))).toBe(true)
+  })
+
+  it('ignores inactive conditional fields while validating cloud settings', () => {
+    const api = settings({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'mimo',
+      cloudAsrMimoService: 'api',
+      cloudAsrMimoCluster: '',
+      cloudAsrMimoApiKey: 'sk-test'
+    })
+    expect(isCloudConfigurationValid(api)).toBe(true)
+    expect(isCloudAsrReady(api)).toBe(true)
+
+    const tokenPlan = settings({
+      ...api,
+      cloudAsrMimoService: 'token-plan'
+    })
+    expect(isCloudConfigurationValid(tokenPlan)).toBe(false)
+    expect(isCloudAsrReady(tokenPlan)).toBe(false)
   })
 })
 
@@ -282,6 +308,21 @@ describe('cloud ASR runtime readiness', () => {
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'realtime' }))).toBe(true)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: '', cloudAsrDeepgramService: 'recording-file' }))).toBe(false)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'unsupported' }))).toBe(false)
+  })
+
+  it('does not mark a hand-entered Deepgram Flux model ready', () => {
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'deepgram',
+      cloudAsrDeepgramModel: 'flux-general-en',
+      cloudAsrDeepgramApiKey: 'test_key',
+      cloudAsrDeepgramService: 'recording-file'
+    }))).toBe(false)
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'deepgram',
+      cloudAsrDeepgramModel: 'flux-general-en',
+      cloudAsrDeepgramApiKey: 'test_key',
+      cloudAsrDeepgramService: 'realtime'
+    }))).toBe(false)
   })
 
   it('rejects embedded credentials in a custom endpoint', () => {

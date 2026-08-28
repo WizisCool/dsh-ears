@@ -178,7 +178,7 @@ export const TYPERT = {
           },
           {
             name: 'CloudProviderModelsView',
-            declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; modelCapabilities?: Record<string, { batch?: boolean; streaming?: boolean }>; error?: string; errorCode?: string; errorParams?: Record<string, string | number> }"
+            declaration: "export type CloudProviderModelsView = { status: 'ok' | 'no-key' | 'error' | 'unsupported'; models?: string[]; modelCapabilities?: Record<string, { batch?: boolean; streaming?: boolean; transport?: 'listen-v1' | 'listen-v2' }>; error?: string; errorCode?: string; errorParams?: Record<string, string | number> }"
           },
           {
             name: 'RealtimeSession',
