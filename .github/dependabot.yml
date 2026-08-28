@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      # engines declares ^22.19.0 || >=24.0.0; typings from newer Node lines
+      # would let type checking admit APIs no supported runtime has. Minor and
+      # patch updates keep tracking the 22.x line; move the ignore manually
+      # when the supported range changes.
+      - dependency-name: '@types/node'
+        update-types:
+          - 'version-update:semver-major'
   - package-ecosystem: github-actions
     directory: /
     schedule:
