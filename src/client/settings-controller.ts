@@ -4,7 +4,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EarsSettings, WhisperAccelerationId } from '../config.js'
 import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { CLOUD_ASR_PROVIDERS, type CloudAsrCredentialField } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrFieldFor, type CloudAsrCredentialField } from '../asr/providers.js'
 import type { AboutInfo, AsrBackendInfo, EarsSettingsView, UpdateCheckResult } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import { CloudProviderController, type CloudModelsView } from './cloud-provider-controller.js'
@@ -119,6 +119,7 @@ export class EarsSettingsController {
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
   private disposed = false
+  private draftRevision = 0
   private settingsRequest = 0
   private backendRequest = 0
 
@@ -254,7 +255,7 @@ export class EarsSettingsController {
   }
 
   async refreshCloudModels(): Promise<void> {
-    await this.cloudProviderController.refresh(this.remote, this.currentCloudAsrProvider())
+    await this.cloudProviderController.refresh(this.remote, this.currentCloudAsrProvider(), this.currentCloudAsrService())
   }
 
   async refreshReasoningEfforts(): Promise<void> {
@@ -303,12 +304,18 @@ export class EarsSettingsController {
     return (this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider).trim()
   }
 
+  private currentCloudAsrService(): string {
+    const definition = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')
+    return definition === undefined ? '' : (this.drafts.get(definition.field) ?? this.settingsView.settings[definition.field]).trim()
+  }
+
   private currentCloudAsrModel(): string {
     return this.cloudProviderController.modelFor(this.currentCloudAsrProvider(), this.settingsView.settings, this.drafts.entries())
   }
 
   private resetCloudAsrModels(): void {
     this.cloudProviderController.reset(this.settingsView.settings)
+    void this.refreshCloudModels()
   }
 
   private currentPolishProvider(): string {
@@ -349,6 +356,7 @@ export class EarsSettingsController {
 
   private edit(field: FieldName, text: string): void {
     if (this.disposed) return
+    this.draftRevision += 1
     if (field === 'polishProvider') {
       this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), this.currentPolishReasoningEffort())
       const model = this.polishModelForProvider(text.trim())
@@ -373,13 +381,15 @@ export class EarsSettingsController {
         else this.cancelScheduledSave()
         return
       }
+      this.cloudProviderController.invalidate()
     }
     this.draftsController.edit(field, text)
     this.failed = false
     this.publishCard()
     if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || field === 'localWhisperAcceleration' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
-    if (field === 'cloudAsrProvider' || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
+    const serviceField = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')?.field
+    if (field === 'cloudAsrProvider' || field === serviceField || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
     this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
   }
 
@@ -390,6 +400,8 @@ export class EarsSettingsController {
 
   private clearCredential(field: CloudAsrCredentialField): void {
     if (this.disposed) return
+    this.draftRevision += 1
+    this.cloudProviderController.invalidate()
     this.draftsController.clearCredential(field)
     this.failed = false
     this.publishCard()
@@ -398,10 +410,13 @@ export class EarsSettingsController {
 
   private undoCredentialClear(field: CloudAsrCredentialField): void {
     if (this.disposed || this.saving) return
+    this.draftRevision += 1
+    const wasPending = this.draftsController.isCredentialClearPending(field)
     this.draftsController.undoCredentialClear(field)
     this.failed = false
     if (!this.draftsController.isDirty()) this.cancelScheduledSave()
     this.publishCard()
+    if (wasPending) void this.refreshCloudModels()
   }
 
   /** Undo a staged clear that has not been submitted yet. */
@@ -426,6 +441,7 @@ export class EarsSettingsController {
   /** Drop every staged draft and pending clear, back to the last saved state. */
   private discard(): void {
     if (this.disposed) return
+    this.draftRevision += 1
     const refreshWhisper = this.hasPendingWhisperAcceleration()
     this.cancelScheduledSave()
     this.saveQueued = false
@@ -462,6 +478,7 @@ export class EarsSettingsController {
     const submission = this.draftsController.buildSubmission()
     const { patch } = submission
     if (Object.keys(patch).length === 0) return
+    const submissionRevision = this.draftRevision
     this.saving = true
     this.saveQueued = false
     this.failed = false
@@ -482,7 +499,10 @@ export class EarsSettingsController {
       if (cloudRelevant) void this.refreshCloudModels()
       if (whisperAccelerationChanged) void this.refreshWhisperState()
     } catch {
-      if (!this.disposed) this.failed = true
+      // A newer draft supersedes this request. Keep it eligible for the
+      // queued save instead of painting the newer state as failed because an
+      // older submission was rejected.
+      if (!this.disposed && submissionRevision === this.draftRevision) this.failed = true
     } finally {
       this.saving = false
       if (this.disposed) return

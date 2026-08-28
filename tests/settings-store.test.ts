@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
-import { applyFlatSettingsPatch, defaultStoredEarsSettings, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
+import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
+import { applyFlatSettingsPatch, defaultStoredEarsSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
 
 describe('canonical Host settings slots', () => {
   it('round-trips flat app settings into current schema slots', () => {
@@ -59,6 +60,36 @@ describe('canonical Host settings slots', () => {
       polishPrompt: 'Keep it short.'
     })
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
+  })
+
+  it('round-trips every registry-defined provider field without losing its storage mapping', () => {
+    const flat = { ...DEFAULT_EARS_SETTINGS }
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      for (const definition of provider.fields) {
+        ;(flat as Record<string, unknown>)[definition.field] = definition.allowedValues?.[0] ?? `${provider.id}-${definition.storageKey}`
+      }
+    }
+
+    const stored = unflattenEarsSettings(flat)
+    const flattened = flattenStoredSettings(stored)
+
+    expect(flattened).toEqual(flat)
+    expect(unflattenEarsSettings(flattened)).toEqual(stored)
+  })
+
+  it('maps a patch for every registry-defined field to its canonical storage slot', () => {
+    const patch: Record<string, string> = {}
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      for (const definition of provider.fields) patch[definition.field] = `updated-${provider.id}-${definition.storageKey}`
+    }
+
+    const storedPatch = flatSettingsPatchToStoredPatch(patch)
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      const slot = (storedPatch.cloudAsr as Record<string, Record<string, unknown>>)[provider.storageKey]
+      for (const definition of provider.fields) {
+        expect(slot[definition.storageKey]).toBe(patch[definition.field])
+      }
+    }
   })
 
   it('migrates the previous fully flat settings without dropping provider secrets', () => {
@@ -261,5 +292,9 @@ describe('canonical Host settings slots', () => {
       'cloudAsrTencentService',
       'cloudAsrGroqApiKey'
     ])
+  })
+
+  it('does not omit a newly registered provider field from flat override detection', () => {
+    expect(flattenOverriddenSettings({ cloudAsrMimoApiKey: 'mimo-secret' })).toContain('cloudAsrMimoApiKey')
   })
 })

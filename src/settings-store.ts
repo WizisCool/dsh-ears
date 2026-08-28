@@ -19,6 +19,45 @@ export type StoredEarsSettings = {
 
 const FLAT_SETTING_KEYS = Object.keys(DEFAULT_EARS_SETTINGS) as Array<keyof EarsSettings>
 
+type StoredFieldMapping = {
+  readonly path: readonly string[]
+  readonly field: keyof EarsSettings
+}
+
+const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
+  { field: 'settingsDisplayName', path: ['general', 'displayName'] },
+  { field: 'voiceShortcutEnabled', path: ['general', 'shortcut', 'enabled'] },
+  { field: 'voiceShortcut', path: ['general', 'shortcut', 'value'] },
+  { field: 'voiceSoundsEnabled', path: ['general', 'soundsEnabled'] },
+  { field: 'asrBackend', path: ['recognition', 'backend'] },
+  { field: 'webSpeechLanguage', path: ['recognition', 'webSpeech', 'language'] },
+  { field: 'localWhisperModel', path: ['recognition', 'localWhisper', 'model'] },
+  { field: 'localWhisperAcceleration', path: ['recognition', 'localWhisper', 'acceleration'] },
+  { field: 'localWhisperLanguage', path: ['recognition', 'localWhisper', 'language'] },
+  { field: 'cloudAsrProvider', path: ['recognition', 'cloudProvider'] },
+  { field: 'maxRecordingSeconds', path: ['recognition', 'maxRecordingSeconds'] },
+  ...CLOUD_ASR_PROVIDERS.flatMap((provider) => provider.fields.map((definition) => ({
+    field: definition.field,
+    path: ['cloudAsr', provider.storageKey, definition.storageKey]
+  }))),
+  { field: 'polishingEnabled', path: ['polishing', 'enabled'] },
+  { field: 'polishProvider', path: ['polishing', 'provider'] },
+  { field: 'polishModel', path: ['polishing', 'model'] },
+  { field: 'polishReasoningEffort', path: ['polishing', 'reasoningEffort'] },
+  { field: 'polishPrompt', path: ['polishing', 'prompt'] }
+]
+
+const CURRENT_STORED_PATHS = new Map<keyof EarsSettings, readonly string[]>(
+  CURRENT_STORED_FIELD_MAPPINGS.map((mapping) => [mapping.field, mapping.path])
+)
+
+const CURRENT_SECRET_MAPPINGS: readonly StoredFieldMapping[] = CLOUD_ASR_PROVIDERS.flatMap((provider) => {
+  const definition = provider.fields.find((candidate) => candidate.field === provider.credentialField)
+  return definition === undefined
+    ? []
+    : [{ field: provider.credentialField, path: ['cloudAsr', provider.storageKey, definition.storageKey] }]
+})
+
 export function defaultStoredEarsSettings(): StoredEarsSettings {
   return unflattenEarsSettings(DEFAULT_EARS_SETTINGS)
 }
@@ -360,31 +399,8 @@ function buildCloudAsrSlots(settings: EarsSettings): CloudAsrSettings {
 
 export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record<string, unknown> {
   const result: Record<string, unknown> = {}
-  const paths: Record<string, readonly string[]> = {
-    asrBackend: ['recognition', 'backend'],
-    webSpeechLanguage: ['recognition', 'webSpeech', 'language'],
-    localWhisperModel: ['recognition', 'localWhisper', 'model'],
-    localWhisperAcceleration: ['recognition', 'localWhisper', 'acceleration'],
-    localWhisperLanguage: ['recognition', 'localWhisper', 'language'],
-    cloudAsrProvider: ['recognition', 'cloudProvider'],
-    maxRecordingSeconds: ['recognition', 'maxRecordingSeconds'],
-    voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
-    voiceShortcut: ['general', 'shortcut', 'value'],
-    voiceSoundsEnabled: ['general', 'soundsEnabled'],
-    settingsDisplayName: ['general', 'displayName'],
-    polishingEnabled: ['polishing', 'enabled'],
-    polishProvider: ['polishing', 'provider'],
-    polishModel: ['polishing', 'model'],
-    polishReasoningEffort: ['polishing', 'reasoningEffort'],
-    polishPrompt: ['polishing', 'prompt']
-  }
-  for (const provider of CLOUD_ASR_PROVIDERS) {
-    for (const definition of provider.fields) {
-      paths[definition.field] = ['cloudAsr', provider.storageKey, definition.storageKey]
-    }
-  }
   for (const [field, value] of Object.entries(patch)) {
-    const path = paths[field]
+    const path = CURRENT_STORED_PATHS.get(field as keyof EarsSettings)
     if (value === undefined || path === undefined) continue
     let target = result
     for (const segment of path.slice(0, -1)) {
@@ -425,83 +441,8 @@ export function isFutureSettingsSchema(raw: unknown): boolean {
 export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path: string[]; set: boolean }[] = []): string[] {
   const fields: string[] = []
   const mappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
-    { path: ['asrBackend'], field: 'asrBackend' },
-    { path: ['webSpeechLanguage'], field: 'webSpeechLanguage' },
-    { path: ['localWhisperModel'], field: 'localWhisperModel' },
-    { path: ['localWhisperAcceleration'], field: 'localWhisperAcceleration' },
-    { path: ['localWhisperLanguage'], field: 'localWhisperLanguage' },
-    { path: ['cloudAsrProvider'], field: 'cloudAsrProvider' },
-    { path: ['cloudAsrGroqApiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsrGroqModel'], field: 'cloudAsrGroqModel' },
-    { path: ['cloudAsrGroqLanguage'], field: 'cloudAsrGroqLanguage' },
-    { path: ['cloudAsrDeepgramApiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsrDeepgramModel'], field: 'cloudAsrDeepgramModel' },
-    { path: ['cloudAsrDeepgramLanguage'], field: 'cloudAsrDeepgramLanguage' },
-    { path: ['cloudAsrDeepgramService'], field: 'cloudAsrDeepgramService' },
-    { path: ['cloudAsrCustomApiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsrCustomEndpoint'], field: 'cloudAsrCustomEndpoint' },
-    { path: ['cloudAsrCustomModel'], field: 'cloudAsrCustomModel' },
-    { path: ['cloudAsrCustomLanguage'], field: 'cloudAsrCustomLanguage' },
-    { path: ['cloudAsrBailianApiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsrBailianHost'], field: 'cloudAsrBailianHost' },
-    { path: ['cloudAsrBailianModel'], field: 'cloudAsrBailianModel' },
-    { path: ['cloudAsrBailianLanguage'], field: 'cloudAsrBailianLanguage' },
-    { path: ['cloudAsrTencentAppId'], field: 'cloudAsrTencentAppId' },
-    { path: ['cloudAsrTencentSecretId'], field: 'cloudAsrTencentSecretId' },
-    { path: ['cloudAsrTencentSecretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsrTencentEngineType'], field: 'cloudAsrTencentEngineType' },
-    { path: ['cloudAsrTencentService'], field: 'cloudAsrTencentService' },
-    { path: ['maxRecordingSeconds'], field: 'maxRecordingSeconds' },
-    { path: ['voiceShortcutEnabled'], field: 'voiceShortcutEnabled' },
-    { path: ['voiceShortcut'], field: 'voiceShortcut' },
-    { path: ['voiceSoundsEnabled'], field: 'voiceSoundsEnabled' },
-    { path: ['settingsDisplayName'], field: 'settingsDisplayName' },
-    { path: ['polishingEnabled'], field: 'polishingEnabled' },
-    { path: ['polishProvider'], field: 'polishProvider' },
-    { path: ['polishModel'], field: 'polishModel' },
-    { path: ['polishReasoningEffort'], field: 'polishReasoningEffort' },
-    { path: ['polishPrompt'], field: 'polishPrompt' },
-    { path: ['general', 'displayName'], field: 'settingsDisplayName' },
-    { path: ['general', 'shortcut', 'enabled'], field: 'voiceShortcutEnabled' },
-    { path: ['general', 'shortcut', 'value'], field: 'voiceShortcut' },
-    { path: ['general', 'soundsEnabled'], field: 'voiceSoundsEnabled' },
-    { path: ['recognition', 'backend'], field: 'asrBackend' },
-    { path: ['recognition', 'webSpeech', 'language'], field: 'webSpeechLanguage' },
-    { path: ['recognition', 'localWhisper', 'model'], field: 'localWhisperModel' },
-    { path: ['recognition', 'localWhisper', 'acceleration'], field: 'localWhisperAcceleration' },
-    { path: ['recognition', 'localWhisper', 'language'], field: 'localWhisperLanguage' },
-    { path: ['recognition', 'cloudProvider'], field: 'cloudAsrProvider' },
-    { path: ['recognition', 'maxRecordingSeconds'], field: 'maxRecordingSeconds' },
-    { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsr', 'groq', 'model'], field: 'cloudAsrGroqModel' },
-    { path: ['cloudAsr', 'groq', 'language'], field: 'cloudAsrGroqLanguage' },
-    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsr', 'deepgram', 'model'], field: 'cloudAsrDeepgramModel' },
-    { path: ['cloudAsr', 'deepgram', 'language'], field: 'cloudAsrDeepgramLanguage' },
-    { path: ['cloudAsr', 'deepgram', 'service'], field: 'cloudAsrDeepgramService' },
-    { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsr', 'customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
-    { path: ['cloudAsr', 'customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
-    { path: ['cloudAsr', 'customOpenAi', 'language'], field: 'cloudAsrCustomLanguage' },
-    { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsr', 'bailian', 'host'], field: 'cloudAsrBailianHost' },
-    { path: ['cloudAsr', 'bailian', 'model'], field: 'cloudAsrBailianModel' },
-    { path: ['cloudAsr', 'bailian', 'language'], field: 'cloudAsrBailianLanguage' },
-    { path: ['cloudAsr', 'tencent', 'appId'], field: 'cloudAsrTencentAppId' },
-    { path: ['cloudAsr', 'tencent', 'secretId'], field: 'cloudAsrTencentSecretId' },
-    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsr', 'tencent', 'engineType'], field: 'cloudAsrTencentEngineType' },
-    { path: ['cloudAsr', 'tencent', 'service'], field: 'cloudAsrTencentService' },
-    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
-    { path: ['cloudAsr', 'mimo', 'service'], field: 'cloudAsrMimoService' },
-    { path: ['cloudAsr', 'mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
-    { path: ['cloudAsr', 'mimo', 'model'], field: 'cloudAsrMimoModel' },
-    { path: ['cloudAsr', 'mimo', 'language'], field: 'cloudAsrMimoLanguage' },
-    { path: ['polishing', 'enabled'], field: 'polishingEnabled' },
-    { path: ['polishing', 'provider'], field: 'polishProvider' },
-    { path: ['polishing', 'model'], field: 'polishModel' },
-    { path: ['polishing', 'reasoningEffort'], field: 'polishReasoningEffort' },
-    { path: ['polishing', 'prompt'], field: 'polishPrompt' },
+    ...FLAT_SETTING_KEYS.map((field) => ({ path: [field], field })),
+    ...CURRENT_STORED_FIELD_MAPPINGS.map((mapping) => ({ path: [...mapping.path], field: mapping.field })),
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['groq', 'model'], field: 'cloudAsrGroqModel' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
@@ -532,12 +473,7 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     }
   }
   const secretMappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
-    { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    ...CURRENT_SECRET_MAPPINGS.map((mapping) => ({ path: [...mapping.path], field: mapping.field })),
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
@@ -573,95 +509,15 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
   return record.schemaVersion === EARS_SETTINGS_SCHEMA_VERSION
     && !hasPath(record, ['recognition', 'language'])
     && !hasPath(record, ['cloudAsr', 'custom'])
-    && hasPath(record, ['general', 'displayName'])
-    && hasPath(record, ['general', 'shortcut', 'enabled'])
-    && hasPath(record, ['general', 'shortcut', 'value'])
-    && hasPath(record, ['general', 'soundsEnabled'])
-    && hasPath(record, ['recognition', 'backend'])
-    && hasPath(record, ['recognition', 'webSpeech', 'language'])
-    && hasPath(record, ['recognition', 'localWhisper', 'model'])
-    && hasPath(record, ['recognition', 'localWhisper', 'acceleration'])
-    && hasPath(record, ['recognition', 'localWhisper', 'language'])
-    && hasPath(record, ['recognition', 'cloudProvider'])
-    && hasPath(record, ['recognition', 'maxRecordingSeconds'])
-    && hasPath(record, ['cloudAsr', 'groq', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'groq', 'model'])
-    && hasPath(record, ['cloudAsr', 'groq', 'language'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'model'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'language'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'service'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'endpoint'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'model'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'language'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'host'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'model'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'language'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'appId'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'secretId'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'secretKey'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'engineType'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'service'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'service'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'cluster'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'model'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'language'])
-    && hasPath(record, ['polishing', 'enabled'])
-    && hasPath(record, ['polishing', 'provider'])
-    && hasPath(record, ['polishing', 'model'])
-    && hasPath(record, ['polishing', 'reasoningEffort'])
-    && hasPath(record, ['polishing', 'prompt'])
+    && CURRENT_STORED_FIELD_MAPPINGS.every((mapping) => hasPath(record, mapping.path))
 }
 
 function hasLegacySettingKeys(record: Record<string, unknown>): boolean {
   const topLevel = [
-    'asrBackend',
-    'webSpeechLanguage',
-    'localWhisperModel',
-    'localWhisperAcceleration',
-    'localWhisperLanguage',
-    'cloudAsrProvider',
+    ...FLAT_SETTING_KEYS,
     'cloudAsrApiKey',
     'cloudAsrModel',
-    'cloudAsrGroqApiKey',
-    'cloudAsrGroqModel',
-    'cloudAsrGroqLanguage',
-    'cloudAsrDeepgramApiKey',
-    'cloudAsrDeepgramModel',
-    'cloudAsrDeepgramLanguage',
-    'cloudAsrDeepgramService',
-    'cloudAsrCustomApiKey',
-    'cloudAsrCustomEndpoint',
-    'cloudAsrCustomModel',
-    'cloudAsrCustomLanguage',
-    'cloudAsrBailianApiKey',
-    'cloudAsrBailianHost',
-    'cloudAsrBailianModel',
-    'cloudAsrBailianLanguage',
-    'cloudAsrTencentAppId',
-    'cloudAsrTencentSecretId',
-    'cloudAsrTencentSecretKey',
-    'cloudAsrTencentEngineType',
-    'cloudAsrTencentService',
-    'cloudAsrMimoApiKey',
-    'cloudAsrMimoService',
-    'cloudAsrMimoCluster',
-    'cloudAsrMimoModel',
-    'cloudAsrMimoLanguage',
     'language',
-    'maxRecordingSeconds',
-    'voiceShortcutEnabled',
-    'voiceShortcut',
-    'voiceSoundsEnabled',
-    'settingsDisplayName',
-    'polishingEnabled',
-    'polishProvider',
-    'polishModel',
-    'polishReasoningEffort',
-    'polishPrompt',
     'groq',
     'deepgram',
     'customOpenAi',
@@ -718,7 +574,7 @@ function ownNumber(record: Record<string, unknown> | undefined, key: string): nu
   return typeof record[key] === 'number' ? record[key] : undefined
 }
 
-function hasPath(value: unknown, path: string[]): boolean {
+function hasPath(value: unknown, path: readonly string[]): boolean {
   let current = value
   for (const part of path) {
     if (!isRecord(current) || !Object.prototype.hasOwnProperty.call(current, part)) return false
@@ -727,7 +583,7 @@ function hasPath(value: unknown, path: string[]): boolean {
   return true
 }
 
-function samePath(left: string[], right: string[]): boolean {
+function samePath(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((part, index) => part === right[index])
 }
 

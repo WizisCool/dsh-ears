@@ -116,7 +116,7 @@ export class WhisperModelController {
   }
 
   async download(): Promise<void> {
-    if (this.disposed) return
+    if (this.disposed || this.mutationInFlight) return
     const model = this.options.currentModel()
     const accelerationRevision = this.accelerationRevision
     const request = this.beginMutation()
@@ -137,7 +137,7 @@ export class WhisperModelController {
   }
 
   async cancel(): Promise<void> {
-    if (this.disposed) return
+    if (this.disposed || this.mutationInFlight) return
     const model = this.options.currentModel()
     const accelerationRevision = this.accelerationRevision
     const request = this.beginMutation()
@@ -158,7 +158,7 @@ export class WhisperModelController {
   }
 
   async delete(): Promise<void> {
-    if (this.disposed) return
+    if (this.disposed || this.mutationInFlight) return
     const model = this.options.currentModel()
     const accelerationRevision = this.accelerationRevision
     const request = this.beginMutation()

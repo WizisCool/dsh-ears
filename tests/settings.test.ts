@@ -3,7 +3,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from '../src/config.js'
 import type { EarsSettings } from '../src/config.js'
 import { EarsSettingsController, SETTINGS_SAVE_DEBOUNCE_MS } from '../src/client/settings-controller.js'
-import { localeEn, localeZh } from '../src/client/settings.js'
+import { deepgramModelCandidates, localeEn, localeZh } from '../src/client/settings.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
 
@@ -43,6 +43,15 @@ const INITIAL_WHISPER_STATE: WhisperModelState = {
 }
 
 type EffortsResult = RemoteResult<{ efforts: Array<{ id: string; name: string }> }>
+
+describe('Deepgram model UI candidates', () => {
+  it('does not replace a successful empty service-filtered catalog with static models', () => {
+    expect(deepgramModelCandidates('recording-file', {
+      status: 'ready',
+      view: { status: 'ok', models: [], modelCapabilities: {} }
+    })).toEqual([])
+  })
+})
 
 describe('EarsSettingsController Whisper state', () => {
   it('uses the Host-provided acceleration list for the settings card', async () => {
@@ -335,6 +344,41 @@ describe('EarsSettingsController settings lifecycle', () => {
           cloudAsrBailianApiKeyConfigured: false,
           cloudAsrTencentSecretKeyConfigured: false,
           overridden: []
+        }
+      })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('does not let a rejected save mark a newer queued draft as failed', async () => {
+    const first = deferred<RemoteResult<EarsSettingsView>>()
+    const second = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('webSpeechLanguage', 'en-US')
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      controller.actions().edit('webSpeechLanguage', 'ja-JP')
+      controller.actions().save()
+      first.resolve({ ok: false, error: { code: 'HOST_FAILURE', message: 'temporary failure', details: {} } })
+
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
+      expect(controller.getCardStore().getSnapshot().webSpeechLanguage.text).toBe('ja-JP')
+      expect(controller.getCardStore().getSnapshot().failed).toBe(false)
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+
+      second.resolve({
+        ok: true,
+        value: {
+          ...settingsViewFrom(DEFAULT_EARS_SETTINGS),
+          settings: { ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'ja-JP' }
         }
       })
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
@@ -774,7 +818,7 @@ describe('EarsSettingsController settings lifecycle', () => {
       status: 'ready',
       view: { status: 'ok', models: ['whisper-large-v3-turbo'] }
     })
-    expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
+    expect(listCloudProviderModels).toHaveBeenCalledWith('groq', expect.any(AbortSignal))
     controller.dispose()
   })
 
@@ -784,10 +828,10 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ listCloudProviderModels, updateSettings }))
     try {
       await controller.refreshSettings()
-      expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
+      expect(listCloudProviderModels).toHaveBeenCalledWith('groq', expect.any(AbortSignal))
 
       controller.actions().edit('cloudAsrProvider', 'deepgram')
-      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledWith('deepgram'))
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledWith('deepgram', expect.any(AbortSignal)))
       // The staged switch is sent even though updateSettings has not committed yet.
       expect(updateSettings).not.toHaveBeenCalled()
     } finally {
@@ -819,6 +863,32 @@ describe('EarsSettingsController settings lifecycle', () => {
       await Promise.resolve()
 
       expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('refreshes the persisted provider after discarding a staged provider switch', async () => {
+    const first = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const second = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const third = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const listCloudProviderModels = vi.fn((provider: string) => provider === 'deepgram' ? second.promise : listCloudProviderModels.mock.calls.length === 1 ? first.promise : third.promise)
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(1))
+
+      controller.actions().edit('cloudAsrProvider', 'deepgram')
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(2))
+      controller.actions().discard()
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(3))
+
+      third.resolve({ ok: true, value: { status: 'ok', models: ['persisted-groq-model'] } })
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.models).toEqual(['persisted-groq-model']))
+      second.resolve({ ok: true, value: { status: 'ok', models: ['stale-deepgram-model'] } })
+      first.resolve({ ok: true, value: { status: 'ok', models: ['stale-initial-model'] } })
+
+      expect(controller.getCloudModelsStore().getSnapshot().view.models).toEqual(['persisted-groq-model'])
     } finally {
       controller.dispose()
     }
