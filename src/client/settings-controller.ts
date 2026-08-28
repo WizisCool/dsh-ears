@@ -208,7 +208,8 @@ export class EarsSettingsController {
       if (result.ok) {
         this.settingsView = result.value
         this.cloudProviderController.rememberSettings(result.value.settings)
-        this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
+        const polishSelection = this.polishSelectionForMemory()
+        this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
         this.settingsStore.set(result.value.settings)
         this.loaded = true
         this.loadFailed = false
@@ -267,11 +268,8 @@ export class EarsSettingsController {
   }
 
   async refreshReasoningEfforts(): Promise<void> {
-    await this.polishStateController.refreshReasoningEfforts(
-      this.remote,
-      this.currentPolishProvider(),
-      this.currentPolishModel()
-    )
+    const route = this.currentPolishLookupRoute()
+    await this.polishStateController.refreshReasoningEfforts(this.remote, route.provider, route.model)
   }
 
   async refreshWhisperState(): Promise<void> {
@@ -338,6 +336,43 @@ export class EarsSettingsController {
     return (this.drafts.get('polishReasoningEffort') ?? this.settingsView.settings.polishReasoningEffort).trim()
   }
 
+  private currentPolishLookupRoute(): { provider: string; model: string } {
+    const provider = this.currentPolishProvider()
+    const model = this.currentPolishModel()
+    const hasRouteDraft = this.drafts.has('polishProvider') || this.drafts.has('polishModel') || this.drafts.has('polishReasoningEffort')
+    if (provider !== '' || model !== '' || hasRouteDraft) return { provider, model }
+    const defaultRoute = this.settingsView.defaultPolishRoute
+    if (this.polishingEnabledForCard() && defaultRoute !== undefined) {
+      return { provider: defaultRoute.provider, model: defaultRoute.model }
+    }
+    return { provider: '', model: '' }
+  }
+
+  private polishingEnabledForCard(): boolean {
+    const draft = this.drafts.get('polishingEnabled')
+    return draft === undefined ? this.settingsView.settings.polishingEnabled : draft === 'on'
+  }
+
+  private shouldProjectAgentDefault(): boolean {
+    const settings = this.settingsView.settings
+    return this.polishingEnabledForCard()
+      && settings.polishProvider.trim() === ''
+      && settings.polishModel.trim() === ''
+      && !this.drafts.has('polishProvider')
+      && !this.drafts.has('polishModel')
+      && !this.drafts.has('polishReasoningEffort')
+      && this.settingsView.defaultPolishRoute !== undefined
+  }
+
+  private materializeProjectedPolishRoute(): void {
+    if (!this.shouldProjectAgentDefault()) return
+    const defaultRoute = this.settingsView.defaultPolishRoute
+    if (defaultRoute === undefined) return
+    this.drafts.set('polishProvider', defaultRoute.provider)
+    this.drafts.set('polishModel', defaultRoute.model)
+    if (defaultRoute.reasoningEffort !== undefined) this.drafts.set('polishReasoningEffort', defaultRoute.reasoningEffort)
+  }
+
   private rememberPolishSelection(provider: string, model: string, reasoningEffort: string): void {
     this.polishStateController.rememberSelection(provider, model, reasoningEffort)
   }
@@ -351,7 +386,22 @@ export class EarsSettingsController {
   }
 
   private resetPolishSelections(): void {
-    this.polishStateController.resetSelections(this.settingsView.settings.polishProvider, this.settingsView.settings.polishModel, this.settingsView.settings.polishReasoningEffort)
+    const selection = this.polishSelectionForMemory()
+    this.polishStateController.resetSelections(selection.provider, selection.model, selection.reasoningEffort)
+  }
+
+  private polishSelectionForMemory(): { provider: string; model: string; reasoningEffort: string } {
+    const settings = this.settingsView.settings
+    const provider = settings.polishProvider.trim()
+    const model = settings.polishModel.trim()
+    const defaultRoute = provider === '' && model === '' && settings.polishingEnabled
+      ? this.settingsView.defaultPolishRoute
+      : undefined
+    return {
+      provider: provider || defaultRoute?.provider || '',
+      model: model || defaultRoute?.model || '',
+      reasoningEffort: settings.polishReasoningEffort.trim() || defaultRoute?.reasoningEffort || ''
+    }
   }
 
   private currentWhisperModel(): string {
@@ -365,6 +415,7 @@ export class EarsSettingsController {
   private edit(field: FieldName, text: string): void {
     if (this.disposed) return
     this.draftRevision += 1
+    if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort') this.materializeProjectedPolishRoute()
     if (field === 'polishProvider') {
       this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), this.currentPolishReasoningEffort())
       const model = this.polishModelForProvider(text.trim())
@@ -396,7 +447,7 @@ export class EarsSettingsController {
     this.draftsController.edit(field, text)
     this.failed = false
     this.publishCard()
-    if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
+    if (field === 'polishingEnabled' || field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || field === 'localWhisperAcceleration' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
     const serviceField = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')?.field
     if (field === 'cloudAsrProvider' || field === serviceField || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
@@ -502,8 +553,9 @@ export class EarsSettingsController {
       const cloudRelevant = CLOUD_ASR_PROVIDERS.some((provider) => submission.credentialClears.has(provider.credentialField) || submission.drafts.has(provider.credentialField))
       const whisperAccelerationChanged = submission.drafts.has('localWhisperAcceleration')
       if (whisperAccelerationChanged) this.whisperModelController.notifyAccelerationChanged()
-      this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
       this.settingsView = result.value
+      const polishSelection = this.polishSelectionForMemory()
+      this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
       this.cloudProviderController.rememberSettings(result.value.settings)
       this.settingsStore.set(result.value.settings)
       this.draftsController.reconcile(submission)
@@ -573,9 +625,11 @@ export class EarsSettingsController {
     const voiceSoundsEnabled = field('voiceSoundsEnabled', this.drafts.get('voiceSoundsEnabled') ?? (current.voiceSoundsEnabled === false ? 'off' : 'on'))
     const settingsDisplayName = field('settingsDisplayName', this.drafts.get('settingsDisplayName') ?? current.settingsDisplayName)
     const polishingEnabled = field('polishingEnabled', this.drafts.get('polishingEnabled') ?? (current.polishingEnabled ? 'on' : 'off'))
-    const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? current.polishProvider)
-    const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
-    const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
+    const defaultPolishRoute = this.shouldProjectAgentDefault() ? this.settingsView.defaultPolishRoute : undefined
+    const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? defaultPolishRoute?.provider ?? current.polishProvider)
+    const polishModel = field('polishModel', this.drafts.get('polishModel') ?? defaultPolishRoute?.model ?? current.polishModel)
+    const defaultReasoningEffort = current.polishReasoningEffort.trim() !== '' ? current.polishReasoningEffort : defaultPolishRoute?.reasoningEffort ?? ''
+    const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? defaultReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
     const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {

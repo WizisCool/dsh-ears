@@ -87,7 +87,7 @@ All API keys and credentials are stored on the Host. The browser never receives 
 
 ## Polishing
 
-Off by default; enable it in settings. Choose the polish model from the models configured in dsh. LLM credentials come from dsh's existing configuration.
+On by default. Leave both provider and model empty to use dsh's default Agent model, including its default reasoning settings; you can also choose a model configured in dsh. LLM credentials come from dsh's existing configuration.
 
 The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats enumerations. Customize the prompt or view the default in settings. If polishing fails or is cancelled, the raw transcript is kept.
 

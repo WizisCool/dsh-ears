@@ -18,7 +18,7 @@ vi.mock('react', () => ({
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   IconChevronDownOutline14: () => null,
   Input: () => null,
-  Menu: () => null
+  Menu: ({ anchor }: { anchor: unknown }) => anchor
 }))
 
 vi.mock('@thesvg/react/github', () => ({
@@ -131,6 +131,67 @@ describe('EarsSettingsSection lifecycle', () => {
     expect(cleanup).toBeTypeOf('function')
     cleanup?.()
     expect(flush).toHaveBeenCalledOnce()
+  })
+
+  it('renders projected dynamic Agent defaults directly without a fake default label', () => {
+    reactMocks.useEffect.mockClear()
+    reactMocks.useState.mockReset()
+    reactMocks.useState
+      .mockImplementationOnce(() => ['polishing', vi.fn()])
+      .mockImplementation((initial) => [initial, vi.fn()])
+
+    const tree = EarsSettingsSection({
+      useEarsCard: (selector) => selector({
+        ...cardState,
+        dirty: false,
+        polishingEnabled: field('on'),
+        polishProvider: field('deepseek-official'),
+        polishModel: field('dynamic-model'),
+        polishReasoningEffort: field('')
+      }),
+      useEarsRoutes: (selector) => selector({ status: 'ready', routes: [] }),
+      useEarsReasoning: (selector) => selector({ status: 'ready', efforts: [] }),
+      useEarsWhisper: (selector) => selector({
+        status: 'ready',
+        state: {
+          runtimeAvailable: true,
+          downloaded: true,
+          downloading: false,
+          progress: null,
+          bytes: 100,
+          totalBytes: 100,
+          error: null
+        }
+      }),
+      useEarsCloudModels: (selector) => selector({ status: 'ready', view: { status: 'unsupported' } }),
+      earsT: (key) => localeEn[key],
+      edit: vi.fn(),
+      setApiKey: vi.fn(),
+      clearApiKey: vi.fn(),
+      undoClearApiKey: vi.fn(),
+      setCustomApiKey: vi.fn(),
+      clearCustomApiKey: vi.fn(),
+      undoClearCustomApiKey: vi.fn(),
+      setBailianApiKey: vi.fn(),
+      clearBailianApiKey: vi.fn(),
+      undoClearBailianApiKey: vi.fn(),
+      setTencentSecretKey: vi.fn(),
+      clearTencentSecretKey: vi.fn(),
+      undoClearTencentSecretKey: vi.fn(),
+      flush: vi.fn(),
+      retryCloudModels: vi.fn(),
+      downloadModel: vi.fn(),
+      cancelModel: vi.fn(),
+      deleteModel: vi.fn(),
+      loadAbout: vi.fn(async () => null),
+      checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.1.0', latest: null, updateCommand: 'dsh plugin --profile web update dsh-ears' }))
+    })
+
+    const text = textContent(renderHostElements(tree))
+    expect(text).toContain('deepseek-official')
+    expect(text).toContain('dynamic-model')
+    expect(text).not.toContain('DSH default Agent model')
+    expect(text).not.toContain('DSH 默认 Agent 模型')
   })
 
   it('does not keep prior Whisper error styling while a new acceleration is being checked', () => {

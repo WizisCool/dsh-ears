@@ -20,7 +20,7 @@ import {
   WHISPER_MODEL_IDS
 } from './settings/recognition.js'
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
-import { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
+import { DEFAULT_POLISHING_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
 import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
 import type {
@@ -155,11 +155,11 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   voiceShortcut: 'ctrl+shift+space',
   voiceSoundsEnabled: true,
   settingsDisplayName: 'dsh-ears',
-  polishingEnabled: false,
-  polishProvider: '',
-  polishModel: '',
-  polishReasoningEffort: '',
-  polishPrompt: ''
+  polishingEnabled: DEFAULT_POLISHING_SETTINGS.enabled,
+  polishProvider: DEFAULT_POLISHING_SETTINGS.provider,
+  polishModel: DEFAULT_POLISHING_SETTINGS.model,
+  polishReasoningEffort: DEFAULT_POLISHING_SETTINGS.reasoningEffort,
+  polishPrompt: DEFAULT_POLISHING_SETTINGS.prompt
 })
 
 export interface PolishRoute {

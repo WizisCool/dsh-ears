@@ -9,7 +9,7 @@ export interface PolishingSettings {
 }
 
 export const DEFAULT_POLISHING_SETTINGS: PolishingSettings = Object.freeze({
-  enabled: false,
+  enabled: true,
   provider: '',
   model: '',
   reasoningEffort: '',

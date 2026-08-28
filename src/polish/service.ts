@@ -546,7 +546,10 @@ export class PolishService extends TypertRemoteService {
       const settings = this.settings === undefined ? DEFAULT_EARS_SETTINGS : this.readSettingsSnapshot().settings
       const storedPrompt = settings.polishPrompt
       const finish = (text: string): RemoteTextResult => remoteTextSuccess(storedPrompt.trim() === '' ? applySpokenEnumerationLayout(text) : text)
-      const route = resolvePolishRoute(settings, provider, model)
+      // Keep the local fields empty to mean "follow dsh"; never persist or
+      // expose the Agent default as a second dsh-ears route.
+      const defaultRoute = settings.polishingEnabled ? this.agentDefaultModelSelection() : undefined
+      const route = resolvePolishRoute(settings, provider, model, defaultRoute)
       if (route === null) return finish(raw)
       const routeProvider = route.provider
       const routeModel = route.model
@@ -557,13 +560,21 @@ export class PolishService extends TypertRemoteService {
       signal.addEventListener('abort', forwardAbort, { once: true })
 
       try {
-        const effort = await this.resolveReasoningEffort(routeProvider, routeModel, reasoningEffort, timeout.signal)
+        const rpcEffort = reasoningEffort.trim()
+        const storedRouteMatches = settings.polishProvider.trim() === routeProvider && settings.polishModel.trim() === routeModel
+        const storedEffort = storedRouteMatches ? settings.polishReasoningEffort.trim() : ''
+        const agentEffort = route.source === 'agent-default' ? route.reasoningEffort ?? '' : ''
+        const requestedEffort = rpcEffort || storedEffort || agentEffort
+        const hasExplicitEffort = rpcEffort !== '' || storedEffort !== ''
+        const effort = route.source === 'agent-default' && rpcEffort === '' && storedEffort === ''
+          ? route.reasoningEffort
+          : await this.resolveReasoningEffort(routeProvider, routeModel, requestedEffort, timeout.signal)
         signal.throwIfAborted()
         if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.polishTimedOut, 'The dsh LLM polishing request timed out')
         try {
           const first = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, effort, timeout.signal)
           signal.throwIfAborted()
-          if (effort !== undefined && first.trim() === raw && !timeout.signal.aborted && !signal.aborted) {
+          if (hasExplicitEffort && effort !== undefined && first.trim() === raw && !timeout.signal.aborted && !signal.aborted) {
             try {
               const retry = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal)
               signal.throwIfAborted()
@@ -579,7 +590,7 @@ export class PolishService extends TypertRemoteService {
           signal.throwIfAborted()
           if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.polishTimedOut, 'The dsh LLM polishing request timed out')
           if (error instanceof TypertLookupFailure) throw error
-          if (effort === undefined) throw error
+          if (!hasExplicitEffort || effort === undefined) throw error
           try {
             const retry = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal)
             signal.throwIfAborted()
@@ -607,14 +618,17 @@ export class PolishService extends TypertRemoteService {
     effort: string | undefined,
     signal: AbortSignal
   ): Promise<string> {
-    const prepared = await this.ctx.llm.prepareCall({ provider, model }, signal)
+    const prepared = await this.ctx.llm.prepareCall({
+      provider,
+      model,
+      ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId })
+    }, signal)
     const message = createUserMessage({
       content: [{ type: 'text', text: polishUserText(raw) }],
       source: { kind: 'user' }
     })
     const output = await collectText(prepared.stream({
       ...prepared.config,
-      ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId }),
       messages: [message],
       system: resolvePolishSystemPrompt(storedPrompt),
       signal

@@ -46,7 +46,7 @@ describe('canonical Host settings slots', () => {
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
     expect(stored.polishing).toEqual({
-      enabled: false,
+      enabled: true,
       provider: 'provider',
       model: 'model',
       reasoningEffort: '',

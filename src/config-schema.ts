@@ -69,10 +69,10 @@ export const EarsSettingsSchema = s.object({
     }).description('Xiaomi MiMo cloud ASR').collapse()
   }).description('Cloud ASR provider credentials and models').collapse(),
   polishing: s.object({
-    enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing'),
-    provider: s.string().default(DEFAULT_POLISHING_SETTINGS.provider).description('dsh polish provider id'),
-    model: s.string().default(DEFAULT_POLISHING_SETTINGS.model).description('dsh polish model id'),
-    reasoningEffort: s.string().default(DEFAULT_POLISHING_SETTINGS.reasoningEffort).description('Polish reasoning effort, empty for default'),
+    enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing by default'),
+    provider: s.string().default(DEFAULT_POLISHING_SETTINGS.provider).description('dsh polish provider id; leave empty to use the dsh Agent default'),
+    model: s.string().default(DEFAULT_POLISHING_SETTINGS.model).description('dsh polish model id; leave empty to use the dsh Agent default'),
+    reasoningEffort: s.string().default(DEFAULT_POLISHING_SETTINGS.reasoningEffort).description('Polish reasoning effort; empty uses the selected route default'),
     prompt: s.string().default(DEFAULT_POLISHING_SETTINGS.prompt).description('Custom polish system prompt, empty for built-in')
   }).description('LLM polishing route and prompt').collapse()
 })

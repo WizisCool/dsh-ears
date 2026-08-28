@@ -394,18 +394,20 @@ describe('PolishService', () => {
     }])
   })
 
-  it('uses the stored Host polish route when the client sends an empty pair', async () => {
-    const prepareCall = vi.fn(async () => ({
-      config: {},
+  it('uses the stored Host route and reasoning effort when the client sends an empty pair', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
       stream: async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       }
     }))
-    const context = createContext({ prepareCall }, {
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,
       polishingEnabled: true,
       polishProvider: 'antigravity',
-      polishModel: 'gemini-3.7-flash-high'
+      polishModel: 'gemini-3.7-flash-high',
+      polishReasoningEffort: 'medium'
     })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
@@ -420,13 +422,98 @@ describe('PolishService', () => {
     )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
     expect(prepareCall).toHaveBeenCalledWith({
       provider: 'antigravity',
-      model: 'gemini-3.7-flash-high'
+      model: 'gemini-3.7-flash-high',
+      reasoningEffort: 'medium'
+    }, expect.any(AbortSignal))
+  })
+
+  it('uses the DSH Agent route and preserves prepared adapter defaults', async () => {
+    let preparedStreamOptions: Record<string, unknown> | undefined
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config: { ...config, temperature: 0.2, maxTokens: 321, stop: ['<end>'] },
+      stream: async function* (options: Record<string, unknown>) {
+        preparedStreamOptions = options
+        yield { type: 'text-delta', text: '整理后的文本' }
+      }
+    }))
+    const context = createContext({ prepareCall }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: '',
+      polishModel: '',
+      polishReasoningEffort: ''
+    })
+    context.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'agent-provider', model: 'agent-model', reasoningEffort: 'high' })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    expect(context.get('dshEarsPolish')?.getSettings().defaultPolishRoute).toEqual({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    })
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      '',
+      '',
+      '',
+      new AbortController().signal
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
+    expect(prepareCall).toHaveBeenCalledWith({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    }, expect.any(AbortSignal))
+    expect(preparedStreamOptions).toMatchObject({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high',
+      temperature: 0.2,
+      maxTokens: 321,
+      stop: ['<end>']
+    })
+  })
+
+  it('honors an explicit polish route and reasoning override over the DSH Agent default', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* () {
+        yield { type: 'text-delta', text: '整理后的文本' }
+      }
+    }))
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'low', name: 'Low' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'stored-provider',
+      polishModel: 'stored-model',
+      polishReasoningEffort: 'medium'
+    })
+    context.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'agent-provider', model: 'agent-model', reasoningEffort: 'high' })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      'explicit-provider',
+      'explicit-model',
+      'low',
+      new AbortController().signal
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
+    expect(prepareCall).toHaveBeenCalledWith({
+      provider: 'explicit-provider',
+      model: 'explicit-model',
+      reasoningEffort: 'low'
     }, expect.any(AbortSignal))
   })
 
   it('does not call the LLM when Host polishing is off and the client sent no route', async () => {
     const prepareCall = vi.fn()
-    const context = createContext({ prepareCall })
+    const context = createContext({ prepareCall }, { ...DEFAULT_EARS_SETTINGS, polishingEnabled: false })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
@@ -448,7 +535,7 @@ describe('PolishService', () => {
       .mockImplementation(async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       })
-    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({ config, stream }))
     const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
     const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,
@@ -510,7 +597,7 @@ describe('PolishService', () => {
       .mockImplementation(async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       })
-    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({ config, stream }))
     const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
     const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,

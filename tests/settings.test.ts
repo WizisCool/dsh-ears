@@ -442,6 +442,94 @@ describe('EarsSettingsController settings lifecycle', () => {
     controller.dispose()
   })
 
+  it('projects recovered stored setting fields into the card state', async () => {
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({
+        ok: true as const,
+        value: { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), recoveredSettingsFields: ['cloudAsrProvider'] }
+      })
+    }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().recoveredSettingsFields).toEqual(['cloudAsrProvider'])
+    controller.dispose()
+  })
+
+  it('projects the real DSH Agent default route without persisting it', async () => {
+    const updateSettings = vi.fn()
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true as const, value: view }),
+      updateSettings
+    }))
+    await controller.refreshSettings()
+
+    const card = controller.getCardStore().getSnapshot()
+    expect(card.polishProvider.text).toBe(defaultRoute.provider)
+    expect(card.polishModel.text).toBe(defaultRoute.model)
+    expect(card.polishReasoningEffort.text).toBe(defaultRoute.reasoningEffort)
+    expect(controller.getSettingsStore().getSnapshot().polishProvider).toBe('')
+    expect(controller.getSettingsStore().getSnapshot().polishModel).toBe('')
+    expect(updateSettings).not.toHaveBeenCalled()
+    expect(Object.values(localeEn).some((value) => value.includes('DSH default Agent model'))).toBe(false)
+    expect(Object.values(localeZh).some((value) => value.includes('DSH 默认 Agent 模型'))).toBe(false)
+    controller.dispose()
+  })
+
+  it('materializes the projected Agent route when the user edits the model', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: view }))
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }), updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishModel', 'custom-model')
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe(defaultRoute.provider)
+    expect(controller.getCardStore().getSnapshot().polishModel.text).toBe('custom-model')
+    controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      polishProvider: defaultRoute.provider,
+      polishModel: 'custom-model',
+      polishReasoningEffort: ''
+    })
+    controller.dispose()
+  })
+
+  it('materializes the projected Agent route when the user edits reasoning', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: view }))
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }), updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishReasoningEffort', 'low')
+    controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      polishProvider: defaultRoute.provider,
+      polishModel: defaultRoute.model,
+      polishReasoningEffort: 'low'
+    })
+    controller.dispose()
+  })
+
+  it('projects the Agent default immediately when polishing is enabled', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const disabled = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: false }
+    const view = { ...settingsViewFrom(disabled), defaultPolishRoute: defaultRoute }
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }) }))
+    await controller.refreshSettings()
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe('')
+
+    controller.actions().edit('polishingEnabled', 'on')
+
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe(defaultRoute.provider)
+    expect(controller.getCardStore().getSnapshot().polishModel.text).toBe(defaultRoute.model)
+    controller.dispose()
+  })
+
   it('stages edits and auto-saves after the debounce window', async () => {
     vi.useFakeTimers()
     const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsView(false) }))

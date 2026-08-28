@@ -43,7 +43,7 @@ export function commitTranscript(options: CommitTranscriptOptions): void {
   options.actionsRef.current.setDraft(draftAtStop)
   // Honor the local toggle so an off switch never flashes "polishing".
   // An enabled toggle still asks the Host even with an empty local pair;
-  // the Host is authoritative for the stored route.
+  // the Host resolves dsh's agent-default-model selection in that case.
   if (options.isCurrent !== undefined && !options.isCurrent()) {
     options.setState('idle')
     return
