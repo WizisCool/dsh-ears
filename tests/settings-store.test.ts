@@ -92,6 +92,16 @@ describe('canonical Host settings slots', () => {
     }
   })
 
+  it('maps every flat setting key to a canonical storage path', () => {
+    const { schemaVersion: _schemaVersion, ...expectedStored } = defaultStoredEarsSettings()
+
+    const storedPatch = flatSettingsPatchToStoredPatch({ ...DEFAULT_EARS_SETTINGS })
+
+    // A flat key without a CURRENT_STORED_PATHS entry is dropped from the patch,
+    // so the result would no longer match the default stored shape.
+    expect(storedPatch).toEqual(expectedStored)
+  })
+
   it('migrates the previous fully flat settings without dropping provider secrets', () => {
     const raw = {
       asrBackend: 'cloud-openai',

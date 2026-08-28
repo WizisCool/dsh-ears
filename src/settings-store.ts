@@ -387,10 +387,12 @@ function buildCloudAsrSlots(settings: EarsSettings): CloudAsrSettings {
   for (const provider of CLOUD_ASR_PROVIDERS) {
     const slot: Record<string, unknown> = {}
     for (const definition of provider.fields) {
-      let value = settings[definition.field]
-      if (definition.field === 'cloudAsrMimoService') value = normalizeMimoService(value)
-      if (definition.field === 'cloudAsrMimoCluster') value = normalizeMimoCluster(value)
-      slot[definition.storageKey] = value
+      const value = settings[definition.field]
+      const allowed = definition.allowedValues
+      // The first allowed value doubles as the field default for every enumerated field.
+      slot[definition.storageKey] = allowed !== undefined && (typeof value !== 'string' || !allowed.includes(value))
+        ? allowed[0]
+        : value
     }
     cloudAsr[provider.storageKey] = slot
   }

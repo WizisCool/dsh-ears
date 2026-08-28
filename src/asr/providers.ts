@@ -85,6 +85,8 @@ export interface CloudAsrFieldDefinition {
   readonly optionLabelKeys?: Readonly<Record<string, string>>
   readonly visibleWhen?: { readonly field: CloudAsrSettingField; readonly equals: string }
   readonly maxLength?: number
+  /** Message for values rejected by `validateCloudAsrFieldValue`; falls back to a generic one. */
+  readonly invalidMessage?: string
   /** Translation identifiers consumed by the browser settings view. */
   readonly labelKey: string
   readonly hintKey: string
@@ -145,44 +147,44 @@ const field = (
 })
 
 const GROQ_FIELDS = [
-  field({ field: 'cloudAsrGroqApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
+  field({ field: 'cloudAsrGroqApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Groq ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrGroqModel', storageKey: 'model', kind: 'model', required: true, editor: 'model', labelKey: 'cloudModel', hintKey: 'cloudModelHint' }),
   field({ field: 'cloudAsrGroqLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
 const DEEPGRAM_FIELDS = [
-  field({ field: 'cloudAsrDeepgramService', storageKey: 'service', kind: 'service', required: true, allowedValues: DEEPGRAM_ASR_SERVICE_IDS, optionLabelKeys: { 'recording-file': 'deepgramRecordingService', realtime: 'deepgramRealtimeService' }, labelKey: 'deepgramService', hintKey: 'deepgramServiceHint' }),
-  field({ field: 'cloudAsrDeepgramApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
+  field({ field: 'cloudAsrDeepgramService', storageKey: 'service', kind: 'service', required: true, allowedValues: DEEPGRAM_ASR_SERVICE_IDS, invalidMessage: 'Unknown dsh-ears Deepgram ASR service', optionLabelKeys: { 'recording-file': 'deepgramRecordingService', realtime: 'deepgramRealtimeService' }, labelKey: 'deepgramService', hintKey: 'deepgramServiceHint' }),
+  field({ field: 'cloudAsrDeepgramApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Deepgram ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrDeepgramModel', storageKey: 'model', kind: 'model', required: true, editor: 'deepgram-model', labelKey: 'cloudModel', hintKey: 'deepgramModelHint' }),
   field({ field: 'cloudAsrDeepgramLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
 const BAILIAN_FIELDS = [
-  field({ field: 'cloudAsrBailianHost', storageKey: 'host', kind: 'host', required: true, labelKey: 'bailianHost', hintKey: 'bailianHostHint' }),
-  field({ field: 'cloudAsrBailianApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
+  field({ field: 'cloudAsrBailianHost', storageKey: 'host', kind: 'host', required: true, invalidMessage: 'Bailian ASR host must use HTTPS without credentials', labelKey: 'bailianHost', hintKey: 'bailianHostHint' }),
+  field({ field: 'cloudAsrBailianApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Bailian ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrBailianModel', storageKey: 'model', kind: 'model', required: true, editor: 'text', labelKey: 'cloudModel', hintKey: 'bailianModelHint' }),
   field({ field: 'cloudAsrBailianLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
 const TENCENT_FIELDS = [
-  field({ field: 'cloudAsrTencentService', storageKey: 'service', kind: 'service', required: true, allowedValues: TENCENT_ASR_SERVICE_IDS, optionLabelKeys: { 'recording-file': 'tencentRecordingService', realtime: 'tencentRealtimeService' }, labelKey: 'tencentService', hintKey: 'tencentServiceHint' }),
+  field({ field: 'cloudAsrTencentService', storageKey: 'service', kind: 'service', required: true, allowedValues: TENCENT_ASR_SERVICE_IDS, invalidMessage: 'Unknown dsh-ears Tencent Cloud ASR service', optionLabelKeys: { 'recording-file': 'tencentRecordingService', realtime: 'tencentRealtimeService' }, labelKey: 'tencentService', hintKey: 'tencentServiceHint' }),
   field({ field: 'cloudAsrTencentAppId', storageKey: 'appId', kind: 'app-id', required: true, labelKey: 'tencentAppId', hintKey: 'tencentAppIdHint' }),
   field({ field: 'cloudAsrTencentSecretId', storageKey: 'secretId', kind: 'secret-id', required: true, labelKey: 'tencentSecretId', hintKey: 'tencentSecretIdHint' }),
-  field({ field: 'cloudAsrTencentSecretKey', storageKey: 'secretKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'tencentSecretKey', hintKey: 'tencentSecretKeyHint' }),
+  field({ field: 'cloudAsrTencentSecretKey', storageKey: 'secretKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Tencent Cloud SecretKey is too long', labelKey: 'tencentSecretKey', hintKey: 'tencentSecretKeyHint' }),
   field({ field: 'cloudAsrTencentEngineType', storageKey: 'engineType', kind: 'model', required: true, labelKey: 'tencentEngineType', hintKey: 'tencentEngineTypeHint' })
 ] as const
 
 const MIMO_FIELDS = [
-  field({ field: 'cloudAsrMimoService', storageKey: 'service', kind: 'service', required: true, allowedValues: MIMO_ASR_SERVICE_IDS, optionLabelKeys: { api: 'mimoApiService', 'token-plan': 'mimoTokenPlanService' }, labelKey: 'mimoService', hintKey: 'mimoServiceHint' }),
-  field({ field: 'cloudAsrMimoCluster', storageKey: 'cluster', kind: 'cluster', required: true, allowedValues: MIMO_ASR_CLUSTERS, optionLabelKeys: { cn: 'mimoClusterCn', sgp: 'mimoClusterSgp', ams: 'mimoClusterAms' }, visibleWhen: { field: 'cloudAsrMimoService', equals: 'token-plan' }, labelKey: 'mimoCluster', hintKey: 'mimoClusterHint' }),
-  field({ field: 'cloudAsrMimoApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'cloudKey', hintKey: 'mimoApiKeyHint' }),
+  field({ field: 'cloudAsrMimoService', storageKey: 'service', kind: 'service', required: true, allowedValues: MIMO_ASR_SERVICE_IDS, invalidMessage: 'Unknown dsh-ears MiMo ASR service', optionLabelKeys: { api: 'mimoApiService', 'token-plan': 'mimoTokenPlanService' }, labelKey: 'mimoService', hintKey: 'mimoServiceHint' }),
+  field({ field: 'cloudAsrMimoCluster', storageKey: 'cluster', kind: 'cluster', required: true, allowedValues: MIMO_ASR_CLUSTERS, invalidMessage: 'Unknown dsh-ears MiMo cluster', visibleWhen: { field: 'cloudAsrMimoService', equals: 'token-plan' }, labelKey: 'mimoCluster', hintKey: 'mimoClusterHint' }),
+  field({ field: 'cloudAsrMimoApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears MiMo ASR API key is too long', labelKey: 'cloudKey', hintKey: 'mimoApiKeyHint' }),
   field({ field: 'cloudAsrMimoModel', storageKey: 'model', kind: 'model', required: true, editor: 'text', labelKey: 'cloudModel', hintKey: 'mimoModelHint' }),
   field({ field: 'cloudAsrMimoLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const
 
 const CUSTOM_FIELDS = [
-  field({ field: 'cloudAsrCustomEndpoint', storageKey: 'endpoint', kind: 'endpoint', required: true, labelKey: 'cloudEndpoint', hintKey: 'cloudEndpointHint' }),
-  field({ field: 'cloudAsrCustomApiKey', storageKey: 'apiKey', kind: 'credential', maxLength: MAX_CLOUD_API_KEY_LENGTH, labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
+  field({ field: 'cloudAsrCustomEndpoint', storageKey: 'endpoint', kind: 'endpoint', required: true, invalidMessage: 'Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials', labelKey: 'cloudEndpoint', hintKey: 'cloudEndpointHint' }),
+  field({ field: 'cloudAsrCustomApiKey', storageKey: 'apiKey', kind: 'credential', maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears custom OpenAI-compatible ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrCustomModel', storageKey: 'model', kind: 'model', required: true, editor: 'text', labelKey: 'cloudModel', hintKey: 'cloudModelHint' }),
   field({ field: 'cloudAsrCustomLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
 ] as const

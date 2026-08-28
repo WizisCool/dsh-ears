@@ -23,7 +23,7 @@ export const EarsSettingsSchema = s.object({
     }).description('Web Speech live recognition').collapse(),
     localWhisper: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id'),
-      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; default selects the available Host variant'),
+      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; default selects an available variant automatically'),
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection')
     }).description('Local Whisper model and native acceleration').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description(`Active cloud ASR provider: ${CLOUD_ASR_PROVIDER_IDS.join(', ')}`),

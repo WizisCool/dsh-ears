@@ -23,7 +23,7 @@ import {
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
 import { DEFAULT_POLISHING_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
 import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
-import { CLOUD_ASR_PROVIDERS, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrFieldDefinition, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
 import type {
   AsrBackendId,
   CloudAsrProviderId,
@@ -243,17 +243,5 @@ export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsR
 }
 
 function cloudAsrFieldValidationMessage(field: string): string {
-  if (field === 'cloudAsrGroqApiKey') return 'dsh-ears Groq ASR API key is too long'
-  if (field === 'cloudAsrDeepgramApiKey') return 'dsh-ears Deepgram ASR API key is too long'
-  if (field === 'cloudAsrCustomApiKey') return 'dsh-ears custom OpenAI-compatible ASR API key is too long'
-  if (field === 'cloudAsrBailianApiKey') return 'dsh-ears Bailian ASR API key is too long'
-  if (field === 'cloudAsrTencentSecretKey') return 'dsh-ears Tencent Cloud SecretKey is too long'
-  if (field === 'cloudAsrMimoApiKey') return 'dsh-ears MiMo ASR API key is too long'
-  if (field === 'cloudAsrTencentService') return 'Unknown dsh-ears Tencent Cloud ASR service'
-  if (field === 'cloudAsrDeepgramService') return 'Unknown dsh-ears Deepgram ASR service'
-  if (field === 'cloudAsrMimoService') return 'Unknown dsh-ears MiMo ASR service'
-  if (field === 'cloudAsrMimoCluster') return 'Unknown dsh-ears MiMo cluster'
-  if (field === 'cloudAsrCustomEndpoint') return 'Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials'
-  if (field === 'cloudAsrBailianHost') return 'Bailian ASR host must use HTTPS without credentials'
-  return `Invalid dsh-ears cloud ASR setting: ${field}`
+  return cloudAsrFieldDefinition(field)?.invalidMessage ?? `Invalid dsh-ears cloud ASR setting: ${field}`
 }

@@ -1,3 +1,4 @@
+import { EARS_SETTINGS_SCHEMA_VERSION } from '../config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './polishing.js'
@@ -215,13 +216,11 @@ export function migrateSettingsToCurrent(raw: unknown): SettingsMigrationRecord 
   const version = typeof source.schemaVersion === 'number' && Number.isInteger(source.schemaVersion)
     ? source.schemaVersion
     : 1
-  if (version > 4) return { ...source }
+  if (version > EARS_SETTINGS_SCHEMA_VERSION) return { ...source }
 
   let current = version < 2 ? migrateV1ToV2(source) : { ...source }
-  const currentVersion = typeof current.schemaVersion === 'number' ? current.schemaVersion : 1
-  if (currentVersion < 3) current = migrateV2ToV3(current)
-  const afterV3 = typeof current.schemaVersion === 'number' ? current.schemaVersion : 1
-  if (afterV3 < 4) current = migrateV3ToV4(current)
+  if (version < 3) current = migrateV2ToV3(current)
+  if (version < 4) current = migrateV3ToV4(current)
   return current
 }
 

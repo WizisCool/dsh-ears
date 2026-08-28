@@ -2,6 +2,7 @@ import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 import { deepgramCatalogCompatibility } from './deepgram-compatibility.js'
 import type { CloudAsrProviderEntry } from './providers.js'
 import type { CloudAsrModelCapabilities, CloudAsrModelCatalog } from './types.js'
+import { readBoundedText } from './transport.js'
 
 const LIST_TIMEOUT_MS = 15_000
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
@@ -33,7 +34,7 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
   try {
     try {
       const response = await fetch(endpoint, { method: 'GET', headers, redirect: 'manual', signal: timeout.signal })
-      const body = await readBoundedText(response, timeout.signal)
+      const body = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal, 'Cloud model listing is too large', EARS_ERROR_CODES.cloudModelsTooLarge)
       signal.throwIfAborted()
       if (!response.ok) throw new EarsError(EARS_ERROR_CODES.cloudModelsHttpFailed, `Cloud model listing failed with HTTP ${response.status}`, { status: response.status })
 
@@ -70,66 +71,6 @@ export async function fetchCloudProviderModels(entry: CloudAsrProviderEntry, api
     clearTimeout(timer)
     signal.removeEventListener('abort', forwardAbort)
   }
-}
-
-async function readBoundedText(response: Response, signal?: AbortSignal): Promise<string> {
-  signal?.throwIfAborted()
-  const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-    try {
-      await response.body?.cancel()
-    } catch {
-      // Preserve the size-limit error when transport cleanup also fails.
-    }
-    throw new EarsError(EARS_ERROR_CODES.cloudModelsTooLarge, 'Cloud model listing is too large')
-  }
-  if (response.body === null) {
-    const body = await response.text()
-    signal?.throwIfAborted()
-    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.cloudModelsTooLarge, 'Cloud model listing is too large')
-    return body
-  }
-
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  const cancelOnAbort = () => {
-    try {
-      void reader.cancel(signal?.reason).catch(() => undefined)
-    } catch {
-      // The abort itself remains authoritative even if a custom reader cannot cancel.
-    }
-  }
-  signal?.addEventListener('abort', cancelOnAbort, { once: true })
-  try {
-    while (true) {
-      signal?.throwIfAborted()
-      const next = await reader.read()
-      signal?.throwIfAborted()
-      if (next.done) break
-      total += next.value.byteLength
-      if (total > MAX_RESPONSE_BYTES) {
-        try {
-          await reader.cancel()
-        } catch {
-          // Preserve the size-limit error when transport cleanup also fails.
-        }
-        throw new EarsError(EARS_ERROR_CODES.cloudModelsTooLarge, 'Cloud model listing is too large')
-      }
-      chunks.push(next.value)
-    }
-  } finally {
-    signal?.removeEventListener('abort', cancelOnAbort)
-    reader.releaseLock()
-  }
-
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder().decode(bytes)
 }
 
 export function filterDeepgramModels(stt: unknown[]): CloudAsrModelCatalog {

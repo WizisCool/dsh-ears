@@ -150,7 +150,7 @@ function validateEndpoint(value: string): string {
   try {
     url = new URL(value.trim())
   } catch {
-    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Bailian ASR endpoint must be a valid HTTPS URL')
   }
   if (url.protocol !== 'https:') {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Bailian ASR endpoints with credentials must use HTTPS')

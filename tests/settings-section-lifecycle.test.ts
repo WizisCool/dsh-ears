@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { EarsCardState } from '../src/client/settings-controller.js'
-import { EarsSettingsSection, localeEn } from '../src/client/settings.js'
+import { EarsSettingsSection, localeEn, localeZh } from '../src/client/settings.js'
 
 const reactMocks = vi.hoisted(() => ({
   useEffect: vi.fn(),
@@ -190,8 +190,10 @@ describe('EarsSettingsSection lifecycle', () => {
     const text = textContent(renderHostElements(tree))
     expect(text).toContain('deepseek-official')
     expect(text).toContain('dynamic-model')
-    expect(text).not.toContain('DSH default Agent model')
-    expect(text).not.toContain('DSH 默认 Agent 模型')
+    // Projected values must render directly; falling back to placeholder copy
+    // means the dynamic Agent default stopped being projected.
+    const placeholderCopy = [localeEn.providerPlaceholder, localeEn.modelPlaceholder, localeZh.providerPlaceholder, localeZh.modelPlaceholder]
+    expect(placeholderCopy.some((label) => text.includes(label))).toBe(false)
   })
 
   it('does not keep prior Whisper error styling while a new acceleration is being checked', () => {
