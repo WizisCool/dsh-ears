@@ -2,6 +2,31 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.2.0] - 2026-08-29
+
+SiliconFlow provider and ASR/settings hardening release.
+
+### Added
+
+- [SiliconFlow](https://siliconflow.cn) CN edition (`api.siliconflow.cn`) as a cloud ASR provider on the Recognition tab: an OpenAI-compatible preset over the shared transcription adapter with the default model `FunAudioLLM/SenseVoiceSmall`, a live model list scoped by `sub_type=speech-to-text`, write-only API key storage, and a per-provider recognition language. The international edition is deferred (D-047).
+- A versioned settings migration path (V1 through V4) that upgrades flat and grouped legacy layouts in place, with conservative normalization for files written by newer versions.
+- Automatic repair of invalid persisted settings: unknown providers, backends, models, shortcuts, or out-of-range values fall back to safe defaults, the settings page lists the recovered fields, and the repaired configuration persists on the next save.
+- SemVer-correct update checks, a dsh compatibility smoke suite, package/release verification scripts, Dependabot configuration, and CI coverage for the whole matrix.
+
+### Changed
+
+- Cloud ASR providers are registry-driven: provider metadata, field validation, credential/model resolution, persistence mappings, secret redaction, and the settings UI rows derive from one `CLOUD_ASR_PROVIDERS` table.
+- Fresh installs default to browser Web Speech recognition; Local Whisper remains selectable, and its `default` acceleration resolves automatically against platform-supported native variants and locks only after native initialization (D-045, D-046).
+- Polishing is enabled by default and follows dsh's live Agent default model, including its reasoning effort, when no explicit dsh-ears route is configured; the projected default is not persisted (D-045).
+- Deepgram model lists come from the live catalog with provider-reported capabilities; models whose wire transport the adapter cannot execute (Listen V2, e.g. Flux) stay hidden per service.
+- Remote descriptors and strict wire schemas are unified in one descriptor table; credentials stay Host-owned and are redacted as configured booleans.
+
+### Fixed
+
+- Invalid persisted settings no longer abort plugin registration or block the settings and config pages.
+- Hardened request cancellation, timeouts, response-size caps, realtime session cleanup, and stale async writes across providers and client controllers.
+- Bailian endpoints enforce HTTPS for credential-bearing requests, and DashScope failures surface the provider error code.
+
 ## [0.1.6] - 2026-08-27
 
 Xiaomi MiMo cloud ASR provider release.
