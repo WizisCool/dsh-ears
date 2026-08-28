@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   PLUGIN_REPOSITORY_SLUG,
   PLUGIN_REPOSITORY_URL,
@@ -55,6 +55,19 @@ describe('version compare', () => {
     expect(compareReleaseVersions('not-a-version', '0.1.0')).toBeNull()
   })
 
+  it('orders prereleases before the final release', () => {
+    expect(compareReleaseVersions('0.2.0-beta.1', '0.2.0-beta.2')).toBe(-1)
+    expect(compareReleaseVersions('0.2.0-beta.2', '0.2.0-rc.1')).toBe(-1)
+    expect(compareReleaseVersions('0.2.0-rc.1', '0.2.0')).toBe(-1)
+    expect(compareReleaseVersions('0.2.0+build.2', '0.2.0+build.1')).toBe(0)
+    expect(compareReleaseVersions('0.2.0-01', '0.2.0')).toBeNull()
+  })
+
+  it('accepts alphanumeric prerelease identifiers beginning with zero', () => {
+    expect(compareReleaseVersions('0.2.0-01a', '0.2.0-01b')).toBe(-1)
+    expect(compareReleaseVersions('0.2.0-01-beta', '0.2.0')).toBe(-1)
+  })
+
   it('treats a greater latest as an update and equal or older as current', () => {
     expect(interpretUpdateCheck('0.1.0', '0.1.1')).toBe('update-available')
     expect(interpretUpdateCheck('0.1.0', '0.1.0')).toBe('up-to-date')
@@ -64,6 +77,33 @@ describe('version compare', () => {
 })
 
 describe('npm latest check', () => {
+  it('honors an already-aborted update check before fetching', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('cancelled before update check'))
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ version: '0.1.1' }), { status: 200 }))
+
+    await expect(checkForPluginUpdate({
+      installed: '0.1.0',
+      fetchImpl: fetchMock,
+      signal: controller.signal
+    })).rejects.toThrow('cancelled before update check')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not accept a response produced after external cancellation', async () => {
+    const controller = new AbortController()
+    const fetchMock = vi.fn(async () => {
+      controller.abort(new Error('cancelled during update check'))
+      return new Response(JSON.stringify({ version: '9.9.9' }), { status: 200 })
+    })
+
+    await expect(checkForPluginUpdate({
+      installed: '0.1.0',
+      fetchImpl: fetchMock,
+      signal: controller.signal
+    })).rejects.toThrow('cancelled during update check')
+  })
+
   it('reports unpublished on HTTP 404', async () => {
     const result = await checkForPluginUpdate({
       installed: '0.1.0',

@@ -74,7 +74,7 @@ dsh plugin --profile web remove dsh-ears
 
 | 后端 | 工作方式 | 需要什么 |
 | --- | --- | --- |
-| Web Speech | 浏览器实时识别 | Chromium 内核浏览器 |
+| Web Speech | 浏览器实时识别 | 默认后端；Chromium 内核浏览器 |
 | 本地 Whisper | 录音结束后由 Host 本地转写 | 在设置页下载 GGML 模型 |
 | [Groq](https://console.groq.com) | Host 调用 Groq Whisper API | API key |
 | [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
@@ -83,11 +83,13 @@ dsh plugin --profile web remove dsh-ears
 | [小米 MiMo](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition) | Host 调用 MiMo 语音识别，支持[标准 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
+本地 Whisper 默认使用 Host 根据当前平台和已安装 native variant 选择的自动加速后端；无法使用时回退到 `default`，也可在设置页手动选择 Vulkan/CUDA。
+
 所有 API key 和凭据由 Host 保存，浏览器不接触。
 
 ## 润色
 
-默认关闭，可在设置页开启。润色模型从 dsh 已配置的模型中选择，LLM 凭据复用 dsh 现有配置。
+默认开启。提供方和模型都留空时使用 dsh 的默认 Agent 模型（包括默认推理设置）；也可以从 dsh 已配置的模型中选择。LLM 凭据复用 dsh 现有配置。
 
 默认提示词会删除口头禅、修正 ASR 错字、处理自我纠正和口头列举。可在设置页自定义提示词或查看默认内容。润色失败或取消时保留原始转写。
 

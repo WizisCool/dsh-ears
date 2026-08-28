@@ -74,7 +74,7 @@ Transcription results are always written to an editable draft and are never sent
 
 | Backend | How it works | Requirements |
 | --- | --- | --- |
-| Web Speech | Live in-browser recognition | A Chromium-based browser |
+| Web Speech | Live in-browser recognition | Default backend; a Chromium-based browser |
 | Local Whisper | Host transcribes locally after recording stops | Download a GGML model from settings |
 | [Groq](https://console.groq.com) | Host calls the Groq Whisper API | API key |
 | [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |
@@ -83,11 +83,13 @@ Transcription results are always written to an editable draft and are never sent
 | [Xiaomi MiMo](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) | Host calls the MiMo speech model via the [standard API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) or a [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) subscription | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
+Local Whisper uses the automatic acceleration backend selected by the Host from the current platform and installed native variants; it falls back to `default` when unavailable. Vulkan/CUDA can also be selected manually in settings.
+
 All API keys and credentials are stored on the Host. The browser never receives them.
 
 ## Polishing
 
-Off by default; enable it in settings. Choose the polish model from the models configured in dsh. LLM credentials come from dsh's existing configuration.
+On by default. Leave both provider and model empty to use dsh's default Agent model, including its default reasoning settings; you can also choose a model configured in dsh. LLM credentials come from dsh's existing configuration.
 
 The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats enumerations. Customize the prompt or view the default in settings. If polishing fails or is cancelled, the raw transcript is kept.
 

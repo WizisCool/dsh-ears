@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -8,6 +8,7 @@ const asrBackendSchema = z.enum(ASR_BACKEND_IDS)
 const whisperModelSchema = z.enum(WHISPER_MODEL_IDS)
 export const cloudAsrProviderSchema = z.enum(CLOUD_ASR_PROVIDER_IDS)
 export const textSchema = z.string()
+const cloudCredentialSchema = z.string().max(MAX_CLOUD_API_KEY_LENGTH)
 
 export const earsSettingsSchema = z.object({
   asrBackend: z.string(),
@@ -60,27 +61,27 @@ export const earsSettingsPatchSchema = z.object({
   localWhisperAcceleration: z.enum(WHISPER_ACCELERATION_IDS).optional(),
   localWhisperLanguage: z.string().optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
-  cloudAsrGroqApiKey: z.string().max(1024).optional(),
+  cloudAsrGroqApiKey: cloudCredentialSchema.optional(),
   cloudAsrGroqModel: z.string().optional(),
   cloudAsrGroqLanguage: z.string().optional(),
-  cloudAsrDeepgramApiKey: z.string().max(1024).optional(),
+  cloudAsrDeepgramApiKey: cloudCredentialSchema.optional(),
   cloudAsrDeepgramModel: z.string().optional(),
   cloudAsrDeepgramLanguage: z.string().optional(),
   cloudAsrDeepgramService: z.enum(DEEPGRAM_ASR_SERVICE_IDS).optional(),
-  cloudAsrCustomApiKey: z.string().max(1024).optional(),
+  cloudAsrCustomApiKey: cloudCredentialSchema.optional(),
   cloudAsrCustomEndpoint: z.string().optional(),
   cloudAsrCustomModel: z.string().optional(),
   cloudAsrCustomLanguage: z.string().optional(),
-  cloudAsrBailianApiKey: z.string().max(1024).optional(),
+  cloudAsrBailianApiKey: cloudCredentialSchema.optional(),
   cloudAsrBailianHost: z.string().optional(),
   cloudAsrBailianModel: z.string().optional(),
   cloudAsrBailianLanguage: z.string().optional(),
   cloudAsrTencentAppId: z.string().optional(),
   cloudAsrTencentSecretId: z.string().optional(),
-  cloudAsrTencentSecretKey: z.string().max(1024).optional(),
+  cloudAsrTencentSecretKey: cloudCredentialSchema.optional(),
   cloudAsrTencentEngineType: z.string().optional(),
   cloudAsrTencentService: z.enum(TENCENT_ASR_SERVICE_IDS).optional(),
-  cloudAsrMimoApiKey: z.string().max(1024).optional(),
+  cloudAsrMimoApiKey: cloudCredentialSchema.optional(),
   cloudAsrMimoService: z.enum(MIMO_ASR_SERVICE_IDS).optional(),
   cloudAsrMimoCluster: z.enum(MIMO_ASR_CLUSTERS).optional(),
   cloudAsrMimoModel: z.string().optional(),
@@ -97,6 +98,12 @@ export const earsSettingsPatchSchema = z.object({
   polishPrompt: z.string().optional()
 })
 
+const polishDefaultRouteSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  reasoningEffort: z.string().optional()
+})
+
 export const earsSettingsViewSchema = z.object({
   available: z.boolean(),
   writable: z.boolean(),
@@ -107,6 +114,8 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrBailianApiKeyConfigured: z.boolean(),
   cloudAsrTencentSecretKeyConfigured: z.boolean(),
   cloudAsrMimoApiKeyConfigured: z.boolean().default(false),
+  defaultPolishRoute: polishDefaultRouteSchema.optional(),
+  recoveredSettingsFields: z.array(z.string()).optional(),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
   overridden: z.array(z.string())
 })
@@ -144,6 +153,11 @@ export const whisperModelStateSchema = z.object({
 export const cloudProviderModelsViewSchema = z.object({
   status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
   models: z.array(z.string()).optional(),
+  modelCapabilities: z.record(z.string().min(1), z.object({
+    batch: z.boolean().optional(),
+    streaming: z.boolean().optional(),
+    transport: z.enum(['listen-v1', 'listen-v2']).optional()
+  })).optional(),
   error: z.string().optional(),
   errorCode: z.string().optional(),
   errorParams: errorParamsSchema.optional()
@@ -222,6 +236,8 @@ export type EarsSettingsView = {
   cloudAsrBailianApiKeyConfigured: boolean
   cloudAsrTencentSecretKeyConfigured: boolean
   cloudAsrMimoApiKeyConfigured: boolean
+  defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }
+  recoveredSettingsFields?: string[]
   localWhisperAccelerations?: WhisperAccelerationId[]
   overridden: string[]
 }

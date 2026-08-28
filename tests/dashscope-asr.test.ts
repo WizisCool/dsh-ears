@@ -98,6 +98,7 @@ describe('transcribeDashScopeAsr', () => {
       'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
       expect.objectContaining({
         method: 'POST',
+        redirect: 'manual',
         headers: expect.objectContaining({
           Authorization: 'Bearer sk_test',
           'X-DashScope-SSE': 'disable'
@@ -107,6 +108,22 @@ describe('transcribeDashScopeAsr', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
     expect(body.model).toBe('fun-asr-flash')
     expect(body.input.messages[0].content[0].type).toBe('input_audio')
+  })
+
+  it('rejects a credential-bearing HTTP endpoint before sending audio', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(transcribeDashScopeAsr({
+      audio: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/webm',
+      language: 'zh-CN',
+      endpoint: 'http://127.0.0.1:8080/asr',
+      model: 'fun-asr-flash',
+      credential: 'sk_test',
+      signal: new AbortController().signal
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrEndpointInvalid })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('returns an empty transcript when qwen-audio reports an explicit silent-audio marker', async () => {

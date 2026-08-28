@@ -1,17 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS, isHttpEndpoint } from '../src/config.js'
+import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_EARS_SETTINGS, isHttpEndpoint } from '../src/config.js'
+import { DEFAULT_CLOUD_ASR_SETTINGS } from '../src/settings/cloud-asr.js'
+import { EARS_ERROR_CODES } from '../src/errors.js'
 import {
   CLOUD_ASR_PROVIDERS,
   bailianGenerationUrl,
+  cloudAsrBackendSelection,
   cloudAsrCredentialFor,
   cloudAsrEndpointFor,
   cloudAsrModelFor,
+  cloudAsrModelSupportsService,
+  cloudAsrStaticModelsFor,
   cloudProviderEntry,
   isCloudAsrReady,
   isCloudConfigurationValid,
+  isCloudAsrRealtime,
   isKnownCloudProvider,
-  supportsModelListing
+  supportsModelListing,
+  validateCloudAsrFieldValue
 } from '../src/asr/providers.js'
+import { filterDeepgramModels } from '../src/asr/cloud-provider-models.js'
 import type { EarsSettings } from '../src/config.js'
 
 function settings(overrides: Partial<EarsSettings> = {}): EarsSettings {
@@ -19,9 +27,22 @@ function settings(overrides: Partial<EarsSettings> = {}): EarsSettings {
 }
 
 describe('cloud ASR provider registry', () => {
+  it('covers every persisted cloud field exactly once', () => {
+    const fields = CLOUD_ASR_PROVIDERS.flatMap((entry) => entry.fields)
+    const fieldNames = fields.map((definition) => definition.field)
+    expect(new Set(fieldNames).size).toBe(fieldNames.length)
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      expect(entry.fields.some((definition) => definition.field === entry.credentialField)).toBe(true)
+      expect(entry.fields.some((definition) => definition.field === entry.modelField)).toBe(true)
+      if (entry.languageField !== undefined) expect(entry.fields.some((definition) => definition.field === entry.languageField)).toBe(true)
+      expect(entry.fields.every((definition) => definition.labelKey !== '' && definition.hintKey !== '')).toBe(true)
+    }
+  })
+
   it('registers unique provider ids with the shared protocol', () => {
     const ids = CLOUD_ASR_PROVIDERS.map((entry) => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toEqual([...CLOUD_ASR_PROVIDER_IDS])
     expect(cloudProviderEntry('groq')?.protocol).toBe('openai-compatible')
     expect(cloudProviderEntry('deepgram')?.protocol).toBe('deepgram')
     expect(cloudProviderEntry('custom')?.protocol).toBe('openai-compatible')
@@ -35,12 +56,78 @@ describe('cloud ASR provider registry', () => {
     expect(isKnownCloudProvider('unknown')).toBe(false)
   })
 
+  it('keeps registry metadata internally consistent for persistence, editors, and dispatch', () => {
+    const storageKeys = CLOUD_ASR_PROVIDERS.map((entry) => entry.storageKey)
+    expect(new Set(storageKeys).size).toBe(storageKeys.length)
+
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      expect(Object.prototype.hasOwnProperty.call(DEFAULT_CLOUD_ASR_SETTINGS, entry.storageKey)).toBe(true)
+      expect(entry.fields.length).toBeGreaterThan(0)
+
+      const fieldNames = entry.fields.map((definition) => definition.field)
+      const storageFieldNames = entry.fields.map((definition) => definition.storageKey)
+      expect(new Set(storageFieldNames).size).toBe(storageFieldNames.length)
+      expect(new Set(fieldNames).size).toBe(fieldNames.length)
+      expect(entry.fields.every((definition) => definition.labelKey.trim() !== '' && definition.hintKey.trim() !== '')).toBe(true)
+
+      const credential = entry.fields.find((definition) => definition.field === entry.credentialField)
+      const model = entry.fields.find((definition) => definition.field === entry.modelField)
+      const language = entry.languageField === undefined ? undefined : entry.fields.find((definition) => definition.field === entry.languageField)
+      expect(credential?.kind).toBe('credential')
+      expect(model?.kind).toBe('model')
+      if (entry.languageField !== undefined) expect(language?.kind).toBe('language')
+      if (entry.apiKeyRequired) expect(credential?.required).toBe(true)
+
+      if (entry.modelStrategy === 'listing') {
+        expect(entry.baseUrl).toMatch(/^https:\/\//)
+        expect(supportsModelListing(entry.id)).toBe(true)
+      } else {
+        expect(supportsModelListing(entry.id)).toBe(false)
+      }
+      if (entry.modelStrategy === 'static') {
+        expect(entry.defaultModel !== undefined || (entry.staticModels?.length ?? 0) > 0).toBe(true)
+      }
+
+      const serviceDefinition = entry.fields.find((definition) => definition.kind === 'service')
+      if (entry.realtime) {
+        const realtimeServices = entry.realtimeServices ?? []
+        expect(realtimeServices.length).toBeGreaterThan(0)
+        expect(new Set(realtimeServices).size).toBe(realtimeServices.length)
+        expect(serviceDefinition?.allowedValues).toEqual(expect.arrayContaining(realtimeServices))
+      } else {
+        expect(entry.realtimeServices).toBeUndefined()
+      }
+      if (!entry.realtime) expect(entry.modelServiceCapabilities).toBeUndefined()
+      for (const [service, capability] of Object.entries(entry.modelServiceCapabilities ?? {})) {
+        expect(serviceDefinition?.allowedValues).toContain(service)
+        expect(['batch', 'streaming']).toContain(capability)
+        if (capability === 'streaming') expect(entry.realtime).toBe(true)
+      }
+      for (const modelId of entry.staticModels ?? []) {
+        expect(modelId.trim()).not.toBe('')
+        if (entry.staticModelCapabilities !== undefined) expect(entry.staticModelCapabilities[modelId]).toBeDefined()
+      }
+      for (const modelId of Object.keys(entry.staticModelCapabilities ?? {})) {
+        expect(entry.staticModels).toContain(modelId)
+      }
+    }
+  })
+
+  it('maps every registry provider to the cloud backend selection', () => {
+    for (const entry of CLOUD_ASR_PROVIDERS) {
+      expect(cloudAsrBackendSelection(entry.id)).toEqual({ asrBackend: 'cloud-openai', cloudAsrProvider: entry.id })
+    }
+    expect(cloudAsrBackendSelection('unknown')).toBeUndefined()
+  })
+
   it('pins the Groq transcription and listing base URL', () => {
     const groq = cloudProviderEntry('groq')
     expect(groq?.baseUrl).toBe('https://api.groq.com/openai/v1')
     expect(groq?.endpointEditable).toBe(false)
     expect(groq?.apiKeyRequired).toBe(true)
     expect(supportsModelListing('groq')).toBe(true)
+    expect(supportsModelListing('deepgram')).toBe(true)
+    expect(supportsModelListing('mimo')).toBe(false)
     expect(cloudAsrEndpointFor(settings({ cloudAsrProvider: 'groq', cloudAsrCustomEndpoint: 'https://ignored.example.test' }))).toBe('https://api.groq.com/openai/v1/audio/transcriptions')
   })
 
@@ -76,6 +163,79 @@ describe('cloud ASR provider registry', () => {
     expect(cloudProviderEntry('deepgram')?.apiKeyRequired).toBe(true)
     expect(cloudProviderEntry('deepgram')?.endpointEditable).toBe(false)
   })
+
+  it('validates registry-declared choices and credential bounds', () => {
+    const deepgramService = cloudProviderEntry('deepgram')?.fields.find((definition) => definition.field === 'cloudAsrDeepgramService')
+    const groqKey = cloudProviderEntry('groq')?.fields.find((definition) => definition.field === 'cloudAsrGroqApiKey')
+    if (deepgramService === undefined || groqKey === undefined) throw new Error('registry field missing')
+    expect(validateCloudAsrFieldValue(deepgramService, 'realtime')).toBe(true)
+    expect(validateCloudAsrFieldValue(deepgramService, 'invalid')).toBe(false)
+    expect(validateCloudAsrFieldValue(groqKey, 'x'.repeat(512))).toBe(true)
+    expect(validateCloudAsrFieldValue(groqKey, 'x'.repeat(513))).toBe(false)
+  })
+
+  it('declares service capability mappings and per-model static fallback metadata', () => {
+    const deepgram = cloudProviderEntry('deepgram')
+    if (deepgram === undefined) throw new Error('Deepgram provider entry is missing')
+    expect(deepgram.modelServiceCapabilities).toEqual({ 'recording-file': 'batch', realtime: 'streaming' })
+    // Every static fallback model is a Listen V1 model the adapter can execute.
+    for (const model of deepgram.staticModels ?? []) {
+      expect(deepgram.staticModelCapabilities?.[model]?.transport).toBe('listen-v1')
+      expect(deepgram.staticModelCapabilities?.[model]?.batch).toBe(true)
+    }
+    // Deepgram Whisper Cloud is a batch-only model and must not be exposed for realtime.
+    expect(deepgram.staticModelCapabilities?.['whisper-large']).toEqual({ batch: true, streaming: false, transport: 'listen-v1' })
+    expect(deepgram.staticModelCapabilities?.['nova-3']).toEqual({ batch: true, streaming: true, transport: 'listen-v1' })
+    expect(cloudAsrStaticModelsFor('deepgram', 'recording-file')).toContain('nova-3')
+    expect(cloudAsrStaticModelsFor('deepgram', 'recording-file')).toContain('whisper-large')
+    expect(cloudAsrStaticModelsFor('deepgram', 'realtime')).toContain('nova-3')
+    expect(cloudAsrStaticModelsFor('deepgram', 'realtime')).not.toContain('whisper-large')
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: true, streaming: false })).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: false, streaming: true })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true })).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: true, streaming: false })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', undefined)).toBe(false)
+  })
+
+  it('keeps a live-catalog Whisper model out of realtime end to end', async () => {
+    // Deepgram's live /v1/models reports streaming: true for every Whisper
+    // entry, but Whisper Cloud is pre-recorded only. The projected capability
+    // must therefore exclude it from the realtime service while keeping it for
+    // recording-file.
+    const catalog = filterDeepgramModels([
+      { canonical_name: 'whisper-large', architecture: 'whisper', batch: true, streaming: true },
+      { canonical_name: 'nova-3-general', architecture: 'nova-3', batch: true, streaming: true }
+    ])
+    const capabilities = catalog.modelCapabilities ?? {}
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', capabilities['whisper-large'])).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', capabilities['whisper-large'])).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', capabilities['nova-3-general'])).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', capabilities['nova-3-general'])).toBe(true)
+  })
+
+  it('refuses a streaming-capable model that requires a transport the adapter cannot execute', () => {
+    // A Flux-class model reports streaming: true but requires Listen V2, which
+    // the in-repo Deepgram adapters (Listen V1) cannot issue.
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true, transport: 'listen-v2' })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: true, streaming: true, transport: 'listen-v2' })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true, transport: 'listen-v1' })).toBe(true)
+    // A model with no declared transport falls back to capability-only filtering.
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true })).toBe(true)
+  })
+
+  it('does not capability-filter providers without service mappings', () => {
+    expect(cloudAsrModelSupportsService('mimo', 'api', undefined)).toBe(true)
+    expect(cloudAsrStaticModelsFor('mimo', 'api')).toEqual(['mimo-v2.5-asr'])
+    expect(cloudAsrModelSupportsService('deepgram', 'unknown', { batch: true, streaming: true })).toBe(false)
+    expect(cloudAsrModelSupportsService('unknown', 'api', undefined)).toBe(false)
+  })
+
+  it('derives realtime routing from the registry instead of provider-specific UI checks', () => {
+    expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramService: 'realtime' }))).toBe(true)
+    expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramService: 'recording-file' }))).toBe(false)
+    expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'tencent', cloudAsrTencentService: 'realtime' }))).toBe(true)
+    expect(isCloudAsrRealtime(settings({ cloudAsrProvider: 'groq' }))).toBe(false)
+  })
 })
 
 describe('cloud ASR configuration validity', () => {
@@ -94,6 +254,25 @@ describe('cloud ASR configuration validity', () => {
     expect(isCloudConfigurationValid(settings({ asrBackend: 'cloud-openai', cloudAsrProvider: 'unknown' }))).toBe(false)
     expect(isCloudConfigurationValid(settings({ asrBackend: 'local-whisper' }))).toBe(true)
   })
+
+  it('ignores inactive conditional fields while validating cloud settings', () => {
+    const api = settings({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'mimo',
+      cloudAsrMimoService: 'api',
+      cloudAsrMimoCluster: '',
+      cloudAsrMimoApiKey: 'sk-test'
+    })
+    expect(isCloudConfigurationValid(api)).toBe(true)
+    expect(isCloudAsrReady(api)).toBe(true)
+
+    const tokenPlan = settings({
+      ...api,
+      cloudAsrMimoService: 'token-plan'
+    })
+    expect(isCloudConfigurationValid(tokenPlan)).toBe(false)
+    expect(isCloudAsrReady(tokenPlan)).toBe(false)
+  })
 })
 
 describe('cloud ASR runtime readiness', () => {
@@ -102,6 +281,15 @@ describe('cloud ASR runtime readiness', () => {
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'groq', cloudAsrGroqModel: 'whisper-large-v3-turbo', cloudAsrGroqApiKey: ' gsk_test ' }))).toBe(true)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'custom', cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions', cloudAsrGroqApiKey: '' }))).toBe(true)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'groq', cloudAsrGroqModel: '', cloudAsrGroqApiKey: 'gsk_test' }))).toBe(false)
+  })
+
+  it('keeps a credential-bearing custom HTTP endpoint unready while allowing local keyless HTTP', () => {
+    const base = { asrBackend: 'cloud-openai' as const, cloudAsrProvider: 'custom' as const, cloudAsrCustomModel: 'whisper-1', cloudAsrCustomEndpoint: 'http://127.0.0.1:8080/v1/audio/transcriptions' }
+    expect(isCloudConfigurationValid(settings({ ...base, cloudAsrCustomApiKey: '' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ ...base, cloudAsrCustomApiKey: '' }))).toBe(true)
+    expect(isCloudConfigurationValid(settings({ ...base, cloudAsrCustomApiKey: 'sk_local' }))).toBe(true)
+    expect(isCloudAsrReady(settings({ ...base, cloudAsrCustomApiKey: 'sk_local' }))).toBe(false)
+    expect(isCloudAsrReady(settings({ ...base, cloudAsrCustomEndpoint: 'https://asr.example.test/v1/audio/transcriptions', cloudAsrCustomApiKey: 'sk_remote' }))).toBe(true)
   })
 
   it('reports cloud readiness independent of the selected backend', () => {
@@ -120,6 +308,21 @@ describe('cloud ASR runtime readiness', () => {
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'realtime' }))).toBe(true)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: '', cloudAsrDeepgramService: 'recording-file' }))).toBe(false)
     expect(isCloudAsrReady(settings({ cloudAsrProvider: 'deepgram', cloudAsrDeepgramModel: 'nova-3', cloudAsrDeepgramApiKey: 'test_key', cloudAsrDeepgramService: 'unsupported' }))).toBe(false)
+  })
+
+  it('does not mark a hand-entered Deepgram Flux model ready', () => {
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'deepgram',
+      cloudAsrDeepgramModel: 'flux-general-en',
+      cloudAsrDeepgramApiKey: 'test_key',
+      cloudAsrDeepgramService: 'recording-file'
+    }))).toBe(false)
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'deepgram',
+      cloudAsrDeepgramModel: 'flux-general-en',
+      cloudAsrDeepgramApiKey: 'test_key',
+      cloudAsrDeepgramService: 'realtime'
+    }))).toBe(false)
   })
 
   it('rejects embedded credentials in a custom endpoint', () => {
@@ -154,6 +357,18 @@ describe('cloud ASR runtime readiness', () => {
       cloudAsrBailianModel: 'fun-asr-flash',
       cloudAsrBailianApiKey: 'sk_test'
     }))).toBe(true)
+    expect(isCloudConfigurationValid(settings({
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'http://127.0.0.1:8080',
+      cloudAsrBailianModel: 'fun-asr-flash'
+    }))).toBe(true)
+    expect(isCloudAsrReady(settings({
+      cloudAsrProvider: 'bailian',
+      cloudAsrBailianHost: 'http://127.0.0.1:8080',
+      cloudAsrBailianModel: 'fun-asr-flash',
+      cloudAsrBailianApiKey: 'sk_test'
+    }))).toBe(false)
     expect(isCloudAsrReady(settings({
       cloudAsrProvider: 'bailian',
       cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com',
@@ -167,6 +382,7 @@ describe('cloud ASR runtime readiness', () => {
       cloudAsrBailianHost: 'http://ws-test.cn-beijing.maas.aliyuncs.com',
       cloudAsrBailianModel: 'qwen3-asr-flash'
     }))).toBe(false)
+    expect(() => bailianGenerationUrl('not-a-host')).toThrowError(expect.objectContaining({ code: EARS_ERROR_CODES.asrEndpointInvalid }))
   })
 
   it('validates MiMo configuration and readiness', () => {

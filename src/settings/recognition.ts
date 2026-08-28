@@ -47,6 +47,7 @@ export interface RecognitionSettings {
   }
   localWhisper: {
     model: WhisperModelId | string
+    /** `default` is the Host-selected automatic native variant. */
     acceleration: WhisperAccelerationId | string
     language: string
   }
@@ -61,6 +62,7 @@ export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = Object.freeze({
   }),
   localWhisper: Object.freeze({
     model: 'tiny',
+    // The Host resolves this automatic value against platform/native capabilities.
     acceleration: 'default',
     language: ''
   }),

@@ -78,10 +78,12 @@
   "scripts": {
     "build": "tsdown && tsc -p tsconfig.build.json",
     "check": "tsc --noEmit -p tsconfig.json",
+    "compat:smoke": "node scripts/compat-smoke.mjs",
     "use:platform": "node scripts/select-node-modules.mjs",
     "dev:watch": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "release:check": "node scripts/release-check.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "prepack": "pnpm build && pnpm verify:package",
     "prepare:patch": "node scripts/create-dev-patch.mjs",

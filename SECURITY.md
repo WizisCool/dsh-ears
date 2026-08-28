@@ -43,3 +43,5 @@ Do not open a public issue containing a secret or a complete exploit. Stop the r
 ## Release rule
 
 Push, public-repository conversion, npm publishing, and release tags are not default actions. Before any public release, complete a human review, sensitive-information scan, build/test verification, dependency audit, and license review.
+
+CI runs a non-blocking production dependency audit for early warning; it does not replace the human dependency audit required before release.

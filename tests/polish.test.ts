@@ -5,7 +5,7 @@ import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../src/asr/mimo-asr.js'
-import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
+import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, withWhisperModelContextReleased, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
@@ -35,7 +35,7 @@ vi.mock('../src/asr/local-whisper.js', () => {
   return {
     disposeWhisperRuntime: vi.fn(async () => undefined),
     isWhisperAvailable: vi.fn(async () => false),
-    releaseWhisperModelContext: vi.fn(async () => undefined),
+    withWhisperModelContextReleased: vi.fn(async (operation: () => Promise<unknown>) => operation()),
     transcribeWithWhisper: vi.fn(),
     validateWhisperTranscription: vi.fn(),
     whisperAccelerationCapabilities: vi.fn(() => whisperCapabilities),
@@ -101,17 +101,57 @@ describe('resolvePolishRoute', () => {
       polishProvider: 'antigravity',
       polishModel: 'gemini-3.7-flash-high'
     }, '', '')).toEqual({
+      source: 'stored',
       provider: 'antigravity',
       model: 'gemini-3.7-flash-high'
     })
   })
 
+  it('uses the DSH default route when enabled polishing has no local route', () => {
+    expect(resolvePolishRoute({
+      polishingEnabled: true,
+      polishProvider: '',
+      polishModel: ''
+    }, '', '', {
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    })).toEqual({
+      source: 'agent-default',
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    })
+  })
+
+  it.each([
+    [{ polishingEnabled: true, polishProvider: 'stored-provider', polishModel: '' }, '', ''],
+    [{ polishingEnabled: true, polishProvider: '', polishModel: '' }, 'requested-provider', '']
+  ])('does not mix incomplete polish route pairs', (settings, provider, model) => {
+    expect(resolvePolishRoute(settings, provider, model, {
+      provider: 'agent-provider',
+      model: 'agent-model'
+    })).toBeNull()
+  })
+
+  it('prefers a complete RPC route over a partial stored pair', () => {
+    expect(resolvePolishRoute({ polishingEnabled: true, polishProvider: 'stored-provider', polishModel: '' }, 'requested-provider', 'requested-model')).toEqual({
+      source: 'requested',
+      provider: 'requested-provider',
+      model: 'requested-model'
+    })
+  })
+
   it('stays dormant when polishing is off and the client sent no route', () => {
-    expect(resolvePolishRoute(DEFAULT_EARS_SETTINGS, '', '')).toBeNull()
+    expect(resolvePolishRoute({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: false }, '', '', {
+      provider: 'agent-provider',
+      model: 'agent-model'
+    })).toBeNull()
   })
 
   it('honors an explicit client route even when the Host toggle is off', () => {
-    expect(resolvePolishRoute(DEFAULT_EARS_SETTINGS, 'provider', 'model')).toEqual({
+    expect(resolvePolishRoute({ ...DEFAULT_EARS_SETTINGS, polishingEnabled: false }, 'provider', 'model')).toEqual({
+      source: 'requested',
       provider: 'provider',
       model: 'model'
     })
@@ -145,6 +185,88 @@ describe('settings registration validate', () => {
       cloudAsrProvider: 'custom',
       cloudAsrCustomEndpoint: 'not-a-url'
     })).toThrow('Custom OpenAI-compatible ASR endpoint')
+  })
+
+  it.each([
+    ['backend', { asrBackend: 'removed-backend' }, 'asrBackend', 'ASR backend'],
+    ['cloud provider', { cloudAsrProvider: 'removed-provider' }, 'cloudAsrProvider', 'cloud ASR provider'],
+    ['Whisper model', { localWhisperModel: 'removed-model' }, 'localWhisperModel', 'Whisper model'],
+    ['shortcut', { voiceShortcut: 'alt+a' }, 'voiceShortcut', 'voice shortcut'],
+    ['display name', { settingsDisplayName: 'removed-name' }, 'settingsDisplayName', 'display name']
+  ])('keeps the Host service available for an invalid stored %s', async (_label, invalidPatch, repairedField, errorText) => {
+    const invalidSettings = { ...DEFAULT_EARS_SETTINGS, ...invalidPatch }
+    const scope = {
+      get: () => invalidSettings,
+      update: vi.fn(async () => undefined),
+      replace: vi.fn(async () => undefined)
+    }
+    let registrationValidator: ((value: unknown) => void) | undefined
+    const context = createContextWithSettingsProvider({}, {
+      writable: true,
+      register: (_namespace: unknown, _schema: unknown, options?: { validate?: (value: unknown) => void }) => {
+        registrationValidator = options?.validate
+        options?.validate?.(invalidSettings)
+        return scope
+      }
+    })
+
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      expect(service).toBeDefined()
+      const view = service?.getSettings()
+      expect(view?.available).toBe(true)
+      expect(view?.recoveredSettingsFields).toContain(repairedField)
+      expect(() => registrationValidator?.(invalidSettings)).toThrow(errorText)
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('repairs invalid stored settings on the first explicit write', async () => {
+    const invalidSettings = {
+      ...DEFAULT_EARS_SETTINGS,
+      asrBackend: 'removed-backend',
+      cloudAsrProvider: 'removed-provider',
+      voiceShortcut: 'alt+a'
+    }
+    let stored: unknown = invalidSettings
+    let registrationValidator: ((value: unknown) => void) | undefined
+    const scope = {
+      get: () => stored,
+      update: vi.fn(async () => undefined),
+      replace: vi.fn(async (next: unknown) => {
+        registrationValidator?.(next)
+        stored = next
+      })
+    }
+    const context = createContextWithSettingsProvider({}, {
+      writable: true,
+      register: (_namespace: unknown, _schema: unknown, options?: { validate?: (value: unknown) => void }) => {
+        registrationValidator = options?.validate
+        options?.validate?.(invalidSettings)
+        return scope
+      }
+    })
+
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+
+      await service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)
+
+      expect(scope.update).not.toHaveBeenCalled()
+      expect(scope.replace).toHaveBeenCalledOnce()
+      const repaired = scope.replace.mock.calls[0]?.[0] as Record<string, unknown>
+      expect((repaired.recognition as Record<string, unknown>).backend).toBe(DEFAULT_EARS_SETTINGS.asrBackend)
+      expect((repaired.recognition as Record<string, unknown>).cloudProvider).toBe('groq')
+      expect((repaired.general as Record<string, unknown>).shortcut).toMatchObject({ value: 'ctrl+shift+space' })
+      expect(service.getSettings().recoveredSettingsFields).toEqual([])
+      expect(() => registrationValidator?.(invalidSettings)).toThrow('ASR backend')
+    } finally {
+      await fiber.dispose()
+    }
   })
 })
 
@@ -194,6 +316,67 @@ describe('PolishService', () => {
     }
   })
 
+  it('closes a realtime session if the start signal aborts after opening', async () => {
+    const controller = new AbortController()
+    const open = vi.spyOn(TencentRealtimeAsrSession.prototype, 'open').mockImplementation(async () => {
+      controller.abort()
+    })
+    const close = vi.spyOn(TencentRealtimeAsrSession.prototype, 'close')
+    try {
+      const context = createContext({}, {
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'tencent',
+        cloudAsrTencentService: 'realtime',
+        cloudAsrTencentAppId: 'app-id',
+        cloudAsrTencentSecretId: 'secret-id',
+        cloudAsrTencentSecretKey: 'secret-key',
+        cloudAsrTencentEngineType: '16k_zh'
+      })
+      const fiber = await context.plugin(PolishService)
+      fibers.push(fiber)
+      const service = context.get('dshEarsPolish')!
+
+      await expect(service.startRealtime(controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+      expect(close).toHaveBeenCalledTimes(1)
+    } finally {
+      open.mockRestore()
+      close.mockRestore()
+    }
+  })
+
+  it('removes a realtime session after the provider rejects an audio chunk', async () => {
+    const open = vi.spyOn(TencentRealtimeAsrSession.prototype, 'open').mockResolvedValue()
+    const sendAudio = vi.spyOn(TencentRealtimeAsrSession.prototype, 'sendAudio').mockRejectedValueOnce(new Error('socket failed'))
+    const close = vi.spyOn(TencentRealtimeAsrSession.prototype, 'close')
+    try {
+      const context = createContext({}, {
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'tencent',
+        cloudAsrTencentService: 'realtime',
+        cloudAsrTencentAppId: 'app-id',
+        cloudAsrTencentSecretId: 'secret-id',
+        cloudAsrTencentSecretKey: 'secret-key',
+        cloudAsrTencentEngineType: '16k_zh'
+      })
+      const fiber = await context.plugin(PolishService)
+      fibers.push(fiber)
+      const service = context.get('dshEarsPolish')!
+      const started = await service.startRealtime(new AbortController().signal)
+
+      await expect(service.sendRealtimeAudio(started.sessionId, 'AQ==', new AbortController().signal)).rejects.toThrow('socket failed')
+      await expect(service.sendRealtimeAudio(started.sessionId, 'AQ==', new AbortController().signal)).rejects.toMatchObject({
+        code: EARS_ERROR_CODES.asrUnexpected
+      })
+      expect(close).toHaveBeenCalledTimes(1)
+    } finally {
+      open.mockRestore()
+      sendAudio.mockRestore()
+      close.mockRestore()
+    }
+  })
+
   it('lists routes from dsh providers and models', async () => {
     const llm = {
       listProviders: () => [{ id: 'test-provider', name: 'Test Provider' }],
@@ -211,18 +394,20 @@ describe('PolishService', () => {
     }])
   })
 
-  it('uses the stored Host polish route when the client sends an empty pair', async () => {
-    const prepareCall = vi.fn(async () => ({
-      config: {},
+  it('uses the stored Host route and reasoning effort when the client sends an empty pair', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
       stream: async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       }
     }))
-    const context = createContext({ prepareCall }, {
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,
       polishingEnabled: true,
       polishProvider: 'antigravity',
-      polishModel: 'gemini-3.7-flash-high'
+      polishModel: 'gemini-3.7-flash-high',
+      polishReasoningEffort: 'medium'
     })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
@@ -237,13 +422,98 @@ describe('PolishService', () => {
     )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
     expect(prepareCall).toHaveBeenCalledWith({
       provider: 'antigravity',
-      model: 'gemini-3.7-flash-high'
+      model: 'gemini-3.7-flash-high',
+      reasoningEffort: 'medium'
+    }, expect.any(AbortSignal))
+  })
+
+  it('uses the DSH Agent route and preserves prepared adapter defaults', async () => {
+    let preparedStreamOptions: Record<string, unknown> | undefined
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config: { ...config, temperature: 0.2, maxTokens: 321, stop: ['<end>'] },
+      stream: async function* (options: Record<string, unknown>) {
+        preparedStreamOptions = options
+        yield { type: 'text-delta', text: '整理后的文本' }
+      }
+    }))
+    const context = createContext({ prepareCall }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: '',
+      polishModel: '',
+      polishReasoningEffort: ''
+    })
+    context.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'agent-provider', model: 'agent-model', reasoningEffort: 'high' })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    expect(context.get('dshEarsPolish')?.getSettings().defaultPolishRoute).toEqual({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    })
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      '',
+      '',
+      '',
+      new AbortController().signal
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
+    expect(prepareCall).toHaveBeenCalledWith({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high'
+    }, expect.any(AbortSignal))
+    expect(preparedStreamOptions).toMatchObject({
+      provider: 'agent-provider',
+      model: 'agent-model',
+      reasoningEffort: 'high',
+      temperature: 0.2,
+      maxTokens: 321,
+      stop: ['<end>']
+    })
+  })
+
+  it('honors an explicit polish route and reasoning override over the DSH Agent default', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* () {
+        yield { type: 'text-delta', text: '整理后的文本' }
+      }
+    }))
+    const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'low', name: 'Low' }] } }))
+    const context = createContext({ prepareCall, resolveModelInfo }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'stored-provider',
+      polishModel: 'stored-model',
+      polishReasoningEffort: 'medium'
+    })
+    context.provide('agentDefaultModel', {
+      currentSelection: () => ({ provider: 'agent-provider', model: 'agent-model', reasoningEffort: 'high' })
+    } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await expect(context.get('dshEarsPolish')?.polish(
+      '原始转写',
+      'explicit-provider',
+      'explicit-model',
+      'low',
+      new AbortController().signal
+    )).resolves.toEqual({ status: 'ok', text: '整理后的文本' })
+    expect(prepareCall).toHaveBeenCalledWith({
+      provider: 'explicit-provider',
+      model: 'explicit-model',
+      reasoningEffort: 'low'
     }, expect.any(AbortSignal))
   })
 
   it('does not call the LLM when Host polishing is off and the client sent no route', async () => {
     const prepareCall = vi.fn()
-    const context = createContext({ prepareCall })
+    const context = createContext({ prepareCall }, { ...DEFAULT_EARS_SETTINGS, polishingEnabled: false })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
@@ -265,7 +535,7 @@ describe('PolishService', () => {
       .mockImplementation(async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       })
-    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({ config, stream }))
     const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
     const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,
@@ -327,7 +597,7 @@ describe('PolishService', () => {
       .mockImplementation(async function* () {
         yield { type: 'text-delta', text: '整理后的文本' }
       })
-    const prepareCall = vi.fn(async () => ({ config: {}, stream }))
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({ config, stream }))
     const resolveModelInfo = vi.fn(async () => ({ reasoning: { efforts: [{ id: 'medium', name: 'Medium' }] } }))
     const context = createContext({ prepareCall, resolveModelInfo }, {
       ...DEFAULT_EARS_SETTINGS,
@@ -502,7 +772,7 @@ describe('PolishService', () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 
-  it('falls back and persists an acceleration unsupported by the current platform', async () => {
+  it('preserves an explicit acceleration that is unavailable on the current platform', async () => {
     whisperCapabilities.available = ['default']
     whisperCapabilities.default = 'default'
     const scope = createMutableSettingsScope({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'cuda' })
@@ -517,11 +787,11 @@ describe('PolishService', () => {
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    expect(service.getSettings().settings.localWhisperAcceleration).toBe('default')
+    expect(service.getSettings().settings.localWhisperAcceleration).toBe('cuda')
     expect(service.getSettings().localWhisperAccelerations).toEqual(['default'])
-    await vi.waitFor(() => expect(scope.update).toHaveBeenCalledTimes(1))
-    expect(scope.update).toHaveBeenCalledWith({ recognition: { localWhisper: { acceleration: 'default' } } })
-    expect((scope.get() as { recognition: { localWhisper: { acceleration: string } } }).recognition.localWhisper.acceleration).toBe('default')
+    await Promise.resolve()
+    expect(scope.update).not.toHaveBeenCalled()
+    expect((scope.get() as { recognition: { localWhisper: { acceleration: string } } }).recognition.localWhisper.acceleration).toBe('cuda')
   })
 
   it('preserves inherited settings when only the resolved snapshot is visible', async () => {
@@ -547,9 +817,9 @@ describe('PolishService', () => {
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    expect(service.getSettings().settings.localWhisperAcceleration).toBe('default')
-    await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(1))
-    expect(update).toHaveBeenCalledWith({ recognition: { localWhisper: { acceleration: 'default' } } })
+    expect(service.getSettings().settings.localWhisperAcceleration).toBe('cuda')
+    await Promise.resolve()
+    expect(update).not.toHaveBeenCalled()
     expect(replace).not.toHaveBeenCalled()
   })
 
@@ -586,19 +856,15 @@ describe('PolishService', () => {
     await expect(context.get('dshEarsPolish')?.transcribe('not-base64', 'audio/wav', controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   })
 
-  it('rejects unknown backend and Whisper model identifiers', async () => {
+  it('uses safe defaults for unknown stored backend values', async () => {
     const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, asrBackend: 'future-backend' })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({
-      status: 'error',
-      code: EARS_ERROR_CODES.asrUnexpected,
-      message: 'The ASR request failed: Unknown dsh-ears ASR backend: future-backend',
-      params: { detail: 'Unknown dsh-ears ASR backend: future-backend' }
-    })
+    expect(service.getSettings().settings.asrBackend).toBe(DEFAULT_EARS_SETTINGS.asrBackend)
+    expect(service.getSettings().recoveredSettingsFields).toContain('asrBackend')
     await expect(service.getWhisperModelState('future-model')).rejects.toThrow('Unknown dsh-ears Whisper model')
   })
 
@@ -860,7 +1126,7 @@ describe('PolishService', () => {
 
   it('releases the native model context before deletion and disposes the runtime', async () => {
     const availability = vi.mocked(isWhisperAvailable)
-    const release = vi.mocked(releaseWhisperModelContext)
+    const release = vi.mocked(withWhisperModelContextReleased)
     const dispose = vi.mocked(disposeWhisperRuntime)
     availability.mockClear()
     availability.mockResolvedValue(true)
@@ -944,29 +1210,7 @@ describe('PolishService', () => {
     expect(state.errorParams).toEqual({ detail: 'Whisper state query failed' })
   })
 
-  it('returns an EarsError code and params in the Remote business result', async () => {
-    const context = createContext({}, {
-      ...DEFAULT_EARS_SETTINGS,
-      asrBackend: 'cloud-openai',
-      cloudAsrProvider: 'future-provider',
-      cloudAsrGroqModel: 'future-model'
-    })
-    const fiber = await context.plugin(PolishService)
-    fibers.push(fiber)
-    const service = context.get('dshEarsPolish')
-    if (service === undefined) throw new Error('Polish service is missing')
-
-    const result = await service.transcribe('AQ==', 'audio/wav', new AbortController().signal)
-    expect(result).toEqual({
-      status: 'error',
-      code: EARS_ERROR_CODES.asrProviderUnknown,
-      message: 'Unknown dsh-ears cloud ASR provider: future-provider',
-      params: { provider: 'future-provider' }
-    })
-    expect(remoteTextResultSchema.parse(result)).toEqual(result)
-  })
-
-  it('sanitizes and caps string params in Remote business errors', async () => {
+  it('does not expose invalid stored selector values through the settings view', async () => {
     const provider = `https://user:secret@example.test/${'x'.repeat(1200)}`
     const context = createContext({}, {
       ...DEFAULT_EARS_SETTINGS,
@@ -979,12 +1223,15 @@ describe('PolishService', () => {
     const service = context.get('dshEarsPolish')
     if (service === undefined) throw new Error('Polish service is missing')
 
-    const result = await service.transcribe('AQ==', 'audio/wav', new AbortController().signal)
-    if (result.status !== 'error' || result.params === undefined) throw new Error('Expected a structured Remote error')
-    expect(result.params).toHaveProperty('provider')
-    expect(result.params.provider).toHaveLength(800)
-    expect(result.params.provider).toContain('https://[redacted]@example.test/')
-    expect(result.params.provider).not.toContain('secret')
+    const view = service.getSettings()
+    expect(view.settings.cloudAsrProvider).toBe(DEFAULT_EARS_SETTINGS.cloudAsrProvider)
+    expect(view.recoveredSettingsFields).toEqual(['cloudAsrProvider'])
+    expect(JSON.stringify(view)).not.toContain('secret')
+    expect(remoteTextResultSchema.parse(await service.transcribe('AQ==', 'audio/wav', new AbortController().signal))).toEqual({
+      status: 'error',
+      code: EARS_ERROR_CODES.asrApiKeyNotConfigured,
+      message: 'The cloud ASR API key is not configured'
+    })
   })
 
   it('does not update settings when the request is already aborted', async () => {
@@ -1140,11 +1387,15 @@ describe('PolishService custom system prompt', () => {
 })
 
 function createContext(llm: unknown, settings = DEFAULT_EARS_SETTINGS): Context {
-  const context = new Context()
-  context.provide('llm', llm as never)
-  context.provide('settings', {
+  return createContextWithSettingsProvider(llm, {
     writable: true,
     register: () => createSettingsScope(settings)
-  } as never)
+  })
+}
+
+function createContextWithSettingsProvider(llm: unknown, settingsProvider: unknown): Context {
+  const context = new Context()
+  context.provide('llm', llm as never)
+  context.provide('settings', settingsProvider as never)
   return context
 }

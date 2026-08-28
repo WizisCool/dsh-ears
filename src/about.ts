@@ -70,16 +70,40 @@ export function resolvePackageJsonPath(): string {
   return join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json')
 }
 
-/** Compare dotted numeric cores only. `1.2` equals `1.2.0`. Null if either is not a version. */
+/**
+ * Compare SemVer release identifiers. The historical `1.2` shorthand remains
+ * accepted and is normalized to `1.2.0`; prerelease identifiers still follow
+ * SemVer precedence and build metadata is ignored.
+ */
 export function compareReleaseVersions(left: string, right: string): number | null {
   const a = parseReleaseVersion(left)
   const b = parseReleaseVersion(right)
   if (a === null || b === null) return null
-  const length = Math.max(a.length, b.length)
+  const length = Math.max(a.core.length, b.core.length)
   for (let index = 0; index < length; index += 1) {
-    const delta = (a[index] ?? 0) - (b[index] ?? 0)
+    const delta = (a.core[index] ?? 0) - (b.core[index] ?? 0)
     if (delta > 0) return 1
     if (delta < 0) return -1
+  }
+  if (a.prerelease === undefined && b.prerelease !== undefined) return 1
+  if (a.prerelease !== undefined && b.prerelease === undefined) return -1
+  if (a.prerelease !== undefined && b.prerelease !== undefined) {
+    const length = Math.max(a.prerelease.length, b.prerelease.length)
+    for (let index = 0; index < length; index += 1) {
+      const leftIdentifier = a.prerelease[index]
+      const rightIdentifier = b.prerelease[index]
+      if (leftIdentifier === undefined) return -1
+      if (rightIdentifier === undefined) return 1
+      if (leftIdentifier === rightIdentifier) continue
+      const leftNumeric = /^\d+$/.test(leftIdentifier)
+      const rightNumeric = /^\d+$/.test(rightIdentifier)
+      if (leftNumeric && rightNumeric) {
+        if (leftIdentifier.length !== rightIdentifier.length) return leftIdentifier.length > rightIdentifier.length ? 1 : -1
+        return leftIdentifier > rightIdentifier ? 1 : -1
+      }
+      if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1
+      return leftIdentifier > rightIdentifier ? 1 : -1
+    }
   }
   return 0
 }
@@ -100,13 +124,20 @@ export async function fetchLatestPublishedVersion(options: {
   const forwardAbort = () => timeout.abort(options.signal?.reason)
   options.signal?.addEventListener('abort', forwardAbort, { once: true })
   try {
+    options.signal?.throwIfAborted()
     const response = await fetchImpl(NPM_LATEST_URL, {
       method: 'GET',
       headers: { accept: 'application/json' },
       signal: timeout.signal
     })
-    if (response.status === 404) return { status: 'unpublished' }
-    const body = await readBoundedText(response)
+    options.signal?.throwIfAborted()
+    timeout.signal.throwIfAborted()
+    if (response.status === 404) {
+      await cancelResponseBody(response)
+      return { status: 'unpublished' }
+    }
+    const body = await readBoundedText(response, timeout.signal)
+    options.signal?.throwIfAborted()
     if (!response.ok) return { status: 'error', message: `npm registry returned HTTP ${response.status}` }
     let parsed: unknown
     try {
@@ -145,37 +176,61 @@ export async function checkForPluginUpdate(options: {
   return { status, installed, latest: latest.version, updateCommand }
 }
 
-function parseReleaseVersion(value: string): number[] | null {
-  const core = value.trim().split('-')[0]?.split('+')[0] ?? ''
-  if (core === '') return null
-  const parts = core.split('.')
-  if (parts.some((part) => part === '' || !/^\d+$/.test(part))) return null
-  return parts.map((part) => Number(part))
+function parseReleaseVersion(value: string): { core: number[]; prerelease?: string[] } | null {
+  const match = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(value.trim())
+  if (match === null) return null
+  const coreParts = match.slice(1, 4).filter((part): part is string => part !== undefined)
+  if (coreParts.some((part) => part.length > 1 && part.startsWith('0'))) return null
+  const core = coreParts.map((part) => Number(part))
+  if (core.some((part) => !Number.isSafeInteger(part))) return null
+  const prerelease = match[4]?.split('.')
+  if (prerelease?.some((part) => part.length > 1 && /^0\d+$/.test(part))) return null
+  return prerelease === undefined ? { core } : { core, prerelease }
 }
 
-async function readBoundedText(response: Response): Promise<string> {
+async function readBoundedText(response: Response, signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted()
   const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_REGISTRY_BYTES) throw new Error('npm registry response is too large')
+  if (Number.isFinite(contentLength) && contentLength > MAX_REGISTRY_BYTES) {
+    await cancelResponseBody(response)
+    throw new Error('npm registry response is too large')
+  }
   if (response.body === null) {
     const body = await response.text()
+    signal?.throwIfAborted()
     if (new TextEncoder().encode(body).byteLength > MAX_REGISTRY_BYTES) throw new Error('npm registry response is too large')
     return body
   }
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+  const cancelOnAbort = () => {
+    try {
+      void reader.cancel(signal?.reason).catch(() => undefined)
+    } catch {
+      // The abort itself remains authoritative even if a custom reader cannot cancel.
+    }
+  }
+  signal?.addEventListener('abort', cancelOnAbort, { once: true })
   try {
     while (true) {
+      signal?.throwIfAborted()
       const next = await reader.read()
+      signal?.throwIfAborted()
       if (next.done) break
       total += next.value.byteLength
       if (total > MAX_REGISTRY_BYTES) {
-        await reader.cancel()
+        try {
+          await reader.cancel()
+        } catch {
+          // Preserve the size-limit error when transport cleanup also fails.
+        }
         throw new Error('npm registry response is too large')
       }
       chunks.push(next.value)
     }
   } finally {
+    signal?.removeEventListener('abort', cancelOnAbort)
     reader.releaseLock()
   }
   const bytes = new Uint8Array(total)
@@ -185,4 +240,12 @@ async function readBoundedText(response: Response): Promise<string> {
     offset += chunk.byteLength
   }
   return new TextDecoder().decode(bytes)
+}
+
+async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel()
+  } catch {
+    // The caller's response handling remains authoritative when cleanup fails.
+  }
 }

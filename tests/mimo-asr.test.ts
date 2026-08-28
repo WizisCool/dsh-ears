@@ -224,6 +224,38 @@ describe('transcribeMimoAsr', () => {
     expect(parsedBody.asr_options).toEqual({ language: 'zh' })
   })
 
+  it('keeps the request timeout active while reading a response body', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const reader = {
+          read: () => new Promise<never>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+          }),
+          cancel: vi.fn(async () => undefined),
+          releaseLock: vi.fn()
+        }
+        return { ok: true, status: 200, headers: new Headers(), body: { getReader: () => reader } } as unknown as Response
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      const pending = transcribeMimoAsr({
+        audio: new Uint8Array([1, 2, 3]),
+        mimeType: 'audio/wav',
+        language: '',
+        endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
+        model: 'mimo-v2.5-asr',
+        credential: 'sk_test',
+        signal: new AbortController().signal
+      })
+      const rejection = expect(pending).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
+      await vi.advanceTimersByTimeAsync(120_000)
+      await rejection
+      expect(fetchMock).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('throws asrHttpFailed when response status is non-200', async () => {
     vi.stubGlobal(
       'fetch',

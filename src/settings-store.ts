@@ -4,6 +4,9 @@ import { DEFAULT_GENERAL_SETTINGS, type GeneralSettings } from './settings/gener
 import { DEFAULT_POLISHING_SETTINGS, type PolishingSettings } from './settings/polishing.js'
 import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
 import type { EarsSettingsPatch } from './remote-contract.js'
+import { migrateSettingsToCurrent } from './settings/migrations.js'
+export { migrateV1ToV2, migrateV2ToV3, migrateV3ToV4, migrateSettingsToCurrent } from './settings/migrations.js'
+import { CLOUD_ASR_PROVIDERS } from './asr/providers.js'
 
 /** Canonical Host persistence. The browser-facing EarsSettings shape stays flat. */
 export type StoredEarsSettings = {
@@ -16,13 +19,52 @@ export type StoredEarsSettings = {
 
 const FLAT_SETTING_KEYS = Object.keys(DEFAULT_EARS_SETTINGS) as Array<keyof EarsSettings>
 
+type StoredFieldMapping = {
+  readonly path: readonly string[]
+  readonly field: keyof EarsSettings
+}
+
+const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
+  { field: 'settingsDisplayName', path: ['general', 'displayName'] },
+  { field: 'voiceShortcutEnabled', path: ['general', 'shortcut', 'enabled'] },
+  { field: 'voiceShortcut', path: ['general', 'shortcut', 'value'] },
+  { field: 'voiceSoundsEnabled', path: ['general', 'soundsEnabled'] },
+  { field: 'asrBackend', path: ['recognition', 'backend'] },
+  { field: 'webSpeechLanguage', path: ['recognition', 'webSpeech', 'language'] },
+  { field: 'localWhisperModel', path: ['recognition', 'localWhisper', 'model'] },
+  { field: 'localWhisperAcceleration', path: ['recognition', 'localWhisper', 'acceleration'] },
+  { field: 'localWhisperLanguage', path: ['recognition', 'localWhisper', 'language'] },
+  { field: 'cloudAsrProvider', path: ['recognition', 'cloudProvider'] },
+  { field: 'maxRecordingSeconds', path: ['recognition', 'maxRecordingSeconds'] },
+  ...CLOUD_ASR_PROVIDERS.flatMap((provider) => provider.fields.map((definition) => ({
+    field: definition.field,
+    path: ['cloudAsr', provider.storageKey, definition.storageKey]
+  }))),
+  { field: 'polishingEnabled', path: ['polishing', 'enabled'] },
+  { field: 'polishProvider', path: ['polishing', 'provider'] },
+  { field: 'polishModel', path: ['polishing', 'model'] },
+  { field: 'polishReasoningEffort', path: ['polishing', 'reasoningEffort'] },
+  { field: 'polishPrompt', path: ['polishing', 'prompt'] }
+]
+
+const CURRENT_STORED_PATHS = new Map<keyof EarsSettings, readonly string[]>(
+  CURRENT_STORED_FIELD_MAPPINGS.map((mapping) => [mapping.field, mapping.path])
+)
+
+const CURRENT_SECRET_MAPPINGS: readonly StoredFieldMapping[] = CLOUD_ASR_PROVIDERS.flatMap((provider) => {
+  const definition = provider.fields.find((candidate) => candidate.field === provider.credentialField)
+  return definition === undefined
+    ? []
+    : [{ field: provider.credentialField, path: ['cloudAsr', provider.storageKey, definition.storageKey] }]
+})
+
 export function defaultStoredEarsSettings(): StoredEarsSettings {
   return unflattenEarsSettings(DEFAULT_EARS_SETTINGS)
 }
 
 /** Normalize stored settings into canonical form. */
 export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
-  const record = isRecord(raw) ? raw : {}
+  const record = migrateSettingsToCurrent(raw)
   const general = asRecord(record.general)
   const recognition = asRecord(record.recognition)
   const webSpeech = asRecord(recognition?.webSpeech)
@@ -278,38 +320,13 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
 
 export function flattenStoredSettings(raw: unknown): EarsSettings {
   const stored = normalizeStoredEarsSettings(raw)
-  return {
+  const settings = {
     asrBackend: stored.recognition.backend,
     webSpeechLanguage: stored.recognition.webSpeech.language,
     localWhisperModel: stored.recognition.localWhisper.model,
     localWhisperAcceleration: stored.recognition.localWhisper.acceleration,
     localWhisperLanguage: stored.recognition.localWhisper.language,
     cloudAsrProvider: stored.recognition.cloudProvider,
-    cloudAsrGroqApiKey: stored.cloudAsr.groq.apiKey,
-    cloudAsrGroqModel: stored.cloudAsr.groq.model,
-    cloudAsrGroqLanguage: stored.cloudAsr.groq.language,
-    cloudAsrDeepgramApiKey: stored.cloudAsr.deepgram.apiKey,
-    cloudAsrDeepgramModel: stored.cloudAsr.deepgram.model,
-    cloudAsrDeepgramLanguage: stored.cloudAsr.deepgram.language,
-    cloudAsrDeepgramService: stored.cloudAsr.deepgram.service,
-    cloudAsrCustomApiKey: stored.cloudAsr.customOpenAi.apiKey,
-    cloudAsrCustomEndpoint: stored.cloudAsr.customOpenAi.endpoint,
-    cloudAsrCustomModel: stored.cloudAsr.customOpenAi.model,
-    cloudAsrCustomLanguage: stored.cloudAsr.customOpenAi.language,
-    cloudAsrBailianApiKey: stored.cloudAsr.bailian.apiKey,
-    cloudAsrBailianHost: stored.cloudAsr.bailian.host,
-    cloudAsrBailianModel: stored.cloudAsr.bailian.model,
-    cloudAsrBailianLanguage: stored.cloudAsr.bailian.language,
-    cloudAsrTencentAppId: stored.cloudAsr.tencent.appId,
-    cloudAsrTencentSecretId: stored.cloudAsr.tencent.secretId,
-    cloudAsrTencentSecretKey: stored.cloudAsr.tencent.secretKey,
-    cloudAsrTencentEngineType: stored.cloudAsr.tencent.engineType,
-    cloudAsrTencentService: stored.cloudAsr.tencent.service,
-    cloudAsrMimoApiKey: stored.cloudAsr.mimo.apiKey,
-    cloudAsrMimoService: stored.cloudAsr.mimo.service,
-    cloudAsrMimoCluster: stored.cloudAsr.mimo.cluster,
-    cloudAsrMimoModel: stored.cloudAsr.mimo.model,
-    cloudAsrMimoLanguage: stored.cloudAsr.mimo.language,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
     voiceShortcut: stored.general.shortcut.value,
@@ -320,7 +337,14 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     polishModel: stored.polishing.model,
     polishReasoningEffort: stored.polishing.reasoningEffort,
     polishPrompt: stored.polishing.prompt
+  } as EarsSettings
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    const slot = stored.cloudAsr[provider.storageKey] as unknown as Record<string, unknown>
+    for (const definition of provider.fields) {
+      ;(settings as unknown as Record<string, unknown>)[definition.field] = slot[definition.storageKey]
+    }
   }
+  return settings
 }
 
 export function unflattenEarsSettings(settings: EarsSettings, acceleration = settings.localWhisperAcceleration): StoredEarsSettings {
@@ -347,45 +371,7 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
       cloudProvider: settings.cloudAsrProvider,
       maxRecordingSeconds: settings.maxRecordingSeconds
     },
-    cloudAsr: {
-      groq: {
-        apiKey: settings.cloudAsrGroqApiKey,
-        model: settings.cloudAsrGroqModel,
-        language: settings.cloudAsrGroqLanguage
-      },
-      deepgram: {
-        apiKey: settings.cloudAsrDeepgramApiKey,
-        model: settings.cloudAsrDeepgramModel,
-        language: settings.cloudAsrDeepgramLanguage,
-        service: settings.cloudAsrDeepgramService
-      },
-      customOpenAi: {
-        apiKey: settings.cloudAsrCustomApiKey,
-        endpoint: settings.cloudAsrCustomEndpoint,
-        model: settings.cloudAsrCustomModel,
-        language: settings.cloudAsrCustomLanguage
-      },
-      bailian: {
-        apiKey: settings.cloudAsrBailianApiKey,
-        host: settings.cloudAsrBailianHost,
-        model: settings.cloudAsrBailianModel,
-        language: settings.cloudAsrBailianLanguage
-      },
-      tencent: {
-        appId: settings.cloudAsrTencentAppId,
-        secretId: settings.cloudAsrTencentSecretId,
-        secretKey: settings.cloudAsrTencentSecretKey,
-        engineType: settings.cloudAsrTencentEngineType,
-        service: settings.cloudAsrTencentService
-      },
-      mimo: {
-        apiKey: settings.cloudAsrMimoApiKey,
-        service: normalizeMimoService(settings.cloudAsrMimoService),
-        cluster: normalizeMimoCluster(settings.cloudAsrMimoCluster),
-        model: settings.cloudAsrMimoModel,
-        language: settings.cloudAsrMimoLanguage
-      }
-    },
+    cloudAsr: buildCloudAsrSlots(settings),
     polishing: {
       enabled: settings.polishingEnabled,
       provider: settings.polishProvider,
@@ -396,53 +382,27 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
   }
 }
 
+function buildCloudAsrSlots(settings: EarsSettings): CloudAsrSettings {
+  const cloudAsr: Record<string, Record<string, unknown>> = {}
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    const slot: Record<string, unknown> = {}
+    for (const definition of provider.fields) {
+      const value = settings[definition.field]
+      const allowed = definition.allowedValues
+      // The first allowed value doubles as the field default for every enumerated field.
+      slot[definition.storageKey] = allowed !== undefined && (typeof value !== 'string' || !allowed.includes(value))
+        ? allowed[0]
+        : value
+    }
+    cloudAsr[provider.storageKey] = slot
+  }
+  return cloudAsr as unknown as CloudAsrSettings
+}
+
 export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record<string, unknown> {
   const result: Record<string, unknown> = {}
-  const paths: Record<string, readonly string[]> = {
-    asrBackend: ['recognition', 'backend'],
-    webSpeechLanguage: ['recognition', 'webSpeech', 'language'],
-    localWhisperModel: ['recognition', 'localWhisper', 'model'],
-    localWhisperAcceleration: ['recognition', 'localWhisper', 'acceleration'],
-    localWhisperLanguage: ['recognition', 'localWhisper', 'language'],
-    cloudAsrProvider: ['recognition', 'cloudProvider'],
-    maxRecordingSeconds: ['recognition', 'maxRecordingSeconds'],
-    cloudAsrGroqApiKey: ['cloudAsr', 'groq', 'apiKey'],
-    cloudAsrGroqModel: ['cloudAsr', 'groq', 'model'],
-    cloudAsrGroqLanguage: ['cloudAsr', 'groq', 'language'],
-    cloudAsrDeepgramApiKey: ['cloudAsr', 'deepgram', 'apiKey'],
-    cloudAsrDeepgramModel: ['cloudAsr', 'deepgram', 'model'],
-    cloudAsrDeepgramLanguage: ['cloudAsr', 'deepgram', 'language'],
-    cloudAsrDeepgramService: ['cloudAsr', 'deepgram', 'service'],
-    cloudAsrCustomApiKey: ['cloudAsr', 'customOpenAi', 'apiKey'],
-    cloudAsrCustomEndpoint: ['cloudAsr', 'customOpenAi', 'endpoint'],
-    cloudAsrCustomModel: ['cloudAsr', 'customOpenAi', 'model'],
-    cloudAsrCustomLanguage: ['cloudAsr', 'customOpenAi', 'language'],
-    cloudAsrBailianApiKey: ['cloudAsr', 'bailian', 'apiKey'],
-    cloudAsrBailianHost: ['cloudAsr', 'bailian', 'host'],
-    cloudAsrBailianModel: ['cloudAsr', 'bailian', 'model'],
-    cloudAsrBailianLanguage: ['cloudAsr', 'bailian', 'language'],
-    cloudAsrTencentAppId: ['cloudAsr', 'tencent', 'appId'],
-    cloudAsrTencentSecretId: ['cloudAsr', 'tencent', 'secretId'],
-    cloudAsrTencentSecretKey: ['cloudAsr', 'tencent', 'secretKey'],
-    cloudAsrTencentEngineType: ['cloudAsr', 'tencent', 'engineType'],
-    cloudAsrTencentService: ['cloudAsr', 'tencent', 'service'],
-    cloudAsrMimoApiKey: ['cloudAsr', 'mimo', 'apiKey'],
-    cloudAsrMimoService: ['cloudAsr', 'mimo', 'service'],
-    cloudAsrMimoCluster: ['cloudAsr', 'mimo', 'cluster'],
-    cloudAsrMimoModel: ['cloudAsr', 'mimo', 'model'],
-    cloudAsrMimoLanguage: ['cloudAsr', 'mimo', 'language'],
-    voiceShortcutEnabled: ['general', 'shortcut', 'enabled'],
-    voiceShortcut: ['general', 'shortcut', 'value'],
-    voiceSoundsEnabled: ['general', 'soundsEnabled'],
-    settingsDisplayName: ['general', 'displayName'],
-    polishingEnabled: ['polishing', 'enabled'],
-    polishProvider: ['polishing', 'provider'],
-    polishModel: ['polishing', 'model'],
-    polishReasoningEffort: ['polishing', 'reasoningEffort'],
-    polishPrompt: ['polishing', 'prompt']
-  }
   for (const [field, value] of Object.entries(patch)) {
-    const path = paths[field]
+    const path = CURRENT_STORED_PATHS.get(field as keyof EarsSettings)
     if (value === undefined || path === undefined) continue
     let target = result
     for (const segment of path.slice(0, -1)) {
@@ -468,91 +428,23 @@ export function applyFlatSettingsPatch(stored: unknown, patch: EarsSettingsPatch
 }
 
 export function storedSettingsNeedRewrite(raw: unknown): boolean {
+  if (!isRecord(raw) || isFutureSettingsSchema(raw)) return false
+  return !isCanonicalStoredSettings(raw) || hasLegacySettingKeys(raw)
+}
+
+export function isFutureSettingsSchema(raw: unknown): boolean {
   if (!isRecord(raw)) return false
-  return !isCanonicalStoredSettings(raw)
+  return typeof raw.schemaVersion === 'number'
+    && Number.isInteger(raw.schemaVersion)
+    && raw.schemaVersion > EARS_SETTINGS_SCHEMA_VERSION
 }
 
 /** Convert schema user overrides into the flat field names understood by the client. */
 export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path: string[]; set: boolean }[] = []): string[] {
   const fields: string[] = []
   const mappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
-    { path: ['asrBackend'], field: 'asrBackend' },
-    { path: ['webSpeechLanguage'], field: 'webSpeechLanguage' },
-    { path: ['localWhisperModel'], field: 'localWhisperModel' },
-    { path: ['localWhisperAcceleration'], field: 'localWhisperAcceleration' },
-    { path: ['localWhisperLanguage'], field: 'localWhisperLanguage' },
-    { path: ['cloudAsrProvider'], field: 'cloudAsrProvider' },
-    { path: ['cloudAsrGroqApiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsrGroqModel'], field: 'cloudAsrGroqModel' },
-    { path: ['cloudAsrGroqLanguage'], field: 'cloudAsrGroqLanguage' },
-    { path: ['cloudAsrDeepgramApiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsrDeepgramModel'], field: 'cloudAsrDeepgramModel' },
-    { path: ['cloudAsrDeepgramLanguage'], field: 'cloudAsrDeepgramLanguage' },
-    { path: ['cloudAsrDeepgramService'], field: 'cloudAsrDeepgramService' },
-    { path: ['cloudAsrCustomApiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsrCustomEndpoint'], field: 'cloudAsrCustomEndpoint' },
-    { path: ['cloudAsrCustomModel'], field: 'cloudAsrCustomModel' },
-    { path: ['cloudAsrCustomLanguage'], field: 'cloudAsrCustomLanguage' },
-    { path: ['cloudAsrBailianApiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsrBailianHost'], field: 'cloudAsrBailianHost' },
-    { path: ['cloudAsrBailianModel'], field: 'cloudAsrBailianModel' },
-    { path: ['cloudAsrBailianLanguage'], field: 'cloudAsrBailianLanguage' },
-    { path: ['cloudAsrTencentAppId'], field: 'cloudAsrTencentAppId' },
-    { path: ['cloudAsrTencentSecretId'], field: 'cloudAsrTencentSecretId' },
-    { path: ['cloudAsrTencentSecretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsrTencentEngineType'], field: 'cloudAsrTencentEngineType' },
-    { path: ['cloudAsrTencentService'], field: 'cloudAsrTencentService' },
-    { path: ['maxRecordingSeconds'], field: 'maxRecordingSeconds' },
-    { path: ['voiceShortcutEnabled'], field: 'voiceShortcutEnabled' },
-    { path: ['voiceShortcut'], field: 'voiceShortcut' },
-    { path: ['voiceSoundsEnabled'], field: 'voiceSoundsEnabled' },
-    { path: ['settingsDisplayName'], field: 'settingsDisplayName' },
-    { path: ['polishingEnabled'], field: 'polishingEnabled' },
-    { path: ['polishProvider'], field: 'polishProvider' },
-    { path: ['polishModel'], field: 'polishModel' },
-    { path: ['polishReasoningEffort'], field: 'polishReasoningEffort' },
-    { path: ['polishPrompt'], field: 'polishPrompt' },
-    { path: ['general', 'displayName'], field: 'settingsDisplayName' },
-    { path: ['general', 'shortcut', 'enabled'], field: 'voiceShortcutEnabled' },
-    { path: ['general', 'shortcut', 'value'], field: 'voiceShortcut' },
-    { path: ['general', 'soundsEnabled'], field: 'voiceSoundsEnabled' },
-    { path: ['recognition', 'backend'], field: 'asrBackend' },
-    { path: ['recognition', 'webSpeech', 'language'], field: 'webSpeechLanguage' },
-    { path: ['recognition', 'localWhisper', 'model'], field: 'localWhisperModel' },
-    { path: ['recognition', 'localWhisper', 'acceleration'], field: 'localWhisperAcceleration' },
-    { path: ['recognition', 'localWhisper', 'language'], field: 'localWhisperLanguage' },
-    { path: ['recognition', 'cloudProvider'], field: 'cloudAsrProvider' },
-    { path: ['recognition', 'maxRecordingSeconds'], field: 'maxRecordingSeconds' },
-    { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsr', 'groq', 'model'], field: 'cloudAsrGroqModel' },
-    { path: ['cloudAsr', 'groq', 'language'], field: 'cloudAsrGroqLanguage' },
-    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsr', 'deepgram', 'model'], field: 'cloudAsrDeepgramModel' },
-    { path: ['cloudAsr', 'deepgram', 'language'], field: 'cloudAsrDeepgramLanguage' },
-    { path: ['cloudAsr', 'deepgram', 'service'], field: 'cloudAsrDeepgramService' },
-    { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsr', 'customOpenAi', 'endpoint'], field: 'cloudAsrCustomEndpoint' },
-    { path: ['cloudAsr', 'customOpenAi', 'model'], field: 'cloudAsrCustomModel' },
-    { path: ['cloudAsr', 'customOpenAi', 'language'], field: 'cloudAsrCustomLanguage' },
-    { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsr', 'bailian', 'host'], field: 'cloudAsrBailianHost' },
-    { path: ['cloudAsr', 'bailian', 'model'], field: 'cloudAsrBailianModel' },
-    { path: ['cloudAsr', 'bailian', 'language'], field: 'cloudAsrBailianLanguage' },
-    { path: ['cloudAsr', 'tencent', 'appId'], field: 'cloudAsrTencentAppId' },
-    { path: ['cloudAsr', 'tencent', 'secretId'], field: 'cloudAsrTencentSecretId' },
-    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsr', 'tencent', 'engineType'], field: 'cloudAsrTencentEngineType' },
-    { path: ['cloudAsr', 'tencent', 'service'], field: 'cloudAsrTencentService' },
-    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
-    { path: ['cloudAsr', 'mimo', 'service'], field: 'cloudAsrMimoService' },
-    { path: ['cloudAsr', 'mimo', 'cluster'], field: 'cloudAsrMimoCluster' },
-    { path: ['cloudAsr', 'mimo', 'model'], field: 'cloudAsrMimoModel' },
-    { path: ['cloudAsr', 'mimo', 'language'], field: 'cloudAsrMimoLanguage' },
-    { path: ['polishing', 'enabled'], field: 'polishingEnabled' },
-    { path: ['polishing', 'provider'], field: 'polishProvider' },
-    { path: ['polishing', 'model'], field: 'polishModel' },
-    { path: ['polishing', 'reasoningEffort'], field: 'polishReasoningEffort' },
-    { path: ['polishing', 'prompt'], field: 'polishPrompt' },
+    ...FLAT_SETTING_KEYS.map((field) => ({ path: [field], field })),
+    ...CURRENT_STORED_FIELD_MAPPINGS.map((mapping) => ({ path: [...mapping.path], field: mapping.field })),
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['groq', 'model'], field: 'cloudAsrGroqModel' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
@@ -583,12 +475,7 @@ export function flattenOverriddenSettings(raw: unknown, secrets: readonly { path
     }
   }
   const secretMappings: Array<{ path: string[]; field: keyof EarsSettings }> = [
-    { path: ['cloudAsr', 'groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
-    { path: ['cloudAsr', 'deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
-    { path: ['cloudAsr', 'customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
-    { path: ['cloudAsr', 'bailian', 'apiKey'], field: 'cloudAsrBailianApiKey' },
-    { path: ['cloudAsr', 'tencent', 'secretKey'], field: 'cloudAsrTencentSecretKey' },
-    { path: ['cloudAsr', 'mimo', 'apiKey'], field: 'cloudAsrMimoApiKey' },
+    ...CURRENT_SECRET_MAPPINGS.map((mapping) => ({ path: [...mapping.path], field: mapping.field })),
     { path: ['groq', 'apiKey'], field: 'cloudAsrGroqApiKey' },
     { path: ['deepgram', 'apiKey'], field: 'cloudAsrDeepgramApiKey' },
     { path: ['customOpenAi', 'apiKey'], field: 'cloudAsrCustomApiKey' },
@@ -622,47 +509,28 @@ function normalizeMimoCluster(value: string): string {
 
 function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
   return record.schemaVersion === EARS_SETTINGS_SCHEMA_VERSION
-    && hasPath(record, ['general', 'displayName'])
-    && hasPath(record, ['general', 'shortcut', 'enabled'])
-    && hasPath(record, ['general', 'shortcut', 'value'])
-    && hasPath(record, ['general', 'soundsEnabled'])
-    && hasPath(record, ['recognition', 'backend'])
-    && hasPath(record, ['recognition', 'webSpeech', 'language'])
-    && hasPath(record, ['recognition', 'localWhisper', 'model'])
-    && hasPath(record, ['recognition', 'localWhisper', 'acceleration'])
-    && hasPath(record, ['recognition', 'localWhisper', 'language'])
-    && hasPath(record, ['recognition', 'cloudProvider'])
-    && hasPath(record, ['recognition', 'maxRecordingSeconds'])
-    && hasPath(record, ['cloudAsr', 'groq', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'groq', 'model'])
-    && hasPath(record, ['cloudAsr', 'groq', 'language'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'model'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'language'])
-    && hasPath(record, ['cloudAsr', 'deepgram', 'service'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'endpoint'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'model'])
-    && hasPath(record, ['cloudAsr', 'customOpenAi', 'language'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'host'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'model'])
-    && hasPath(record, ['cloudAsr', 'bailian', 'language'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'appId'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'secretId'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'secretKey'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'engineType'])
-    && hasPath(record, ['cloudAsr', 'tencent', 'service'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'apiKey'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'service'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'cluster'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'model'])
-    && hasPath(record, ['cloudAsr', 'mimo', 'language'])
-    && hasPath(record, ['polishing', 'enabled'])
-    && hasPath(record, ['polishing', 'provider'])
-    && hasPath(record, ['polishing', 'model'])
-    && hasPath(record, ['polishing', 'reasoningEffort'])
-    && hasPath(record, ['polishing', 'prompt'])
+    && !hasPath(record, ['recognition', 'language'])
+    && !hasPath(record, ['cloudAsr', 'custom'])
+    && CURRENT_STORED_FIELD_MAPPINGS.every((mapping) => hasPath(record, mapping.path))
+}
+
+function hasLegacySettingKeys(record: Record<string, unknown>): boolean {
+  const topLevel = [
+    ...FLAT_SETTING_KEYS,
+    'cloudAsrApiKey',
+    'cloudAsrModel',
+    'language',
+    'groq',
+    'deepgram',
+    'customOpenAi',
+    'custom',
+    'bailian',
+    'tencent',
+    'mimo'
+  ]
+  if (topLevel.some((key) => Object.prototype.hasOwnProperty.call(record, key))) return true
+  return hasPath(record, ['recognition', 'localWhisperModel'])
+    || hasPath(record, ['recognition', 'localWhisperAcceleration'])
 }
 
 function normalizeWhisperAcceleration(value: string): WhisperAccelerationId {
@@ -708,7 +576,7 @@ function ownNumber(record: Record<string, unknown> | undefined, key: string): nu
   return typeof record[key] === 'number' ? record[key] : undefined
 }
 
-function hasPath(value: unknown, path: string[]): boolean {
+function hasPath(value: unknown, path: readonly string[]): boolean {
   let current = value
   for (const part of path) {
     if (!isRecord(current) || !Object.prototype.hasOwnProperty.call(current, part)) return false
@@ -717,7 +585,7 @@ function hasPath(value: unknown, path: string[]): boolean {
   return true
 }
 
-function samePath(left: string[], right: string[]): boolean {
+function samePath(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((part, index) => part === right[index])
 }
 

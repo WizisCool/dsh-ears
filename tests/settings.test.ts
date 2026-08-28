@@ -3,7 +3,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from '../src/config.js'
 import type { EarsSettings } from '../src/config.js'
 import { EarsSettingsController, SETTINGS_SAVE_DEBOUNCE_MS } from '../src/client/settings-controller.js'
-import { localeEn, localeZh } from '../src/client/settings.js'
+import { deepgramModelCandidates, localeEn, localeZh } from '../src/client/settings.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
 
@@ -43,6 +43,15 @@ const INITIAL_WHISPER_STATE: WhisperModelState = {
 }
 
 type EffortsResult = RemoteResult<{ efforts: Array<{ id: string; name: string }> }>
+
+describe('Deepgram model UI candidates', () => {
+  it('does not replace a successful empty service-filtered catalog with static models', () => {
+    expect(deepgramModelCandidates('recording-file', {
+      status: 'ready',
+      view: { status: 'ok', models: [], modelCapabilities: {} }
+    })).toEqual([])
+  })
+})
 
 describe('EarsSettingsController Whisper state', () => {
   it('uses the Host-provided acceleration list for the settings card', async () => {
@@ -343,6 +352,41 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('does not let a rejected save mark a newer queued draft as failed', async () => {
+    const first = deferred<RemoteResult<EarsSettingsView>>()
+    const second = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('webSpeechLanguage', 'en-US')
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      controller.actions().edit('webSpeechLanguage', 'ja-JP')
+      controller.actions().save()
+      first.resolve({ ok: false, error: { code: 'HOST_FAILURE', message: 'temporary failure', details: {} } })
+
+      await vi.waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
+      expect(controller.getCardStore().getSnapshot().webSpeechLanguage.text).toBe('ja-JP')
+      expect(controller.getCardStore().getSnapshot().failed).toBe(false)
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(true)
+
+      second.resolve({
+        ok: true,
+        value: {
+          ...settingsViewFrom(DEFAULT_EARS_SETTINGS),
+          settings: { ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'ja-JP' }
+        }
+      })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it('does not schedule a retry after the controller is disposed', async () => {
     vi.useFakeTimers()
     const pending = deferred<RemoteResult<EarsSettingsView>>()
@@ -395,6 +439,94 @@ describe('EarsSettingsController settings lifecycle', () => {
     await Promise.resolve()
 
     expect(controller.getReasoningStore().getSnapshot().efforts[0]?.id).toBe('p2-effort')
+    controller.dispose()
+  })
+
+  it('projects recovered stored setting fields into the card state', async () => {
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({
+        ok: true as const,
+        value: { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), recoveredSettingsFields: ['cloudAsrProvider'] }
+      })
+    }))
+    await controller.refreshSettings()
+
+    expect(controller.getCardStore().getSnapshot().recoveredSettingsFields).toEqual(['cloudAsrProvider'])
+    controller.dispose()
+  })
+
+  it('projects the real DSH Agent default route without persisting it', async () => {
+    const updateSettings = vi.fn()
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true as const, value: view }),
+      updateSettings
+    }))
+    await controller.refreshSettings()
+
+    const card = controller.getCardStore().getSnapshot()
+    expect(card.polishProvider.text).toBe(defaultRoute.provider)
+    expect(card.polishModel.text).toBe(defaultRoute.model)
+    expect(card.polishReasoningEffort.text).toBe(defaultRoute.reasoningEffort)
+    expect(controller.getSettingsStore().getSnapshot().polishProvider).toBe('')
+    expect(controller.getSettingsStore().getSnapshot().polishModel).toBe('')
+    expect(updateSettings).not.toHaveBeenCalled()
+    expect(Object.values(localeEn).some((value) => value.includes('DSH default Agent model'))).toBe(false)
+    expect(Object.values(localeZh).some((value) => value.includes('DSH 默认 Agent 模型'))).toBe(false)
+    controller.dispose()
+  })
+
+  it('materializes the projected Agent route when the user edits the model', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: view }))
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }), updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishModel', 'custom-model')
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe(defaultRoute.provider)
+    expect(controller.getCardStore().getSnapshot().polishModel.text).toBe('custom-model')
+    controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      polishProvider: defaultRoute.provider,
+      polishModel: 'custom-model',
+      polishReasoningEffort: ''
+    })
+    controller.dispose()
+  })
+
+  it('materializes the projected Agent route when the user edits reasoning', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const view = { ...settingsViewFrom(DEFAULT_EARS_SETTINGS), defaultPolishRoute: defaultRoute }
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: view }))
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }), updateSettings }))
+    await controller.refreshSettings()
+
+    controller.actions().edit('polishReasoningEffort', 'low')
+    controller.actions().save()
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      polishProvider: defaultRoute.provider,
+      polishModel: defaultRoute.model,
+      polishReasoningEffort: 'low'
+    })
+    controller.dispose()
+  })
+
+  it('projects the Agent default immediately when polishing is enabled', async () => {
+    const defaultRoute = { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' }
+    const disabled = { ...DEFAULT_EARS_SETTINGS, polishingEnabled: false }
+    const view = { ...settingsViewFrom(disabled), defaultPolishRoute: defaultRoute }
+    const controller = new EarsSettingsController(createRemote({ getSettings: async () => ({ ok: true as const, value: view }) }))
+    await controller.refreshSettings()
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe('')
+
+    controller.actions().edit('polishingEnabled', 'on')
+
+    expect(controller.getCardStore().getSnapshot().polishProvider.text).toBe(defaultRoute.provider)
+    expect(controller.getCardStore().getSnapshot().polishModel.text).toBe(defaultRoute.model)
     controller.dispose()
   })
 
@@ -507,6 +639,26 @@ describe('EarsSettingsController settings lifecycle', () => {
       await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
 
       expect(listCloudProviderModels).toHaveBeenCalledTimes(2)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('restores the cloud model list when a temporary credential draft is cleared', async () => {
+    const listCloudProviderModels = vi.fn(async () => ({ ok: true as const, value: { status: 'ok' as const, models: ['whisper-large-v3-turbo'] } }))
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('ok'))
+      expect(listCloudProviderModels).toHaveBeenCalledTimes(1)
+
+      controller.actions().setApiKey('temporary-key')
+      expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+      controller.actions().setApiKey('')
+
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(2))
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('ok'))
+      expect(listCloudProviderModels).toHaveBeenLastCalledWith('groq', expect.any(AbortSignal))
     } finally {
       controller.dispose()
     }
@@ -720,6 +872,57 @@ describe('EarsSettingsController settings lifecycle', () => {
     }
   })
 
+  it('allows undoing a queued credential clear during an unrelated save', async () => {
+    const firstSave = deferred<RemoteResult<EarsSettingsView>>()
+    const patches: Record<string, unknown>[] = []
+    const updateSettings = vi.fn((patch: Record<string, unknown>) => {
+      patches.push(patch)
+      return firstSave.promise
+    })
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('webSpeechLanguage', 'en-US')
+      controller.actions().save()
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+
+      controller.actions().clearApiKey()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
+      controller.actions().undoClearApiKey()
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(false)
+
+      firstSave.resolve({ ok: true, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'en-US' }) })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().saving).toBe(false))
+      expect(patches).toEqual([{ webSpeechLanguage: 'en-US' }])
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('keeps a submitted credential clear pending until its save completes', async () => {
+    const clearSave = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn(() => clearSave.promise)
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().clearApiKey()
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      expect(updateSettings).toHaveBeenCalledWith({ cloudAsrGroqApiKey: '' })
+
+      controller.actions().undoClearApiKey()
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(true)
+
+      clearSave.resolve({ ok: true, value: settingsViewFrom(DEFAULT_EARS_SETTINGS) })
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().saving).toBe(false))
+      expect(controller.getCardStore().getSnapshot().cloudAsrGroqApiKeyClearPending).toBe(false)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it('does not retry a rejected save in a loop', async () => {
     vi.useFakeTimers()
     const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
@@ -774,7 +977,7 @@ describe('EarsSettingsController settings lifecycle', () => {
       status: 'ready',
       view: { status: 'ok', models: ['whisper-large-v3-turbo'] }
     })
-    expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
+    expect(listCloudProviderModels).toHaveBeenCalledWith('groq', expect.any(AbortSignal))
     controller.dispose()
   })
 
@@ -784,10 +987,10 @@ describe('EarsSettingsController settings lifecycle', () => {
     const controller = new EarsSettingsController(createRemote({ listCloudProviderModels, updateSettings }))
     try {
       await controller.refreshSettings()
-      expect(listCloudProviderModels).toHaveBeenCalledWith('groq')
+      expect(listCloudProviderModels).toHaveBeenCalledWith('groq', expect.any(AbortSignal))
 
       controller.actions().edit('cloudAsrProvider', 'deepgram')
-      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledWith('deepgram'))
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledWith('deepgram', expect.any(AbortSignal)))
       // The staged switch is sent even though updateSettings has not committed yet.
       expect(updateSettings).not.toHaveBeenCalled()
     } finally {
@@ -819,6 +1022,32 @@ describe('EarsSettingsController settings lifecycle', () => {
       await Promise.resolve()
 
       expect(controller.getCloudModelsStore().getSnapshot().view.status).toBe('unsupported')
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('refreshes the persisted provider after discarding a staged provider switch', async () => {
+    const first = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const second = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const third = deferred<RemoteResult<{ status: 'ok'; models: string[] }>>()
+    const listCloudProviderModels = vi.fn((provider: string) => provider === 'deepgram' ? second.promise : listCloudProviderModels.mock.calls.length === 1 ? first.promise : third.promise)
+    const controller = new EarsSettingsController(createRemote({ listCloudProviderModels }))
+    try {
+      await controller.refreshSettings()
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(1))
+
+      controller.actions().edit('cloudAsrProvider', 'deepgram')
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(2))
+      controller.actions().discard()
+      await vi.waitFor(() => expect(listCloudProviderModels).toHaveBeenCalledTimes(3))
+
+      third.resolve({ ok: true, value: { status: 'ok', models: ['persisted-groq-model'] } })
+      await vi.waitFor(() => expect(controller.getCloudModelsStore().getSnapshot().view.models).toEqual(['persisted-groq-model']))
+      second.resolve({ ok: true, value: { status: 'ok', models: ['stale-deepgram-model'] } })
+      first.resolve({ ok: true, value: { status: 'ok', models: ['stale-initial-model'] } })
+
+      expect(controller.getCloudModelsStore().getSnapshot().view.models).toEqual(['persisted-groq-model'])
     } finally {
       controller.dispose()
     }
@@ -857,6 +1086,32 @@ describe('Locale parity', () => {
     }
     expect(localeZh.voiceError).toBe('请检查配置后重试')
     expect(localeEn.voiceError).toBe('Check the configuration and try again')
+  })
+})
+
+describe('EarsSettingsController backends race', () => {
+  it('keeps the latest backend response when a slow request resolves after a fast one', async () => {
+    const slow = deferred<RemoteResult<AsrBackendInfo[]>>()
+    const fast = deferred<RemoteResult<AsrBackendInfo[]>>()
+    const listAsrBackends = vi.fn()
+      .mockImplementationOnce(() => slow.promise)
+      .mockImplementationOnce(() => fast.promise)
+    const controller = new EarsSettingsController(createRemote({ listAsrBackends }))
+
+    const first = controller.refreshBackends()
+    const second = controller.refreshBackends()
+    // Fast request resolves first.
+    fast.resolve({ ok: true, value: [{ id: 'web-speech', name: 'Web Speech', available: true, detail: '' }] })
+    await second
+    // Slow request resolves last.
+    slow.resolve({ ok: true, value: [{ id: 'cloud-openai', name: 'Cloud ASR', available: true, detail: '' }] })
+    await first
+
+    expect(controller.getBackendStore().getSnapshot()).toEqual({
+      status: 'ready',
+      backends: [{ id: 'web-speech', name: 'Web Speech', available: true, detail: '' }]
+    })
+    controller.dispose()
   })
 })
 

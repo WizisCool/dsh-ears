@@ -1,15 +1,22 @@
-import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { EARS_ERROR_CODES, EarsError, type EarsErrorCode } from '../errors.js'
 
 /** Read a bounded HTTP response body, rejecting oversized payloads. */
-export async function readBoundedText(response: Response, maxBytes: number): Promise<string> {
+export async function readBoundedText(response: Response, maxBytes: number, signal?: AbortSignal, tooLargeMessage = 'Cloud ASR response is too large', errorCode: EarsErrorCode = EARS_ERROR_CODES.asrResponseTooLarge): Promise<string> {
+  signal?.throwIfAborted()
   const contentLength = Number(response.headers.get('content-length') ?? '')
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+    try {
+      await response.body?.cancel()
+    } catch {
+      // Preserve the size-limit error when transport cleanup also fails.
+    }
+    throw new EarsError(errorCode, tooLargeMessage)
   }
   if (response.body === null) {
     const body = await response.text()
+    signal?.throwIfAborted()
     if (new TextEncoder().encode(body).byteLength > maxBytes) {
-      throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+      throw new EarsError(errorCode, tooLargeMessage)
     }
     return body
   }
@@ -17,18 +24,33 @@ export async function readBoundedText(response: Response, maxBytes: number): Pro
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+  const cancelOnAbort = () => {
+    try {
+      void reader.cancel(signal?.reason).catch(() => undefined)
+    } catch {
+      // The abort itself remains authoritative even if a custom reader cannot cancel.
+    }
+  }
+  signal?.addEventListener('abort', cancelOnAbort, { once: true })
   try {
     while (true) {
+      signal?.throwIfAborted()
       const next = await reader.read()
+      signal?.throwIfAborted()
       if (next.done) break
       total += next.value.byteLength
       if (total > maxBytes) {
-        await reader.cancel()
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
+        try {
+          await reader.cancel()
+        } catch {
+          // Preserve the size-limit error when transport cleanup also fails.
+        }
+        throw new EarsError(errorCode, tooLargeMessage)
       }
       chunks.push(next.value)
     }
   } finally {
+    signal?.removeEventListener('abort', cancelOnAbort)
     reader.releaseLock()
   }
 

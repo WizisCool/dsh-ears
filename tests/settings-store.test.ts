@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
-import { applyFlatSettingsPatch, defaultStoredEarsSettings, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
+import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
+import { applyFlatSettingsPatch, defaultStoredEarsSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
 
 describe('canonical Host settings slots', () => {
   it('round-trips flat app settings into current schema slots', () => {
@@ -45,7 +46,7 @@ describe('canonical Host settings slots', () => {
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
     expect(stored.polishing).toEqual({
-      enabled: false,
+      enabled: true,
       provider: 'provider',
       model: 'model',
       reasoningEffort: '',
@@ -59,6 +60,46 @@ describe('canonical Host settings slots', () => {
       polishPrompt: 'Keep it short.'
     })
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
+  })
+
+  it('round-trips every registry-defined provider field without losing its storage mapping', () => {
+    const flat = { ...DEFAULT_EARS_SETTINGS }
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      for (const definition of provider.fields) {
+        ;(flat as Record<string, unknown>)[definition.field] = definition.allowedValues?.[0] ?? `${provider.id}-${definition.storageKey}`
+      }
+    }
+
+    const stored = unflattenEarsSettings(flat)
+    const flattened = flattenStoredSettings(stored)
+
+    expect(flattened).toEqual(flat)
+    expect(unflattenEarsSettings(flattened)).toEqual(stored)
+  })
+
+  it('maps a patch for every registry-defined field to its canonical storage slot', () => {
+    const patch: Record<string, string> = {}
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      for (const definition of provider.fields) patch[definition.field] = `updated-${provider.id}-${definition.storageKey}`
+    }
+
+    const storedPatch = flatSettingsPatchToStoredPatch(patch)
+    for (const provider of CLOUD_ASR_PROVIDERS) {
+      const slot = (storedPatch.cloudAsr as Record<string, Record<string, unknown>>)[provider.storageKey]
+      for (const definition of provider.fields) {
+        expect(slot[definition.storageKey]).toBe(patch[definition.field])
+      }
+    }
+  })
+
+  it('maps every flat setting key to a canonical storage path', () => {
+    const { schemaVersion: _schemaVersion, ...expectedStored } = defaultStoredEarsSettings()
+
+    const storedPatch = flatSettingsPatchToStoredPatch({ ...DEFAULT_EARS_SETTINGS })
+
+    // A flat key without a CURRENT_STORED_PATHS entry is dropped from the patch,
+    // so the result would no longer match the default stored shape.
+    expect(storedPatch).toEqual(expectedStored)
   })
 
   it('migrates the previous fully flat settings without dropping provider secrets', () => {
@@ -96,6 +137,38 @@ describe('canonical Host settings slots', () => {
     expect(storedSettingsNeedRewrite(raw)).toBe(true)
   })
 
+  it('uses Web Speech and enabled polishing when new or partial settings omit the fields', () => {
+    const stored = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: {},
+      cloudAsr: {},
+      polishing: {}
+    })
+    expect(stored.recognition.backend).toBe('web-speech')
+    expect(stored.recognition.localWhisper.acceleration).toBe('default')
+    expect(stored.polishing.enabled).toBe(true)
+    expect(stored.polishing.provider).toBe('')
+    expect(stored.polishing.model).toBe('')
+    expect(stored.polishing.reasoningEffort).toBe('')
+
+    const explicit = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: { backend: 'web-speech' },
+      cloudAsr: {},
+      polishing: { enabled: false, provider: 'legacy-provider', model: 'legacy-model', reasoningEffort: 'low' }
+    })
+    expect(explicit.recognition.backend).toBe('web-speech')
+    expect(explicit.polishing).toMatchObject({ enabled: false, provider: 'legacy-provider', model: 'legacy-model', reasoningEffort: 'low' })
+
+    const explicitLocalWhisper = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: { backend: 'local-whisper' },
+      cloudAsr: {},
+      polishing: {}
+    })
+    expect(explicitLocalWhisper.recognition.backend).toBe('local-whisper')
+  })
+
   it('migrates current grouped settings and fills partial V2 slots', () => {
     const stored = normalizeStoredEarsSettings({
       schemaVersion: 2,
@@ -110,6 +183,36 @@ describe('canonical Host settings slots', () => {
     expect(stored.polishing.prompt).toBe('partial prompt')
     expect(stored.general.shortcut.value).toBe('ctrl+shift+space')
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
+  })
+
+  it('does not let versionless migration defaults mask nested or legacy provider data', () => {
+    const stored = normalizeStoredEarsSettings({
+      recognition: {
+        webSpeech: { language: 'en-US' },
+        localWhisper: { language: 'zh-CN' }
+      },
+      cloudAsr: {
+        groq: { language: 'en' }
+      },
+      deepgram: { apiKey: 'deepgram-test-key' },
+      mimo: { apiKey: 'mimo-test-key' }
+    })
+
+    expect(stored.recognition.webSpeech.language).toBe('en-US')
+    expect(stored.recognition.localWhisper.language).toBe('zh-CN')
+    expect(stored.cloudAsr.groq.language).toBe('en')
+    expect(stored.cloudAsr.deepgram.apiKey).toBe('deepgram-test-key')
+    expect(stored.cloudAsr.mimo.apiKey).toBe('mimo-test-key')
+  })
+
+  it('normalizes unknown junk without attempting to rewrite a future schema', () => {
+    const junk = { unrelated: true, nested: ['value'] }
+    const normalized = normalizeStoredEarsSettings(junk)
+    expect(normalized.schemaVersion).toBe(4)
+    expect(normalized.recognition.backend).toBe(DEFAULT_EARS_SETTINGS.asrBackend)
+    expect(normalized.cloudAsr.mimo.model).toBe(DEFAULT_EARS_SETTINGS.cloudAsrMimoModel)
+
+    expect(storedSettingsNeedRewrite({ schemaVersion: 5, futureSetting: true })).toBe(false)
   })
 
   it('drops the V3 recognition language when rewriting to per-provider language fields', () => {
@@ -231,5 +334,9 @@ describe('canonical Host settings slots', () => {
       'cloudAsrTencentService',
       'cloudAsrGroqApiKey'
     ])
+  })
+
+  it('does not omit a newly registered provider field from flat override detection', () => {
+    expect(flattenOverriddenSettings({ cloudAsrMimoApiKey: 'mimo-secret' })).toContain('cloudAsrMimoApiKey')
   })
 })

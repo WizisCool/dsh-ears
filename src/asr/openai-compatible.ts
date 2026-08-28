@@ -1,4 +1,5 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { readBoundedText } from './transport.js'
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 1 * 1024 * 1024
@@ -43,7 +44,7 @@ export async function transcribeOpenAICompatible(options: OpenAICompatibleTransc
       redirect: 'manual',
       signal: timeout.signal
     })
-    const body = await readBoundedText(response)
+    const body = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal)
     let parsed: unknown
     try {
       parsed = JSON.parse(body)
@@ -71,42 +72,6 @@ function validateEndpoint(value: string, credentialConfigured: boolean): string 
   if (credentialConfigured && url.protocol !== 'https:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoints with credentials must use HTTPS')
   if (url.username !== '' || url.password !== '') throw new EarsError(EARS_ERROR_CODES.asrEndpointHasCredentials, 'Cloud ASR endpoint must not contain credentials')
   return url.toString()
-}
-
-async function readBoundedText(response: Response): Promise<string> {
-  const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-  if (response.body === null) {
-    const body = await response.text()
-    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-    return body
-  }
-
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  try {
-    while (true) {
-      const next = await reader.read()
-      if (next.done) break
-      total += next.value.byteLength
-      if (total > MAX_RESPONSE_BYTES) {
-        await reader.cancel()
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-      }
-      chunks.push(next.value)
-    }
-  } finally {
-    reader.releaseLock()
-  }
-
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder().decode(bytes)
 }
 
 function fileName(mimeType: string): string {

@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EARS_ERROR_CODES, EarsError } from '../src/errors.js'
 import {
   DEEPGRAM_DEFAULT_MODEL,
+  DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS,
+  DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS,
   DeepgramRealtimeAsrSession,
   deepgramErrorDetail,
   deepgramListenUrl,
   deepgramRealtimeUrl,
   extractDeepgramTranscript,
+  isDeepgramFluxModel,
   transcribeDeepgramAsr,
   type DeepgramWebSocket,
   type DeepgramWebSocketEvent
@@ -15,6 +18,15 @@ import {
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+})
+
+describe('Deepgram model compatibility', () => {
+  it('recognizes Flux model identifiers without rejecting ordinary prefixes', () => {
+    expect(isDeepgramFluxModel('flux-general-en')).toBe(true)
+    expect(isDeepgramFluxModel(' FLUX_v2 ')).toBe(true)
+    expect(isDeepgramFluxModel('fluxion')).toBe(false)
+    expect(isDeepgramFluxModel('nova-3')).toBe(false)
+  })
 })
 
 describe('Deepgram URL builder', () => {
@@ -159,6 +171,7 @@ describe('transcribeDeepgramAsr', () => {
       expect.stringContaining('https://api.deepgram.com/v1/listen?'),
       expect.objectContaining({
         method: 'POST',
+        redirect: 'manual',
         headers: {
           Authorization: 'Token test_token',
           'Content-Type': 'audio/wav'
@@ -219,6 +232,28 @@ describe('transcribeDeepgramAsr', () => {
       code: EARS_ERROR_CODES.asrApiKeyNotConfigured
     })
   })
+
+  it('rejects Flux models before issuing a recording request', async () => {
+    const fetchMock = vi.fn()
+    await expect(transcribeDeepgramAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      credential: 'test_token',
+      model: 'flux-general-en',
+      fetch: fetchMock
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrServiceUnavailable })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('bounds the recording response body before parsing it', async () => {
+    const oversized = 'x'.repeat(1024 * 1024 + 1)
+    await expect(transcribeDeepgramAsr({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      credential: 'test_token',
+      fetch: async () => new Response(oversized, { status: 200 })
+    })).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrResponseTooLarge })
+  })
 })
 
 class MockDeepgramWebSocket implements DeepgramWebSocket {
@@ -258,6 +293,42 @@ class MockDeepgramWebSocket implements DeepgramWebSocket {
 }
 
 describe('DeepgramRealtimeAsrSession', () => {
+  it('times out when the socket never opens', async () => {
+    vi.useFakeTimers()
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      webSocketFactory: () => new MockDeepgramWebSocket()
+    })
+
+    const opening = session.open()
+    const rejection = expect(opening).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
+    await vi.advanceTimersByTimeAsync(DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS)
+    await rejection
+  })
+
+  it('times out when the stream never closes after CloseStream', async () => {
+    vi.useFakeTimers()
+    let socket: MockDeepgramWebSocket | undefined
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      webSocketFactory: () => {
+        socket = new MockDeepgramWebSocket()
+        setTimeout(() => socket?.emit('open'), 0)
+        return socket
+      }
+    })
+
+    const opening = session.open()
+    await vi.advanceTimersByTimeAsync(0)
+    await opening
+
+    const finishing = session.finish()
+    const rejection = expect(finishing).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrRequestTimedOut })
+    await vi.advanceTimersByTimeAsync(DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS)
+    await rejection
+    expect(socket?.sentMessages).toContain(JSON.stringify({ type: 'CloseStream' }))
+  })
+
   it('connects, sends audio, streams interim/final text and finishes', async () => {
     let socket: MockDeepgramWebSocket | undefined
     let passedProtocols: string | string[] | undefined
@@ -312,6 +383,18 @@ describe('DeepgramRealtimeAsrSession', () => {
     expect(finalResult).toBe('Hello world.')
   })
 
+  it('rejects Flux models before creating a realtime socket', async () => {
+    const webSocketFactory = vi.fn()
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      model: 'flux-general-en',
+      webSocketFactory
+    })
+
+    await expect(session.open()).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrServiceUnavailable })
+    expect(webSocketFactory).not.toHaveBeenCalled()
+  })
+
   it('rejects on invalid auth error message from socket', async () => {
     let socket: MockDeepgramWebSocket | undefined
     const session = new DeepgramRealtimeAsrSession({
@@ -331,6 +414,26 @@ describe('DeepgramRealtimeAsrSession', () => {
     })
 
     await expect(session.open()).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed
+    })
+  })
+
+  it('rejects finish when the socket closes before a final result', async () => {
+    let socket: MockDeepgramWebSocket | undefined
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      webSocketFactory: () => {
+        socket = new MockDeepgramWebSocket()
+        setTimeout(() => socket?.emit('open'), 0)
+        return socket
+      }
+    })
+
+    await session.open()
+    const finishPromise = session.finish()
+    socket?.close(1000)
+
+    await expect(finishPromise).rejects.toMatchObject({
       code: EARS_ERROR_CODES.asrHttpFailed
     })
   })

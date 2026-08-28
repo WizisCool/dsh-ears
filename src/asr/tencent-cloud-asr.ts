@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomInt } from 'node:crypto'
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { readBoundedText } from './transport.js'
 
 export const TENCENT_API_HOST = 'asr.tencentcloudapi.com'
 export const TENCENT_API_VERSION = '2019-06-14'
@@ -190,6 +191,7 @@ export async function transcribeTencentCloudRecording(options: TencentRecordingA
       now,
       timeoutMs: Math.max(1, deadline - now())
     })
+    options.signal.throwIfAborted()
     const data = response.Response?.Data
     const status = numericValue(data?.Status)
     if (status === 2) return extractTencentRecordingTranscript(data)
@@ -221,6 +223,7 @@ export class TencentRealtimeAsrSession {
 
   async open(): Promise<void> {
     if (this.socket !== undefined) throw new Error('Tencent realtime session is already open')
+    this.options.signal?.throwIfAborted()
     const factory = this.options.webSocketFactory ?? defaultWebSocketFactory
     const voiceId = randomTencentVoiceId()
     const url = tencentRealtimeUrl({
@@ -272,6 +275,7 @@ export class TencentRealtimeAsrSession {
         socket.send(JSON.stringify({ type: 'end' }))
       }
       await this.waitFor(() => this.final || this.lastError !== undefined || this.closed, REALTIME_FINISH_TIMEOUT_MS, signal)
+      signal.throwIfAborted()
       if (this.lastError !== undefined) throw this.lastError
       if (!this.final) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Tencent Cloud realtime recognition did not finish')
       return this.transcript.trim()
@@ -285,7 +289,7 @@ export class TencentRealtimeAsrSession {
   }
 
   close(): void {
-    if (this.closed) return
+    const wasClosed = this.closed
     this.closed = true
     const socket = this.socket
     if (socket !== undefined) {
@@ -293,16 +297,19 @@ export class TencentRealtimeAsrSession {
       socket.removeEventListener('message', this.onMessage)
       socket.removeEventListener('error', this.onError)
       socket.removeEventListener('close', this.onClose)
-      try {
-        socket.close(1000, 'client closed')
-      } catch {
-        // The transport is already closing; local state is sufficient.
+      if (!wasClosed) {
+        try {
+          socket.close(1000, 'client closed')
+        } catch {
+          // The transport is already closing; local state is sufficient.
+        }
       }
     }
-    this.notifyWaiters()
+    if (!wasClosed) this.notifyWaiters()
   }
 
   private readonly onOpen = (): void => {
+    this.opened = true
     this.notifyWaiters()
   }
 
@@ -368,6 +375,7 @@ export class TencentRealtimeAsrSession {
   private readonly onClose = (): void => {
     this.closed = true
     if (!this.final && this.lastError === undefined) this.lastError = new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Tencent Cloud realtime recognition connection closed')
+    this.close()
     this.notifyWaiters()
   }
 
@@ -439,6 +447,7 @@ async function tencentApiRequest(options: {
   now: () => number
   timeoutMs: number
 }): Promise<TencentApiResponse> {
+  options.signal.throwIfAborted()
   const body = JSON.stringify(options.body)
   const timestamp = Math.floor(options.now() / 1000)
   const timeout = new AbortController()
@@ -457,9 +466,10 @@ async function tencentApiRequest(options: {
         Authorization: tencentApi3Signature({ action: options.action, body, secretId: options.secretId.trim(), secretKey: options.secretKey, timestamp })
       },
       body,
+      redirect: 'manual',
       signal: timeout.signal
     })
-    const text = await readBoundedText(response, timeout.signal)
+    const text = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal, 'Tencent Cloud response is too large')
     let parsed: unknown
     try {
       parsed = JSON.parse(text)
@@ -508,48 +518,6 @@ function extractTencentRecordingTranscript(data: Record<string, unknown> | undef
     .trim()
   if (result !== '') return result
   throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Tencent Cloud returned no transcript')
-}
-
-async function readBoundedText(response: Response, signal: AbortSignal): Promise<string> {
-  const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-    try {
-      await response.body?.cancel()
-    } catch {
-      // The size limit remains the primary failure even if transport cleanup fails.
-    }
-    throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-  }
-  if (response.body === null) {
-    const text = await response.text()
-    if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-    return text
-  }
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  try {
-    while (true) {
-      signal.throwIfAborted()
-      const next = await reader.read()
-      if (next.done) break
-      total += next.value.byteLength
-      if (total > MAX_RESPONSE_BYTES) {
-        await reader.cancel()
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Tencent Cloud response is too large')
-      }
-      chunks.push(next.value)
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder().decode(bytes)
 }
 
 function encodeRfc3986(value: string): string {

@@ -17,13 +17,13 @@ export const EarsSettingsSchema = s.object({
     soundsEnabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.soundsEnabled).description('Play a synthesized click for voice input')
   }).description('General dsh-ears presentation and input settings').collapse(),
   recognition: s.object({
-    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend: web-speech, local-whisper, or cloud-openai'),
+    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend; Web Speech is the default: web-speech, local-whisper, or cloud-openai'),
     webSpeech: s.object({
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.webSpeech.language).description('Web Speech recognition language; leave empty to follow the dsh interface locale')
     }).description('Web Speech live recognition').collapse(),
     localWhisper: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id'),
-      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; available variants depend on the Host platform'),
+      acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; default selects an available variant automatically'),
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection')
     }).description('Local Whisper model and native acceleration').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description(`Active cloud ASR provider: ${CLOUD_ASR_PROVIDER_IDS.join(', ')}`),
@@ -69,10 +69,10 @@ export const EarsSettingsSchema = s.object({
     }).description('Xiaomi MiMo cloud ASR').collapse()
   }).description('Cloud ASR provider credentials and models').collapse(),
   polishing: s.object({
-    enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing'),
-    provider: s.string().default(DEFAULT_POLISHING_SETTINGS.provider).description('dsh polish provider id'),
-    model: s.string().default(DEFAULT_POLISHING_SETTINGS.model).description('dsh polish model id'),
-    reasoningEffort: s.string().default(DEFAULT_POLISHING_SETTINGS.reasoningEffort).description('Polish reasoning effort, empty for default'),
+    enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing by default'),
+    provider: s.string().default(DEFAULT_POLISHING_SETTINGS.provider).description('dsh polish provider id; leave empty to use the dsh Agent default'),
+    model: s.string().default(DEFAULT_POLISHING_SETTINGS.model).description('dsh polish model id; leave empty to use the dsh Agent default'),
+    reasoningEffort: s.string().default(DEFAULT_POLISHING_SETTINGS.reasoningEffort).description('Polish reasoning effort; empty uses the selected route default'),
     prompt: s.string().default(DEFAULT_POLISHING_SETTINGS.prompt).description('Custom polish system prompt, empty for built-in')
   }).description('LLM polishing route and prompt').collapse()
 })

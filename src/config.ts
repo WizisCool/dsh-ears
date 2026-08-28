@@ -2,6 +2,7 @@ import { isValidStoredShortcut } from './shortcut.js'
 import {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
+  DEFAULT_RECOGNITION_SETTINGS,
   CLOUD_ASR_PROVIDER_IDS,
   DEEPGRAM_ASR_DEFAULT_SERVICE,
   DEEPGRAM_ASR_SERVICE_IDS,
@@ -20,8 +21,9 @@ import {
   WHISPER_MODEL_IDS
 } from './settings/recognition.js'
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
-import { MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
+import { DEFAULT_POLISHING_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
 import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrFieldDefinition, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
 import type {
   AsrBackendId,
   CloudAsrProviderId,
@@ -118,12 +120,12 @@ export interface EarsSettings {
 }
 
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
-  asrBackend: 'web-speech',
-  webSpeechLanguage: '',
-  localWhisperModel: 'tiny',
-  localWhisperAcceleration: 'default',
-  localWhisperLanguage: '',
-  cloudAsrProvider: 'groq',
+  asrBackend: DEFAULT_RECOGNITION_SETTINGS.backend,
+  webSpeechLanguage: DEFAULT_RECOGNITION_SETTINGS.webSpeech.language,
+  localWhisperModel: DEFAULT_RECOGNITION_SETTINGS.localWhisper.model,
+  localWhisperAcceleration: DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration,
+  localWhisperLanguage: DEFAULT_RECOGNITION_SETTINGS.localWhisper.language,
+  cloudAsrProvider: DEFAULT_RECOGNITION_SETTINGS.cloudProvider,
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
   cloudAsrGroqLanguage: '',
@@ -149,16 +151,16 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrMimoCluster: MIMO_ASR_DEFAULT_CLUSTER,
   cloudAsrMimoModel: MIMO_DEFAULT_MODEL,
   cloudAsrMimoLanguage: '',
-  maxRecordingSeconds: 120,
+  maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
   voiceSoundsEnabled: true,
   settingsDisplayName: 'dsh-ears',
-  polishingEnabled: false,
-  polishProvider: '',
-  polishModel: '',
-  polishReasoningEffort: '',
-  polishPrompt: ''
+  polishingEnabled: DEFAULT_POLISHING_SETTINGS.enabled,
+  polishProvider: DEFAULT_POLISHING_SETTINGS.provider,
+  polishModel: DEFAULT_POLISHING_SETTINGS.model,
+  polishReasoningEffort: DEFAULT_POLISHING_SETTINGS.reasoningEffort,
+  polishPrompt: DEFAULT_POLISHING_SETTINGS.prompt
 })
 
 export interface PolishRoute {
@@ -192,20 +194,54 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
-  if (settings.cloudAsrGroqApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Groq ASR API key is too long')
-  if (settings.cloudAsrDeepgramApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Deepgram ASR API key is too long')
-  if (settings.cloudAsrCustomApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears custom OpenAI-compatible ASR API key is too long')
-  if (settings.cloudAsrBailianApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Bailian ASR API key is too long')
-  if (settings.cloudAsrTencentSecretKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears Tencent Cloud SecretKey is too long')
-  if (settings.cloudAsrMimoApiKey.length > MAX_CLOUD_API_KEY_LENGTH) throw new Error('dsh-ears MiMo ASR API key is too long')
-  if (!(TENCENT_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrTencentService)) throw new Error('Unknown dsh-ears Tencent Cloud ASR service')
-  if (!(DEEPGRAM_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrDeepgramService)) throw new Error('Unknown dsh-ears Deepgram ASR service')
-  if (!(MIMO_ASR_SERVICE_IDS as readonly string[]).includes(settings.cloudAsrMimoService)) throw new Error('Unknown dsh-ears MiMo ASR service')
-  if (!(MIMO_ASR_CLUSTERS as readonly string[]).includes(settings.cloudAsrMimoCluster)) throw new Error('Unknown dsh-ears MiMo cluster')
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    for (const definition of provider.fields) {
+      const value = cloudAsrFieldValue(settings, definition.field)
+      if ((definition.kind === 'endpoint' || definition.kind === 'host') && value.trim() === '') continue
+      if (!validateCloudAsrFieldValue(definition, value)) throw new Error(cloudAsrFieldValidationMessage(definition.field))
+    }
+  }
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
-  if (settings.cloudAsrCustomEndpoint.trim() !== '' && !isHttpEndpoint(settings.cloudAsrCustomEndpoint)) throw new Error('Custom OpenAI-compatible ASR endpoint must use HTTP or HTTPS without credentials')
-  if (settings.cloudAsrBailianHost.trim() !== '' && !isBailianAsrHost(settings.cloudAsrBailianHost)) throw new Error('Bailian ASR host must use HTTPS without credentials')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
+}
+
+export interface EarsSettingsRepairResult {
+  readonly settings: EarsSettings
+  readonly repairedFields: readonly string[]
+}
+
+/** Replace invalid persisted values with safe defaults without exposing their contents. */
+export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsRepairResult {
+  const repaired = { ...settings }
+  const repairedFields: string[] = []
+  const replaceWithDefault = (field: keyof EarsSettings): void => {
+    ;(repaired as unknown as Record<string, unknown>)[field] = DEFAULT_EARS_SETTINGS[field]
+    repairedFields.push(field)
+  }
+
+  if (!(ASR_BACKEND_IDS as readonly string[]).includes(repaired.asrBackend)) replaceWithDefault('asrBackend')
+  if (!(WHISPER_MODEL_IDS as readonly string[]).includes(repaired.localWhisperModel)) replaceWithDefault('localWhisperModel')
+  if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(repaired.localWhisperAcceleration)) replaceWithDefault('localWhisperAcceleration')
+  if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(repaired.cloudAsrProvider)) replaceWithDefault('cloudAsrProvider')
+
+  for (const provider of CLOUD_ASR_PROVIDERS) {
+    for (const definition of provider.fields) {
+      const value = cloudAsrFieldValue(repaired, definition.field)
+      if (!validateCloudAsrFieldValue(definition, value)) replaceWithDefault(definition.field)
+    }
+  }
+
+  if (!isValidRecordingLimit(repaired.maxRecordingSeconds)) replaceWithDefault('maxRecordingSeconds')
+  if (typeof repaired.voiceShortcut !== 'string' || !isValidStoredShortcut(repaired.voiceShortcut)) replaceWithDefault('voiceShortcut')
+  if (typeof repaired.polishPrompt !== 'string' || repaired.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) replaceWithDefault('polishPrompt')
+  if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(repaired.settingsDisplayName)) replaceWithDefault('settingsDisplayName')
+
+  validateEarsSettings(repaired)
+  return { settings: repaired, repairedFields }
+}
+
+function cloudAsrFieldValidationMessage(field: string): string {
+  return cloudAsrFieldDefinition(field)?.invalidMessage ?? `Invalid dsh-ears cloud ASR setting: ${field}`
 }

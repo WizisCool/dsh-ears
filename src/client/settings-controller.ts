@@ -1,13 +1,16 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import type { EarsSettings, PolishRoute, ReasoningEffortInfo, WhisperAccelerationId } from '../config.js'
-import { cloudAsrModelField, isSettingsFieldInvalid, parseSettingsField, type FieldName } from './settings-fields.js'
+import type { EarsSettings, WhisperAccelerationId } from '../config.js'
+import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
-import { cloudAsrModelFor, supportsModelListing } from '../asr/providers.js'
-import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialField, cloudAsrFieldFor, type CloudAsrCredentialField } from '../asr/providers.js'
+import type { AboutInfo, AsrBackendInfo, EarsSettingsView, UpdateCheckResult } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
-import { EARS_ERROR_CODES, type EarsErrorCode } from '../errors.js'
+import { CloudProviderController, type CloudModelsView } from './cloud-provider-controller.js'
+import { PolishStateController, type ReasoningEffortsState, type RouteState } from './polish-state-controller.js'
+import { SettingsDraftController } from './settings-draft-controller.js'
+import { WhisperModelController, type WhisperModelView } from './whisper-model-controller.js'
 
 export type { FieldName } from './settings-fields.js'
 
@@ -21,6 +24,7 @@ export interface EarsCardState {
   writable: boolean
   loaded: boolean
   loadFailed: boolean
+  recoveredSettingsFields: readonly string[]
   saving: boolean
   failed: boolean
   dirty: boolean
@@ -80,11 +84,10 @@ export interface EarsCardState {
   polishReasoningEffort: FieldState
   polishPrompt: FieldState
 }
-export interface RouteState { status: 'loading' | 'ready'; routes: readonly PolishRoute[] }
 export interface BackendState { status: 'loading' | 'ready'; backends: readonly AsrBackendInfo[] }
-export interface ReasoningEffortsState { status: 'loading' | 'ready'; efforts: readonly ReasoningEffortInfo[]; defaultEffort?: string }
-export interface WhisperModelView { status: 'loading' | 'ready'; state: WhisperModelState }
-export interface CloudModelsView { status: 'loading' | 'ready'; view: CloudProviderModelsView }
+export type { ReasoningEffortsState, RouteState } from './polish-state-controller.js'
+export type { CloudModelsView } from './cloud-provider-controller.js'
+export type { WhisperModelView } from './whisper-model-controller.js'
 export type EarsSettingsHook = SnapshotSelectorHook<EarsSettings>
 export type EarsCardHook = SnapshotSelectorHook<EarsCardState>
 export type RouteHook = SnapshotSelectorHook<RouteState>
@@ -93,108 +96,63 @@ export type ReasoningEffortsHook = SnapshotSelectorHook<ReasoningEffortsState>
 export type WhisperModelHook = SnapshotSelectorHook<WhisperModelView>
 export type CloudModelsHook = SnapshotSelectorHook<CloudModelsView>
 
-export const EMPTY_CLOUD_MODELS_VIEW: CloudModelsView = Object.freeze({
-  status: 'ready',
-  view: Object.freeze({ status: 'unsupported' })
-})
-
-export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
-  runtimeAvailable: false,
-  downloaded: false,
-  downloading: false,
-  progress: null,
-  bytes: null,
-  totalBytes: null,
-  error: null
-})
-
-function whisperFailureMessage(message: string, fallback: string): string {
-  const text = message.trim()
-  return text === '' ? fallback : text
-}
-
-function whisperErrorView(view: WhisperModelView, message: string, fallback: string, errorCode: EarsErrorCode, errorParams?: Readonly<Record<string, string | number>>): WhisperModelView {
-  return {
-    status: 'ready',
-    state: {
-      ...view.state,
-      error: whisperFailureMessage(message, fallback),
-      errorCode,
-      ...(errorParams === undefined ? {} : { errorParams })
-    }
-  }
-}
+export { EMPTY_CLOUD_MODELS_VIEW } from './cloud-provider-controller.js'
+export { EMPTY_WHISPER_STATE } from './whisper-model-controller.js'
 
 export class EarsSettingsController {
   private readonly remote: EarsRemote
   private readonly settingsStore: SnapshotStore<EarsSettings>
   private readonly cardStore: SnapshotStore<EarsCardState>
-  private readonly routeStore: SnapshotStore<RouteState>
   private readonly backendStore: SnapshotStore<BackendState>
-  private readonly reasoningStore: SnapshotStore<ReasoningEffortsState>
-  private readonly whisperStore: SnapshotStore<WhisperModelView>
-  private readonly cloudModelsStore: SnapshotStore<CloudModelsView>
-  private readonly drafts = new Map<FieldName, string>()
-  // The wire stores one active model; these session caches keep provider switches reversible in the editor.
-  private readonly cloudAsrModels = new Map<string, string>()
-  private readonly polishModels = new Map<string, string>()
-  private readonly polishReasoningEfforts = new Map<string, string>()
+  private readonly draftsController = new SettingsDraftController()
+  private readonly cloudProviderController: CloudProviderController
+  private readonly polishStateController: PolishStateController
+  private readonly whisperModelController: WhisperModelController
+  private readonly drafts = this.draftsController
   private settingsView: EarsSettingsView = { available: true, writable: false, settings: DEFAULT_EARS_SETTINGS, cloudAsrGroqApiKeyConfigured: false, cloudAsrDeepgramApiKeyConfigured: false, cloudAsrCustomApiKeyConfigured: false, cloudAsrBailianApiKeyConfigured: false, cloudAsrTencentSecretKeyConfigured: false, cloudAsrMimoApiKeyConfigured: false, overridden: [] }
-  private routeState: RouteState = { status: 'loading', routes: [] }
   private backendState: BackendState = { status: 'loading', backends: [] }
-  private reasoningState: ReasoningEffortsState = { status: 'loading', efforts: [] }
-  private whisperView: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE }
-  private cloudModelsView: CloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
   private saving = false
   private saveQueued = false
+  private readonly inFlightCredentialClears = new Set<CloudAsrCredentialField>()
   private loaded = false
   private loadFailed = false
   private failed = false
-  private clearKeyPending = false
-  private clearDeepgramKeyPending = false
-  private clearCustomKeyPending = false
-  private clearBailianKeyPending = false
-  private clearTencentKeyPending = false
-  private clearMimoKeyPending = false
   private saveTimer: ReturnType<typeof setTimeout> | undefined
   private retryAttempted = false
   private retryTimer: ReturnType<typeof setTimeout> | undefined
-  private whisperPollTimer: ReturnType<typeof setInterval> | undefined
   private disposed = false
+  private draftRevision = 0
   private settingsRequest = 0
-  private routeRequest = 0
   private backendRequest = 0
-  private reasoningRequest = 0
-  private whisperRequest = 0
-  private cloudModelsRequest = 0
-  private whisperRefreshInFlight = false
-  private whisperRefreshQueued = false
-  private whisperMutationInFlight = false
-  private whisperAccelerationRevision = 0
 
   constructor(remote: EarsRemote) {
     this.remote = remote
+    this.cloudProviderController = new CloudProviderController()
+    this.polishStateController = new PolishStateController()
+    this.whisperModelController = new WhisperModelController(remote, {
+      currentModel: () => this.currentWhisperModel(),
+      hasPendingAcceleration: () => this.hasPendingWhisperAcceleration()
+    })
     this.settingsStore = createSnapshotStore(DEFAULT_EARS_SETTINGS)
     this.cardStore = createSnapshotStore(this.snapshot())
-    this.routeStore = createSnapshotStore(this.routeState)
     this.backendStore = createSnapshotStore(this.backendState)
-    this.reasoningStore = createSnapshotStore(this.reasoningState)
-    this.whisperStore = createSnapshotStore(this.whisperView)
-    this.cloudModelsStore = createSnapshotStore(this.cloudModelsView)
-    this.rememberCloudAsrModel(DEFAULT_EARS_SETTINGS.cloudAsrProvider, DEFAULT_EARS_SETTINGS.cloudAsrGroqModel)
+    this.cloudProviderController.rememberSettings(DEFAULT_EARS_SETTINGS)
   }
 
   getSettingsStore(): SnapshotStore<EarsSettings> { return this.settingsStore }
   getCardStore(): SnapshotStore<EarsCardState> { return this.cardStore }
-  getRouteStore(): SnapshotStore<RouteState> { return this.routeStore }
+  getRouteStore(): SnapshotStore<RouteState> { return this.polishStateController.getRouteStore() }
   getBackendStore(): SnapshotStore<BackendState> { return this.backendStore }
-  getReasoningStore(): SnapshotStore<ReasoningEffortsState> { return this.reasoningStore }
-  getWhisperStore(): SnapshotStore<WhisperModelView> { return this.whisperStore }
-  getCloudModelsStore(): SnapshotStore<CloudModelsView> { return this.cloudModelsStore }
+  getReasoningStore(): SnapshotStore<ReasoningEffortsState> { return this.polishStateController.getReasoningStore() }
+  getWhisperStore(): SnapshotStore<WhisperModelView> { return this.whisperModelController.getStore() }
+  getCloudModelsStore(): SnapshotStore<CloudModelsView> { return this.cloudProviderController.getStore() }
 
   actions() {
     return {
       edit: (field: FieldName, text: string) => this.edit(field, text),
+      setCredential: (field: CloudAsrCredentialField, text: string) => this.edit(field, text),
+      clearCredential: (field: CloudAsrCredentialField) => this.clearCredential(field),
+      undoCredentialClear: (field: CloudAsrCredentialField) => this.undoCredentialClear(field),
       setApiKey: (text: string) => this.edit('cloudAsrGroqApiKey', text),
       clearApiKey: () => this.clearApiKey(),
       undoClearApiKey: () => this.undoClearApiKey(),
@@ -228,19 +186,17 @@ export class EarsSettingsController {
 
   dispose(): void {
     this.disposed = true
+    this.cloudProviderController.dispose()
+    this.polishStateController.dispose()
+    this.whisperModelController.dispose()
     this.settingsRequest += 1
-    this.routeRequest += 1
     this.backendRequest += 1
-    this.reasoningRequest += 1
-    this.whisperRequest += 1
-    this.cloudModelsRequest += 1
-    this.whisperRefreshQueued = false
     if (this.retryTimer !== undefined) clearTimeout(this.retryTimer)
     this.retryTimer = undefined
     if (this.saveTimer !== undefined) clearTimeout(this.saveTimer)
     this.saveTimer = undefined
     this.saveQueued = false
-    this.stopWhisperPolling()
+    this.inFlightCredentialClears.clear()
   }
 
   async refreshSettings(): Promise<void> {
@@ -251,8 +207,9 @@ export class EarsSettingsController {
       if (this.disposed || request !== this.settingsRequest) return
       if (result.ok) {
         this.settingsView = result.value
-        this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, cloudAsrModelFor(result.value.settings))
-        this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
+        this.cloudProviderController.rememberSettings(result.value.settings)
+        const polishSelection = this.polishSelectionForMemory()
+        this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
         this.settingsStore.set(result.value.settings)
         this.loaded = true
         this.loadFailed = false
@@ -282,24 +239,8 @@ export class EarsSettingsController {
     }
   }
 
-  async refreshRoutes(silent = this.routeState.routes.length > 0): Promise<void> {
-    if (this.disposed) return
-    const request = ++this.routeRequest
-    if (!silent) {
-      this.routeState = { status: 'loading', routes: this.routeState.routes }
-      this.routeStore.set(this.routeState)
-    }
-    let nextState: RouteState
-    try {
-      const result = await this.remote.listRoutes()
-      const routes = result.ok ? result.value : this.routeState.routes
-      nextState = { status: 'ready', routes }
-    } catch {
-      nextState = { status: 'ready', routes: this.routeState.routes }
-    }
-    if (this.disposed || request !== this.routeRequest) return
-    this.routeState = nextState
-    this.routeStore.set(this.routeState)
+  async refreshRoutes(silent?: boolean): Promise<void> {
+    await this.polishStateController.refreshRoutes(this.remote, silent)
   }
 
   async refreshBackends(): Promise<void> {
@@ -307,156 +248,40 @@ export class EarsSettingsController {
     const request = ++this.backendRequest
     this.backendState = { status: 'loading', backends: [] }
     this.backendStore.set(this.backendState)
+    let nextState: BackendState
     try {
       const result = await this.remote.listAsrBackends()
-      this.backendState = result.ok ? { status: 'ready', backends: result.value } : { status: 'ready', backends: [] }
+      nextState = result.ok ? { status: 'ready', backends: result.value } : { status: 'ready', backends: [] }
     } catch {
-      this.backendState = { status: 'ready', backends: [] }
+      nextState = { status: 'ready', backends: [] }
     }
+    // The latest-intent invariant: only a request that is still current may
+    // publish. A stale response must neither assign internal state nor touch
+    // the store.
     if (this.disposed || request !== this.backendRequest) return
+    this.backendState = nextState
     this.backendStore.set(this.backendState)
   }
 
   async refreshCloudModels(): Promise<void> {
-    if (this.disposed) return
-    const request = ++this.cloudModelsRequest
-    const provider = this.currentCloudAsrProvider()
-    if (!supportsModelListing(provider)) {
-      this.cloudModelsView = { status: 'ready', view: { status: 'unsupported' } }
-      this.cloudModelsStore.set(this.cloudModelsView)
-      return
-    }
-    this.cloudModelsView = { status: 'loading', view: { status: 'unsupported' } }
-    this.cloudModelsStore.set(this.cloudModelsView)
-    try {
-      // The explicit provider argument keeps a staged provider switch from
-      // racing the save: the Host resolves credentials for this exact id,
-      // never for whatever snapshot is current when the RPC lands.
-      const result = await this.remote.listCloudProviderModels(provider)
-      if (this.disposed || request !== this.cloudModelsRequest) return
-      const view: CloudProviderModelsView = result.ok
-        ? result.value
-        : { status: 'error', models: [], error: result.error.message, errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: result.error.message } }
-      this.cloudModelsView = { status: 'ready', view }
-    } catch {
-      if (this.disposed || request !== this.cloudModelsRequest) return
-      this.cloudModelsView = { status: 'ready', view: { status: 'error', models: [], error: 'Could not fetch the model list', errorCode: EARS_ERROR_CODES.cloudModelsListFailed, errorParams: { detail: 'Could not fetch the model list' } } }
-    }
-    this.cloudModelsStore.set(this.cloudModelsView)
+    await this.cloudProviderController.refresh(this.remote, this.currentCloudAsrProvider(), this.currentCloudAsrService())
   }
 
   async refreshReasoningEfforts(): Promise<void> {
-    if (this.disposed) return
-    const request = ++this.reasoningRequest
-    this.reasoningState = { status: 'loading', efforts: [] }
-    this.reasoningStore.set(this.reasoningState)
-    const provider = (this.drafts.get('polishProvider') ?? this.settingsView.settings.polishProvider).trim()
-    const model = (this.drafts.get('polishModel') ?? this.settingsView.settings.polishModel).trim()
-    if (provider === '' || model === '') {
-      if (this.disposed || request !== this.reasoningRequest) return
-      this.reasoningState = { status: 'ready', efforts: [] }
-      this.reasoningStore.set(this.reasoningState)
-      return
-    }
-    try {
-      const result = await this.remote.listReasoningEfforts(provider, model)
-      this.reasoningState = result.ok ? { status: 'ready', efforts: result.value.efforts, ...(result.value.defaultEffort === undefined ? {} : { defaultEffort: result.value.defaultEffort }) } : { status: 'ready', efforts: [] }
-    } catch {
-      this.reasoningState = { status: 'ready', efforts: [] }
-    }
-    if (this.disposed || request !== this.reasoningRequest) return
-    this.reasoningStore.set(this.reasoningState)
+    const route = this.currentPolishLookupRoute()
+    await this.polishStateController.refreshReasoningEfforts(this.remote, route.provider, route.model)
   }
 
   async refreshWhisperState(): Promise<void> {
-    if (this.disposed) return
-    if (this.whisperMutationInFlight) {
-      this.whisperRefreshQueued = true
-      if (this.hasPendingWhisperAcceleration()) this.showPendingWhisperAcceleration()
-      return
-    }
-    this.whisperRequest += 1
-    if (this.hasPendingWhisperAcceleration()) {
-      this.whisperRefreshQueued = false
-      this.showPendingWhisperAcceleration()
-      return
-    }
-    if (this.whisperRefreshInFlight) {
-      this.whisperRefreshQueued = true
-      return
-    }
-
-    this.whisperRefreshInFlight = true
-    try {
-      while (!this.disposed) {
-        this.whisperRefreshQueued = false
-        const request = this.whisperRequest
-        const model = (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
-        let nextView: WhisperModelView
-        try {
-          const result = await this.remote.getWhisperModelState(model)
-          nextView = result.ok
-            ? { status: 'ready', state: result.value }
-            : whisperErrorView(this.whisperView, result.error.message, 'Could not read the Whisper model state', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: result.error.message })
-        } catch {
-          nextView = whisperErrorView(this.whisperView, '', 'Whisper model state query failed', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: 'Whisper model state query failed' })
-        }
-        if (!this.disposed && request === this.whisperRequest) {
-          this.whisperView = nextView
-          this.whisperStore.set(this.whisperView)
-          if (this.whisperView.state.downloading) {
-            this.startWhisperPolling()
-          } else {
-            this.stopWhisperPolling()
-          }
-        }
-        if (!this.whisperRefreshQueued) break
-      }
-    } finally {
-      this.whisperRefreshInFlight = false
-    }
+    await this.whisperModelController.refresh()
   }
 
   private async downloadModel(): Promise<void> {
-    if (this.disposed) return
-    const model = this.currentWhisperModel()
-    const accelerationRevision = this.whisperAccelerationRevision
-    const request = this.beginWhisperMutation()
-    try {
-      const result = await this.remote.downloadWhisperModel(model)
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = result.ok
-        ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not start the model download', EARS_ERROR_CODES.whisperDownloadFailed, { detail: result.error.message })
-      this.whisperStore.set(this.whisperView)
-    } catch {
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model download failed', EARS_ERROR_CODES.whisperDownloadFailed, { detail: 'Whisper model download failed' })
-      this.whisperStore.set(this.whisperView)
-    } finally {
-      this.finishWhisperMutation(request)
-    }
+    await this.whisperModelController.download()
   }
 
   private async cancelModel(): Promise<void> {
-    if (this.disposed) return
-    const model = this.currentWhisperModel()
-    const accelerationRevision = this.whisperAccelerationRevision
-    const request = this.beginWhisperMutation()
-    try {
-      const result = await this.remote.cancelWhisperModelDownload(model)
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = result.ok
-        ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not cancel the download', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: result.error.message })
-      this.whisperStore.set(this.whisperView)
-    } catch {
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model cancellation failed', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: 'Whisper model cancellation failed' })
-      this.whisperStore.set(this.whisperView)
-    } finally {
-      this.finishWhisperMutation(request)
-    }
+    await this.whisperModelController.cancel()
   }
 
   async loadAbout(): Promise<AboutInfo | null> {
@@ -478,49 +303,25 @@ export class EarsSettingsController {
   }
 
   private async deleteModel(): Promise<void> {
-    if (this.disposed) return
-    const model = this.currentWhisperModel()
-    const accelerationRevision = this.whisperAccelerationRevision
-    const request = this.beginWhisperMutation()
-    try {
-      const result = await this.remote.deleteWhisperModel(model)
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = result.ok
-        ? { status: 'ready', state: result.value }
-        : whisperErrorView(this.whisperView, result.error.message, 'Could not delete the model', EARS_ERROR_CODES.whisperDeleteFailed, { detail: result.error.message })
-      this.whisperStore.set(this.whisperView)
-    } catch {
-      if (!this.isCurrentWhisperMutation(request, model, accelerationRevision)) return
-      this.whisperView = whisperErrorView(this.whisperView, '', 'Whisper model deletion failed', EARS_ERROR_CODES.whisperDeleteFailed, { detail: 'Whisper model deletion failed' })
-      this.whisperStore.set(this.whisperView)
-    } finally {
-      this.finishWhisperMutation(request)
-    }
+    await this.whisperModelController.delete()
   }
 
   private currentCloudAsrProvider(): string {
     return (this.drafts.get('cloudAsrProvider') ?? this.settingsView.settings.cloudAsrProvider).trim()
   }
 
-  private currentCloudAsrModel(): string {
-    const field = cloudAsrModelField(this.currentCloudAsrProvider())
-    return (this.drafts.get(field) ?? this.settingsView.settings[field]).trim()
+  private currentCloudAsrService(): string {
+    const definition = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')
+    return definition === undefined ? '' : (this.drafts.get(definition.field) ?? this.settingsView.settings[definition.field]).trim()
   }
 
-  private rememberCloudAsrModel(provider: string, model: string): void {
-    const normalizedProvider = provider.trim()
-    if (normalizedProvider === '') return
-    this.cloudAsrModels.set(normalizedProvider, model.trim())
+  private currentCloudAsrModel(): string {
+    return this.cloudProviderController.modelFor(this.currentCloudAsrProvider(), this.settingsView.settings, this.drafts.entries())
   }
 
   private resetCloudAsrModels(): void {
-    this.cloudAsrModels.clear()
-    const settings = this.settingsView.settings
-    this.rememberCloudAsrModel('groq', settings.cloudAsrGroqModel)
-    this.rememberCloudAsrModel('deepgram', settings.cloudAsrDeepgramModel)
-    this.rememberCloudAsrModel('custom', settings.cloudAsrCustomModel)
-    this.rememberCloudAsrModel('bailian', settings.cloudAsrBailianModel)
-    this.rememberCloudAsrModel('tencent', settings.cloudAsrTencentEngineType)
+    this.cloudProviderController.reset(this.settingsView.settings)
+    void this.refreshCloudModels()
   }
 
   private currentPolishProvider(): string {
@@ -535,30 +336,72 @@ export class EarsSettingsController {
     return (this.drafts.get('polishReasoningEffort') ?? this.settingsView.settings.polishReasoningEffort).trim()
   }
 
-  private polishReasoningKey(provider: string, model: string): string {
-    return `${provider}\u0000${model}`
+  private currentPolishLookupRoute(): { provider: string; model: string } {
+    const provider = this.currentPolishProvider()
+    const model = this.currentPolishModel()
+    const hasRouteDraft = this.drafts.has('polishProvider') || this.drafts.has('polishModel') || this.drafts.has('polishReasoningEffort')
+    if (provider !== '' || model !== '' || hasRouteDraft) return { provider, model }
+    const defaultRoute = this.settingsView.defaultPolishRoute
+    if (this.polishingEnabledForCard() && defaultRoute !== undefined) {
+      return { provider: defaultRoute.provider, model: defaultRoute.model }
+    }
+    return { provider: '', model: '' }
+  }
+
+  private polishingEnabledForCard(): boolean {
+    const draft = this.drafts.get('polishingEnabled')
+    return draft === undefined ? this.settingsView.settings.polishingEnabled : draft === 'on'
+  }
+
+  private shouldProjectAgentDefault(): boolean {
+    const settings = this.settingsView.settings
+    return this.polishingEnabledForCard()
+      && settings.polishProvider.trim() === ''
+      && settings.polishModel.trim() === ''
+      && !this.drafts.has('polishProvider')
+      && !this.drafts.has('polishModel')
+      && !this.drafts.has('polishReasoningEffort')
+      && this.settingsView.defaultPolishRoute !== undefined
+  }
+
+  private materializeProjectedPolishRoute(): void {
+    if (!this.shouldProjectAgentDefault()) return
+    const defaultRoute = this.settingsView.defaultPolishRoute
+    if (defaultRoute === undefined) return
+    this.drafts.set('polishProvider', defaultRoute.provider)
+    this.drafts.set('polishModel', defaultRoute.model)
+    if (defaultRoute.reasoningEffort !== undefined) this.drafts.set('polishReasoningEffort', defaultRoute.reasoningEffort)
   }
 
   private rememberPolishSelection(provider: string, model: string, reasoningEffort: string): void {
-    const normalizedProvider = provider.trim()
-    const normalizedModel = model.trim()
-    if (normalizedProvider === '') return
-    this.polishModels.set(normalizedProvider, normalizedModel)
-    this.polishReasoningEfforts.set(this.polishReasoningKey(normalizedProvider, normalizedModel), reasoningEffort.trim())
+    this.polishStateController.rememberSelection(provider, model, reasoningEffort)
   }
 
   private polishModelForProvider(provider: string): string {
-    return this.polishModels.get(provider) ?? ''
+    return this.polishStateController.modelFor(provider)
   }
 
   private polishReasoningEffortFor(provider: string, model: string): string {
-    return this.polishReasoningEfforts.get(this.polishReasoningKey(provider, model)) ?? ''
+    return this.polishStateController.reasoningEffortFor(provider, model)
   }
 
   private resetPolishSelections(): void {
-    this.polishModels.clear()
-    this.polishReasoningEfforts.clear()
-    this.rememberPolishSelection(this.settingsView.settings.polishProvider, this.settingsView.settings.polishModel, this.settingsView.settings.polishReasoningEffort)
+    const selection = this.polishSelectionForMemory()
+    this.polishStateController.resetSelections(selection.provider, selection.model, selection.reasoningEffort)
+  }
+
+  private polishSelectionForMemory(): { provider: string; model: string; reasoningEffort: string } {
+    const settings = this.settingsView.settings
+    const provider = settings.polishProvider.trim()
+    const model = settings.polishModel.trim()
+    const defaultRoute = provider === '' && model === '' && settings.polishingEnabled
+      ? this.settingsView.defaultPolishRoute
+      : undefined
+    return {
+      provider: provider || defaultRoute?.provider || '',
+      model: model || defaultRoute?.model || '',
+      reasoningEffort: settings.polishReasoningEffort.trim() || defaultRoute?.reasoningEffort || ''
+    }
   }
 
   private currentWhisperModel(): string {
@@ -569,55 +412,10 @@ export class EarsSettingsController {
     return this.drafts.has('localWhisperAcceleration')
   }
 
-  private showPendingWhisperAcceleration(): void {
-    this.whisperView = { status: 'loading', state: this.whisperView.state }
-    this.whisperStore.set(this.whisperView)
-    this.stopWhisperPolling()
-  }
-
-  private beginWhisperMutation(): number {
-    this.whisperRequest += 1
-    this.whisperMutationInFlight = true
-    this.stopWhisperPolling()
-    return this.whisperRequest
-  }
-
-  private isCurrentWhisperMutation(request: number, model: string, accelerationRevision: number): boolean {
-    return !this.disposed
-      && request === this.whisperRequest
-      && model === this.currentWhisperModel()
-      && accelerationRevision === this.whisperAccelerationRevision
-      && !this.hasPendingWhisperAcceleration()
-  }
-
-  private finishWhisperMutation(request: number): void {
-    if (request !== this.whisperRequest) return
-    this.whisperMutationInFlight = false
-    if (this.disposed) return
-    if (this.whisperRefreshQueued) {
-      this.whisperRefreshQueued = false
-      void this.refreshWhisperState()
-      return
-    }
-    if (this.whisperView.state.downloading) this.startWhisperPolling()
-    else this.stopWhisperPolling()
-  }
-
-  private startWhisperPolling(): void {
-    if (this.whisperPollTimer !== undefined) return
-    this.whisperPollTimer = setInterval(() => {
-      void this.refreshWhisperState()
-    }, 800)
-  }
-
-  private stopWhisperPolling(): void {
-    if (this.whisperPollTimer === undefined) return
-    clearInterval(this.whisperPollTimer)
-    this.whisperPollTimer = undefined
-  }
-
   private edit(field: FieldName, text: string): void {
     if (this.disposed) return
+    this.draftRevision += 1
+    if (field === 'polishProvider' || field === 'polishModel' || field === 'polishReasoningEffort') this.materializeProjectedPolishRoute()
     if (field === 'polishProvider') {
       this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), this.currentPolishReasoningEffort())
       const model = this.polishModelForProvider(text.trim())
@@ -629,50 +427,57 @@ export class EarsSettingsController {
     } else if (field === 'polishReasoningEffort') {
       this.rememberPolishSelection(this.currentPolishProvider(), this.currentPolishModel(), text)
     } else if (field === 'cloudAsrProvider') {
-      this.rememberCloudAsrModel(this.currentCloudAsrProvider(), this.currentCloudAsrModel())
-    } else if (field === 'cloudAsrGroqModel' || field === 'cloudAsrDeepgramModel' || field === 'cloudAsrCustomModel' || field === 'cloudAsrBailianModel' || field === 'cloudAsrTencentEngineType' || field === 'cloudAsrMimoModel') {
-      const fieldToProvider: Record<string, string> = {
-        cloudAsrDeepgramModel: 'deepgram',
-        cloudAsrBailianModel: 'bailian',
-        cloudAsrCustomModel: 'custom',
-        cloudAsrTencentEngineType: 'tencent',
-        cloudAsrMimoModel: 'mimo',
-        cloudAsrGroqModel: 'groq'
-      }
-      this.rememberCloudAsrModel(fieldToProvider[field] ?? 'groq', text)
-    } else if (field === 'cloudAsrGroqApiKey' || field === 'cloudAsrDeepgramApiKey' || field === 'cloudAsrCustomApiKey' || field === 'cloudAsrBailianApiKey' || field === 'cloudAsrTencentSecretKey' || field === 'cloudAsrMimoApiKey') {
+      this.cloudProviderController.remember(this.currentCloudAsrProvider(), this.currentCloudAsrModel())
+    } else if (CLOUD_ASR_PROVIDERS.some((provider) => provider.modelField === field)) {
+      const provider = CLOUD_ASR_PROVIDERS.find((candidate) => candidate.modelField === field)
+      if (provider !== undefined) this.cloudProviderController.remember(provider.id, text)
+    } else if (this.draftsController.isCredentialField(field)) {
       if (text.trim() === '') {
-        this.drafts.delete(field)
+        const hadDraft = this.draftsController.has(field)
+        this.draftsController.edit(field, text)
         this.failed = false
         this.publishCard()
         if (this.hasPersistableDrafts()) this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
         else this.cancelScheduledSave()
+        if (hadDraft && cloudAsrCredentialField(this.currentCloudAsrProvider()) === field) void this.refreshCloudModels()
         return
       }
-      if (field === 'cloudAsrGroqApiKey') this.clearKeyPending = false
-      if (field === 'cloudAsrDeepgramApiKey') this.clearDeepgramKeyPending = false
-      if (field === 'cloudAsrCustomApiKey') this.clearCustomKeyPending = false
-      if (field === 'cloudAsrBailianApiKey') this.clearBailianKeyPending = false
-      if (field === 'cloudAsrTencentSecretKey') this.clearTencentKeyPending = false
-      if (field === 'cloudAsrMimoApiKey') this.clearMimoKeyPending = false
+      this.cloudProviderController.invalidate()
     }
-    this.drafts.set(field, text)
+    this.draftsController.edit(field, text)
     this.failed = false
     this.publishCard()
-    if (field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
+    if (field === 'polishingEnabled' || field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
     if (field === 'localWhisperModel' || field === 'localWhisperAcceleration' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
-    if (field === 'cloudAsrProvider' || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
+    const serviceField = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')?.field
+    if (field === 'cloudAsrProvider' || field === serviceField || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
     this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
   }
 
   /** Stage the write-only key for clearing; auto-save commits it. */
   private clearApiKey(): void {
+    this.clearNamedApiKey('groq')
+  }
+
+  private clearCredential(field: CloudAsrCredentialField): void {
     if (this.disposed) return
-    this.clearKeyPending = true
-    this.drafts.delete('cloudAsrGroqApiKey')
+    this.draftRevision += 1
+    this.cloudProviderController.invalidate()
+    this.draftsController.clearCredential(field)
     this.failed = false
     this.publishCard()
     this.scheduleSave(0)
+  }
+
+  private undoCredentialClear(field: CloudAsrCredentialField): void {
+    if (this.disposed || this.inFlightCredentialClears.has(field)) return
+    this.draftRevision += 1
+    const wasPending = this.draftsController.isCredentialClearPending(field)
+    this.draftsController.undoCredentialClear(field)
+    this.failed = false
+    if (!this.draftsController.isDirty()) this.cancelScheduledSave()
+    this.publishCard()
+    if (wasPending) void this.refreshCloudModels()
   }
 
   /** Undo a staged clear that has not been submitted yet. */
@@ -682,65 +487,28 @@ export class EarsSettingsController {
 
   private clearNamedApiKey(which: 'groq' | 'deepgram' | 'custom' | 'bailian' | 'tencent' | 'mimo'): void {
     if (this.disposed) return
-    if (which === 'groq') {
-      this.clearKeyPending = true
-      this.drafts.delete('cloudAsrGroqApiKey')
-    } else if (which === 'deepgram') {
-      this.clearDeepgramKeyPending = true
-      this.drafts.delete('cloudAsrDeepgramApiKey')
-    } else if (which === 'custom') {
-      this.clearCustomKeyPending = true
-      this.drafts.delete('cloudAsrCustomApiKey')
-    } else if (which === 'bailian') {
-      this.clearBailianKeyPending = true
-      this.drafts.delete('cloudAsrBailianApiKey')
-    } else if (which === 'tencent') {
-      this.clearTencentKeyPending = true
-      this.drafts.delete('cloudAsrTencentSecretKey')
-    } else if (which === 'mimo') {
-      this.clearMimoKeyPending = true
-      this.drafts.delete('cloudAsrMimoApiKey')
-    } else {
-      const exhaustive: never = which
-      void exhaustive
-    }
-    this.failed = false
-    this.publishCard()
-    this.scheduleSave(0)
+    const provider = CLOUD_ASR_PROVIDERS.find((candidate) => candidate.id === which)
+    if (provider === undefined) return
+    this.clearCredential(provider.credentialField)
   }
 
   private undoClearNamedApiKey(which: 'groq' | 'deepgram' | 'custom' | 'bailian' | 'tencent' | 'mimo'): void {
-    if (this.disposed || this.saving) return
-    if (which === 'groq') this.clearKeyPending = false
-    else if (which === 'deepgram') this.clearDeepgramKeyPending = false
-    else if (which === 'custom') this.clearCustomKeyPending = false
-    else if (which === 'bailian') this.clearBailianKeyPending = false
-    else if (which === 'tencent') this.clearTencentKeyPending = false
-    else if (which === 'mimo') this.clearMimoKeyPending = false
-    else {
-      const exhaustive: never = which
-      void exhaustive
-    }
-    this.failed = false
-    if (this.drafts.size === 0) this.cancelScheduledSave()
-    this.publishCard()
+    if (this.disposed) return
+    const provider = CLOUD_ASR_PROVIDERS.find((candidate) => candidate.id === which)
+    if (provider === undefined) return
+    this.undoCredentialClear(provider.credentialField)
   }
 
   /** Drop every staged draft and pending clear, back to the last saved state. */
   private discard(): void {
     if (this.disposed) return
+    this.draftRevision += 1
     const refreshWhisper = this.hasPendingWhisperAcceleration()
     this.cancelScheduledSave()
     this.saveQueued = false
-    this.drafts.clear()
+    this.draftsController.reset()
     this.resetCloudAsrModels()
     this.resetPolishSelections()
-    this.clearKeyPending = false
-    this.clearDeepgramKeyPending = false
-    this.clearCustomKeyPending = false
-    this.clearBailianKeyPending = false
-    this.clearTencentKeyPending = false
-    this.clearMimoKeyPending = false
     this.failed = false
     this.publishCard()
     if (refreshWhisper) void this.refreshWhisperState()
@@ -768,31 +536,12 @@ export class EarsSettingsController {
       this.saveQueued = true
       return
     }
-    const patch: EarsSettingsPatch = {}
-    const submittedDrafts = new Map<FieldName, string>()
-    for (const [field, text] of this.drafts.entries()) {
-      if (isSettingsFieldInvalid(field, text)) continue
-      const value = field === 'maxRecordingSeconds' && text.trim() === ''
-        ? DEFAULT_EARS_SETTINGS.maxRecordingSeconds
-        : parseSettingsField(field, text)
-      if (value !== undefined) {
-        (patch as Record<string, unknown>)[field] = value
-        submittedDrafts.set(field, text)
-      }
-    }
-    const submittedClear = this.clearKeyPending
-    const submittedDeepgramClear = this.clearDeepgramKeyPending
-    const submittedCustomClear = this.clearCustomKeyPending
-    const submittedBailianClear = this.clearBailianKeyPending
-    const submittedTencentClear = this.clearTencentKeyPending
-    const submittedMimoClear = this.clearMimoKeyPending
-    if (submittedClear) (patch as Record<string, unknown>).cloudAsrGroqApiKey = ''
-    if (submittedDeepgramClear) (patch as Record<string, unknown>).cloudAsrDeepgramApiKey = ''
-    if (submittedCustomClear) (patch as Record<string, unknown>).cloudAsrCustomApiKey = ''
-    if (submittedBailianClear) (patch as Record<string, unknown>).cloudAsrBailianApiKey = ''
-    if (submittedTencentClear) (patch as Record<string, unknown>).cloudAsrTencentSecretKey = ''
-    if (submittedMimoClear) (patch as Record<string, unknown>).cloudAsrMimoApiKey = ''
-    if (submittedDrafts.size === 0 && !submittedClear && !submittedDeepgramClear && !submittedCustomClear && !submittedBailianClear && !submittedTencentClear && !submittedMimoClear) return
+    const submission = this.draftsController.buildSubmission()
+    const { patch } = submission
+    if (Object.keys(patch).length === 0) return
+    const submissionRevision = this.draftRevision
+    this.inFlightCredentialClears.clear()
+    for (const field of submission.credentialClears) this.inFlightCredentialClears.add(field)
     this.saving = true
     this.saveQueued = false
     this.failed = false
@@ -801,40 +550,25 @@ export class EarsSettingsController {
       const result = await this.remote.updateSettings(patch)
       if (!result.ok) throw new Error('dsh-ears settings update failed')
       if (this.disposed) return
-      const cloudRelevant = submittedClear || submittedDeepgramClear || submittedCustomClear || submittedBailianClear || submittedTencentClear || submittedMimoClear
-        || submittedDrafts.has('cloudAsrGroqApiKey')
-        || submittedDrafts.has('cloudAsrDeepgramApiKey')
-        || submittedDrafts.has('cloudAsrCustomApiKey')
-        || submittedDrafts.has('cloudAsrBailianApiKey')
-        || submittedDrafts.has('cloudAsrTencentSecretKey')
-        || submittedDrafts.has('cloudAsrMimoApiKey')
-      const whisperAccelerationChanged = submittedDrafts.has('localWhisperAcceleration')
-      if (whisperAccelerationChanged) this.whisperAccelerationRevision += 1
-      this.rememberPolishSelection(result.value.settings.polishProvider, result.value.settings.polishModel, result.value.settings.polishReasoningEffort)
+      const cloudRelevant = CLOUD_ASR_PROVIDERS.some((provider) => submission.credentialClears.has(provider.credentialField) || submission.drafts.has(provider.credentialField))
+      const whisperAccelerationChanged = submission.drafts.has('localWhisperAcceleration')
+      if (whisperAccelerationChanged) this.whisperModelController.notifyAccelerationChanged()
       this.settingsView = result.value
-      this.rememberCloudAsrModel(result.value.settings.cloudAsrProvider, cloudAsrModelFor(result.value.settings))
-      this.rememberCloudAsrModel('groq', result.value.settings.cloudAsrGroqModel)
-      this.rememberCloudAsrModel('deepgram', result.value.settings.cloudAsrDeepgramModel)
-      this.rememberCloudAsrModel('custom', result.value.settings.cloudAsrCustomModel)
-      this.rememberCloudAsrModel('bailian', result.value.settings.cloudAsrBailianModel)
-      this.rememberCloudAsrModel('tencent', result.value.settings.cloudAsrTencentEngineType)
-      this.rememberCloudAsrModel('mimo', result.value.settings.cloudAsrMimoModel)
+      const polishSelection = this.polishSelectionForMemory()
+      this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
+      this.cloudProviderController.rememberSettings(result.value.settings)
       this.settingsStore.set(result.value.settings)
-      for (const [field, text] of submittedDrafts) {
-        if (this.drafts.get(field) === text) this.drafts.delete(field)
-      }
-      if (submittedClear && this.clearKeyPending) this.clearKeyPending = false
-      if (submittedDeepgramClear && this.clearDeepgramKeyPending) this.clearDeepgramKeyPending = false
-      if (submittedCustomClear && this.clearCustomKeyPending) this.clearCustomKeyPending = false
-      if (submittedBailianClear && this.clearBailianKeyPending) this.clearBailianKeyPending = false
-      if (submittedTencentClear && this.clearTencentKeyPending) this.clearTencentKeyPending = false
-      if (submittedMimoClear && this.clearMimoKeyPending) this.clearMimoKeyPending = false
+      this.draftsController.reconcile(submission)
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
       if (whisperAccelerationChanged) void this.refreshWhisperState()
     } catch {
-      if (!this.disposed) this.failed = true
+      // A newer draft supersedes this request. Keep it eligible for the
+      // queued save instead of painting the newer state as failed because an
+      // older submission was rejected.
+      if (!this.disposed && submissionRevision === this.draftRevision) this.failed = true
     } finally {
+      this.inFlightCredentialClears.clear()
       this.saving = false
       if (this.disposed) return
       this.publishCard()
@@ -846,11 +580,7 @@ export class EarsSettingsController {
   }
 
   private hasPersistableDrafts(): boolean {
-    if (this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending || this.clearMimoKeyPending) return true
-    for (const [field, text] of this.drafts.entries()) {
-      if (!isSettingsFieldInvalid(field, text)) return true
-    }
-    return false
+    return this.draftsController.hasPersistableDrafts()
   }
 
   private publishCard(): void { this.cardStore.set(this.snapshot()) }
@@ -895,9 +625,11 @@ export class EarsSettingsController {
     const voiceSoundsEnabled = field('voiceSoundsEnabled', this.drafts.get('voiceSoundsEnabled') ?? (current.voiceSoundsEnabled === false ? 'off' : 'on'))
     const settingsDisplayName = field('settingsDisplayName', this.drafts.get('settingsDisplayName') ?? current.settingsDisplayName)
     const polishingEnabled = field('polishingEnabled', this.drafts.get('polishingEnabled') ?? (current.polishingEnabled ? 'on' : 'off'))
-    const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? current.polishProvider)
-    const polishModel = field('polishModel', this.drafts.get('polishModel') ?? current.polishModel)
-    const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? current.polishReasoningEffort)
+    const defaultPolishRoute = this.shouldProjectAgentDefault() ? this.settingsView.defaultPolishRoute : undefined
+    const polishProvider = field('polishProvider', this.drafts.get('polishProvider') ?? defaultPolishRoute?.provider ?? current.polishProvider)
+    const polishModel = field('polishModel', this.drafts.get('polishModel') ?? defaultPolishRoute?.model ?? current.polishModel)
+    const defaultReasoningEffort = current.polishReasoningEffort.trim() !== '' ? current.polishReasoningEffort : defaultPolishRoute?.reasoningEffort ?? ''
+    const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? defaultReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
     const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
@@ -905,9 +637,10 @@ export class EarsSettingsController {
       writable: this.settingsView.writable,
       loaded: this.loaded,
       loadFailed: this.loadFailed,
+      recoveredSettingsFields: this.settingsView.recoveredSettingsFields ?? [],
       saving: this.saving,
       failed: this.failed,
-      dirty: this.drafts.size > 0 || this.clearKeyPending || this.clearDeepgramKeyPending || this.clearCustomKeyPending || this.clearBailianKeyPending || this.clearTencentKeyPending || this.clearMimoKeyPending,
+      dirty: this.draftsController.isDirty(),
       invalid: stagedFields.some((candidate) => candidate.invalid),
       asrBackend,
       webSpeechLanguage,
@@ -918,22 +651,22 @@ export class EarsSettingsController {
       cloudAsrProvider,
       cloudAsrGroqApiKey,
       cloudAsrGroqApiKeyConfigured: this.settingsView.cloudAsrGroqApiKeyConfigured,
-      cloudAsrGroqApiKeyClearPending: this.clearKeyPending,
+      cloudAsrGroqApiKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrGroqApiKey'),
       cloudAsrDeepgramApiKey,
       cloudAsrDeepgramApiKeyConfigured: this.settingsView.cloudAsrDeepgramApiKeyConfigured,
-      cloudAsrDeepgramApiKeyClearPending: this.clearDeepgramKeyPending,
+      cloudAsrDeepgramApiKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrDeepgramApiKey'),
       cloudAsrCustomApiKey,
       cloudAsrCustomApiKeyConfigured: this.settingsView.cloudAsrCustomApiKeyConfigured,
-      cloudAsrCustomApiKeyClearPending: this.clearCustomKeyPending,
+      cloudAsrCustomApiKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrCustomApiKey'),
       cloudAsrBailianApiKey,
       cloudAsrBailianApiKeyConfigured: this.settingsView.cloudAsrBailianApiKeyConfigured,
-      cloudAsrBailianApiKeyClearPending: this.clearBailianKeyPending,
+      cloudAsrBailianApiKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrBailianApiKey'),
       cloudAsrTencentSecretKey,
       cloudAsrTencentSecretKeyConfigured: this.settingsView.cloudAsrTencentSecretKeyConfigured,
-      cloudAsrTencentSecretKeyClearPending: this.clearTencentKeyPending,
+      cloudAsrTencentSecretKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrTencentSecretKey'),
       cloudAsrMimoApiKey,
       cloudAsrMimoApiKeyConfigured: this.settingsView.cloudAsrMimoApiKeyConfigured,
-      cloudAsrMimoApiKeyClearPending: this.clearMimoKeyPending,
+      cloudAsrMimoApiKeyClearPending: this.draftsController.isCredentialClearPending('cloudAsrMimoApiKey'),
       cloudAsrMimoService,
       cloudAsrMimoCluster,
       cloudAsrMimoModel,

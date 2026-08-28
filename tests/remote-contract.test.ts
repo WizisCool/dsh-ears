@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, remoteTextResultSchema, whisperModelStateSchema } from '../src/remote-contract.js'
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
+import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
+import { MAX_CLOUD_API_KEY_LENGTH } from '../src/config.js'
 
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
@@ -110,6 +112,32 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ cloudAsrProvider: 'unknown' })).toThrow()
   })
 
+  it('uses the shared cloud credential limit at the Remote boundary', () => {
+    const credentialFields = [
+      'cloudAsrGroqApiKey',
+      'cloudAsrDeepgramApiKey',
+      'cloudAsrCustomApiKey',
+      'cloudAsrBailianApiKey',
+      'cloudAsrTencentSecretKey',
+      'cloudAsrMimoApiKey'
+    ] as const
+    for (const field of credentialFields) {
+      expect(earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).toEqual({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })
+      expect(() => earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH + 1) })).toThrow()
+    }
+  })
+
+  it('preserves optional model capability metadata for newer Hosts', () => {
+    expect(cloudProviderModelsViewSchema.parse({
+      status: 'ok',
+      models: ['batch-only', 'dual-mode'],
+      modelCapabilities: {
+        'batch-only': { batch: true, streaming: false },
+        'dual-mode': { batch: true, streaming: true }
+      }
+    })).toMatchObject({ modelCapabilities: { 'batch-only': { batch: true, streaming: false } } })
+  })
+
   it('rejects settings patches with the wrong wire types', () => {
     expect(() => earsSettingsPatchSchema.parse({ maxRecordingSeconds: '120' })).toThrow()
     expect(() => earsSettingsPatchSchema.parse({ voiceShortcutEnabled: 'yes' })).toThrow()
@@ -125,7 +153,7 @@ describe('settings Remote contract', () => {
   })
 
   it('validates the complete settings view returned by Host RPC', () => {
-    expect(earsSettingsViewSchema.parse({
+    const parsed = earsSettingsViewSchema.parse({
       available: true,
       writable: true,
       settings: {
@@ -171,9 +199,14 @@ describe('settings Remote contract', () => {
       cloudAsrCustomApiKeyConfigured: false,
       cloudAsrBailianApiKeyConfigured: false,
       cloudAsrTencentSecretKeyConfigured: false,
+      defaultPolishRoute: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' },
+      recoveredSettingsFields: ['cloudAsrProvider'],
       localWhisperAccelerations: ['default'],
       overridden: []
-    }).settings.maxRecordingSeconds).toBe(120)
+    })
+    expect(parsed.settings.maxRecordingSeconds).toBe(120)
+    expect(parsed.defaultPolishRoute).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' })
+    expect(parsed.recoveredSettingsFields).toEqual(['cloudAsrProvider'])
   })
 
   it('parses older pre-Deepgram Host responses with backward-compatible defaults', () => {
@@ -228,10 +261,28 @@ describe('settings Remote contract', () => {
   })
 
   it('keeps Host and Client Remote descriptors aligned', () => {
+    expect(TYPERT.invocations).toBe(EARS_REMOTE_DESCRIPTORS)
+    expect(TYPERT_REMOTE.descriptors).toBe(EARS_REMOTE_DESCRIPTORS)
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
     expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'finishRealtime', 'listCloudProviderModels', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
+  })
+
+  it('keeps the cloud model capability metadata in the public Typert declaration', () => {
+    const service = TYPERT.model.services[0]
+    const cloudModelsType = service?.types.find((type) => type.name === 'CloudProviderModelsView')
+    if (cloudModelsType === undefined) throw new Error('CloudProviderModelsView declaration is missing')
+    expect(cloudModelsType.declaration).toContain("transport?: 'listen-v1' | 'listen-v2'")
+    const parsed = cloudProviderModelsViewSchema.parse({
+      status: 'ok',
+      models: ['flux-general-en'],
+      modelCapabilities: { 'flux-general-en': { streaming: true, transport: 'listen-v2' } }
+    })
+    expect(parsed.modelCapabilities?.['flux-general-en']?.transport).toBe('listen-v2')
+    const settingsViewType = TYPERT.model.services[0]?.types.find((type) => type.name === 'EarsSettingsView')
+    expect(settingsViewType?.declaration).toContain('defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }')
+    expect(settingsViewType?.declaration).toContain('recoveredSettingsFields?: string[]')
   })
 
   it('keeps every endpoint wire shape aligned across Host and Client', () => {

@@ -83,7 +83,9 @@ export function whisperNativePackageName(
 
 /**
  * Return the native acceleration packages supported by the current platform
- * and installed dependency tree without initializing whisper.node.
+ * and installed dependency tree without initializing whisper.node. `default`
+ * is the automatic selection: prefer the platform-default binary when it is
+ * installed, otherwise use the first available platform variant.
  */
 export function whisperAccelerationCapabilities(
   platform: NodeJS.Platform = process.platform,
@@ -241,7 +243,24 @@ export class LocalWhisperRuntime {
 
   async releaseContext(): Promise<void> {
     if (this.disposed) return
-    await this.drainAndReleaseContext()
+    await this.withContextReleased(async () => undefined)
+  }
+
+  /**
+   * Run an operation while no transcription can start between releasing the
+   * native context and the operation. This is used for model deletion, where
+   * releasing the context and removing the backing file must be one barrier.
+   */
+  async withContextReleased<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.queue
+    const activeStop = this.activeJob?.stop().catch(() => undefined)
+    const run = previous.then(async () => {
+      await activeStop
+      await this.releaseContextNow()
+      return operation()
+    })
+    this.queue = run.then(() => undefined, () => undefined)
+    return run
   }
 
   async dispose(): Promise<void> {
@@ -253,6 +272,10 @@ export class LocalWhisperRuntime {
   private async drainAndReleaseContext(): Promise<void> {
     await this.activeJob?.stop().catch(() => undefined)
     await this.queue.catch(() => undefined)
+    await this.releaseContextNow()
+  }
+
+  private async releaseContextNow(): Promise<void> {
     const context = this.context
     this.context = undefined
     this.activeJob = undefined
@@ -352,6 +375,10 @@ export async function releaseWhisperModelContext(): Promise<void> {
   await runtime.releaseContext()
 }
 
+export async function withWhisperModelContextReleased<T>(operation: () => Promise<T>): Promise<T> {
+  return runtime.withContextReleased(operation)
+}
+
 export function defaultWhisperUseGpu(
   variant: LibVariant = 'default',
   platform: NodeJS.Platform = process.platform,
@@ -361,8 +388,12 @@ export function defaultWhisperUseGpu(
   return platform === 'darwin' && arch === 'arm64'
 }
 
-export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal): Promise<boolean> {
+/** Check the exact native package without loading whisper.node's process-global module cache. */
+export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal, requirePackage?: NodeRequire): Promise<boolean> {
   if (signal?.aborted) return false
+  if (loadedVariant !== undefined && loadedVariant !== variant) {
+    throw new WhisperRestartRequiredError(loadedVariant, variant)
+  }
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), COMMAND_TIMEOUT_MS)
   let abortListener: (() => void) | undefined
@@ -374,8 +405,15 @@ export async function isWhisperAvailable(variant: LibVariant = 'default', signal
         if (signal.aborted) abortListener()
       })
   try {
-    const load = loadNativeModule(variant).then(() => true)
-    return abortPromise === undefined ? await Promise.race([load, waitForTimeout(timeout.signal)]) : await Promise.race([load, abortPromise, waitForTimeout(timeout.signal)])
+    const preflight = Promise.resolve().then(() => {
+      if (signal?.aborted) return false
+      if (loadedVariant !== undefined && loadedVariant !== variant) {
+        throw new WhisperRestartRequiredError(loadedVariant, variant)
+      }
+      preflightWhisperNativePackage(variant, requirePackage)
+      return true
+    })
+    return abortPromise === undefined ? await Promise.race([preflight, waitForTimeout(timeout.signal)]) : await Promise.race([preflight, abortPromise, waitForTimeout(timeout.signal)])
   } catch (error) {
     if (error instanceof WhisperRestartRequiredError) throw error
     return false
