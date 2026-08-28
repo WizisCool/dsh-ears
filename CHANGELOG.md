@@ -2,6 +2,15 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.2.1] - 2026-08-29
+
+Update-command copy fix.
+
+### Changed
+
+- The About panel, the update check result, and the README update section now show `dsh plugin --profile web add dsh-ears` instead of `dsh plugin --profile web update dsh-ears`. `add` re-resolves `latest` from npm and rewrites the saved range, so one command works from any installed version, including crossings that `pnpm update` clamps to the existing range (such as 0.1.x to 0.2.0).
+- The README update section names the manual steps the command does not perform: restart `dsh web` to load the new Host code, then refresh the Web UI.
+
 ## [0.2.0] - 2026-08-29
 
 SiliconFlow provider and ASR/settings hardening release.
