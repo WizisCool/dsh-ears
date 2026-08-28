@@ -7,7 +7,7 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
-import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
+import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
@@ -16,7 +16,7 @@ import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../asr/mimo-asr.js'
 import { TencentRealtimeAsrSession, transcribeTencentCloudRecording } from '../asr/tencent-cloud-asr.js'
 import { DeepgramRealtimeAsrSession, transcribeDeepgramAsr } from '../asr/deepgram-asr.js'
-import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, type CloudAsrCredentialConfiguredField } from '../asr/providers.js'
+import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudAsrRealtime, type CloudAsrCredentialConfiguredField } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
 import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, RemoteTextResult } from '../remote-contract.js'
@@ -220,9 +220,13 @@ export class PolishService extends TypertRemoteService {
       }
     }
     try {
-      const models = await fetchCloudProviderModels(entry, key, signal)
+      const catalog = await fetchCloudProviderModels(entry, key, signal)
       this.cloudModelsFailure = undefined
-      return { status: 'ok', models }
+      return {
+        status: 'ok',
+        models: catalog.models,
+        ...(catalog.modelCapabilities === undefined ? {} : { modelCapabilities: catalog.modelCapabilities })
+      }
     } catch (error) {
       if (signal.aborted) throw error
       const message = sanitizeEarsErrorText(error instanceof Error && error.message.trim() !== '' ? error.message : 'Cloud model listing failed')
@@ -253,8 +257,7 @@ export class PolishService extends TypertRemoteService {
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
     return this.withWhisperModelState(model, async (id, runtimeAvailable) => {
-      await releaseWhisperModelContext()
-      return this.whisperModels.deleteWhisperModel(id, runtimeAvailable)
+      return withWhisperModelContextReleased(() => this.whisperModels.deleteWhisperModel(id, runtimeAvailable))
     })
   }
 
@@ -389,13 +392,17 @@ export class PolishService extends TypertRemoteService {
   }
 
   async startRealtime(signal: AbortSignal): Promise<{ sessionId: string }> {
+    let session: GenericRealtimeAsrSession | undefined
+    let registered = false
     try {
       signal.throwIfAborted()
       const settings = this.requireSettings()
       if (settings.asrBackend !== 'cloud-openai') {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Cloud realtime recognition is not selected')
       }
-      let session: GenericRealtimeAsrSession
+      if (!isCloudAsrRealtime(settings)) {
+        throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR service does not support realtime recognition')
+      }
       if (settings.cloudAsrProvider === 'tencent') {
         if (settings.cloudAsrTencentService !== 'realtime') {
           throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Tencent Cloud realtime recognition is not selected')
@@ -431,13 +438,16 @@ export class PolishService extends TypertRemoteService {
         throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected cloud ASR provider does not support realtime recognition')
       }
       await session.open(signal)
+      signal.throwIfAborted()
       const sessionId = randomUUID()
       this.realtimeSessions.set(sessionId, {
         session,
         timer: this.scheduleRealtimeSessionExpiry(sessionId, session)
       })
+      registered = true
       return { sessionId }
     } catch (error) {
+      if (session !== undefined && !registered) session.close()
       if (signal.aborted) signal.throwIfAborted()
       if (error instanceof EarsError) throw error
       const message = error instanceof Error && error.message.trim() !== '' ? error.message.trim() : 'Realtime recognition failed to start'
@@ -450,9 +460,16 @@ export class PolishService extends TypertRemoteService {
     const entry = this.realtimeSessions.get(sessionId)
     if (entry === undefined) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Realtime session was not found')
     const audio = decodeAudio(audioBase64)
-    const result = await entry.session.sendAudio(audio, signal)
-    if (this.realtimeSessions.get(sessionId) === entry) this.refreshRealtimeSessionExpiry(sessionId, entry)
-    return result
+    try {
+      const result = await entry.session.sendAudio(audio, signal)
+      if (this.realtimeSessions.get(sessionId) === entry) this.refreshRealtimeSessionExpiry(sessionId, entry)
+      return result
+    } catch (error) {
+      // A failed send leaves the provider stream's state uncertain. Release
+      // the socket and registry entry so later calls cannot use a dead stream.
+      this.removeRealtimeSession(sessionId, entry.session)
+      throw error
+    }
   }
 
   async finishRealtime(sessionId: string, signal: AbortSignal): Promise<RemoteTextResult> {

@@ -241,7 +241,24 @@ export class LocalWhisperRuntime {
 
   async releaseContext(): Promise<void> {
     if (this.disposed) return
-    await this.drainAndReleaseContext()
+    await this.withContextReleased(async () => undefined)
+  }
+
+  /**
+   * Run an operation while no transcription can start between releasing the
+   * native context and the operation. This is used for model deletion, where
+   * releasing the context and removing the backing file must be one barrier.
+   */
+  async withContextReleased<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.queue
+    const activeStop = this.activeJob?.stop().catch(() => undefined)
+    const run = previous.then(async () => {
+      await activeStop
+      await this.releaseContextNow()
+      return operation()
+    })
+    this.queue = run.then(() => undefined, () => undefined)
+    return run
   }
 
   async dispose(): Promise<void> {
@@ -253,6 +270,10 @@ export class LocalWhisperRuntime {
   private async drainAndReleaseContext(): Promise<void> {
     await this.activeJob?.stop().catch(() => undefined)
     await this.queue.catch(() => undefined)
+    await this.releaseContextNow()
+  }
+
+  private async releaseContextNow(): Promise<void> {
     const context = this.context
     this.context = undefined
     this.activeJob = undefined
@@ -350,6 +371,10 @@ export async function disposeWhisperRuntime(): Promise<void> {
 
 export async function releaseWhisperModelContext(): Promise<void> {
   await runtime.releaseContext()
+}
+
+export async function withWhisperModelContextReleased<T>(operation: () => Promise<T>): Promise<T> {
+  return runtime.withContextReleased(operation)
 }
 
 export function defaultWhisperUseGpu(

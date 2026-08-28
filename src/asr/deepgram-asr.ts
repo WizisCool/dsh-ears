@@ -1,5 +1,6 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 import { joinSpacedSegments } from '../text-join.js'
+import { readBoundedText } from './transport.js'
 
 export const DEEPGRAM_API_HOST = 'api.deepgram.com'
 export const DEEPGRAM_DEFAULT_MODEL = 'nova-3'
@@ -7,6 +8,7 @@ export const DEEPGRAM_RECORDING_TIMEOUT_MS = 120_000
 export const DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS = 15_000
 export const DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS = 5_000
 export const DEEPGRAM_REALTIME_MESSAGE_GRACE_MS = 5
+const DEEPGRAM_MAX_RESPONSE_BYTES = 1 * 1024 * 1024
 
 export interface DeepgramRecordingAsrOptions {
   readonly audio: Uint8Array
@@ -171,6 +173,7 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
   if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
   const key = options.credential.trim()
   if (key === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Deepgram API key is not configured')
+  options.signal?.throwIfAborted()
 
   const fetchImpl = options.fetch ?? globalThis.fetch
   const url = deepgramListenUrl({
@@ -205,6 +208,7 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
         method: 'POST',
         headers,
         body: options.audio as unknown as BodyInit,
+        redirect: 'manual',
         signal: controller.signal
       })
     } catch (error) {
@@ -214,7 +218,7 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
       throw error
     }
 
-    const textBody = await response.text()
+    const textBody = await readBoundedText(response, DEEPGRAM_MAX_RESPONSE_BYTES, controller.signal)
     let parsed: unknown
     try {
       parsed = JSON.parse(textBody)
@@ -229,6 +233,11 @@ export async function transcribeDeepgramAsr(options: DeepgramRecordingAsrOptions
     }
 
     return extractDeepgramTranscript(parsed)
+  } catch (error) {
+    if (timedOut && !(options.signal?.aborted)) {
+      throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Deepgram ASR request timed out')
+    }
+    throw error
   } finally {
     clearTimeout(timer)
     if (options.signal !== undefined) {
@@ -244,6 +253,7 @@ export class DeepgramRealtimeAsrSession {
   private closed = false
   private ended = false
   private final = false
+  private receivedFinalResult = false
   private completedSentences: string[] = []
   private interimSentence = ''
   private transcript = ''
@@ -278,7 +288,12 @@ export class DeepgramRealtimeAsrSession {
     try {
       await this.waitFor(() => this.opened || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS, effectiveSignal)
       if (this.lastError !== undefined) throw this.lastError
-      if (!this.opened) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition failed to connect')
+      if (!this.opened) {
+        throw new EarsError(
+          this.closed ? EARS_ERROR_CODES.asrHttpFailed : EARS_ERROR_CODES.asrRequestTimedOut,
+          this.closed ? 'Deepgram realtime recognition failed to connect' : 'Deepgram realtime recognition timed out while connecting'
+        )
+      }
     } catch (error) {
       this.close()
       throw error
@@ -316,6 +331,7 @@ export class DeepgramRealtimeAsrSession {
       }
       await this.waitFor(() => this.final || this.closed || this.lastError !== undefined, DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS, signal)
       if (this.lastError !== undefined) throw this.lastError
+      if (!this.final) throw new EarsError(EARS_ERROR_CODES.asrRequestTimedOut, 'Deepgram realtime recognition did not finish')
       return this.transcript.trim()
     } finally {
       this.close()
@@ -382,6 +398,7 @@ export class DeepgramRealtimeAsrSession {
       const altText = firstAlt && typeof firstAlt.transcript === 'string' ? firstAlt.transcript.trim() : ''
 
       if (isFinal) {
+        this.receivedFinalResult = true
         if (altText !== '') {
           this.completedSentences.push(altText)
         }
@@ -401,10 +418,19 @@ export class DeepgramRealtimeAsrSession {
   }
 
   private readonly onClose = (event: DeepgramWebSocketEvent): void => {
-    this.final = true
-    if (event.code !== undefined && event.code !== 1000 && event.code !== 1005 && this.lastError === undefined) {
+    const normalClose = event.code === undefined || event.code === 1000 || event.code === 1005
+    if (normalClose) {
+      // A normal close is only a successful finish after Deepgram delivered a
+      // terminal metadata message or at least one final result. Without one,
+      // finish() must not turn an incomplete stream into an empty success.
+      if (this.final || this.receivedFinalResult) {
+        this.final = true
+      } else if (this.lastError === undefined) {
+        this.lastError = new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition closed before a final result')
+      }
+    } else if (this.lastError === undefined) {
       const reason = typeof event.reason === 'string' && event.reason !== '' ? event.reason : `code ${String(event.code)}`
-      this.setError(new EarsError(EARS_ERROR_CODES.asrHttpFailed, `Deepgram realtime recognition closed unexpectedly: ${reason}`))
+      this.lastError = new EarsError(EARS_ERROR_CODES.asrHttpFailed, `Deepgram realtime recognition closed unexpectedly: ${reason}`)
     }
     this.close()
   }

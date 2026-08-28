@@ -1,4 +1,5 @@
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import { readBoundedText } from './transport.js'
 
 const MAX_ENCODED_BYTES = 10 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 1 * 1024 * 1024
@@ -120,9 +121,10 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
         'X-DashScope-SSE': 'disable'
       },
       body: JSON.stringify(dashscopeRequestBody(model, dataUri, mime, options.language)),
+      redirect: 'manual',
       signal: timeout.signal
     })
-    const body = await readBoundedText(response)
+    const body = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal)
     let parsed: unknown
     try {
       parsed = JSON.parse(body)
@@ -150,7 +152,12 @@ function validateEndpoint(value: string): string {
   } catch {
     throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
   }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Cloud ASR endpoint must use HTTP or HTTPS')
+  }
+  if (url.protocol !== 'https:') {
+    throw new EarsError(EARS_ERROR_CODES.asrEndpointInvalid, 'Bailian ASR endpoints with credentials must use HTTPS')
+  }
   if (url.username !== '' || url.password !== '') throw new EarsError(EARS_ERROR_CODES.asrEndpointHasCredentials, 'Cloud ASR endpoint must not contain credentials')
   return url.toString()
 }
@@ -222,38 +229,4 @@ function firstText(value: unknown): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-async function readBoundedText(response: Response): Promise<string> {
-  const contentLength = Number(response.headers.get('content-length') ?? '')
-  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-  if (response.body === null) {
-    const body = await response.text()
-    if (new TextEncoder().encode(body).byteLength > MAX_RESPONSE_BYTES) throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-    return body
-  }
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  try {
-    while (true) {
-      const next = await reader.read()
-      if (next.done) break
-      total += next.value.byteLength
-      if (total > MAX_RESPONSE_BYTES) {
-        await reader.cancel()
-        throw new EarsError(EARS_ERROR_CODES.asrResponseTooLarge, 'Cloud ASR response is too large')
-      }
-      chunks.push(next.value)
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder().decode(bytes)
 }

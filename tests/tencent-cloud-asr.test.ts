@@ -21,11 +21,11 @@ class FakeWebSocket implements TencentWebSocket {
   constructor(private readonly audioResponse = JSON.stringify({
     code: 0,
     result: { voice_text_str: '你好', index: 0, slice_type: 2 }
-  })) {
+  }), private readonly emitInitialMessage = true) {
     queueMicrotask(() => {
       this.readyState = 1
       this.emit('open', {})
-      this.emit('message', { data: JSON.stringify({ code: 0, message: 'success' }) })
+      if (this.emitInitialMessage) this.emit('message', { data: JSON.stringify({ code: 0, message: 'success' }) })
     })
   }
 
@@ -121,6 +121,7 @@ describe('Tencent Cloud standard recording recognition', () => {
     })).resolves.toBe('第一句第二句')
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls[0]?.[0]).toBe('https://asr.tencentcloudapi.com/')
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ redirect: 'manual' }))
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
     expect(requestBody).toMatchObject({ SourceType: 1, Data: 'AQID', DataLen: 3 })
     expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('X-TC-Action')).toBe('CreateRecTask')
@@ -167,6 +168,7 @@ describe('Tencent Cloud standard recording recognition', () => {
           read: () => new Promise<never>((_resolve, reject) => {
             init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
           }),
+          cancel: vi.fn(async () => undefined),
           releaseLock: vi.fn()
         }
         return { ok: true, status: 200, headers: new Headers(), body: { getReader: () => reader } } as unknown as Response
@@ -190,6 +192,27 @@ describe('Tencent Cloud standard recording recognition', () => {
 })
 
 describe('Tencent Cloud realtime recognition', () => {
+  it('completes the open handshake before the first server message', async () => {
+    vi.useFakeTimers()
+    try {
+      const socket = new FakeWebSocket(undefined, false)
+      const session = new TencentRealtimeAsrSession({
+        appId: '1250000000',
+        secretId: 'AKIDexample',
+        secretKey: 'secret-key',
+        engineType: '16k_zh',
+        webSocketFactory: () => socket
+      })
+      const opening = session.open()
+      await vi.runAllTicks()
+      await vi.advanceTimersByTimeAsync(15_000)
+      await expect(opening).resolves.toBeUndefined()
+      session.close()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('builds the signed WebSocket URL from sorted parameters', () => {
     expect(tencentRealtimeUrl({
       appId: '1250000000',
@@ -315,5 +338,23 @@ describe('Tencent Cloud realtime recognition', () => {
     await expect(session.finish()).resolves.toBe('你好')
     expect(socket.sent.some((item) => typeof item === 'string' && item === JSON.stringify({ type: 'end' }))).toBe(true)
     expect(socket.readyState).toBe(3)
+  })
+
+  it('detaches listeners when the server closes the socket', async () => {
+    const socket = new FakeWebSocket()
+    const session = new TencentRealtimeAsrSession({
+      appId: '1250000000',
+      secretId: 'AKIDexample',
+      secretKey: 'secret-key',
+      engineType: '16k_zh',
+      webSocketFactory: () => socket
+    })
+
+    await session.open()
+    await session.sendAudio(new Uint8Array([1, 2]))
+    socket.emit('close', {})
+    socket.emit('message', { data: JSON.stringify({ code: 0, result: { voice_text_str: 'late', index: 1, slice_type: 2 } }) })
+
+    expect(session.snapshot()).toEqual({ text: '你好', final: false })
   })
 })

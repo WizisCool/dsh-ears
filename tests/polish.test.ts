@@ -5,7 +5,7 @@ import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../src/asr/mimo-asr.js'
-import { disposeWhisperRuntime, isWhisperAvailable, releaseWhisperModelContext, transcribeWithWhisper, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
+import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, withWhisperModelContextReleased, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
@@ -35,7 +35,7 @@ vi.mock('../src/asr/local-whisper.js', () => {
   return {
     disposeWhisperRuntime: vi.fn(async () => undefined),
     isWhisperAvailable: vi.fn(async () => false),
-    releaseWhisperModelContext: vi.fn(async () => undefined),
+    withWhisperModelContextReleased: vi.fn(async (operation: () => Promise<unknown>) => operation()),
     transcribeWithWhisper: vi.fn(),
     validateWhisperTranscription: vi.fn(),
     whisperAccelerationCapabilities: vi.fn(() => whisperCapabilities),
@@ -191,6 +191,67 @@ describe('PolishService', () => {
       open.mockRestore()
       sendAudio.mockRestore()
       vi.useRealTimers()
+    }
+  })
+
+  it('closes a realtime session if the start signal aborts after opening', async () => {
+    const controller = new AbortController()
+    const open = vi.spyOn(TencentRealtimeAsrSession.prototype, 'open').mockImplementation(async () => {
+      controller.abort()
+    })
+    const close = vi.spyOn(TencentRealtimeAsrSession.prototype, 'close')
+    try {
+      const context = createContext({}, {
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'tencent',
+        cloudAsrTencentService: 'realtime',
+        cloudAsrTencentAppId: 'app-id',
+        cloudAsrTencentSecretId: 'secret-id',
+        cloudAsrTencentSecretKey: 'secret-key',
+        cloudAsrTencentEngineType: '16k_zh'
+      })
+      const fiber = await context.plugin(PolishService)
+      fibers.push(fiber)
+      const service = context.get('dshEarsPolish')!
+
+      await expect(service.startRealtime(controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+      expect(close).toHaveBeenCalledTimes(1)
+    } finally {
+      open.mockRestore()
+      close.mockRestore()
+    }
+  })
+
+  it('removes a realtime session after the provider rejects an audio chunk', async () => {
+    const open = vi.spyOn(TencentRealtimeAsrSession.prototype, 'open').mockResolvedValue()
+    const sendAudio = vi.spyOn(TencentRealtimeAsrSession.prototype, 'sendAudio').mockRejectedValueOnce(new Error('socket failed'))
+    const close = vi.spyOn(TencentRealtimeAsrSession.prototype, 'close')
+    try {
+      const context = createContext({}, {
+        ...DEFAULT_EARS_SETTINGS,
+        asrBackend: 'cloud-openai',
+        cloudAsrProvider: 'tencent',
+        cloudAsrTencentService: 'realtime',
+        cloudAsrTencentAppId: 'app-id',
+        cloudAsrTencentSecretId: 'secret-id',
+        cloudAsrTencentSecretKey: 'secret-key',
+        cloudAsrTencentEngineType: '16k_zh'
+      })
+      const fiber = await context.plugin(PolishService)
+      fibers.push(fiber)
+      const service = context.get('dshEarsPolish')!
+      const started = await service.startRealtime(new AbortController().signal)
+
+      await expect(service.sendRealtimeAudio(started.sessionId, 'AQ==', new AbortController().signal)).rejects.toThrow('socket failed')
+      await expect(service.sendRealtimeAudio(started.sessionId, 'AQ==', new AbortController().signal)).rejects.toMatchObject({
+        code: EARS_ERROR_CODES.asrUnexpected
+      })
+      expect(close).toHaveBeenCalledTimes(1)
+    } finally {
+      open.mockRestore()
+      sendAudio.mockRestore()
+      close.mockRestore()
     }
   })
 
@@ -860,7 +921,7 @@ describe('PolishService', () => {
 
   it('releases the native model context before deletion and disposes the runtime', async () => {
     const availability = vi.mocked(isWhisperAvailable)
-    const release = vi.mocked(releaseWhisperModelContext)
+    const release = vi.mocked(withWhisperModelContextReleased)
     const dispose = vi.mocked(disposeWhisperRuntime)
     availability.mockClear()
     availability.mockResolvedValue(true)

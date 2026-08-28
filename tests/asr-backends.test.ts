@@ -9,6 +9,7 @@ import {
   preflightWhisperNativePackage,
   releaseWhisperModelContext,
   transcribeWithWhisper,
+  withWhisperModelContextReleased,
   validateWhisperTranscription,
   whisperAccelerationCapabilities,
   whisperNativePackageName,
@@ -16,6 +17,7 @@ import {
   WHISPER_RESTART_REQUIRED_CODE
 } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
+import { readBoundedText } from '../src/asr/transport.js'
 
 const native = vi.hoisted(() => ({
   loadWhisperModule: vi.fn(async () => ({})),
@@ -193,6 +195,51 @@ describe('local Whisper backend', () => {
     expect(transcribeFile).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps a new transcription behind an exclusive context-release operation', async () => {
+    let resolveFirst!: (value: { result: string; segments: []; isAborted: boolean }) => void
+    const firstStop = vi.fn(async () => undefined)
+    const transcribeFile = vi.fn(() => {
+      if (transcribeFile.mock.calls.length === 1) {
+        return {
+          stop: firstStop,
+          promise: new Promise((resolve) => { resolveFirst = resolve })
+        }
+      }
+      return {
+        stop: vi.fn(async () => undefined),
+        promise: Promise.resolve({ result: 'second result', segments: [], isAborted: false })
+      }
+    })
+    const release = vi.fn(async () => undefined)
+    native.initWhisper.mockResolvedValue({ transcribeFile, release })
+
+    const first = transcribeWithWhisper(transcriptionOptions())
+    const firstRejection = expect(first).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrUnexpected })
+    await vi.waitFor(() => expect(transcribeFile).toHaveBeenCalledTimes(1))
+
+    let allowExclusive!: () => void
+    const exclusiveGate = new Promise<void>((resolve) => { allowExclusive = resolve })
+    let second: Promise<string> | undefined
+    const exclusive = withWhisperModelContextReleased(async () => {
+      second = transcribeWithWhisper(transcriptionOptions())
+      await Promise.resolve()
+      expect(transcribeFile).toHaveBeenCalledTimes(1)
+      await exclusiveGate
+      return 'deleted'
+    })
+
+    resolveFirst({ result: '', segments: [], isAborted: true })
+    await firstRejection
+    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
+    expect(second).toBeDefined()
+    expect(transcribeFile).toHaveBeenCalledTimes(1)
+
+    allowExclusive()
+    await expect(exclusive).resolves.toBe('deleted')
+    await expect(second).resolves.toBe('second result')
+    expect(transcribeFile).toHaveBeenCalledTimes(2)
+  })
+
   it('calls stop on the active native job when AbortSignal aborts', async () => {
     const controller = new AbortController()
     let resolvePromise: ((value: { result: string; segments: []; isAborted: boolean }) => void) | undefined
@@ -264,6 +311,33 @@ describe('local Whisper backend', () => {
     })
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('again')
     expect(native.initWhisper).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('bounded ASR response bodies', () => {
+  it('cancels a pending body reader when the request is aborted', async () => {
+    const controller = new AbortController()
+    let resolveRead!: (result: { done: true }) => void
+    const read = vi.fn(() => new Promise<{ done: true }>((resolve) => {
+      resolveRead = resolve
+    }))
+    const cancel = vi.fn(async () => {
+      resolveRead({ done: true })
+    })
+    const releaseLock = vi.fn()
+    const response = {
+      headers: new Headers(),
+      body: { getReader: () => ({ read, cancel, releaseLock }) }
+    } as unknown as Response
+    const pending = readBoundedText(response, 1024, controller.signal)
+    await vi.waitFor(() => expect(read).toHaveBeenCalledOnce())
+
+    const reason = new Error('request cancelled')
+    controller.abort(reason)
+
+    await expect(pending).rejects.toBe(reason)
+    expect(cancel).toHaveBeenCalledWith(reason)
+    expect(releaseLock).toHaveBeenCalledOnce()
   })
 })
 

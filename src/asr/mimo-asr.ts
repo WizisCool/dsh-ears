@@ -146,7 +146,7 @@ export async function transcribeMimoAsr(options: MimoAsrOptions): Promise<string
       signal: timeout.signal
     })
 
-    const body = await readBoundedText(response, MAX_RESPONSE_BYTES)
+    const body = await readBoundedText(response, MAX_RESPONSE_BYTES, timeout.signal)
     let parsed: unknown
     try {
       parsed = JSON.parse(body)
