@@ -127,6 +127,38 @@ describe('canonical Host settings slots', () => {
     expect(storedSettingsNeedRewrite(raw)).toBe(true)
   })
 
+  it('uses Web Speech and enabled polishing when new or partial settings omit the fields', () => {
+    const stored = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: {},
+      cloudAsr: {},
+      polishing: {}
+    })
+    expect(stored.recognition.backend).toBe('web-speech')
+    expect(stored.recognition.localWhisper.acceleration).toBe('default')
+    expect(stored.polishing.enabled).toBe(true)
+    expect(stored.polishing.provider).toBe('')
+    expect(stored.polishing.model).toBe('')
+    expect(stored.polishing.reasoningEffort).toBe('')
+
+    const explicit = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: { backend: 'web-speech' },
+      cloudAsr: {},
+      polishing: { enabled: false, provider: 'legacy-provider', model: 'legacy-model', reasoningEffort: 'low' }
+    })
+    expect(explicit.recognition.backend).toBe('web-speech')
+    expect(explicit.polishing).toMatchObject({ enabled: false, provider: 'legacy-provider', model: 'legacy-model', reasoningEffort: 'low' })
+
+    const explicitLocalWhisper = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      recognition: { backend: 'local-whisper' },
+      cloudAsr: {},
+      polishing: {}
+    })
+    expect(explicitLocalWhisper.recognition.backend).toBe('local-whisper')
+  })
+
   it('migrates current grouped settings and fills partial V2 slots', () => {
     const stored = normalizeStoredEarsSettings({
       schemaVersion: 2,

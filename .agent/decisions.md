@@ -50,6 +50,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-042 | Per-provider recognition language | Accepted. Supersedes the D-028 recognition-language row placement and the D-032 shared-row reference. |
 | D-043 | Deepgram cloud ASR and dual recording-file/realtime services | Accepted |
 | D-044 | Xiaomi MiMo cloud ASR with API and Token Plan access | Accepted |
+| D-045 | Local Whisper and Agent-default polish defaults | Partially superseded by D-046; polish defaults remain live |
 
 ## D-001 — Project identity
 
@@ -408,4 +409,18 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: recognition language follows D-042: stored under `cloudAsr.mimo.language` (flat wire `cloudAsrMimoLanguage`), empty field defaults to `auto`, and explicit inputs support `zh` and `en`.
 - Decision: API Key validation follows D-024 (per-field independent validation without cross-field deadlocks). The UI surfaces guidance hints for key formats (`sk-...` for API, `tp-...` for Token Plan) without hard-blocking or cross-field auto-switching.
 - Decision: the secret key is stored under `cloudAsr.mimo.apiKey` as a Schemastery `role('secret')` field and masked across the Remote boundary (`cloudAsrMimoApiKeyConfigured: boolean`).
-- Rationale: MiMo provides flagship transcription performance with cost-effective Token Plan tiers. Unifying API and Token Plan access under a single `mimo` provider preserves a clean top-level provider list while giving users full access to regional Token Plan clusters.
+- Rationale: MiMo provides flagship transcription performance with cost-effective Token Plan tiers. Unifying API and Token Plan access under a single top-level provider list preserves a clean provider surface while giving users full access to regional Token Plan clusters.
+
+## D-045 — Local Whisper and Agent-default polish defaults
+
+- Status: accepted (2026-08-28).
+- Decision: new installations default to the Host-side Local Whisper backend. Its `default` acceleration is an automatic platform/native-variant selection: use the platform default variant when available, otherwise use the first available supported variant, and fall back to `default` when no alternate variant is available. Users may still select a concrete acceleration explicitly.
+- Decision: polishing is enabled by default. Empty dsh-ears provider, model, and reasoning fields do not create a second route; an enabled polish request reads the live `agent-default-model` selection from dsh, including its optional reasoning effort. A complete dsh-ears route takes precedence, and an explicit dsh-ears reasoning value overrides the Agent default.
+- Decision: the plugin does not copy the Agent default into dsh-ears settings. The settings view may project the current provider/model/effort for direct selection display, but the persisted dsh-ears fields stay empty so dsh's deployment-wide default remains authoritative and later Agent-default changes take effect without rewriting plugin settings.
+- Rationale: Local Whisper keeps default transcription local and avoids browser-dependent recognition as the first-run path. Reusing dsh's shared Agent default keeps polishing aligned with the Host's configured credentials, provider, model, and reasoning behavior without creating a parallel LLM configuration.
+
+## D-046 — Web Speech first-run recognition default
+
+- Status: accepted (2026-08-28).
+- Decision: new installations and settings without an explicit recognition backend default to browser Web Speech. Existing explicit backend values remain unchanged, and Local Whisper remains available as an opt-in backend with its existing model and native-runtime lifecycle.
+- Rationale: Web Speech lets a freshly installed plugin recognize speech without downloading model weights or initializing a Host native runtime; users who need local recognition can select Local Whisper explicitly.

@@ -74,7 +74,7 @@ Transcription results are always written to an editable draft and are never sent
 
 | Backend | How it works | Requirements |
 | --- | --- | --- |
-| Web Speech | Live in-browser recognition | A Chromium-based browser |
+| Web Speech | Live in-browser recognition | Default backend; a Chromium-based browser |
 | Local Whisper | Host transcribes locally after recording stops | Download a GGML model from settings |
 | [Groq](https://console.groq.com) | Host calls the Groq Whisper API | API key |
 | [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |

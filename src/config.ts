@@ -2,6 +2,7 @@ import { isValidStoredShortcut } from './shortcut.js'
 import {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
+  DEFAULT_RECOGNITION_SETTINGS,
   CLOUD_ASR_PROVIDER_IDS,
   DEEPGRAM_ASR_DEFAULT_SERVICE,
   DEEPGRAM_ASR_SERVICE_IDS,
@@ -119,12 +120,12 @@ export interface EarsSettings {
 }
 
 export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
-  asrBackend: 'web-speech',
-  webSpeechLanguage: '',
-  localWhisperModel: 'tiny',
-  localWhisperAcceleration: 'default',
-  localWhisperLanguage: '',
-  cloudAsrProvider: 'groq',
+  asrBackend: DEFAULT_RECOGNITION_SETTINGS.backend,
+  webSpeechLanguage: DEFAULT_RECOGNITION_SETTINGS.webSpeech.language,
+  localWhisperModel: DEFAULT_RECOGNITION_SETTINGS.localWhisper.model,
+  localWhisperAcceleration: DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration,
+  localWhisperLanguage: DEFAULT_RECOGNITION_SETTINGS.localWhisper.language,
+  cloudAsrProvider: DEFAULT_RECOGNITION_SETTINGS.cloudProvider,
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
   cloudAsrGroqLanguage: '',
@@ -150,7 +151,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrMimoCluster: MIMO_ASR_DEFAULT_CLUSTER,
   cloudAsrMimoModel: MIMO_DEFAULT_MODEL,
   cloudAsrMimoLanguage: '',
-  maxRecordingSeconds: 120,
+  maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
   voiceSoundsEnabled: true,

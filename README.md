@@ -74,7 +74,7 @@ dsh plugin --profile web remove dsh-ears
 
 | 后端 | 工作方式 | 需要什么 |
 | --- | --- | --- |
-| Web Speech | 浏览器实时识别 | Chromium 内核浏览器 |
+| Web Speech | 浏览器实时识别 | 默认后端；Chromium 内核浏览器 |
 | 本地 Whisper | 录音结束后由 Host 本地转写 | 在设置页下载 GGML 模型 |
 | [Groq](https://console.groq.com) | Host 调用 Groq Whisper API | API key |
 | [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |

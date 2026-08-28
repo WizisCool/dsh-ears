@@ -17,7 +17,7 @@ export const EarsSettingsSchema = s.object({
     soundsEnabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.soundsEnabled).description('Play a synthesized click for voice input')
   }).description('General dsh-ears presentation and input settings').collapse(),
   recognition: s.object({
-    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend: web-speech, local-whisper, or cloud-openai'),
+    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend; Web Speech is the default: web-speech, local-whisper, or cloud-openai'),
     webSpeech: s.object({
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.webSpeech.language).description('Web Speech recognition language; leave empty to follow the dsh interface locale')
     }).description('Web Speech live recognition').collapse(),

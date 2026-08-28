@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, repairInvalidEarsSettings, settingsPageLabel, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
+  it('uses Web Speech and enabled polishing as the product defaults', () => {
+    expect(DEFAULT_EARS_SETTINGS.asrBackend).toBe('web-speech')
+    expect(DEFAULT_EARS_SETTINGS.localWhisperAcceleration).toBe('default')
+    expect(DEFAULT_EARS_SETTINGS.polishingEnabled).toBe(true)
+    expect(DEFAULT_EARS_SETTINGS.polishProvider).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.polishModel).toBe('')
+    expect(DEFAULT_EARS_SETTINGS.polishReasoningEffort).toBe('')
+  })
+
   it('defaults the settings page name to dsh-ears and accepts the voice label', () => {
     expect(DEFAULT_EARS_SETTINGS.settingsDisplayName).toBe('dsh-ears')
     expect(settingsPageLabel('dsh-ears', { plugin: 'dsh-ears', voice: 'Voice' })).toBe('dsh-ears')

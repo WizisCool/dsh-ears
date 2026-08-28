@@ -37,6 +37,8 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 - Composer microphone in `conversation.input.right` and a Task/Goal-style recognition card in `conversation.input.dock` (D-027). While transcribing or polishing, the stop square becomes a trash control that discards the in-flight voice task.
 - Settings page `dsh-ears` (`settings.section` id `dsh-ears`, nav order 16) with General, Recognition, Polishing, and About tabs (D-017, D-028, D-033). Rows are uncarded General-style hairlines with per-field auto-save (D-031): valid drafts flush after 400 ms, on blur, or on unmount. There is no Save/Discard footer.
+- Web Speech is the default recognition backend for new or incomplete settings, so a fresh install works without a model download; Local Whisper remains selectable and its `default` acceleration uses the Host's automatic platform/native-variant selection (D-046).
+- Polishing is enabled by default and uses dsh's live `agent-default-model` selection when the dsh-ears route fields are empty (D-045).
 - Voice shortcut default `Ctrl+Shift+Space` (D-028). Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. Reserved browser/OS chords warn amber.
 - Cloud ASR keys are per-provider Host `role('secret')` fields (D-023, D-032). The browser never reads a key value.
 - Custom polish system prompt on the Polishing tab (D-029). Blank uses the built-in ASR-cleaning contract.
