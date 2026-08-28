@@ -19,6 +19,7 @@ import {
   supportsModelListing,
   validateCloudAsrFieldValue
 } from '../src/asr/providers.js'
+import { filterDeepgramModels } from '../src/asr/cloud-provider-models.js'
 import type { EarsSettings } from '../src/config.js'
 
 function settings(overrides: Partial<EarsSettings> = {}): EarsSettings {
@@ -173,20 +174,53 @@ describe('cloud ASR provider registry', () => {
     expect(validateCloudAsrFieldValue(groqKey, 'x'.repeat(513))).toBe(false)
   })
 
-  it('declares service capability mappings and complete static fallback metadata', () => {
+  it('declares service capability mappings and per-model static fallback metadata', () => {
     const deepgram = cloudProviderEntry('deepgram')
     if (deepgram === undefined) throw new Error('Deepgram provider entry is missing')
     expect(deepgram.modelServiceCapabilities).toEqual({ 'recording-file': 'batch', realtime: 'streaming' })
+    // Every static fallback model is a Listen V1 model the adapter can execute.
     for (const model of deepgram.staticModels ?? []) {
-      expect(deepgram.staticModelCapabilities?.[model]).toEqual({ batch: true, streaming: true })
+      expect(deepgram.staticModelCapabilities?.[model]?.transport).toBe('listen-v1')
+      expect(deepgram.staticModelCapabilities?.[model]?.batch).toBe(true)
     }
+    // Deepgram Whisper Cloud is a batch-only model and must not be exposed for realtime.
+    expect(deepgram.staticModelCapabilities?.['whisper-large']).toEqual({ batch: true, streaming: false, transport: 'listen-v1' })
+    expect(deepgram.staticModelCapabilities?.['nova-3']).toEqual({ batch: true, streaming: true, transport: 'listen-v1' })
     expect(cloudAsrStaticModelsFor('deepgram', 'recording-file')).toContain('nova-3')
+    expect(cloudAsrStaticModelsFor('deepgram', 'recording-file')).toContain('whisper-large')
     expect(cloudAsrStaticModelsFor('deepgram', 'realtime')).toContain('nova-3')
+    expect(cloudAsrStaticModelsFor('deepgram', 'realtime')).not.toContain('whisper-large')
     expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: true, streaming: false })).toBe(true)
     expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: false, streaming: true })).toBe(false)
     expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true })).toBe(true)
     expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: true, streaming: false })).toBe(false)
     expect(cloudAsrModelSupportsService('deepgram', 'realtime', undefined)).toBe(false)
+  })
+
+  it('keeps a live-catalog Whisper model out of realtime end to end', async () => {
+    // Deepgram's live /v1/models reports streaming: true for every Whisper
+    // entry, but Whisper Cloud is pre-recorded only. The projected capability
+    // must therefore exclude it from the realtime service while keeping it for
+    // recording-file.
+    const catalog = filterDeepgramModels([
+      { canonical_name: 'whisper-large', architecture: 'whisper', batch: true, streaming: true },
+      { canonical_name: 'nova-3-general', architecture: 'nova-3', batch: true, streaming: true }
+    ])
+    const capabilities = catalog.modelCapabilities ?? {}
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', capabilities['whisper-large'])).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', capabilities['whisper-large'])).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', capabilities['nova-3-general'])).toBe(true)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', capabilities['nova-3-general'])).toBe(true)
+  })
+
+  it('refuses a streaming-capable model that requires a transport the adapter cannot execute', () => {
+    // A Flux-class model reports streaming: true but requires Listen V2, which
+    // the in-repo Deepgram adapters (Listen V1) cannot issue.
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true, transport: 'listen-v2' })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'recording-file', { batch: true, streaming: true, transport: 'listen-v2' })).toBe(false)
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true, transport: 'listen-v1' })).toBe(true)
+    // A model with no declared transport falls back to capability-only filtering.
+    expect(cloudAsrModelSupportsService('deepgram', 'realtime', { batch: false, streaming: true })).toBe(true)
   })
 
   it('derives realtime routing from the registry instead of provider-specific UI checks', () => {

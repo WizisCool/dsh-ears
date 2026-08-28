@@ -75,7 +75,10 @@ describe('cloud provider model listing', () => {
         'enhanced',
         'enhanced-general',
         'whisper-large'
-      ]
+      ],
+      // The Whisper entry carries no batch/streaming flags, so the only
+      // projected capability is the Whisper streaming correction.
+      modelCapabilities: { 'whisper-large': { streaming: false } }
     })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.deepgram.com/v1/models',
@@ -108,6 +111,48 @@ describe('cloud provider model listing', () => {
         'batch-only': { batch: true, streaming: false },
         'stream-only': { batch: false, streaming: true },
         'dual-mode': { batch: true, streaming: true }
+      }
+    })
+  })
+
+  it('marks a Flux architecture model as Listen V2 so the adapter cannot expose it', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      stt: [
+        { canonical_name: 'flux-general-en', architecture: 'flux', batch: false, streaming: true },
+        { canonical_name: 'nova-3-general', architecture: 'nova-3', batch: true, streaming: true }
+      ]
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)).resolves.toEqual({
+      models: ['nova-3', 'nova-3-general', 'flux-general-en'],
+      modelCapabilities: {
+        // The adapter's default transport (Listen V1) is omitted; only a model
+        // that needs a newer generation carries an explicit transport.
+        'nova-3': { batch: true, streaming: true },
+        'nova-3-general': { batch: true, streaming: true },
+        'flux-general-en': { batch: false, streaming: true, transport: 'listen-v2' }
+      }
+    })
+  })
+
+  it('forces streaming off for Whisper architecture entries the catalog overreports as streaming', async () => {
+    // Live /v1/models responses report streaming: true for every Whisper entry,
+    // but Whisper Cloud is pre-recorded only; the documented batch-only support wins.
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      stt: [
+        { canonical_name: 'whisper-large', architecture: 'whisper', batch: true, streaming: true },
+        { canonical_name: 'nova-3-general', architecture: 'nova-3', batch: true, streaming: true }
+      ]
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchCloudProviderModels(deepgramEntry(), 'dg_token', new AbortController().signal)).resolves.toEqual({
+      models: ['nova-3', 'nova-3-general', 'whisper-large'],
+      modelCapabilities: {
+        'nova-3': { batch: true, streaming: true },
+        'nova-3-general': { batch: true, streaming: true },
+        'whisper-large': { batch: true, streaming: false }
       }
     })
   })

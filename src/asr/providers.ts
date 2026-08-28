@@ -15,7 +15,7 @@ import {
 } from '../settings/recognition.js'
 import type { CloudAsrProviderId } from '../settings/recognition.js'
 import type { EarsSettings } from '../config.js'
-import type { CloudAsrModelCapabilities } from './types.js'
+import type { CloudAsrModelCapabilities, CloudAsrModelTransport } from './types.js'
 import { EARS_ERROR_CODES, EarsError } from '../errors.js'
 
 /**
@@ -120,6 +120,12 @@ export interface CloudAsrProviderEntry {
   readonly staticModelCapabilities?: Readonly<Record<string, CloudAsrModelCapabilities>>
   /** Maps a provider service identifier to the catalog capability it requires. */
   readonly modelServiceCapabilities?: Readonly<Record<string, CloudAsrModelCapability>>
+  /**
+   * The wire transports the in-repo adapter can actually issue. A model whose
+   * provider metadata demands a transport the adapter does not implement is
+   * not executable and must not be surfaced for a service that needs it.
+   */
+  readonly adapterTransports?: readonly CloudAsrModelTransport[]
   /** Model used when the settings value is empty (custom keeps whisper-1). */
   readonly defaultModel?: string
   /** Whether the user edits the transcription endpoint instead of a preset. */
@@ -186,19 +192,21 @@ const CUSTOM_FIELDS = [
  * from model names at render time.
  */
 const DEEPGRAM_STATIC_MODEL_CAPABILITIES: Readonly<Record<string, CloudAsrModelCapabilities>> = Object.freeze({
-  'nova-3': { batch: true, streaming: true },
-  'nova-3-general': { batch: true, streaming: true },
-  'nova-3-medical': { batch: true, streaming: true },
-  'nova-2': { batch: true, streaming: true },
-  'nova-2-general': { batch: true, streaming: true },
-  'nova-2-meeting': { batch: true, streaming: true },
-  'nova-2-phonecall': { batch: true, streaming: true },
-  'nova-2-conversationalai': { batch: true, streaming: true },
-  'nova-2-finance': { batch: true, streaming: true },
-  'nova-2-medical': { batch: true, streaming: true },
-  enhanced: { batch: true, streaming: true },
-  base: { batch: true, streaming: true },
-  'whisper-large': { batch: true, streaming: true }
+  'nova-3': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-3-general': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-3-medical': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-general': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-meeting': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-phonecall': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-conversationalai': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-finance': { batch: true, streaming: true, transport: 'listen-v1' },
+  'nova-2-medical': { batch: true, streaming: true, transport: 'listen-v1' },
+  enhanced: { batch: true, streaming: true, transport: 'listen-v1' },
+  base: { batch: true, streaming: true, transport: 'listen-v1' },
+  // Deepgram Whisper Cloud is batch-only: it cannot be used on a live realtime
+  // stream, so it must not be exposed for the realtime service.
+  'whisper-large': { batch: true, streaming: false, transport: 'listen-v1' }
 })
 const DEEPGRAM_STATIC_MODELS = Object.freeze(Object.keys(DEEPGRAM_STATIC_MODEL_CAPABILITIES))
 
@@ -242,6 +250,7 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     staticModels: DEEPGRAM_STATIC_MODELS,
     staticModelCapabilities: DEEPGRAM_STATIC_MODEL_CAPABILITIES,
     modelServiceCapabilities: { 'recording-file': 'batch', realtime: 'streaming' },
+    adapterTransports: ['listen-v1'],
     endpointEditable: false,
     apiKeyRequired: true
   },
@@ -375,10 +384,23 @@ export function supportsModelListing(id: string): boolean {
   return entry?.modelStrategy === 'listing' && entry.baseUrl !== undefined
 }
 
-/** Whether catalog metadata explicitly permits a model for a provider service. */
+/**
+ * Whether catalog metadata explicitly permits a model for a provider service.
+ * A model must both report the capability the service needs and be executable
+ * by the in-repo adapter. A streaming-capable model that requires a newer wire
+ * transport (e.g. Deepgram Listen V2) is not executable here and is rejected
+ * even though the provider reports `streaming: true`.
+ */
 export function cloudAsrModelSupportsService(providerId: string, service: string, capabilities: CloudAsrModelCapabilities | undefined): boolean {
-  const requiredCapability = cloudProviderEntry(providerId)?.modelServiceCapabilities?.[service]
-  return requiredCapability === undefined || capabilities?.[requiredCapability] === true
+  const entry = cloudProviderEntry(providerId)
+  const requiredCapability = entry?.modelServiceCapabilities?.[service]
+  if (requiredCapability === undefined || capabilities?.[requiredCapability] !== true) return false
+  // A model whose provider metadata requires a transport this adapter cannot
+  // issue is not executable, regardless of the reported service capability.
+  if (capabilities.transport !== undefined && entry?.adapterTransports !== undefined) {
+    if (!entry.adapterTransports.includes(capabilities.transport)) return false
+  }
+  return true
 }
 
 /** Return registry-declared fallback models that are executable for a service. */

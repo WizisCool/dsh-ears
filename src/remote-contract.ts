@@ -147,7 +147,8 @@ export const cloudProviderModelsViewSchema = z.object({
   models: z.array(z.string()).optional(),
   modelCapabilities: z.record(z.string().min(1), z.object({
     batch: z.boolean().optional(),
-    streaming: z.boolean().optional()
+    streaming: z.boolean().optional(),
+    transport: z.enum(['listen-v1', 'listen-v2']).optional()
   })).optional(),
   error: z.string().optional(),
   errorCode: z.string().optional(),
