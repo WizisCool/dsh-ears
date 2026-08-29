@@ -3,7 +3,7 @@ import { EARS_SETTINGS_SCHEMA_VERSION } from './config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
-import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS } from './settings/recognition.js'
+import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS } from './settings/recognition.js'
 
 /** Host settings schema. */
 export const EarsSettingsSchema = s.object({
@@ -71,7 +71,14 @@ export const EarsSettingsSchema = s.object({
       apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.apiKey).description('SiliconFlow API key'),
       model: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.model).description('SiliconFlow ASR model, for example FunAudioLLM/SenseVoiceSmall'),
       language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.language).description('Transcription language; leave empty for automatic detection')
-    }).description('SiliconFlow cloud ASR').collapse()
+    }).description('SiliconFlow cloud ASR').collapse(),
+    volcengine: s.object({
+      apiKey: s.string().role('secret').default(DEFAULT_CLOUD_ASR_SETTINGS.volcengine.apiKey).description('Volcengine speech API key (X-Api-Key)'),
+      service: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.volcengine.service).description(`Volcengine ASR service: ${VOLCENGINE_ASR_SERVICE_IDS.join(', ')}`),
+      realtimeModel: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.volcengine.realtimeModel).description('One-way streaming resource id, for example volc.seedasr.sauc.duration'),
+      recordingModel: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.volcengine.recordingModel).description('Recording file recognition resource id, for example volc.seedasr.auc'),
+      language: s.string().default(DEFAULT_CLOUD_ASR_SETTINGS.volcengine.language).description('Recognition language; leave empty for the default Chinese/English recognition')
+    }).description('Volcengine cloud ASR').collapse()
   }).description('Cloud ASR provider credentials and models').collapse(),
   polishing: s.object({
     enabled: s.boolean().default(DEFAULT_POLISHING_SETTINGS.enabled).description('Enable LLM polishing by default'),

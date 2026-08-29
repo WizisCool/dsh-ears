@@ -1,4 +1,4 @@
-import { DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_DEFAULT_MODEL, SILICONFLOW_DEFAULT_MODEL } from './recognition.js'
+import { DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_DEFAULT_MODEL, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_DEFAULT_MODEL, SILICONFLOW_DEFAULT_MODEL, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL } from './recognition.js'
 
 export const MAX_CLOUD_API_KEY_LENGTH = 512
 
@@ -33,6 +33,14 @@ export interface MimoSettings extends CloudAsrProviderSettings {
   cluster: string
 }
 
+export interface VolcengineSettings {
+  apiKey: string
+  service: string
+  realtimeModel: string
+  recordingModel: string
+  language: string
+}
+
 export interface CloudAsrSettings {
   groq: CloudAsrProviderSettings
   deepgram: DeepgramSettings
@@ -41,6 +49,7 @@ export interface CloudAsrSettings {
   tencent: TencentSettings
   mimo: MimoSettings
   siliconflow: CloudAsrProviderSettings
+  volcengine: VolcengineSettings
 }
 
 export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
@@ -50,7 +59,14 @@ export const DEFAULT_CLOUD_ASR_SETTINGS: CloudAsrSettings = Object.freeze({
   bailian: Object.freeze({ apiKey: '', host: '', model: '', language: '' }),
   tencent: Object.freeze({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' }),
   mimo: Object.freeze({ apiKey: '', service: MIMO_ASR_DEFAULT_SERVICE, cluster: MIMO_ASR_DEFAULT_CLUSTER, model: MIMO_DEFAULT_MODEL, language: '' }),
-  siliconflow: Object.freeze({ apiKey: '', model: SILICONFLOW_DEFAULT_MODEL, language: '' })
+  siliconflow: Object.freeze({ apiKey: '', model: SILICONFLOW_DEFAULT_MODEL, language: '' }),
+  volcengine: Object.freeze({
+    apiKey: '',
+    service: VOLCENGINE_ASR_DEFAULT_SERVICE,
+    realtimeModel: VOLCENGINE_REALTIME_DEFAULT_MODEL,
+    recordingModel: VOLCENGINE_RECORDING_DEFAULT_MODEL,
+    language: ''
+  })
 })
 
 export function isHttpEndpoint(value: string): boolean {

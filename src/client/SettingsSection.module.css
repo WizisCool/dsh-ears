@@ -124,6 +124,15 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  /* The Menu anchor wrapper shrink-wraps its button, so the button's own
+     percentage max-width resolves against the wrapper and can exceed this
+     column; cap every direct child so long select labels ellipsize inside. */
+  min-width: 0;
+}
+
+.rowControl > * {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .aboutValue {

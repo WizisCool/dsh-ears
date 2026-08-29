@@ -63,6 +63,16 @@ describe('settings Remote contract', () => {
     expect(() => earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'metal' })).toThrow()
   })
 
+  it('accepts the supported Volcengine service and resource-id values and rejects others', () => {
+    expect(earsSettingsPatchSchema.parse({ cloudAsrVolcengineService: 'recording-file' })).toEqual({ cloudAsrVolcengineService: 'recording-file' })
+    expect(earsSettingsPatchSchema.parse({ cloudAsrVolcengineService: 'realtime' })).toEqual({ cloudAsrVolcengineService: 'realtime' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrVolcengineService: 'full-duplex' })).toThrow()
+    expect(earsSettingsPatchSchema.parse({ cloudAsrVolcengineRealtimeModel: 'volc.seedasr.sauc.duration' })).toEqual({ cloudAsrVolcengineRealtimeModel: 'volc.seedasr.sauc.duration' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrVolcengineRealtimeModel: 'volc.seedasr.sauc.concurrent' })).toThrow()
+    expect(earsSettingsPatchSchema.parse({ cloudAsrVolcengineRecordingModel: 'volc.seedasr.auc' })).toEqual({ cloudAsrVolcengineRecordingModel: 'volc.seedasr.auc' })
+    expect(() => earsSettingsPatchSchema.parse({ cloudAsrVolcengineRecordingModel: 'volc.not-a-resource-id' })).toThrow()
+  })
+
   it('accepts the supported Tencent service identifiers', () => {
     expect(earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'recording-file' })).toEqual({ cloudAsrTencentService: 'recording-file' })
     expect(earsSettingsPatchSchema.parse({ cloudAsrTencentService: 'realtime' })).toEqual({ cloudAsrTencentService: 'realtime' })
@@ -120,7 +130,8 @@ describe('settings Remote contract', () => {
       'cloudAsrBailianApiKey',
       'cloudAsrTencentSecretKey',
       'cloudAsrMimoApiKey',
-      'cloudAsrSiliconFlowApiKey'
+      'cloudAsrSiliconFlowApiKey',
+      'cloudAsrVolcengineApiKey'
     ] as const
     for (const field of credentialFields) {
       expect(earsSettingsPatchSchema.parse({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })).toEqual({ [field]: 'x'.repeat(MAX_CLOUD_API_KEY_LENGTH) })

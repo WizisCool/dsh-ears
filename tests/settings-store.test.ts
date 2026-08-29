@@ -4,6 +4,23 @@ import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
 import { applyFlatSettingsPatch, defaultStoredEarsSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
 
 describe('canonical Host settings slots', () => {
+  it('fills and normalizes the Volcengine slot without legacy data', () => {
+    const stored = normalizeStoredEarsSettings({ schemaVersion: 4 })
+    expect(stored.cloudAsr.volcengine).toEqual({ apiKey: '', service: 'recording-file', realtimeModel: 'volc.seedasr.sauc.duration', recordingModel: 'volc.seedasr.auc', language: '' })
+
+    const populated = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      cloudAsr: { volcengine: { apiKey: 'vk', service: 'realtime', realtimeModel: 'volc.bigasr.sauc.duration', recordingModel: 'volc.bigasr.auc', language: 'zh-CN' } }
+    })
+    expect(populated.cloudAsr.volcengine).toEqual({ apiKey: 'vk', service: 'realtime', realtimeModel: 'volc.bigasr.sauc.duration', recordingModel: 'volc.bigasr.auc', language: 'zh-CN' })
+
+    const repaired = normalizeStoredEarsSettings({
+      schemaVersion: 4,
+      cloudAsr: { volcengine: { service: 'full-duplex', realtimeModel: 'volc.seedasr.sauc.concurrent', recordingModel: 'not-a-resource-id' } }
+    })
+    expect(repaired.cloudAsr.volcengine).toEqual({ apiKey: '', service: 'recording-file', realtimeModel: 'volc.seedasr.sauc.duration', recordingModel: 'volc.seedasr.auc', language: '' })
+  })
+
   it('round-trips flat app settings into current schema slots', () => {
     const stored = unflattenEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
@@ -20,6 +37,11 @@ describe('canonical Host settings slots', () => {
       cloudAsrSiliconFlowApiKey: 'sk_siliconflow',
       cloudAsrSiliconFlowModel: 'FunAudioLLM/SenseVoice',
       cloudAsrSiliconFlowLanguage: 'zh',
+      cloudAsrVolcengineApiKey: 'vk_volcengine',
+      cloudAsrVolcengineService: 'realtime',
+      cloudAsrVolcengineRealtimeModel: 'volc.bigasr.sauc.duration',
+      cloudAsrVolcengineRecordingModel: 'volc.bigasr.auc',
+      cloudAsrVolcengineLanguage: 'zh-CN',
       polishProvider: 'provider',
       polishModel: 'model',
       polishPrompt: 'Keep it short.'
@@ -49,6 +71,7 @@ describe('canonical Host settings slots', () => {
     expect(stored.cloudAsr.tencent).toEqual({ appId: '', secretId: '', secretKey: '', engineType: '16k_zh', service: 'recording-file' })
     expect(stored.cloudAsr.mimo).toEqual({ apiKey: '', service: 'api', cluster: 'cn', model: 'mimo-v2.5-asr', language: '' })
     expect(stored.cloudAsr.siliconflow).toEqual({ apiKey: 'sk_siliconflow', model: 'FunAudioLLM/SenseVoice', language: 'zh' })
+    expect(stored.cloudAsr.volcengine).toEqual({ apiKey: 'vk_volcengine', service: 'realtime', realtimeModel: 'volc.bigasr.sauc.duration', recordingModel: 'volc.bigasr.auc', language: 'zh-CN' })
     expect(stored.polishing).toEqual({
       enabled: true,
       provider: 'provider',
@@ -62,6 +85,7 @@ describe('canonical Host settings slots', () => {
       cloudAsrCustomApiKey: 'sk_openai',
       cloudAsrBailianModel: 'fun-asr-flash',
       cloudAsrSiliconFlowApiKey: 'sk_siliconflow',
+      cloudAsrVolcengineApiKey: 'vk_volcengine',
       polishPrompt: 'Keep it short.'
     })
     expect(storedSettingsNeedRewrite(stored)).toBe(false)
