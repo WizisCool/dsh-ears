@@ -238,9 +238,9 @@ describe('Tencent Cloud realtime recognition', () => {
     expect(voiceId).toMatch(/^[A-Za-z0-9]{16}$/)
   })
 
-  it('rejects malformed response codes', async () => {
+  it('rejects malformed response codes on the next operation', async () => {
     for (const code of [undefined, null, true, '', 'not-a-number', {}]) {
-      const socket = new FakeWebSocket(JSON.stringify({ code, result: { voice_text_str: '你好', index: 0, slice_type: 2 } }))
+      const socket = new FakeWebSocket(undefined, false)
       const session = new TencentRealtimeAsrSession({
         appId: '1250000000',
         secretId: 'AKIDexample',
@@ -249,11 +249,13 @@ describe('Tencent Cloud realtime recognition', () => {
         webSocketFactory: () => socket
       })
       await session.open()
-      await expect(session.sendAudio(new Uint8Array([1, 2]))).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
+      await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toEqual({ text: '', final: false })
+      socket.emit('message', { data: JSON.stringify({ code, result: { voice_text_str: '你好', index: 0, slice_type: 2 } }) })
+      await expect(session.sendAudio(new Uint8Array([3, 4]))).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
     }
   })
 
-  it('rejects malformed realtime result payloads', async () => {
+  it('rejects malformed realtime result payloads on the next operation', async () => {
     for (const result of [
       null,
       {},
@@ -261,7 +263,7 @@ describe('Tencent Cloud realtime recognition', () => {
       { voice_text_str: 1, index: 0, slice_type: 1 },
       { voice_text_str: '你好', index: 'not-a-number', slice_type: 1 }
     ]) {
-      const socket = new FakeWebSocket(JSON.stringify({ code: 0, result }))
+      const socket = new FakeWebSocket(undefined, false)
       const session = new TencentRealtimeAsrSession({
         appId: '1250000000',
         secretId: 'AKIDexample',
@@ -270,11 +272,13 @@ describe('Tencent Cloud realtime recognition', () => {
         webSocketFactory: () => socket
       })
       await session.open()
-      await expect(session.sendAudio(new Uint8Array([1, 2]))).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
+      await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toEqual({ text: '', final: false })
+      socket.emit('message', { data: JSON.stringify({ code: 0, result }) })
+      await expect(session.sendAudio(new Uint8Array([3, 4]))).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrInvalidResponse })
     }
   })
   it('accepts a numeric response code string', async () => {
-    const socket = new FakeWebSocket(JSON.stringify({ code: '0', result: { voice_text_str: '你好', index: 0, slice_type: 2 } }))
+    const socket = new FakeWebSocket(undefined, false)
     const session = new TencentRealtimeAsrSession({
       appId: '1250000000',
       secretId: 'AKIDexample',
@@ -283,7 +287,9 @@ describe('Tencent Cloud realtime recognition', () => {
       webSocketFactory: () => socket
     })
     await session.open()
-    await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toMatchObject({ text: '你好', final: false })
+    await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toEqual({ text: '', final: false })
+    socket.emit('message', { data: JSON.stringify({ code: '0', result: { voice_text_str: '你好', index: 0, slice_type: 2 } }) })
+    expect(session.snapshot()).toEqual({ text: '你好', final: false })
     session.close()
   })
 
@@ -334,7 +340,8 @@ describe('Tencent Cloud realtime recognition', () => {
       webSocketFactory: () => socket
     })
     await session.open()
-    await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toMatchObject({ text: '你好', final: false })
+    await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toEqual({ text: '', final: false })
+    await vi.waitFor(() => expect(session.snapshot()).toMatchObject({ text: '你好', final: false }))
     await expect(session.finish()).resolves.toBe('你好')
     expect(socket.sent.some((item) => typeof item === 'string' && item === JSON.stringify({ type: 'end' }))).toBe(true)
     expect(socket.readyState).toBe(3)

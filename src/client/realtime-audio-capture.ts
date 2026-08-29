@@ -106,8 +106,8 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   }
 
   abort(): void {
-    if (this.closed) return
     this.deliveryGeneration += 1
+    if (this.closed) return
     this.closed = true
     this.onChunk = undefined
     this.pendingPcm = new Uint8Array()

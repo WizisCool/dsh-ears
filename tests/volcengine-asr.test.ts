@@ -129,7 +129,7 @@ class FakeWebSocket implements VolcengineWebSocket {
     this.listeners.get(type)?.delete(listener)
   }
 
-  private emit(type: string, event: FakeEvent): void {
+  emit(type: string, event: FakeEvent): void {
     for (const listener of [...(this.listeners.get(type) ?? [])]) listener(event)
   }
 }
@@ -351,14 +351,16 @@ describe('Volcano Engine one-way streaming session', () => {
     expect(handshake.payload.request).toMatchObject({ model_name: 'bigmodel' })
     expect(handshake.payload.audio).toMatchObject({ format: 'pcm', language: 'zh-CN' })
 
-    sockets[0]!.queue(successFrame({ audio_info: { duration: 400 }, result: { text: '你好，' } }, 2))
     const first = await session.sendAudio(new Uint8Array([1, 2, 3, 4]))
-    expect(first).toEqual({ text: '你好，', final: false })
+    expect(first).toEqual({ text: '', final: false })
     expect(decodeAudioFrame(sockets[0]!.sent[1]!)).toMatchObject({ messageType: AUDIO_ONLY_REQUEST, sequence: 2 })
+    sockets[0]!.emit('message', { data: successFrame({ audio_info: { duration: 400 }, result: { text: '你好，' } }, 2).buffer })
+    expect(session.snapshot()).toEqual({ text: '你好，', final: false })
 
     sockets[0]!.queue(successFrame({ audio_info: { duration: 800 }, result: { text: '你好，世界' } }, 3))
     const second = await session.sendAudio(new Uint8Array([5, 6, 7, 8]))
-    expect(second.text).toBe('你好，世界')
+    expect(second.text).toBe('你好，')
+    await vi.waitFor(() => expect(session.snapshot().text).toBe('你好，世界'))
 
     sockets[0]!.queue(successFrame({ audio_info: { duration: 900 }, result: { text: '你好，世界' } }, 4, true))
     await expect(session.finish()).resolves.toBe('你好，世界')
@@ -380,11 +382,12 @@ describe('Volcano Engine one-way streaming session', () => {
       webSocketFactory: () => socket
     })
     await session.open()
-    socket.queue(successFrame({ result: { utterances: [
+    await expect(session.sendAudio(new Uint8Array([1]))).resolves.toEqual({ text: '', final: false })
+    socket.emit('message', { data: successFrame({ result: { utterances: [
       { definite: true, text: '第一句' },
       { definite: false, text: '第二' }
-    ] } }, 2))
-    await expect(session.sendAudio(new Uint8Array([1]))).resolves.toEqual({ text: '第一句', final: false })
+    ] } }, 2).buffer })
+    expect(session.snapshot()).toEqual({ text: '第一句', final: false })
   })
 
   it('surfaces a server error frame as a business failure', async () => {
@@ -395,8 +398,9 @@ describe('Volcano Engine one-way streaming session', () => {
       webSocketFactory: () => socket
     })
     await session.open()
-    socket.queue(errorFrame('invalid request'))
-    await expect(session.sendAudio(new Uint8Array([1]))).rejects.toMatchObject({
+    await expect(session.sendAudio(new Uint8Array([1]))).resolves.toEqual({ text: '', final: false })
+    socket.emit('message', { data: errorFrame('invalid request').buffer })
+    await expect(session.finish()).rejects.toMatchObject({
       code: EARS_ERROR_CODES.asrHttpFailed,
       message: expect.stringContaining('invalid request')
     })

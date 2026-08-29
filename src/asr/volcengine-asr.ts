@@ -15,7 +15,6 @@ export const VOLCENGINE_STATUS_PROCESSING = '20000001'
 export const VOLCENGINE_STATUS_NO_SPEECH = '20000003'
 export const VOLCENGINE_REALTIME_OPEN_TIMEOUT_MS = 15_000
 export const VOLCENGINE_REALTIME_FINISH_TIMEOUT_MS = 30_000
-export const VOLCENGINE_REALTIME_MESSAGE_GRACE_MS = 120
 const VOLCENGINE_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 const VOLCENGINE_SAMPLE_RATE = 16000
 /** End-of-stream marker: a short silence chunk carries the negative-sequence last flag. */
@@ -382,7 +381,6 @@ export class VolcengineRealtimeAsrSession {
   private final = false
   private transcript = ''
   private sequence = 1
-  private messageVersion = 0
   private lastError: EarsError | undefined
   private readonly messageWaiters = new Set<() => void>()
 
@@ -417,16 +415,15 @@ export class VolcengineRealtimeAsrSession {
   }
 
   async sendAudio(audio: Uint8Array, signal: AbortSignal = this.options.signal ?? new AbortController().signal): Promise<VolcengineRealtimeTranscript> {
-    if (audio.byteLength === 0) return this.snapshot()
     signal.throwIfAborted()
+    if (this.lastError !== undefined) throw this.lastError
+    if (audio.byteLength === 0) return this.snapshot()
     const socket = this.requireSocket()
     if (!this.opened || this.ended || this.closed) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Volcano Engine realtime recognition is not active')
-    const version = this.messageVersion
     socket.send(volcengineAudioRequestFrame(this.sequence, audio, false))
     this.sequence += 1
-    await this.waitFor(() => this.messageVersion > version || this.lastError !== undefined || this.closed, VOLCENGINE_REALTIME_MESSAGE_GRACE_MS, signal)
-    if (this.lastError !== undefined) throw this.lastError
-    if (this.closed && this.messageVersion === version) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Volcano Engine realtime recognition connection closed')
+    // Gateway responses update the snapshot asynchronously. Audio delivery is
+    // complete once the ordered frame enters the WebSocket send queue.
     return this.snapshot()
   }
 
@@ -434,6 +431,7 @@ export class VolcengineRealtimeAsrSession {
     try {
       signal.throwIfAborted()
       if (this.final) return this.transcript.trim()
+      if (this.lastError !== undefined) throw this.lastError
       const socket = this.requireSocket()
       if (!this.ended) {
         this.ended = true
@@ -517,7 +515,6 @@ export class VolcengineRealtimeAsrSession {
     }
     if (frame.payloadMsg !== undefined) this.applyResult(frame.payloadMsg)
     if (frame.isLastPackage) this.final = true
-    this.messageVersion += 1
     this.notifyWaiters()
   }
 

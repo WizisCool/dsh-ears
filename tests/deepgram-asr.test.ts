@@ -346,11 +346,11 @@ describe('DeepgramRealtimeAsrSession', () => {
     expect(socket).toBeDefined()
     expect(passedProtocols).toEqual(['token', 'test_key'])
 
-    // Send audio chunk
+    // Sending completes after the ordered frame enters the WebSocket queue;
+    // recognition responses update the snapshot independently.
     const pcm = new Uint8Array([0, 1, 0, 2])
-    const sendPromise = session.sendAudio(pcm)
+    await expect(session.sendAudio(pcm)).resolves.toEqual({ text: '', final: false })
 
-    // Simulate Deepgram results message (interim)
     socket?.emit('message', {
       data: JSON.stringify({
         type: 'Results',
@@ -358,10 +358,7 @@ describe('DeepgramRealtimeAsrSession', () => {
         channel: { alternatives: [{ transcript: 'hello' }] }
       })
     })
-
-    const interim = await sendPromise
-    expect(interim.text).toBe('hello')
-    expect(interim.final).toBe(false)
+    expect(session.snapshot()).toEqual({ text: 'hello', final: false })
 
     // Simulate final result
     socket?.emit('message', {
@@ -393,6 +390,27 @@ describe('DeepgramRealtimeAsrSession', () => {
 
     await expect(session.open()).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrServiceUnavailable })
     expect(webSocketFactory).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an asynchronous stream error on the next operation', async () => {
+    let socket: MockDeepgramWebSocket | undefined
+    const session = new DeepgramRealtimeAsrSession({
+      apiKey: 'test_key',
+      webSocketFactory: () => {
+        socket = new MockDeepgramWebSocket()
+        setTimeout(() => socket?.emit('open'), 0)
+        return socket
+      }
+    })
+
+    await session.open()
+    await expect(session.sendAudio(new Uint8Array([1, 2]))).resolves.toEqual({ text: '', final: false })
+    socket?.emit('message', {
+      data: JSON.stringify({ err_code: 'STREAM_ERROR', err_msg: 'stream failed' })
+    })
+    await expect(session.sendAudio(new Uint8Array([3, 4]))).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.asrHttpFailed
+    })
   })
 
   it('rejects on invalid auth error message from socket', async () => {

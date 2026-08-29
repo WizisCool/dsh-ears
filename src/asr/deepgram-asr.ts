@@ -9,7 +9,6 @@ export const DEEPGRAM_DEFAULT_MODEL = 'nova-3'
 export const DEEPGRAM_RECORDING_TIMEOUT_MS = 120_000
 export const DEEPGRAM_REALTIME_OPEN_TIMEOUT_MS = 15_000
 export const DEEPGRAM_REALTIME_FINISH_TIMEOUT_MS = 5_000
-export const DEEPGRAM_REALTIME_MESSAGE_GRACE_MS = 5
 const DEEPGRAM_MAX_RESPONSE_BYTES = 1 * 1024 * 1024
 
 export interface DeepgramRecordingAsrOptions {
@@ -252,7 +251,6 @@ export class DeepgramRealtimeAsrSession {
   private completedSentences: string[] = []
   private interimSentence = ''
   private transcript = ''
-  private messageVersion = 0
   private lastError: unknown
   private detached = false
   private readonly waiters = new Set<() => void>()
@@ -297,22 +295,19 @@ export class DeepgramRealtimeAsrSession {
   }
 
   async sendAudio(audio: Uint8Array, signal: AbortSignal = this.options.signal ?? new AbortController().signal): Promise<DeepgramRealtimeTranscript> {
-    if (audio.byteLength === 0) return this.snapshot()
     signal.throwIfAborted()
+    if (this.lastError !== undefined) throw this.lastError
+    if (audio.byteLength === 0) return this.snapshot()
     const socket = this.requireSocket()
     if (!this.opened || this.ended || this.closed) {
       throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Deepgram realtime recognition is not active')
     }
-    const version = this.messageVersion
     const payload = audio.byteOffset === 0 && audio.byteLength === audio.buffer.byteLength
       ? audio
       : audio.slice()
     socket.send(payload)
-    await this.waitFor(() => this.messageVersion > version || this.lastError !== undefined || this.closed, DEEPGRAM_REALTIME_MESSAGE_GRACE_MS, signal)
-    if (this.lastError !== undefined) throw this.lastError
-    if (this.closed && this.messageVersion === version) {
-      throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Deepgram realtime recognition connection closed')
-    }
+    // Gateway responses update the snapshot asynchronously. Audio delivery is
+    // complete once the ordered frame enters the WebSocket send queue.
     return this.snapshot()
   }
 
@@ -320,6 +315,7 @@ export class DeepgramRealtimeAsrSession {
     try {
       signal.throwIfAborted()
       if (this.final) return this.transcript.trim()
+      if (this.lastError !== undefined) throw this.lastError
       const socket = this.requireSocket()
       if (!this.ended) {
         this.ended = true
@@ -403,7 +399,6 @@ export class DeepgramRealtimeAsrSession {
         this.interimSentence = altText
       }
       this.rebuildTranscript()
-      this.messageVersion += 1
       this.notifyWaiters()
     }
   }

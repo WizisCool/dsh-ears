@@ -14,7 +14,6 @@ const RECORDING_TIMEOUT_MS = 120_000
 const POLL_INTERVAL_MS = 500
 const REALTIME_OPEN_TIMEOUT_MS = 15_000
 const REALTIME_FINISH_TIMEOUT_MS = 30_000
-const REALTIME_MESSAGE_GRACE_MS = 120
 const TENCENT_VOICE_ID_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
 export interface TencentRecordingAsrOptions {
@@ -213,7 +212,6 @@ export class TencentRealtimeAsrSession {
   private transcript = ''
   private interim: { id: number; text: string } | undefined
   private readonly stableSentences = new Map<number, string>()
-  private messageVersion = 0
   private lastError: EarsError | undefined
   private readonly messageWaiters = new Set<() => void>()
 
@@ -253,15 +251,14 @@ export class TencentRealtimeAsrSession {
   }
 
   async sendAudio(audio: Uint8Array, signal: AbortSignal = this.options.signal ?? new AbortController().signal): Promise<TencentRealtimeTranscript> {
-    if (audio.byteLength === 0) return this.snapshot()
     signal.throwIfAborted()
+    if (this.lastError !== undefined) throw this.lastError
+    if (audio.byteLength === 0) return this.snapshot()
     const socket = this.requireSocket()
     if (!this.opened || this.ended || this.closed) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Tencent Cloud realtime recognition is not active')
-    const version = this.messageVersion
     socket.send(audio)
-    await this.waitFor(() => this.messageVersion > version || this.lastError !== undefined || this.closed, REALTIME_MESSAGE_GRACE_MS, signal)
-    if (this.lastError !== undefined) throw this.lastError
-    if (this.closed && this.messageVersion === version) throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, 'Tencent Cloud realtime recognition connection closed')
+    // Gateway responses update the snapshot asynchronously. Audio delivery is
+    // complete once the ordered frame enters the WebSocket send queue.
     return this.snapshot()
   }
 
@@ -269,6 +266,7 @@ export class TencentRealtimeAsrSession {
     try {
       signal.throwIfAborted()
       if (this.final) return this.transcript.trim()
+      if (this.lastError !== undefined) throw this.lastError
       const socket = this.requireSocket()
       if (!this.ended) {
         this.ended = true
@@ -364,7 +362,6 @@ export class TencentRealtimeAsrSession {
     }
     if (numericValue(parsed.final) === 1) this.final = true
     this.opened = true
-    this.messageVersion += 1
     this.notifyWaiters()
   }
 
