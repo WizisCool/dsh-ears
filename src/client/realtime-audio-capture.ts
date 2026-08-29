@@ -29,11 +29,13 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   private readonly source: MediaStreamAudioSourceNode
   private readonly processor: ScriptProcessorNode
   private readonly sink: GainNode
-  private queue = Promise.resolve()
+  // Provider adapters send a packet before waiting for its response. Keep
+  // packet deliveries independent so a slow response cannot stall capture;
+  // stop() still awaits every delivery before the caller sends the end marker.
+  private readonly deliveries = new Set<Promise<void>>()
   private onChunk: ((audioBase64: string) => Promise<void>) | undefined
   private pendingPcm = new Uint8Array()
   private resamplePhase = 0
-  private deliveryGeneration = 0
   private closed = false
   private failure: unknown
 
@@ -98,7 +100,7 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
     this.sink.disconnect()
     stopTracks(this.stream)
     try {
-      await this.queue
+      await Promise.all([...this.deliveries])
       if (this.failure !== undefined) throw this.failure
     } finally {
       await this.context.close()
@@ -107,7 +109,6 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
 
   abort(): void {
     if (this.closed) return
-    this.deliveryGeneration += 1
     this.closed = true
     this.onChunk = undefined
     this.pendingPcm = new Uint8Array()
@@ -133,13 +134,14 @@ export class RealtimeAudioCaptureSession implements RealtimeAudioCapture {
   }
 
   private enqueueChunk(callback: (audioBase64: string) => Promise<void>, pcm: Uint8Array): void {
-    const generation = this.deliveryGeneration
-    this.queue = this.queue.then(async () => {
-      if (generation !== this.deliveryGeneration || this.failure !== undefined) return
+    const delivery = (async () => {
+      if (this.failure !== undefined) return
       await deliverChunk(callback, bytesToBase64(pcm))
-    }).catch((error) => {
+    })().catch((error) => {
       this.failure ??= error
     })
+    this.deliveries.add(delivery)
+    void delivery.finally(() => this.deliveries.delete(delivery))
   }
 }
 

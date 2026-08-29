@@ -171,7 +171,7 @@ describe('RealtimeAudioCaptureSession', () => {
     expect(decoded).toHaveLength(1_024)
   })
 
-  it('drops queued chunks after aborting the capture session', async () => {
+  it('aborts capture without waiting for in-flight deliveries', async () => {
     const stream = new FakeStream()
     const context = new FakeAudioContext()
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
@@ -184,29 +184,29 @@ describe('RealtimeAudioCaptureSession', () => {
 
     const session = await RealtimeAudioCaptureSession.create()
     const chunks: string[] = []
-    let releaseFirst!: () => void
-    const first = new Promise<void>((resolve) => {
-      releaseFirst = resolve
+    let releaseDeliveries!: () => void
+    const deliveries = new Promise<void>((resolve) => {
+      releaseDeliveries = resolve
     })
     session.start(async (chunk) => {
       chunks.push(chunk)
-      if (chunks.length === 1) await first
+      await deliveries
     })
     emitAudio(context, samplesOf(640, 0.25))
     emitAudio(context, samplesOf(640, -0.25))
 
     await Promise.resolve()
-    expect(chunks).toHaveLength(1)
+    expect(chunks).toHaveLength(2)
     session.abort()
-    releaseFirst()
+    releaseDeliveries()
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-    expect(chunks).toHaveLength(1)
+    expect(chunks).toHaveLength(2)
     expect(stream.track.stop).toHaveBeenCalledOnce()
     expect(context.close).toHaveBeenCalledOnce()
   })
 
-  it('waits for queued chunks before closing the audio context', async () => {
+  it('delivers chunks concurrently but waits for all deliveries before closing', async () => {
     const stream = new FakeStream()
     const context = new FakeAudioContext()
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => stream) } })
@@ -230,14 +230,15 @@ describe('RealtimeAudioCaptureSession', () => {
     emitAudio(context, samplesOf(640, 0.25))
     emitAudio(context, samplesOf(640, -0.25))
 
+    await Promise.resolve()
+    expect(chunks).toHaveLength(2)
+
     const stopping = session.stop()
     await Promise.resolve()
-    expect(chunks).toHaveLength(1)
     expect(context.close).not.toHaveBeenCalled()
 
     releaseFirst()
     await stopping
-    expect(chunks).toHaveLength(2)
     expect(context.close).toHaveBeenCalledOnce()
   })
 

@@ -323,17 +323,15 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     const sessionId = realtimeRemoteSessionIdRef.current
     if (capture === null || sessionId === null) return
     playToggleClick(settingsRef.current, 0.4)
-    realtimeCaptureRef.current = null
-    realtimeRemoteSessionIdRef.current = null
     levelMonitorRef.current?.stop()
     levelMonitorRef.current = null
     const controller = new AbortController()
     transcribeAbortRef.current = controller
     const epoch = voiceSession.captureEpoch()
+    setState('transcribing')
     try {
       await capture.stop()
       if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
-      setState('transcribing')
       const result = await remote.finishRealtime(sessionId, controller.signal)
       if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
       if (!result.ok) {
@@ -368,6 +366,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
     } catch (error) {
       if (mountedRef.current && !controller.signal.aborted) applyVoiceFailure(voiceSession, 'asr', error)
     } finally {
+      if (realtimeCaptureRef.current === capture) realtimeCaptureRef.current = null
+      if (realtimeRemoteSessionIdRef.current === sessionId) realtimeRemoteSessionIdRef.current = null
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null
       void remote.cancelRealtime(sessionId)
     }
