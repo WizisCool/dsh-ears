@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   decideMicrophoneClick,
   isSupersededMediaCapture,
+  reuseInFlightPromise,
   resolveCaptureBackend,
   shouldAbandonPendingCapture,
   voiceToggleAction,
@@ -81,6 +82,38 @@ describe('shouldAbandonPendingCapture', () => {
     expect(shouldAbandonPendingCapture(false, false)).toBe(true)
     expect(shouldAbandonPendingCapture(true, true)).toBe(true)
     expect(shouldAbandonPendingCapture(false, true)).toBe(true)
+  })
+})
+
+describe('reuseInFlightPromise', () => {
+  it('reuses the active promise for one key and isolates a later key', async () => {
+    const inFlight: { current: { key: string; promise: Promise<string> } | null } = { current: null }
+    let resolveFirst!: (value: string) => void
+    let resolveNext!: (value: string) => void
+    let operationCalls = 0
+    const firstOperation = () => new Promise<string>((resolve) => {
+      operationCalls += 1
+      resolveFirst = resolve
+    })
+
+    const first = reuseInFlightPromise(inFlight, 'session-1', firstOperation)
+    const second = reuseInFlightPromise(inFlight, 'session-1', firstOperation)
+    expect(second).toBe(first)
+    expect(operationCalls).toBe(1)
+
+    const next = reuseInFlightPromise(inFlight, 'session-2', () => new Promise<string>((resolve) => {
+      operationCalls += 1
+      resolveNext = resolve
+    }))
+    expect(operationCalls).toBe(2)
+
+    resolveFirst('done')
+    await expect(first).resolves.toBe('done')
+    expect(inFlight.current?.key).toBe('session-2')
+
+    resolveNext('next')
+    await expect(next).resolves.toBe('next')
+    expect(inFlight.current).toBeNull()
   })
 })
 
