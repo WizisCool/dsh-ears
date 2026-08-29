@@ -228,7 +228,8 @@ export async function transcribeVolcengineRecording(options: VolcengineRecording
       continue
     }
     if (polled.statusCode === VOLCENGINE_STATUS_NO_SPEECH) {
-      throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, polled.message !== '' ? polled.message : 'Volcano Engine returned no transcript')
+      // D-048: no valid speech is an empty successful result, not a failure.
+      return ''
     }
     if (polled.statusCode !== VOLCENGINE_STATUS_OK) {
       throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, volcengineStatusMessage('Volcano Engine ASR query failed', polled))
@@ -247,9 +248,7 @@ export async function transcribeVolcengineRecording(options: VolcengineRecording
 
 function extractVolcengineRecordingTranscript(body: Record<string, unknown>): string {
   const result = isRecord(body.result) ? body.result : undefined
-  const text = typeof result?.text === 'string' ? result.text.trim() : ''
-  if (text !== '') return text
-  throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Volcano Engine returned no transcript')
+  return typeof result?.text === 'string' ? result.text.trim() : ''
 }
 
 async function volcengineApiRequest(options: {

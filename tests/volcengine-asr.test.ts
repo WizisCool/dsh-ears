@@ -259,13 +259,16 @@ describe('Volcano Engine recording file recognition', () => {
     expect(volcengineRecordingRequestBody({ audio: new Uint8Array([1]) }).audio).not.toHaveProperty('language')
   })
 
-  it('maps the no-valid-speech status to the shared no-transcript error', async () => {
+  it('returns an empty transcript for the no-valid-speech status', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({}, '20000003', '[Normal silence audio] Handle response: no valid speech in audio'))
       .mockImplementationOnce(async () => jsonResponse({}, '20000000', 'OK'))
-    await expect(transcribeVolcengineRecording({ ...baseOptions, fetch: fetchMock })).rejects.toMatchObject({
-      code: EARS_ERROR_CODES.asrNoTranscript,
-      message: expect.stringContaining('no valid speech')
-    })
+    await expect(transcribeVolcengineRecording({ ...baseOptions, fetch: fetchMock })).resolves.toBe('')
+  })
+
+  it('returns an empty transcript when a completed task carries no text', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ result: { text: '   ' } }, '20000000', 'OK'))
+      .mockImplementationOnce(async () => jsonResponse({}, '20000000', 'OK'))
+    await expect(transcribeVolcengineRecording({ ...baseOptions, fetch: fetchMock })).resolves.toBe('')
   })
 
   it('rejects non-JSON and unexpected response shapes instead of polling forever', async () => {
