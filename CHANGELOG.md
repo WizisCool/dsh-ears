@@ -2,6 +2,23 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.2.2] - 2026-08-29
+
+Volcengine cloud ASR and realtime finalization release.
+
+### Added
+
+- Volcengine as a first-class cloud ASR provider with recording-file recognition and one-way realtime streaming, new-console `X-Api-Key` authentication, selectable resource IDs, recognition language, and localized settings.
+
+### Changed
+
+- The README badge row now includes DeepSeek branding and npm total downloads with a dedicated download icon.
+
+### Fixed
+
+- Realtime PCM chunks retain strict FIFO order while Volcengine, Tencent Cloud, and Deepgram audio sends complete after ordered WebSocket enqueue; asynchronous recognition responses continue updating snapshots, and `finish()` waits for terminal provider text.
+- Repeated stop requests share one finalization per realtime session, while discard invalidates queued packets and performs session-safe cleanup.
+
 ## [0.2.1] - 2026-08-29
 
 Update-command copy fix.
