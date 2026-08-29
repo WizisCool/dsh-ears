@@ -4,11 +4,7 @@
 
 <h1 align="center">dsh-ears</h1>
 
-<p align="center"><b>Give the text-only DeepSeek a pair of ears.</b></p>
-
-<p align="center">
-  An open-source voice-input plugin for <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>
-</p>
+<p align="center"><b>Voice input plugin for <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> with LLM text polishing.</b></p>
 
 <p align="center">
   <a href="./README.md">简体中文</a> ·
@@ -27,7 +23,7 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-While recording, a recognition bar with a waveform appears above the composer. Click the discard icon to cancel during transcription or polishing.
+dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It supports in-browser Web Speech, local Whisper, and popular speech-to-text (ASR) APIs.
 
 ## Install
 
@@ -51,6 +47,8 @@ dsh plugin --profile web add "$PWD"
 # Windows cmd: use "%CD%"; PowerShell expands $PWD directly
 ```
 
+`pnpm use:platform` switches `node_modules` to the native dependency tree for the active platform (kept separate for Windows and Linux). Run it on a fresh clone and whenever switching between platforms.
+
 After installation, refresh the Web UI. A microphone icon appears to the right of the composer.
 
 ## Update
@@ -59,7 +57,7 @@ After installation, refresh the Web UI. A microphone icon appears to the right o
 dsh plugin --profile web add dsh-ears
 ```
 
-`add` resolves the latest version from npm, so the same command works from any installed version. After updating, restart `dsh web` to load the new Host code and refresh the Web UI; the About panel in the settings page can also check for new versions.
+`add` resolves the latest version from npm, so the same command works from any installed version. After updating, restart `dsh web` to load the new server code and refresh the Web UI; you can also check for new versions in the "About" panel on the settings page.
 
 ## Uninstall
 
@@ -71,40 +69,57 @@ Refresh the Web UI after uninstalling.
 
 ## Usage
 
-1. Click the microphone icon, or press `Ctrl+Shift+Space` (configurable in settings).
+1. Click the microphone icon or press `Ctrl+Shift+Space` (configurable in settings).
 2. Start speaking.
 3. Press the shortcut again or click the microphone to stop recording and start transcription.
-4. With polishing enabled, the raw transcript appears in the draft first. The plugin replaces it with the polished text when polishing finishes, preserving manual edits made in the meantime.
-5. Review and send.
+4. With polishing enabled, the raw transcript appears in the draft first. Once polishing completes, it replaces the text while preserving any manual edits made in the meantime.
+5. Review the text and send manually.
 
-Transcription results are always written to an editable draft and are never sent automatically. If the selected backend is not ready, the microphone icon is disabled — hover to see why.
+Transcription results are always written to an editable draft and are never sent automatically. If the selected backend is not ready, the microphone icon is disabled — hover over it to see why.
 
 ## Recognition backends
 
 | Backend | How it works | Requirements |
 | --- | --- | --- |
-| Web Speech | Live in-browser recognition | Default backend; a Chromium-based browser |
-| Local Whisper | Host transcribes locally after recording stops | Download a GGML model from settings |
-| [Groq](https://console.groq.com) | Host calls the Groq Whisper API | API key |
+| Web Speech | In-browser real-time recognition | Default backend; Chromium-based browser |
+| Local Whisper | Local transcription after recording stops | Download GGML models in settings |
+| [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
 | [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |
-| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | DashScope synchronous transcription | API key and model name; max 300 s per recording |
-| [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
-| [Xiaomi MiMo](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) | Host calls the MiMo speech model via the [standard API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) or a [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) subscription | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
-| [SiliconFlow](https://siliconflow.cn) | OpenAI-compatible transcription (CN) | API key, model name (e.g. `FunAudioLLM/SenseVoiceSmall`) |
-| [Volcengine](https://www.volcengine.com/product/doubao) | [Doubao audio file recognition](https://docs.volcengine.com/docs/6561/1354868?lang=zh) or [Doubao one-way streaming ASR](https://docs.volcengine.com/docs/6561/2628951?lang=zh) | API key (new-console `X-Api-Key`), resource id |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | [DashScope synchronous transcription](https://help.aliyun.com/zh/model-studio/developer-reference/tongyi-qianwen-audio-api) | API key, model name; max 300 s per recording |
+| [Tencent Cloud](https://cloud.tencent.com/product/asr) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
+| [Xiaomi MiMo](https://mimo.mi.com) | [Speech Recognition API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition), supporting standard API or [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
+| [SiliconFlow (CN)](https://siliconflow.cn) | [Audio Transcription API](https://api-docs.siliconflow.cn/docs/api/audio-transcriptions-post) | API key, model name (e.g. `FunAudioLLM/SenseVoiceSmall`) |
+| [Volcengine](https://www.volcengine.com/product/doubao) | [Doubao audio file recognition](https://docs.volcengine.com/docs/6561/1354868) or [Doubao one-way streaming ASR](https://docs.volcengine.com/docs/6561/2628951) | API key (new-console `X-Api-Key`), resource ID |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
-Local Whisper uses the automatic acceleration backend selected by the Host from the current platform and installed native variants; it falls back to `default` when unavailable. Vulkan/CUDA can also be selected manually in settings.
-
-All API keys and credentials are stored on the Host. The browser never receives them.
-
-Volcengine accepts only the new-console API Key (`X-Api-Key`); legacy console AppID + Access Token authentication is not supported. API keys are issued on the [console API Key page](https://console.volcengine.com/speech/new/setting/apikeys).
+> **Local Whisper**: Runs whisper.cpp locally via `@fugood/whisper.node` without Python, FFmpeg, or external dependencies. Supports downloading and managing GGML models (`tiny` (default) through `turbo`) in settings, with `default` (auto), `vulkan`, or `cuda` acceleration.
+>
+> **Volcengine**: Accepts only the new-console API Key (`X-Api-Key`) authentication (legacy AppID + Access Token is not supported). Obtain keys from the [console API Key page](https://console.volcengine.com/speech/new/setting/apikeys).
 
 ## Polishing
 
-On by default. Leave both provider and model empty to use dsh's default Agent model, including its default reasoning settings; you can also choose a model configured in dsh. LLM credentials come from dsh's existing configuration.
+Enabled by default. Leave both provider and model empty to use dsh's default Agent model (including its default reasoning settings); you can also select any model configured in dsh. LLM credentials reuse dsh's existing configuration. Reasoning effort is configurable.
 
-The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats enumerations. Customize the prompt or view the default in settings. If polishing fails or is cancelled, the raw transcript is kept.
+The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats lists. Customize the prompt or view the default content in settings. If polishing fails or is cancelled, the raw transcript is preserved.
+
+## Settings
+
+After installation, a dsh-ears section appears in the Web UI settings page, organized into four tabs:
+
+| Tab | Configurable options |
+| --- | --- |
+| General | Settings display name, voice shortcut toggle and key combination, audio cues toggle, max recording duration (1–600 s, default 120 s) |
+| Recognition | Backend selection, language, local Whisper model and acceleration, cloud providers and credentials |
+| Polishing | Toggle, LLM provider and model, reasoning effort, custom prompt (up to 4,000 characters) |
+| About | Version, license, dsh compatibility range, update checker |
+
+## Known limitations
+
+- The Web Speech backend relies on the browser implementation; audio may be sent to browser vendor servers for processing and is not a strictly local/offline solution.
+- Alibaba Cloud Model Studio (Bailian) recordings are capped at 300 seconds per audio.
+- Deepgram Flux models require the Listen V2 protocol and are currently unsupported.
+- Local Whisper has a single-recording limit of 24 MB and a 120-second transcription timeout.
+- Acceleration backend (`default` / `vulkan` / `cuda`) is locked after the first native module load; switching requires restarting `dsh web`.
 
 ## Local development
 
@@ -120,7 +135,9 @@ pnpm dev:config     # build and write the HMR config
 pnpm dev:web        # start dsh web
 ```
 
-Run `pnpm dev:watch` in a second terminal while developing.
+Run `pnpm dev:watch` in a second terminal while developing for live rebuilds.
+
+After modifying frontend UI code, simply refresh the browser. When modifying server-side code, settings registration, Remote descriptors, or schemas, restart `dsh web` and then refresh.
 
 ## Docs
 
@@ -132,3 +149,7 @@ Run `pnpm dev:watch` in a second terminal while developing.
 ## License
 
 [MIT](./LICENSE)
+
+## Community Links
+
+- [LINUX DO](https://linux.do) — A new ideal community
