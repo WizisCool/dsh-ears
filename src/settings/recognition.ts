@@ -1,12 +1,33 @@
 export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
 
-export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'siliconflow', 'custom'] as const
+export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'siliconflow', 'volcengine', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
 
 export const SILICONFLOW_DEFAULT_MODEL = 'FunAudioLLM/SenseVoiceSmall'
 /** SiliconFlow `/models` filter that limits the catalog to transcription models. */
 export const SILICONFLOW_ASR_SUB_TYPE = 'speech-to-text'
+
+/** Volcano Engine ASR service ids; the realtime service is one-way streaming recognition. */
+export const VOLCENGINE_ASR_SERVICE_IDS = ['recording-file', 'realtime'] as const
+export type VolcengineAsrServiceId = typeof VOLCENGINE_ASR_SERVICE_IDS[number]
+export const VOLCENGINE_ASR_DEFAULT_SERVICE: VolcengineAsrServiceId = 'recording-file'
+
+/** `X-Api-Resource-Id` values for one-way streaming recognition; `request.model_name` stays `bigmodel`. The concurrency-billed variants are not exposed: single-user dictation has no concurrency pool to draw on. */
+export const VOLCENGINE_REALTIME_MODEL_IDS = [
+  'volc.seedasr.sauc.duration',
+  'volc.bigasr.sauc.duration'
+] as const
+export type VolcengineRealtimeModelId = typeof VOLCENGINE_REALTIME_MODEL_IDS[number]
+export const VOLCENGINE_REALTIME_DEFAULT_MODEL: VolcengineRealtimeModelId = 'volc.seedasr.sauc.duration'
+
+/** Volcano Engine speech API host; shared by the adapter and the registry display endpoint. */
+export const VOLCENGINE_API_HOST = 'openspeech.bytedance.com'
+
+/** `X-Api-Resource-Id` values for big-model recording file recognition. */
+export const VOLCENGINE_RECORDING_MODEL_IDS = ['volc.seedasr.auc', 'volc.bigasr.auc'] as const
+export type VolcengineRecordingModelId = typeof VOLCENGINE_RECORDING_MODEL_IDS[number]
+export const VOLCENGINE_RECORDING_DEFAULT_MODEL: VolcengineRecordingModelId = 'volc.seedasr.auc'
 
 export const MIMO_DEFAULT_MODEL = 'mimo-v2.5-asr'
 export const MIMO_ASR_SERVICE_IDS = ['api', 'token-plan'] as const

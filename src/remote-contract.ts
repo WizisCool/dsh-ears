@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -45,6 +45,11 @@ export const earsSettingsSchema = z.object({
   cloudAsrSiliconFlowApiKey: z.string().default(''),
   cloudAsrSiliconFlowModel: z.string().default(SILICONFLOW_DEFAULT_MODEL),
   cloudAsrSiliconFlowLanguage: z.string().default(''),
+  cloudAsrVolcengineApiKey: z.string().default(''),
+  cloudAsrVolcengineService: z.string().default(VOLCENGINE_ASR_DEFAULT_SERVICE),
+  cloudAsrVolcengineRealtimeModel: z.string().default(VOLCENGINE_REALTIME_DEFAULT_MODEL),
+  cloudAsrVolcengineRecordingModel: z.string().default(VOLCENGINE_RECORDING_DEFAULT_MODEL),
+  cloudAsrVolcengineLanguage: z.string().default(''),
   maxRecordingSeconds: z.number(),
   voiceShortcutEnabled: z.boolean(),
   voiceShortcut: z.string(),
@@ -92,6 +97,11 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrSiliconFlowApiKey: cloudCredentialSchema.optional(),
   cloudAsrSiliconFlowModel: z.string().optional(),
   cloudAsrSiliconFlowLanguage: z.string().optional(),
+  cloudAsrVolcengineApiKey: cloudCredentialSchema.optional(),
+  cloudAsrVolcengineService: z.enum(VOLCENGINE_ASR_SERVICE_IDS).optional(),
+  cloudAsrVolcengineRealtimeModel: z.enum(VOLCENGINE_REALTIME_MODEL_IDS).optional(),
+  cloudAsrVolcengineRecordingModel: z.enum(VOLCENGINE_RECORDING_MODEL_IDS).optional(),
+  cloudAsrVolcengineLanguage: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
   voiceShortcut: z.string().optional(),
@@ -121,6 +131,7 @@ export const earsSettingsViewSchema = z.object({
   cloudAsrTencentSecretKeyConfigured: z.boolean(),
   cloudAsrMimoApiKeyConfigured: z.boolean().default(false),
   cloudAsrSiliconFlowApiKeyConfigured: z.boolean().default(false),
+  cloudAsrVolcengineApiKeyConfigured: z.boolean().default(false),
   defaultPolishRoute: polishDefaultRouteSchema.optional(),
   recoveredSettingsFields: z.array(z.string()).optional(),
   localWhisperAccelerations: z.array(z.enum(WHISPER_ACCELERATION_IDS)).optional(),
@@ -244,6 +255,7 @@ export type EarsSettingsView = {
   cloudAsrTencentSecretKeyConfigured: boolean
   cloudAsrMimoApiKeyConfigured: boolean
   cloudAsrSiliconFlowApiKeyConfigured: boolean
+  cloudAsrVolcengineApiKeyConfigured: boolean
   defaultPolishRoute?: { provider: string; model: string; reasoningEffort?: string }
   recoveredSettingsFields?: string[]
   localWhisperAccelerations?: WhisperAccelerationId[]

@@ -64,6 +64,14 @@ describe('prepareRecordedAudioForBackend', () => {
     })
     expect(tencent.mimeType).toBe('audio/wav')
 
+    const volcengine = await prepareRecordedAudioForBackend('cloud-openai', raw, {
+      cloudProvider: 'volcengine',
+      createAudioContext: () => ({
+        decodeAudioData: async () => audioBuffer([Float32Array.from([0])]),
+        close: async () => undefined
+      })
+    })
+    expect(volcengine.mimeType).toBe('audio/wav')
     const mimo = await prepareRecordedAudioForBackend('cloud-openai', raw, {
       cloudProvider: 'mimo',
       createAudioContext: () => ({

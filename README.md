@@ -90,11 +90,14 @@ dsh plugin --profile web remove dsh-ears
 | [腾讯云](https://cloud.tencent.com/document/api/1093/37823) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
 | [小米 MiMo](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition) | Host 调用 MiMo 语音识别，支持[标准 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
 | [硅基流动](https://siliconflow.cn) | OpenAI 兼容转写（中国站） | API key、模型名（如 `FunAudioLLM/SenseVoiceSmall`） |
+| [火山引擎](https://www.volcengine.com/product/doubao) | [录音文件识别（大模型）](https://docs.volcengine.com/docs/6561/1354868)或[单向流式语音识别](https://docs.volcengine.com/docs/6561/2628951) | API key（新版控制台 X-Api-Key）、资源 ID |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
 本地 Whisper 默认使用 Host 根据当前平台和已安装 native variant 选择的自动加速后端；无法使用时回退到 `default`，也可在设置页手动选择 Vulkan/CUDA。
 
 所有 API key 和凭据由 Host 保存，浏览器不接触。
+
+火山引擎仅支持新版控制台的 API Key（`X-Api-Key`）鉴权，不支持旧版控制台的 AppID + Access Token 鉴权。API key 在[控制台 API Key 管理](https://console.volcengine.com/speech/new/setting/apikeys)页面获取。
 
 ## 润色
 

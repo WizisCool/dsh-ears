@@ -13,6 +13,11 @@ import {
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
+  VOLCENGINE_API_HOST,
+  VOLCENGINE_ASR_SERVICE_IDS,
+  VOLCENGINE_REALTIME_DEFAULT_MODEL,
+  VOLCENGINE_REALTIME_MODEL_IDS,
+  VOLCENGINE_RECORDING_MODEL_IDS,
   mimoEndpoint
 } from '../settings/recognition.js'
 import type { CloudAsrProviderId } from '../settings/recognition.js'
@@ -26,7 +31,7 @@ import { EARS_ERROR_CODES, EarsError } from '../errors.js'
  * OpenAI-compatible is pure data over the existing adapter; a provider with
  * a different protocol additionally ships an adapter and declares it here.
  */
-export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr' | 'tencent' | 'deepgram' | 'mimo'
+export type CloudAsrProtocol = 'openai-compatible' | 'dashscope-asr' | 'tencent' | 'deepgram' | 'mimo' | 'volcengine'
 
 export type CloudAsrFieldKind =
   | 'credential'
@@ -47,6 +52,7 @@ export type CloudAsrCredentialField =
   | 'cloudAsrTencentSecretKey'
   | 'cloudAsrMimoApiKey'
   | 'cloudAsrSiliconFlowApiKey'
+  | 'cloudAsrVolcengineApiKey'
 
 export type CloudAsrCredentialConfiguredField = `${CloudAsrCredentialField}Configured`
 
@@ -58,6 +64,8 @@ export type CloudAsrModelField =
   | 'cloudAsrTencentEngineType'
   | 'cloudAsrMimoModel'
   | 'cloudAsrSiliconFlowModel'
+  | 'cloudAsrVolcengineRealtimeModel'
+  | 'cloudAsrVolcengineRecordingModel'
 
 export type CloudAsrLanguageField =
   | 'cloudAsrGroqLanguage'
@@ -66,6 +74,7 @@ export type CloudAsrLanguageField =
   | 'cloudAsrBailianLanguage'
   | 'cloudAsrMimoLanguage'
   | 'cloudAsrSiliconFlowLanguage'
+  | 'cloudAsrVolcengineLanguage'
 
 export type CloudAsrSettingField =
   | CloudAsrCredentialField
@@ -79,6 +88,7 @@ export type CloudAsrSettingField =
   | 'cloudAsrTencentSecretId'
   | 'cloudAsrMimoService'
   | 'cloudAsrMimoCluster'
+  | 'cloudAsrVolcengineService'
 
 export interface CloudAsrFieldDefinition {
   readonly field: CloudAsrSettingField
@@ -96,6 +106,8 @@ export interface CloudAsrFieldDefinition {
   readonly labelKey: string
   readonly hintKey: string
   readonly editor?: 'text' | 'model' | 'deepgram-model'
+  /** Enumerated selects: hovering an option reveals the raw wire value in the shared tooltip. */
+  readonly valueTooltip?: boolean
 }
 
 export type CloudAsrEndpointKind = 'fixed' | 'custom' | 'bailian-host' | 'mimo'
@@ -104,7 +116,7 @@ export type CloudAsrModelCapability = keyof CloudAsrModelCapabilities
 
 export interface CloudAsrProviderEntry {
   readonly id: CloudAsrProviderId
-  readonly storageKey: 'groq' | 'deepgram' | 'customOpenAi' | 'bailian' | 'tencent' | 'mimo' | 'siliconflow'
+  readonly storageKey: 'groq' | 'deepgram' | 'customOpenAi' | 'bailian' | 'tencent' | 'mimo' | 'siliconflow' | 'volcengine'
   readonly name: { readonly en: string; readonly zh: string }
   readonly providerLabelKey: string
   readonly backendHintKey: string
@@ -200,6 +212,20 @@ const SILICONFLOW_FIELDS = [
   field({ field: 'cloudAsrSiliconFlowApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears SiliconFlow ASR API key is too long', labelKey: 'cloudKey', hintKey: 'cloudKeyHint' }),
   field({ field: 'cloudAsrSiliconFlowModel', storageKey: 'model', kind: 'model', required: true, editor: 'model', labelKey: 'cloudModel', hintKey: 'cloudModelSiliconflowHint' }),
   field({ field: 'cloudAsrSiliconFlowLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'asrLanguageHint' })
+] as const
+
+const VOLCENGINE_FIELDS = [
+  field({ field: 'cloudAsrVolcengineService', storageKey: 'service', kind: 'service', required: true, allowedValues: VOLCENGINE_ASR_SERVICE_IDS, invalidMessage: 'Unknown dsh-ears Volcengine ASR service', optionLabelKeys: { 'recording-file': 'volcengineRecordingService', realtime: 'volcengineRealtimeService' }, labelKey: 'volcengineService', hintKey: 'volcengineServiceHint' }),
+  field({ field: 'cloudAsrVolcengineApiKey', storageKey: 'apiKey', kind: 'credential', required: true, maxLength: MAX_CLOUD_API_KEY_LENGTH, invalidMessage: 'dsh-ears Volcengine ASR API key is too long', labelKey: 'cloudKey', hintKey: 'volcengineApiKeyHint' }),
+  field({ field: 'cloudAsrVolcengineRealtimeModel', storageKey: 'realtimeModel', kind: 'model', required: true, allowedValues: VOLCENGINE_REALTIME_MODEL_IDS, invalidMessage: 'Unknown dsh-ears Volcengine realtime resource id', optionLabelKeys: {
+    'volc.seedasr.sauc.duration': 'volcengineModelSeedasrSaucDuration',
+    'volc.bigasr.sauc.duration': 'volcengineModelBigasrSaucDuration'
+  }, visibleWhen: { field: 'cloudAsrVolcengineService', equals: 'realtime' }, labelKey: 'volcengineRealtimeModel', hintKey: 'volcengineRealtimeModelHint', valueTooltip: true }),
+  field({ field: 'cloudAsrVolcengineRecordingModel', storageKey: 'recordingModel', kind: 'model', required: true, allowedValues: VOLCENGINE_RECORDING_MODEL_IDS, invalidMessage: 'Unknown dsh-ears Volcengine recording resource id', optionLabelKeys: {
+    'volc.seedasr.auc': 'volcengineModelSeedasrAuc',
+    'volc.bigasr.auc': 'volcengineModelBigasrAuc'
+  }, visibleWhen: { field: 'cloudAsrVolcengineService', equals: 'recording-file' }, labelKey: 'volcengineRecordingModel', hintKey: 'volcengineRecordingModelHint', valueTooltip: true }),
+  field({ field: 'cloudAsrVolcengineLanguage', storageKey: 'language', kind: 'language', labelKey: 'language', hintKey: 'volcengineLanguageHint' })
 ] as const
 
 /**
@@ -345,6 +371,25 @@ export const CLOUD_ASR_PROVIDERS: readonly CloudAsrProviderEntry[] = [
     apiKeyRequired: true
   },
   {
+    id: 'volcengine',
+    storageKey: 'volcengine',
+    name: { en: 'Volcengine', zh: '火山引擎' },
+    providerLabelKey: 'volcengineProvider',
+    backendHintKey: 'backendHintVolcengine',
+    protocol: 'volcengine',
+    fields: VOLCENGINE_FIELDS,
+    credentialField: 'cloudAsrVolcengineApiKey',
+    modelField: 'cloudAsrVolcengineRealtimeModel',
+    languageField: 'cloudAsrVolcengineLanguage',
+    endpointKind: 'fixed',
+    modelStrategy: 'static',
+    realtime: true,
+    realtimeServices: ['realtime'],
+    defaultModel: VOLCENGINE_REALTIME_DEFAULT_MODEL,
+    endpointEditable: false,
+    apiKeyRequired: true
+  },
+  {
     id: 'custom',
     storageKey: 'customOpenAi',
     name: { en: 'Custom OpenAI-compatible', zh: '自定义 OpenAI 兼容' },
@@ -467,6 +512,7 @@ export function cloudAsrEndpointFor(settings: Pick<EarsSettings, 'cloudAsrProvid
     case 'fixed':
       if (entry.protocol === 'deepgram') return 'https://api.deepgram.com/v1/listen'
       if (entry.protocol === 'tencent') return 'https://asr.tencentcloudapi.com/'
+      if (entry.protocol === 'volcengine') return `https://${VOLCENGINE_API_HOST}`
       return entry.baseUrl === undefined ? '' : `${entry.baseUrl.replace(/\/+$/, '')}/audio/transcriptions`
     case 'mimo':
       return mimoEndpoint(settings.cloudAsrMimoService, settings.cloudAsrMimoCluster)

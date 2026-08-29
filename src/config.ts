@@ -16,6 +16,9 @@ import {
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
+  VOLCENGINE_ASR_DEFAULT_SERVICE,
+  VOLCENGINE_REALTIME_DEFAULT_MODEL,
+  VOLCENGINE_RECORDING_DEFAULT_MODEL,
   effectiveRecognitionLanguage,
   isValidRecordingLimit,
   WHISPER_ACCELERATION_IDS,
@@ -53,6 +56,12 @@ export {
   TENCENT_ASR_DEFAULT_SERVICE,
   TENCENT_ASR_SERVICE_IDS,
   TENCENT_DEFAULT_ENGINE,
+  VOLCENGINE_ASR_DEFAULT_SERVICE,
+  VOLCENGINE_ASR_SERVICE_IDS,
+  VOLCENGINE_REALTIME_DEFAULT_MODEL,
+  VOLCENGINE_REALTIME_MODEL_IDS,
+  VOLCENGINE_RECORDING_DEFAULT_MODEL,
+  VOLCENGINE_RECORDING_MODEL_IDS,
   effectiveRecognitionLanguage,
   isValidRecordingLimit,
   WHISPER_ACCELERATION_IDS,
@@ -112,6 +121,11 @@ export interface EarsSettings {
   cloudAsrSiliconFlowApiKey: string
   cloudAsrSiliconFlowModel: string
   cloudAsrSiliconFlowLanguage: string
+  cloudAsrVolcengineApiKey: string
+  cloudAsrVolcengineService: string
+  cloudAsrVolcengineRealtimeModel: string
+  cloudAsrVolcengineRecordingModel: string
+  cloudAsrVolcengineLanguage: string
   maxRecordingSeconds: number
   voiceShortcutEnabled: boolean
   voiceShortcut: string
@@ -159,6 +173,11 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrSiliconFlowApiKey: '',
   cloudAsrSiliconFlowModel: SILICONFLOW_DEFAULT_MODEL,
   cloudAsrSiliconFlowLanguage: '',
+  cloudAsrVolcengineApiKey: '',
+  cloudAsrVolcengineService: VOLCENGINE_ASR_DEFAULT_SERVICE,
+  cloudAsrVolcengineRealtimeModel: VOLCENGINE_REALTIME_DEFAULT_MODEL,
+  cloudAsrVolcengineRecordingModel: VOLCENGINE_RECORDING_DEFAULT_MODEL,
+  cloudAsrVolcengineLanguage: '',
   maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',

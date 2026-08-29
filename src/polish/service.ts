@@ -5,7 +5,7 @@ import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
 import { EarsSettingsSchema } from '../config-schema.js'
 import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
@@ -16,6 +16,7 @@ import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../asr/mimo-asr.js'
 import { TencentRealtimeAsrSession, transcribeTencentCloudRecording } from '../asr/tencent-cloud-asr.js'
 import { DeepgramRealtimeAsrSession, transcribeDeepgramAsr } from '../asr/deepgram-asr.js'
+import { VolcengineRealtimeAsrSession, transcribeVolcengineRecording } from '../asr/volcengine-asr.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudAsrRealtime, type CloudAsrCredentialConfiguredField } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
@@ -116,6 +117,7 @@ export class PolishService extends TypertRemoteService {
         cloudAsrTencentSecretKeyConfigured: false,
         cloudAsrMimoApiKeyConfigured: false,
         cloudAsrSiliconFlowApiKeyConfigured: false,
+        cloudAsrVolcengineApiKeyConfigured: false,
         recoveredSettingsFields: [],
         localWhisperAccelerations: whisperAccelerationOptions(this.whisperCapabilities),
         overridden: []
@@ -399,6 +401,18 @@ export class PolishService extends TypertRemoteService {
         signal.throwIfAborted()
         return remoteTextSuccess(text)
       }
+      if (providerEntry.protocol === 'volcengine') {
+        if (settings.cloudAsrVolcengineService !== 'recording-file') throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'The selected Volcengine ASR service uses a live session')
+        const text = await transcribeVolcengineRecording({
+          audio,
+          apiKey: credential,
+          resourceId: settings.cloudAsrVolcengineRecordingModel.trim() || VOLCENGINE_RECORDING_DEFAULT_MODEL,
+          language: settings.cloudAsrVolcengineLanguage,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
       const language = providerEntry.languageField === undefined ? '' : settings[providerEntry.languageField]
       const text = await transcribeOpenAICompatible({
         audio,
@@ -457,6 +471,19 @@ export class PolishService extends TypertRemoteService {
           apiKey: settings.cloudAsrDeepgramApiKey,
           model,
           language: settings.cloudAsrDeepgramLanguage,
+          signal
+        })
+      } else if (settings.cloudAsrProvider === 'volcengine') {
+        if (settings.cloudAsrVolcengineService !== 'realtime') {
+          throw new EarsError(EARS_ERROR_CODES.asrServiceUnavailable, 'Volcengine realtime recognition is not selected')
+        }
+        if (settings.cloudAsrVolcengineApiKey.trim() === '') {
+          throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'Volcengine API key is not configured')
+        }
+        session = new VolcengineRealtimeAsrSession({
+          apiKey: settings.cloudAsrVolcengineApiKey,
+          resourceId: settings.cloudAsrVolcengineRealtimeModel.trim() || VOLCENGINE_REALTIME_DEFAULT_MODEL,
+          language: settings.cloudAsrVolcengineLanguage,
           signal
         })
       } else {

@@ -90,11 +90,14 @@ Transcription results are always written to an editable draft and are never sent
 | [Tencent Cloud](https://cloud.tencent.com/document/api/1093/37823) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
 | [Xiaomi MiMo](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) | Host calls the MiMo speech model via the [standard API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition) or a [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) subscription | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
 | [SiliconFlow](https://siliconflow.cn) | OpenAI-compatible transcription (CN) | API key, model name (e.g. `FunAudioLLM/SenseVoiceSmall`) |
+| [Volcengine](https://www.volcengine.com/product/doubao) | [Doubao audio file recognition](https://docs.volcengine.com/docs/6561/1354868?lang=zh) or [Doubao one-way streaming ASR](https://docs.volcengine.com/docs/6561/2628951?lang=zh) | API key (new-console `X-Api-Key`), resource id |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
 Local Whisper uses the automatic acceleration backend selected by the Host from the current platform and installed native variants; it falls back to `default` when unavailable. Vulkan/CUDA can also be selected manually in settings.
 
 All API keys and credentials are stored on the Host. The browser never receives them.
+
+Volcengine accepts only the new-console API Key (`X-Api-Key`); legacy console AppID + Access Token authentication is not supported. API keys are issued on the [console API Key page](https://console.volcengine.com/speech/new/setting/apikeys).
 
 ## Polishing
 

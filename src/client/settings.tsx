@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 import type { ChangeEvent, ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutline14, Input, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
 import {
   AlibabaCloudIcon,
@@ -11,6 +11,7 @@ import {
   OpenAiIcon,
   SiliconFlowIcon,
   TencentCloudIcon,
+  VolcengineIcon,
   XiaomiMimoIcon
 } from './provider-icons.js'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -64,6 +65,9 @@ interface EarsSettingsSectionProps {
   readonly setSiliconFlowApiKey: (text: string) => void
   readonly clearSiliconFlowApiKey: () => void
   readonly undoClearSiliconFlowApiKey: () => void
+  readonly setVolcengineApiKey: (text: string) => void
+  readonly clearVolcengineApiKey: () => void
+  readonly undoClearVolcengineApiKey: () => void
   readonly flush: () => void
   readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
@@ -81,6 +85,7 @@ const providerIcons: Record<string, () => ReactNode> = {
   tencent: () => <TencentCloudIcon />,
   mimo: () => <XiaomiMimoIcon />,
   siliconflow: () => <SiliconFlowIcon />,
+  volcengine: () => <VolcengineIcon />,
   custom: () => <OpenAiIcon />
 }
 
@@ -116,7 +121,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrBailianApiKey: props.setBailianApiKey,
     cloudAsrTencentSecretKey: props.setTencentSecretKey,
     cloudAsrMimoApiKey: props.setMimoApiKey,
-    cloudAsrSiliconFlowApiKey: props.setSiliconFlowApiKey
+    cloudAsrSiliconFlowApiKey: props.setSiliconFlowApiKey,
+    cloudAsrVolcengineApiKey: props.setVolcengineApiKey
   }
   const legacyCredentialClearers: Record<CloudAsrCredentialField, () => void> = {
     cloudAsrGroqApiKey: props.clearApiKey,
@@ -125,7 +131,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrBailianApiKey: props.clearBailianApiKey,
     cloudAsrTencentSecretKey: props.clearTencentSecretKey,
     cloudAsrMimoApiKey: props.clearMimoApiKey,
-    cloudAsrSiliconFlowApiKey: props.clearSiliconFlowApiKey
+    cloudAsrSiliconFlowApiKey: props.clearSiliconFlowApiKey,
+    cloudAsrVolcengineApiKey: props.clearVolcengineApiKey
   }
   const legacyCredentialUndoers: Record<CloudAsrCredentialField, () => void> = {
     cloudAsrGroqApiKey: props.undoClearApiKey,
@@ -134,7 +141,8 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
     cloudAsrBailianApiKey: props.undoClearBailianApiKey,
     cloudAsrTencentSecretKey: props.undoClearTencentSecretKey,
     cloudAsrMimoApiKey: props.undoClearMimoApiKey,
-    cloudAsrSiliconFlowApiKey: props.undoClearSiliconFlowApiKey
+    cloudAsrSiliconFlowApiKey: props.undoClearSiliconFlowApiKey,
+    cloudAsrVolcengineApiKey: props.undoClearVolcengineApiKey
   }
   const setCredential = props.setCredential ?? ((field: CloudAsrCredentialField, text: string) => legacyCredentialSetters[field](text))
   const clearCredential = props.clearCredential ?? ((field: CloudAsrCredentialField) => legacyCredentialClearers[field]())
@@ -475,9 +483,9 @@ function CloudProviderFields({ provider, state, models, disabled, edit, setCrede
         const pendingKey = `${definition.field}ClearPending` as keyof EarsCardState
         return <KeyRow key={definition.field} label={label} hint={hint} value={definitionState.text} configured={Boolean(state[configuredKey])} clearPending={Boolean(state[pendingKey])} disabled={disabled} invalid={definitionState.invalid} onEdit={(value) => setCredential(definition.field as CloudAsrCredentialField, value)} onClear={() => clearCredential(definition.field as CloudAsrCredentialField)} onUndoClear={() => undoCredentialClear(definition.field as CloudAsrCredentialField)} onBlur={onBlur} t={t} />
       }
-      if (definition.allowedValues !== undefined && (definition.kind === 'service' || definition.kind === 'cluster')) {
+      if (definition.allowedValues !== undefined && (definition.kind === 'service' || definition.kind === 'cluster' || definition.kind === 'model')) {
         const entries = definition.allowedValues.map((value) => ({ id: value, label: definition.optionLabelKeys?.[value] === undefined ? value : t(definition.optionLabelKeys[value] as LocaleKey) }))
-        return <SelectRow key={definition.field} label={label} hint={hint} value={definitionState.text} entries={entries} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} />
+        return <SelectRow key={definition.field} label={label} hint={hint} value={definitionState.text} entries={entries} disabled={disabled} invalid={definitionState.invalid} valueTooltip={definition.valueTooltip === true} onChange={(value) => editField(definition.field, value)} />
       }
       if (definition.kind === 'model' && definition.editor === 'deepgram-model') {
         return <DeepgramModelRow key={definition.field} label={label} value={definitionState.text} service={state.cloudAsrDeepgramService.text} models={models} dirty={state.dirty} disabled={disabled} invalid={definitionState.invalid} onChange={(value) => editField(definition.field, value)} onBlur={onBlur} onRetry={onRetry} t={t} />
@@ -490,17 +498,26 @@ function CloudProviderFields({ provider, state, models, disabled, edit, setCrede
   </>
 }
 
-function SelectRow({ label, hint, value, options, entries, placeholder, disabled, invalid, onChange }: { label: string; hint: string; value: string; options?: [string, string][]; entries?: readonly MenuEntry[]; placeholder?: string; disabled: boolean; invalid: boolean; onChange: (value: string) => void }) {
+function SelectRow({ label, hint, value, options, entries, placeholder, disabled, invalid, valueTooltip = false, onChange }: { label: string; hint: string; value: string; options?: [string, string][]; entries?: readonly MenuEntry[]; placeholder?: string; disabled: boolean; invalid: boolean; /** Opt-in: hovering an option reveals its raw wire value in the shared tooltip. */ valueTooltip?: boolean; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false)
   const menuItems: readonly MenuEntry[] = entries ?? (options ?? []).map(([id, optionLabel]) => ({ id, label: optionLabel }))
   const selected = menuItems.find((item): item is Extract<MenuEntry, { id: string; label: ReactNode }> => !('type' in item) && item.id === value)
   const labelText = selected === undefined ? (value === '' && placeholder !== undefined ? placeholder : value) : selected.label
+  // A friendly option label hides the wire value; fields that opt in reveal
+  // the raw identifier (a resource id, for example) through the shared
+  // tooltip while the dropdown is open.
+  const items: readonly MenuEntry[] = valueTooltip
+    ? menuItems.map((item) => {
+        if ('type' in item || item.label === item.id) return item
+        return { ...item, label: <Tooltip label={item.id} side="top" delayMs={200}><span>{item.label}</span></Tooltip> }
+      })
+    : menuItems
   return (
     <RowField label={label} hint={hint} invalid={invalid}>
       <Menu
         open={open}
         onClose={() => setOpen(false)}
-        items={menuItems}
+        items={items}
         selectedId={value}
         onSelect={(id) => {
           setOpen(false)

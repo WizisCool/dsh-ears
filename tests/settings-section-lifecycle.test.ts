@@ -18,7 +18,8 @@ vi.mock('react', () => ({
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
   IconChevronDownOutline14: () => null,
   Input: () => null,
-  Menu: ({ anchor }: { anchor: unknown }) => anchor
+  Menu: ({ anchor }: { anchor: unknown }) => anchor,
+  Tooltip: ({ children }: { children: unknown }) => children
 }))
 
 vi.mock('@thesvg/react/github', () => ({
@@ -119,6 +120,9 @@ describe('EarsSettingsSection lifecycle', () => {
       setSiliconFlowApiKey: vi.fn(),
       clearSiliconFlowApiKey: vi.fn(),
       undoClearSiliconFlowApiKey: vi.fn(),
+      setVolcengineApiKey: vi.fn(),
+      clearVolcengineApiKey: vi.fn(),
+      undoClearVolcengineApiKey: vi.fn(),
       flush,
       retryCloudModels: vi.fn(),
       downloadModel: vi.fn(),
@@ -184,6 +188,9 @@ describe('EarsSettingsSection lifecycle', () => {
       setSiliconFlowApiKey: vi.fn(),
       clearSiliconFlowApiKey: vi.fn(),
       undoClearSiliconFlowApiKey: vi.fn(),
+      setVolcengineApiKey: vi.fn(),
+      clearVolcengineApiKey: vi.fn(),
+      undoClearVolcengineApiKey: vi.fn(),
       flush: vi.fn(),
       retryCloudModels: vi.fn(),
       downloadModel: vi.fn(),
@@ -246,6 +253,9 @@ describe('EarsSettingsSection lifecycle', () => {
       setSiliconFlowApiKey: vi.fn(),
       clearSiliconFlowApiKey: vi.fn(),
       undoClearSiliconFlowApiKey: vi.fn(),
+      setVolcengineApiKey: vi.fn(),
+      clearVolcengineApiKey: vi.fn(),
+      undoClearVolcengineApiKey: vi.fn(),
       flush: vi.fn(),
       retryCloudModels: vi.fn(),
       downloadModel: vi.fn(),

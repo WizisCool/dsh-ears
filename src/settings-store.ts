@@ -2,7 +2,7 @@ import { DEFAULT_EARS_SETTINGS, EARS_SETTINGS_SCHEMA_VERSION, type EarsSettings,
 import { DEFAULT_CLOUD_ASR_SETTINGS, type CloudAsrSettings } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS, type GeneralSettings } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS, type PolishingSettings } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
+import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
 import type { EarsSettingsPatch } from './remote-contract.js'
 import { migrateSettingsToCurrent } from './settings/migrations.js'
 export { migrateV1ToV2, migrateV2ToV3, migrateV3ToV4, migrateSettingsToCurrent } from './settings/migrations.js'
@@ -100,6 +100,8 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   const mimoSlot = asRecord(cloudAsr?.mimo)
   const mimoLegacy = asRecord(record.mimo)
   const siliconflowSlot = asRecord(cloudAsr?.siliconflow)
+  const volcengineSlot = asRecord(cloudAsr?.volcengine)
+  const volcengineService = normalizeVolcengineService(ownText(volcengineSlot, 'service') ?? DEFAULT_CLOUD_ASR_SETTINGS.volcengine.service)
   const mimoService = normalizeMimoService(firstDefinedText(
     ownText(mimoSlot, 'service'),
     ownText(mimoLegacy, 'service'),
@@ -296,6 +298,13 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
         apiKey: ownText(siliconflowSlot, 'apiKey') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.apiKey,
         model: ownText(siliconflowSlot, 'model') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.model,
         language: ownText(siliconflowSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.siliconflow.language
+      },
+      volcengine: {
+        apiKey: ownText(volcengineSlot, 'apiKey') ?? DEFAULT_CLOUD_ASR_SETTINGS.volcengine.apiKey,
+        service: volcengineService,
+        realtimeModel: normalizeVolcengineRealtimeModel(ownText(volcengineSlot, 'realtimeModel') ?? DEFAULT_CLOUD_ASR_SETTINGS.volcengine.realtimeModel),
+        recordingModel: normalizeVolcengineRecordingModel(ownText(volcengineSlot, 'recordingModel') ?? DEFAULT_CLOUD_ASR_SETTINGS.volcengine.recordingModel),
+        language: ownText(volcengineSlot, 'language') ?? DEFAULT_CLOUD_ASR_SETTINGS.volcengine.language
       }
     },
     polishing: {
@@ -507,6 +516,22 @@ function normalizeTencentService(value: string): string {
 
 function normalizeMimoService(value: string): string {
   return (MIMO_ASR_SERVICE_IDS as readonly string[]).includes(value) ? value : DEFAULT_CLOUD_ASR_SETTINGS.mimo.service
+}
+
+function normalizeListedValue(value: string, ids: readonly string[], fallback: string): string {
+  return ids.includes(value) ? value : fallback
+}
+
+function normalizeVolcengineService(value: string): string {
+  return normalizeListedValue(value, VOLCENGINE_ASR_SERVICE_IDS, DEFAULT_CLOUD_ASR_SETTINGS.volcengine.service)
+}
+
+function normalizeVolcengineRealtimeModel(value: string): string {
+  return normalizeListedValue(value, VOLCENGINE_REALTIME_MODEL_IDS, DEFAULT_CLOUD_ASR_SETTINGS.volcengine.realtimeModel)
+}
+
+function normalizeVolcengineRecordingModel(value: string): string {
+  return normalizeListedValue(value, VOLCENGINE_RECORDING_MODEL_IDS, DEFAULT_CLOUD_ASR_SETTINGS.volcengine.recordingModel)
 }
 
 function normalizeMimoCluster(value: string): string {
