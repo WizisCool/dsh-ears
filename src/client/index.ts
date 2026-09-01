@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context } from '@deepseek-ai/cordis'
 import type { ConversationSlotProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { settingsPageLabel } from '../config.js'
 import { TYPERT_REMOTE } from '../remote.js'
@@ -16,7 +17,7 @@ import { EarsSettingsSection, LOCALE_NAMESPACE, createSettingsHook, createSnapsh
 /** Required Client service: the slot registry owns the UI contribution lifecycle. */
 export const inject = ['slots', 'remote', 'locale']
 
-export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
+export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE)
   await ctx.inject(['slots', 'locale', 'remote.dshEars'], (remoteCtx) => {
     const earsRemote = remoteCtx.remote.dshEars

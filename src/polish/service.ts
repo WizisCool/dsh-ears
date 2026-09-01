@@ -1,8 +1,7 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
-import { TypertLookupFailure, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { remoteErrorOf, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
@@ -88,7 +87,7 @@ export class PolishService extends TypertRemoteService {
         }
       }
       try {
-        this.settings = settingsCtx.settings.register(settingsNamespace(SETTINGS_NAMESPACE), EarsSettingsSchema, {
+        this.settings = settingsCtx.settings.register(SETTINGS_NAMESPACE, EarsSettingsSchema, {
           validate: registrationValidator
         })
       } finally {
@@ -609,7 +608,7 @@ export class PolishService extends TypertRemoteService {
               return finish(retry)
             } catch (error) {
               signal.throwIfAborted()
-              if (error instanceof TypertLookupFailure) throw error
+              if (remoteErrorOf(error) !== undefined) throw error
               return finish(first)
             }
           }
@@ -617,7 +616,7 @@ export class PolishService extends TypertRemoteService {
         } catch (error) {
           signal.throwIfAborted()
           if (timeout.signal.aborted) throw new EarsError(EARS_ERROR_CODES.polishTimedOut, 'The dsh LLM polishing request timed out')
-          if (error instanceof TypertLookupFailure) throw error
+          if (remoteErrorOf(error) !== undefined) throw error
           if (!hasExplicitEffort || effort === undefined) throw error
           try {
             const retry = await this.completePolish(routeProvider, routeModel, raw, storedPrompt, undefined, timeout.signal)
@@ -625,7 +624,7 @@ export class PolishService extends TypertRemoteService {
             return finish(retry)
           } catch (error) {
             signal.throwIfAborted()
-            if (error instanceof TypertLookupFailure) throw error
+            if (remoteErrorOf(error) !== undefined) throw error
             throw new EarsError(EARS_ERROR_CODES.polishRouteFailed, 'The dsh LLM route did not complete polishing')
           }
         }
@@ -716,7 +715,7 @@ export class PolishService extends TypertRemoteService {
       const efforts = info.reasoning?.efforts ?? []
       return efforts.some((candidate) => candidate.id === effort) ? effort : undefined
     } catch (error) {
-      if (error instanceof TypertLookupFailure) throw error
+      if (remoteErrorOf(error) !== undefined) throw error
       return undefined
     }
   }
@@ -803,7 +802,7 @@ export class PolishService extends TypertRemoteService {
 
 function toRemoteTextFailure(error: unknown, signal: AbortSignal, fallbackCode: EarsErrorCode, fallbackMessage: string): RemoteTextResult {
   if (signal.aborted) signal.throwIfAborted()
-  if (error instanceof TypertLookupFailure) throw error
+  if (remoteErrorOf(error) !== undefined) throw error
   if (isWhisperRestartRequiredError(error)) {
     return remoteTextFailure(EARS_ERROR_CODES.whisperRestartRequired, whisperRestartMessage(error), whisperRestartParams(error))
   }

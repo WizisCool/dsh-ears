@@ -5,7 +5,7 @@
 1. Read [`AGENTS.md`](../AGENTS.md) and the files it points at for the change you are making.
 2. Run `git status --short --branch` and identify pre-existing changes.
 3. Define one independently verifiable atomic goal.
-4. Verify dsh APIs against current documentation and the installed rc.6/rc.7 packages before coding against them.
+4. Verify dsh APIs against current documentation and the exact package baseline of the target product line before coding against them.
 
 ## During work
 
@@ -53,4 +53,4 @@ Do not use unreviewed `git add -A`.
 - Use placeholders such as `YOUR_API_KEY` in examples.
 - Inspect `git diff --cached` before every commit.
 - If a secret is suspected, stop and remediate before sharing or pushing anything.
-- Push, public-repository conversion, npm publishing, tags, and directory submissions require explicit release approval.
+- Push, public-repository conversion, npm publishing, tags, and directory submissions require explicit approval for the target branch or release action.

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { TypertLookupFailure } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
@@ -576,17 +576,17 @@ describe('PolishService', () => {
     })
   })
 
-  it('preserves TypertLookupFailure as a lookup-policy boundary error', async () => {
-    const lookupFailure = new TypertLookupFailure({ code: 'lookup-policy', message: 'lookup rejected', details: {} })
+  it('preserves RemoteError as a gateway boundary error', async () => {
+    const remoteError = new RemoteError('gateway/internal', 'lookup rejected', {})
     const context = createContext({
       prepareCall: vi.fn(async () => {
-        throw lookupFailure
+        throw remoteError
       })
     })
     const fiber = await context.plugin(PolishService)
     fibers.push(fiber)
 
-    await expect(context.get('dshEarsPolish')?.polish('保留这段内容', 'provider', 'model', '', new AbortController().signal)).rejects.toBe(lookupFailure)
+    await expect(context.get('dshEarsPolish')?.polish('保留这段内容', 'provider', 'model', '', new AbortController().signal)).rejects.toBe(remoteError)
   })
 
   it('retries polish without reasoning effort when the first result is unchanged', async () => {

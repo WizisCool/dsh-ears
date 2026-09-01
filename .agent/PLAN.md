@@ -14,9 +14,9 @@ The implementation supports browser Web Speech, Host-side local Whisper through 
 
 ## Status
 
-M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19; the rc.8 compatibility patch (`0.1.1`, D-034) followed on 2026-08-20. Later push, publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
+M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19; the rc.8 compatibility patch (`0.1.1`, D-034) followed on 2026-08-20. Later publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
 
-Compatibility: dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035); Node `^22.19.0 || >=24.0.0`. No other dsh release is claimed until it is tested.
+The `master` / npm `latest` 0.2 maintenance line supports dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035). The `next` 0.3 development line targets the dsh 0.1.2 family, initially exact `0.1.2-alpha.3`, and does not extend the stable line's support claim (D-049). Both lines require Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins — "language" now meaning the per-provider recognition-language fields (D-042). Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
-3. Later npm publishes, release tags, and visibility changes still require an explicit maintainer decision. The first public `0.1.0` is authorized.
+3. The 0.3 development line may be pushed to `next`, but npm publication, release tags, and promotion to `master` require a separate maintainer decision. Promotion begins only after upstream npm `latest` selects a 0.1.2 release and the D-049 gates pass.
 4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.
 
 ## dsh integration
@@ -97,4 +97,4 @@ dsh-ears/
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Installed `@deepseek-ai/dsh-*` packages at `0.1.1-rc.2` (peer ranges accept every published dsh release; D-035)
+- Stable-line `@deepseek-ai/dsh-*` packages at `0.1.1-rc.2` (open peer policy, D-035); development-line packages at `0.1.2-alpha.3` with the strict 0.1.2 floor (D-049)

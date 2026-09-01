@@ -2,6 +2,17 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.3.0-alpha.0] - Unreleased
+
+Development baseline for the dsh 0.1.2 package family.
+
+### Changed
+
+- The Host now uses the 0.1.2 Typert `RemoteError` boundary through `remoteErrorOf`, preserving framework failures while removing the retired lookup-error import.
+- The browser contribution now uses the 0.1.2 Remote mount, slot, locale, and snapshot-store contracts. `@deepseek-ai/dsh-client-store` and its state engine are bundled into `client.js`.
+- Direct dsh peer dependencies use the `^0.1.2-alpha.3` floor; the compile baseline moves to exact `0.1.2-alpha.3`, Cordis 4.0.2, and Schemastery 3.18.2.
+- CI and compatibility smoke follow the `next` development line on dsh `0.1.2-alpha.3`, including browser-session authentication, Client artifact loading, strict Remote settings, and secret redaction.
+
 ## [0.2.2] - 2026-08-29
 
 Volcengine cloud ASR and realtime finalization release.

@@ -7,7 +7,7 @@ import { EARS_ERROR_CODES } from '../src/errors.js'
 import type { EarsRemote } from '../src/remote.js'
 import type { CloudProviderModelsView, ReasoningEffortsView, WhisperModelState } from '../src/remote-contract.js'
 
-vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
+vi.mock('@deepseek-ai/dsh-client-store', () => ({
   createSnapshotStore: (initial: unknown) => {
     let value = initial
     const listeners = new Set<() => void>()

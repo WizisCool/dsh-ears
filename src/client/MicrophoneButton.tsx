@@ -403,7 +403,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       const epoch = voiceSession.captureEpoch()
       realtimeCaptureRef.current = capture
-      realtimeRemoteSessionIdRef.current = sessionId
+      realtimeRemoteSessionIdRef.current = started.value.sessionId
       realtimeBaseDraftRef.current = baseDraft
       realtimeDraftRef.current = baseDraft
       capture.start(async (audioBase64) => {
