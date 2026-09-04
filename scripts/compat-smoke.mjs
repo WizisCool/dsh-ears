@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { delimiter, extname, isAbsolute, join, resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
@@ -9,19 +10,47 @@ export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
   '0.1.2-rc.1'
 ])
 
-function commandInvocation(args) {
-  return process.platform === 'win32'
-    ? { command: process.env.ComSpec ?? 'cmd.exe', args: ['/d', '/s', '/c', 'pnpm.cmd', ...args] }
-    : { command: 'pnpm', args }
+function resolveWindowsCommand(command) {
+  if (isAbsolute(command)) return command
+  if (command.includes('/') || command.includes('\\')) return resolve(command)
+
+  const extensions = extname(command) === ''
+    ? (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';')
+    : ['']
+  for (const directory of (process.env.PATH ?? '').split(delimiter)) {
+    const normalizedDirectory = directory.replace(/^"|"$/gu, '')
+    for (const extension of extensions) {
+      const candidate = join(normalizedDirectory, `${command}${extension}`)
+      if (existsSync(candidate)) return candidate
+    }
+  }
+  return command
 }
 
-function runCommand(_command, args, options = {}) {
+function quoteWindowsCommandArgument(value) {
+  return `"${String(value).replaceAll('"', '""')}"`
+}
+
+function commandInvocation(command, args) {
+  if (process.platform !== 'win32') return { command, args }
+
+  const windowsCommand = resolveWindowsCommand(command)
+  const commandLine = `"${[windowsCommand, ...args].map(quoteWindowsCommandArgument).join(' ')}"`
+  return {
+    command: process.env.ComSpec ?? 'cmd.exe',
+    args: ['/d', '/s', '/c', commandLine],
+    windowsVerbatimArguments: true
+  }
+}
+
+function runCommand(command, args, options = {}) {
   return new Promise((resolveCommand, rejectCommand) => {
-    const invocation = commandInvocation(args)
+    const invocation = commandInvocation(command, args)
     const child = spawn(invocation.command, invocation.args, {
       cwd: options.cwd,
       env: options.env,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsVerbatimArguments: invocation.windowsVerbatimArguments
     })
     let output = ''
     const append = (chunk) => {
@@ -33,7 +62,7 @@ function runCommand(_command, args, options = {}) {
     child.once('error', rejectCommand)
     child.once('exit', (code, signal) => {
       if (code === 0) resolveCommand(output)
-      else rejectCommand(new Error(`pnpm ${args.join(' ')} exited with ${signal ?? `code ${code}`}\n${output}`))
+      else rejectCommand(new Error(`${command} ${args.join(' ')} exited with ${signal ?? `code ${code}`}\n${output}`))
     })
   })
 }
