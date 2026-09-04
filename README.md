@@ -159,3 +159,13 @@ pnpm dev:web        # 启动 dsh web
 ## 友链
 
 - [LINUX DO](https://linux.do) — 新的理想型社区
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=wiziscool%2Fdsh-ears&type=date&logscale=&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=wiziscool/dsh-ears&type=date&legend=top-left" />
+ </picture>
+</a>
