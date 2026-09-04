@@ -108,7 +108,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-client-store": "0.1.2-rc.1",
-    "@fugood/whisper.node": "1.1.2",
+    "@fugood/whisper.node": "1.1.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -12,8 +12,8 @@ importers:
         specifier: 0.1.2-rc.1
         version: 0.1.2-rc.1(@deepseek-ai/cordis@4.0.2)(@types/react@18.3.31)(react@18.3.1)
       '@fugood/whisper.node':
-        specifier: 1.1.2
-        version: 1.1.2
+        specifier: 1.1.3
+        version: 1.1.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -218,76 +218,76 @@ packages:
   '@deepseek-ai/schemastery@3.18.2':
     resolution: {integrity: sha512-njDtZsznjYxok7KLLlHOPyuv2efdWVbSflAHgztSfbMsg+CVraEoRe2DjOCgClYv3ZCSm7WXoaUkbB/+RY7tWQ==}
 
-  '@fugood/node-whisper-darwin-arm64@1.1.2':
-    resolution: {integrity: sha512-GlDrvydP6RYAX385InB1DuwtnyOKSU037okTHKLLo9BIse5vIUgHUbms3qTp7lRoo8y6iZD3dwtiygTN7G1uVA==}
+  '@fugood/node-whisper-darwin-arm64@1.1.3':
+    resolution: {integrity: sha512-sowz8IreX9cruDCxp7Hrfj62Qgy2ywuMdbUlO2KsZz7+Ilx5nZEI+DS6NAw+W6EGvGPfw322nWOL1nFQlaXzWw==}
     cpu: [arm64]
     os: [darwin]
 
-  '@fugood/node-whisper-darwin-x64@1.1.2':
-    resolution: {integrity: sha512-9z7UiBW63cbYbv8xnx8miUgKZF/4pVBv7cHfBRrliPHCC4bpBKTmSjgTobry3Q5HxT0FWdWBhqwD+L6EbhzxIQ==}
+  '@fugood/node-whisper-darwin-x64@1.1.3':
+    resolution: {integrity: sha512-udYl2QVuqCH5PcuqxzISgHoXH8yp6gZ3PHj414OMBtQVxd/VgMDbyyH+e9VAM7M0Yz+D4Om3LWXO+/DF8cmCVA==}
     cpu: [x64]
     os: [darwin]
 
-  '@fugood/node-whisper-linux-arm64-cuda@1.1.2':
-    resolution: {integrity: sha512-0WqYM7g3XA0y9bOy4uMo1nbsIsrKa+V89yE5JReNBAHpwFUJQH29CdQiTdyVQ2ZCsil7lCx/mqKWzpF/sfgJKA==}
+  '@fugood/node-whisper-linux-arm64-cuda@1.1.3':
+    resolution: {integrity: sha512-mHKa//cH+Yoag+w4yPapyyykOBNCSmSSBjyhDnpLqsuUiZhiHIwVbCCSRG6NW+yH1gO8CQFcRGuTziaVB/aHRA==}
     cpu: [arm64]
     os: [linux]
 
-  '@fugood/node-whisper-linux-arm64-vulkan@1.1.2':
-    resolution: {integrity: sha512-eP/1/M06DHIe3RPI8HptRP2iVAUFe30Idq7iW4DZ4KFyXpeb20bqCSBiY0wP11LzDKEdpmrZp4lOfoDtb666pg==}
+  '@fugood/node-whisper-linux-arm64-vulkan@1.1.3':
+    resolution: {integrity: sha512-oyzhRi42v9tGlTE8foQShfZZSxXhLFhHCPPWH4+0OPMcKfNCuhBWXcDiZmUEqoc+7/WAFZiQzQUTbNqKp80vzA==}
     cpu: [arm64]
     os: [linux]
 
-  '@fugood/node-whisper-linux-arm64@1.1.2':
-    resolution: {integrity: sha512-wr0JlyhPlUJU1m/bkQOdK34gLKThMA/9jpkDgp7LgnxYXNZRbHBwvmRInpdx6iDLrNAffcDLo0MUUtWfMFXn9A==}
+  '@fugood/node-whisper-linux-arm64@1.1.3':
+    resolution: {integrity: sha512-Rxfaa/QMFjCEghaSdimRBURXoJhpfvODwDZHNAaIHkukSwwZcdEhMm4I/L2A6fdrQilvpBBTuJIPZSWNIJ+dbQ==}
     cpu: [arm64]
     os: [linux]
 
-  '@fugood/node-whisper-linux-x64-cuda@1.1.2':
-    resolution: {integrity: sha512-lsbQk84qmCJrwIOQk06zwycDGneapDsqVkyyHZw46zxnpiceye6U8t+x39AncFVTfM16AO6fhEi3MCiXN0/d9w==}
+  '@fugood/node-whisper-linux-x64-cuda@1.1.3':
+    resolution: {integrity: sha512-3lG7nso8UIgoCvxXi6cGMkoif0qeRz1vpbqjvbL8RiQW++CqG19inKfxwHf9T+gunGK398s4KEmzt3oYDz3eNg==}
     cpu: [x64]
     os: [linux]
 
-  '@fugood/node-whisper-linux-x64-vulkan@1.1.2':
-    resolution: {integrity: sha512-yuwWmUAEJPRh0N0mkVRBtueZAbONLQ0eeVOq1GtubTDRaOzdg5cjMs9P9CDgJ9E/0E0MgH3FKrn4ARFJsZaJkw==}
+  '@fugood/node-whisper-linux-x64-vulkan@1.1.3':
+    resolution: {integrity: sha512-06z1nUcSEXmvRgiKWDVuUHmKMZFiyCXrqTBJix/NdRLWybewzFNjm98LxPQbeDm2ZKbiYUE2XEuSj0fs/j4gAw==}
     cpu: [x64]
     os: [linux]
 
-  '@fugood/node-whisper-linux-x64@1.1.2':
-    resolution: {integrity: sha512-P/BPUaI2CvfTsYD11braySPCUcv3XG/RXJ7dQt80DtlMc3zSUt5xB/NKVweZ/Dg0SVFLM+qHoVBa7Yi0+NMdBg==}
+  '@fugood/node-whisper-linux-x64@1.1.3':
+    resolution: {integrity: sha512-hm//o20nioHQ+7s/idIvnYStz+QdN3n9/psbNJdUf7PciV2orpf6OuWwfDBcme22IwgDOSrCYsWDdO0/08pf5w==}
     cpu: [x64]
     os: [linux]
 
-  '@fugood/node-whisper-wasm@1.1.2':
-    resolution: {integrity: sha512-EOqJCnd0sn7JIjPRGU9ebBRbHsQWAebhHV5XGh0P1vH366azqo0KDvZTzSOSkvT885prjlafMlyG2xRDG9d07Q==}
+  '@fugood/node-whisper-wasm@1.1.3':
+    resolution: {integrity: sha512-4EFo+tkuEyDfn096t7yDG6QOnSy3GUbA0HhUBjre2OjV7/U2a0gUotIjejiwcESAckyAkyVGmN25QCoVR/HGHw==}
 
-  '@fugood/node-whisper-win32-arm64-vulkan@1.1.2':
-    resolution: {integrity: sha512-xN0exdWLtR4e4WdXzaERvTtbstVYyOzdPttbpNbU4N1T4DUE4KNJ4Ae/4nog5P5TRirQOdrP5xzzIzIpEEj0kg==}
+  '@fugood/node-whisper-win32-arm64-vulkan@1.1.3':
+    resolution: {integrity: sha512-YTycFde4YZCF18PFsuVzRoRn14Vnqbwie1COXrLG2EBgHORgOyhoNdr3Y+5BhORHrjCsvckrG81iF1Uz1Mey+g==}
     cpu: [arm64]
     os: [win32]
 
-  '@fugood/node-whisper-win32-arm64@1.1.2':
-    resolution: {integrity: sha512-ZihdO6cnNZ9Iy7d8hb8b++G0omkS8AdLf//NtDSaLKZnqwqOTMtCr50E539Aq1vOnwFxNOHJaKT+lBWB+yjZFg==}
+  '@fugood/node-whisper-win32-arm64@1.1.3':
+    resolution: {integrity: sha512-UdorqfFk9okPq8d7pQQnsRpspWeTjKTcF349wYM7/R2mM8qHLohRc8H2V4XDYkbuHxsXsAALlN0qr/j+/buNOg==}
     cpu: [arm64]
     os: [win32]
 
-  '@fugood/node-whisper-win32-x64-cuda@1.1.2':
-    resolution: {integrity: sha512-3zf5ViXmUsh9kchJbVOOoGuzaI9n6hiBbhfWN5zdqZv3CZdJB150RHv5huXDOhOwtKyGW5lvhDOblCdLU7QT7g==}
+  '@fugood/node-whisper-win32-x64-cuda@1.1.3':
+    resolution: {integrity: sha512-lsBW3/GoExJHU9SFKtqD5QHKPr138Xu9qZ1L5gTDVtX0MDACzwW4PHUB8yzcFulF6Zz4OrCL7ZJ3SxulBaWguQ==}
     cpu: [x64]
     os: [win32]
 
-  '@fugood/node-whisper-win32-x64-vulkan@1.1.2':
-    resolution: {integrity: sha512-iqyhTUHTOTxOYn6C4JRS9o3Tl9U7tHwW7I4i+q22lUk7oiPmmpT9qxZyjJUiZCm3Wl5ZBNmDn9Ok7PgzZwEPxg==}
+  '@fugood/node-whisper-win32-x64-vulkan@1.1.3':
+    resolution: {integrity: sha512-zOJGQ/k81MK9uc7+srkr+AAqixT7rt+iyPOtLZoLa+K3WyodWbQ+Nx2688yA1LrKG/xr22O9ZAq9drkuuRrtWw==}
     cpu: [x64]
     os: [win32]
 
-  '@fugood/node-whisper-win32-x64@1.1.2':
-    resolution: {integrity: sha512-xtIhjvAMc5EHDGXq/zughIFVRfSVcRsynMK8UaJ1b995eaPPt7lHRxijPQsG+xjcgeyHD8QNk/wc8Cz9dJxOuA==}
+  '@fugood/node-whisper-win32-x64@1.1.3':
+    resolution: {integrity: sha512-DPN7pA0ndQq7ztq39+NFTZxGDPE7bJNjI+OeVi8OA3+Xs8vkZPTEETZMRTBaT4jmEHqLSUZhXZ5cTBRHqD0IVw==}
     cpu: [x64]
     os: [win32]
 
-  '@fugood/whisper.node@1.1.2':
-    resolution: {integrity: sha512-zoqGq6mQZZdtwVw/Vn3ofBPparpTVv/cAw6W2li1btkyi7PB/pM1EJt7xeH4gSuF9LNLZMnO+/UYrs2CdowKlQ==}
+  '@fugood/whisper.node@1.1.3':
+    resolution: {integrity: sha512-wiDjBuKUa6ji6HItkW99TwQI3Q4wf7yh0W/xeroJfZLctQrSM+xfUcoY9iH/w7su3gjW5R6z3tTHJPaF468kig==}
     engines: {node: '>=16.0.0'}
 
   '@jridgewell/sourcemap-codec@1.5.5':
@@ -1754,64 +1754,64 @@ snapshots:
       '@deepseek-ai/cosmokit': 1.8.3
       '@standard-schema/spec': 1.1.0
 
-  '@fugood/node-whisper-darwin-arm64@1.1.2':
+  '@fugood/node-whisper-darwin-arm64@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-darwin-x64@1.1.2':
+  '@fugood/node-whisper-darwin-x64@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-arm64-cuda@1.1.2':
+  '@fugood/node-whisper-linux-arm64-cuda@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-arm64-vulkan@1.1.2':
+  '@fugood/node-whisper-linux-arm64-vulkan@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-arm64@1.1.2':
+  '@fugood/node-whisper-linux-arm64@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-x64-cuda@1.1.2':
+  '@fugood/node-whisper-linux-x64-cuda@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-x64-vulkan@1.1.2':
+  '@fugood/node-whisper-linux-x64-vulkan@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-linux-x64@1.1.2':
+  '@fugood/node-whisper-linux-x64@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-wasm@1.1.2':
+  '@fugood/node-whisper-wasm@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-win32-arm64-vulkan@1.1.2':
+  '@fugood/node-whisper-win32-arm64-vulkan@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-win32-arm64@1.1.2':
+  '@fugood/node-whisper-win32-arm64@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-win32-x64-cuda@1.1.2':
+  '@fugood/node-whisper-win32-x64-cuda@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-win32-x64-vulkan@1.1.2':
+  '@fugood/node-whisper-win32-x64-vulkan@1.1.3':
     optional: true
 
-  '@fugood/node-whisper-win32-x64@1.1.2':
+  '@fugood/node-whisper-win32-x64@1.1.3':
     optional: true
 
-  '@fugood/whisper.node@1.1.2':
+  '@fugood/whisper.node@1.1.3':
     optionalDependencies:
-      '@fugood/node-whisper-darwin-arm64': 1.1.2
-      '@fugood/node-whisper-darwin-x64': 1.1.2
-      '@fugood/node-whisper-linux-arm64': 1.1.2
-      '@fugood/node-whisper-linux-arm64-cuda': 1.1.2
-      '@fugood/node-whisper-linux-arm64-vulkan': 1.1.2
-      '@fugood/node-whisper-linux-x64': 1.1.2
-      '@fugood/node-whisper-linux-x64-cuda': 1.1.2
-      '@fugood/node-whisper-linux-x64-vulkan': 1.1.2
-      '@fugood/node-whisper-wasm': 1.1.2
-      '@fugood/node-whisper-win32-arm64': 1.1.2
-      '@fugood/node-whisper-win32-arm64-vulkan': 1.1.2
-      '@fugood/node-whisper-win32-x64': 1.1.2
-      '@fugood/node-whisper-win32-x64-cuda': 1.1.2
-      '@fugood/node-whisper-win32-x64-vulkan': 1.1.2
+      '@fugood/node-whisper-darwin-arm64': 1.1.3
+      '@fugood/node-whisper-darwin-x64': 1.1.3
+      '@fugood/node-whisper-linux-arm64': 1.1.3
+      '@fugood/node-whisper-linux-arm64-cuda': 1.1.3
+      '@fugood/node-whisper-linux-arm64-vulkan': 1.1.3
+      '@fugood/node-whisper-linux-x64': 1.1.3
+      '@fugood/node-whisper-linux-x64-cuda': 1.1.3
+      '@fugood/node-whisper-linux-x64-vulkan': 1.1.3
+      '@fugood/node-whisper-wasm': 1.1.3
+      '@fugood/node-whisper-win32-arm64': 1.1.3
+      '@fugood/node-whisper-win32-arm64-vulkan': 1.1.3
+      '@fugood/node-whisper-win32-x64': 1.1.3
+      '@fugood/node-whisper-win32-x64-cuda': 1.1.3
+      '@fugood/node-whisper-win32-x64-vulkan': 1.1.3
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
