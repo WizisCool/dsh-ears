@@ -8,7 +8,7 @@ After a clone, start here. Product scope and still-open gates are in [`.agent/PL
 
 - Node.js `^22.19.0 || >=24.0.0`
 - [pnpm](https://pnpm.io) `11.19.0` (see `packageManager` in `package.json`)
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `0.1.0-rc.6` through `0.1.1-rc.2`
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `0.1.2-rc.1` or a newer `0.1.x` release
 
 ## Clone and install
 

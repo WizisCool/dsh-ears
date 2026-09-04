@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
-  '0.1.2-alpha.3'
+  '0.1.2-rc.1'
 ])
 
 function commandInvocation(args) {

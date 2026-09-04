@@ -20,10 +20,10 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 
 ## Compatibility
 
-- Stable line: `master` and npm `latest` are dsh-ears 0.2 and support dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035). Its `@deepseek-ai/dsh-*` peers remain `*`, and compatibility claims are documentation-scoped.
-- Development line: `next` is dsh-ears `0.3.0-alpha.0`, targets only the dsh 0.1.2 family, and initially compiles and smokes against exact `0.1.2-alpha.3` (D-049). Its dsh peers have a strict `^0.1.2-alpha.3` floor. A development baseline is not a support claim for npm `latest`.
+- Published maintenance line: dsh-ears versions before 0.3.0 support dsh through `0.1.1-rc.2` under D-035.
+- Current release line: dsh-ears `0.3.0` targets only the breaking dsh 0.1.2 family, compiles and smokes against exact `0.1.2-rc.1`, and declares a strict `^0.1.2-rc.1` floor (D-050). Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
 - Node: `^22.19.0 || >=24.0.0`.
-- Promote the development line only after upstream npm `latest` points to a 0.1.2 release and the complete automated and Windows browser gates pass.
+- Promotion from `next`, npm publication, and release tags require explicit authorization after automated certification and the Windows browser release smoke.
 
 ## Product boundaries
 
