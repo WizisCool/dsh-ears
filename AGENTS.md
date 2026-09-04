@@ -14,7 +14,7 @@ Voice-input plugin for DeepSeek Harness. The package has two faces: a Host Cordi
 
 ## Setup
 
-Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), dsh `0.1.0-rc.6` through `0.1.1-rc.2`. Peer dependencies accept any dsh release; only the tested range is claimed (D-035).
+Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `0.1.2-rc.1` or a newer `0.1.x` release. dsh-ears 0.3 uses a strict `^0.1.2-rc.1` dsh peer floor because the upstream 0.1.2 line is breaking (D-050).
 
 ```sh
 pnpm install

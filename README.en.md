@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-0.1.0--rc.6%20--%200.1.1--rc.2-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh 0.1.0-rc.6 - 0.1.1-rc.2"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.1.2--rc.1%20%3C0.2.0-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.1.2-rc.1 < 0.2.0"></a>
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <!-- Download badge icon: Akar Icons, MIT, © 2020-present Arturo Wibawa — https://github.com/artcoholic/akar-icons -->
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/dt/dsh-ears?style=flat-square&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTEyIDE1VjNtMCAxMmwtNC00bTQgNGw0LTRNMiAxN2wuNjIxIDIuNDg1QTIgMiAwIDAgMCA0LjU2MSAyMWgxNC44NzdhMiAyIDAgMCAwIDEuOTQtMS41MTVMMjIgMTciLz48L3N2Zz4%3D" alt="npm downloads"></a>
@@ -27,13 +27,19 @@ dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It
 
 ## Install
 
-Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`0.1.0-rc.6` through `0.1.1-rc.2`) and Node.js `^22.19.0 || >=24.0.0`.
+Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `0.1.2-rc.1` or a newer `0.1.x` release, and Node.js `^22.19.0 || >=24.0.0`.
 
 ### Install from npm
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
+
+> **Still using dsh 0.1.1?** dsh 0.1.2 contains breaking changes, so dsh-ears `0.3.0` no longer supports dsh 0.1.1. Install a plugin version earlier than `0.3.0` instead:
+>
+> ```sh
+> dsh plugin --profile web add "dsh-ears@<0.3.0"
+> ```
 
 ### Install from source
 

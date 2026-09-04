@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14, Input, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'

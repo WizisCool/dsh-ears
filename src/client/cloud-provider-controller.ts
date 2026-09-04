@@ -1,5 +1,5 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { CLOUD_ASR_PROVIDERS, cloudAsrModelField, cloudAsrModelSupportsService, supportsModelListing, type CloudAsrModelField } from '../asr/providers.js'
 import type { EarsSettings } from '../config.js'
 import { EARS_ERROR_CODES, isEarsErrorCode } from '../errors.js'

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InputActions, InputState } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { effectiveRecognitionLanguage, effectiveRecordingSeconds } from '../config.js'
 import { isEarsErrorCode } from '../errors.js'
@@ -24,12 +25,8 @@ import { isTranscriptionStillCurrent, prepareRecordedAudioForBackend, type Media
 import { isCloudAsrRealtime } from '../asr/providers.js'
 
 type VoiceInputButtonProps = {
-  readonly input: {
-    readonly draft: string
-  }
-  readonly inputActions: {
-    setDraft(text: string): void
-  }
+  readonly useInput: SnapshotSelectorHook<InputState>
+  readonly inputActions: InputActions
   readonly remote: EarsRemote
   readonly useEarsSettings: SnapshotSelectorHook<EarsSettings>
   readonly useEarsBackends: BackendHook
@@ -40,7 +37,7 @@ type VoiceInputButtonProps = {
   readonly earsT?: Translate
 }
 
-export function MicrophoneButton({ input, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, voiceSession, useUiLocale, t: slotT, earsT }: VoiceInputButtonProps) {
+export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettings, useEarsBackends, useEarsWhisper, voiceSession, useUiLocale, t: slotT, earsT }: VoiceInputButtonProps) {
   const t = slotT ?? earsT ?? fallbackTranslate
   const voiceSnapshot = useVoiceInputSession(voiceSession)
   const state = voiceSnapshot.state
@@ -63,8 +60,9 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   const polishAbortRef = useRef<AbortController | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRecordingRef = useRef<(() => void | Promise<void>) | null>(null)
+  const draft = useInput((value) => value.draft)
   const actionsRef = useRef(inputActions)
-  const latestDraftRef = useRef(input.draft)
+  const latestDraftRef = useRef(draft)
   const uiLocale = useUiLocale?.() ?? 'zh'
   const settings = useEarsSettings((value) => value)
   const backendInfo = useEarsBackends((value) => value)
@@ -81,8 +79,8 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }, [inputActions])
 
   useEffect(() => {
-    latestDraftRef.current = input.draft
-  }, [input.draft])
+    latestDraftRef.current = draft
+  }, [draft])
 
   useEffect(() => {
     // The hotkey runs on window CAPTURE so it outranks text input: editor
@@ -230,7 +228,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const startWebSpeech = () => {
-    let baseDraft = input.draft
+    let baseDraft = draft
     // Supersede any pending media capture before starting Web Speech.
     mediaStartGenerationRef.current += 1
     let sessionDraft = baseDraft
@@ -379,7 +377,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   }
 
   const startRealtimeRecording = async () => {
-    const baseDraft = input.draft
+    const baseDraft = draft
     const startController = new AbortController()
     realtimeStartAbortRef.current = startController
     const generation = ++mediaStartGenerationRef.current
@@ -403,7 +401,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
       }
       const epoch = voiceSession.captureEpoch()
       realtimeCaptureRef.current = capture
-      realtimeRemoteSessionIdRef.current = sessionId
+      realtimeRemoteSessionIdRef.current = started.value.sessionId
       realtimeBaseDraftRef.current = baseDraft
       realtimeDraftRef.current = baseDraft
       capture.start(async (audioBase64) => {
@@ -533,7 +531,7 @@ export function MicrophoneButton({ input, inputActions, remote, useEarsSettings,
   stopRecordingRef.current = stopRecording
 
   const startMediaRecording = async (backend: MediaCaptureBackend) => {
-    const baseDraft = input.draft
+    const baseDraft = draft
     const generation = ++mediaStartGenerationRef.current
     mediaStartCancelledRef.current = false
     setState('starting')

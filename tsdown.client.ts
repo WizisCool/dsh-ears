@@ -14,7 +14,6 @@ const CLIENT_EXTERNALS = [
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-api-remotes/client',
   '@deepseek-ai/dsh-client-locale/client',
-  '@deepseek-ai/dsh-client-runtime/client',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
   '@deepseek-ai/dsh-client-ui-settings',
@@ -29,6 +28,10 @@ export function clientBundle(id: string, entry: string): UserConfig {
     format: 'cjs',
     platform: 'browser',
     target: 'es2022',
+    define: {
+      'import.meta.env': JSON.stringify({ MODE: 'production' }),
+      'process.env.NODE_ENV': JSON.stringify('production')
+    },
     dts: false,
     sourcemap: true,
     clean: false,

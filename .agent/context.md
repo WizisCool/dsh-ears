@@ -20,10 +20,10 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 
 ## Compatibility
 
-- Supported dsh targets: `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035).
+- Published maintenance line: dsh-ears versions before 0.3.0 support dsh through `0.1.1-rc.2` under D-035.
+- Current release line: dsh-ears `0.3.0` targets only the breaking dsh 0.1.2 family, compiles and smokes against exact `0.1.2-rc.1`, and declares a strict `^0.1.2-rc.1` floor (D-050). Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
 - Node: `^22.19.0 || >=24.0.0`.
-- All `@deepseek-ai/dsh-*` peer dependencies are `*`: installation never fails on an unlisted host, while compatibility claims remain documentation-scoped (About tab plus these files). The compile/test baseline tracks the newest tested host.
-- No compatibility claim for another dsh release until it has been tested.
+- Promotion from `next`, npm publication, and release tags require explicit authorization after automated certification and the Windows browser release smoke.
 
 ## Product boundaries
 
@@ -89,7 +89,7 @@ This reverses D-014's dsh credential-reference model for the cloud ASR surface. 
 
 `src/client/voice-flow.ts` is shared by the microphone and tests. Final ASR refuses to overwrite a draft the user changed while transcription was pending. The recognition bar names each stage on the dock card. Polishing runs when `polishingEnabled` is on; an empty local provider/model pair asks the Host to use dsh's `agent-default-model` selection, including its reasoning setting. A complete local pair still takes precedence, and an explicit local reasoning value overrides the Agent default. The raw transcript is written first. A late polish result applies only if the composer still holds that raw draft or the pre-transcript base. A route failure stays on the bar as `polish-error` and keeps the raw text.
 
-Host `transcribe()` and `polish()` return the strict `RemoteTextResult` union: `{ status: 'ok', text }` for completed work or `{ status: 'error', code, message, params? }` for a business failure. Business failures are result values because the Remote gateway normalizes arbitrary thrown errors; caller cancellation and `TypertLookupFailure` remain thrown so gateway cancellation and lookup policy stay authoritative. The browser carries recognized error codes and interpolation parameters through `VoiceInputSession`, then localizes the microphone tooltip and recognition card from the active `settings.dshEars` catalog. Unknown codes or missing interpolation data fall back to the supplied diagnostic or the generic voice error.
+Host `transcribe()` and `polish()` return the strict `RemoteTextResult` union: `{ status: 'ok', text }` for completed work or `{ status: 'error', code, message, params? }` for a business failure. Business failures are result values because the Remote gateway normalizes arbitrary thrown errors; caller cancellation and Typert `RemoteError` values remain thrown so gateway cancellation and boundary policy stay authoritative. The browser carries recognized error codes and interpolation parameters through `VoiceInputSession`, then localizes the microphone tooltip and recognition card from the active `settings.dshEars` catalog. Unknown codes or missing interpolation data fall back to the supplied diagnostic or the generic voice error.
 
 ## Settings
 

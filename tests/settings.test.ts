@@ -7,7 +7,7 @@ import { deepgramModelCandidates, localeEn, localeZh } from '../src/client/setti
 import type { EarsRemote } from '../src/remote.js'
 import type { EarsSettingsView, WhisperModelState } from '../src/remote-contract.js'
 
-vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
+vi.mock('@deepseek-ai/dsh-client-store', () => ({
   createSnapshotStore: (initial: unknown) => {
     let value = initial
     const listeners = new Set<() => void>()

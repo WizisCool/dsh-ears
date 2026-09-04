@@ -1,5 +1,5 @@
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EarsSettings, WhisperAccelerationId } from '../config.js'
 import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'

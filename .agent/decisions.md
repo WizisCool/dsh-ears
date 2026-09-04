@@ -11,7 +11,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
 | D-004 | LLM ownership | Accepted |
 | D-005 | Host/Client packaging | Accepted |
-| D-006 | Compatibility | Extended by D-030, D-034, and D-035. Current: `rc.6` through `0.1.1-rc.2`. |
+| D-006 | Compatibility | Extended by D-030, D-034, D-035, and D-050. Current release-line policy is D-050. |
 | D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
 | D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
@@ -40,7 +40,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-032 | Bailian + per-provider keys | Accepted |
 | D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
-| D-035 | dsh 0.1.1 compatibility and open peers | Accepted (live compatibility and peer policy) |
+| D-035 | dsh 0.1.1 compatibility and open peers | Accepted for dsh-ears `<0.3.0`; superseded for the current release line by D-050. |
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
 | D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
@@ -53,6 +53,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-045 | Local Whisper and Agent-default polish defaults | Partially superseded by D-046; polish defaults remain live |
 | D-047 | SiliconFlow CN cloud ASR with deferred international edition | Accepted |
 | D-048 | Volcengine streaming and recording-file recognition | Accepted; implementation tracks issue #37 |
+| D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
+| D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Accepted (live compatibility and release-line policy). |
 
 ## D-001 — Project identity
 
@@ -447,3 +449,24 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: the recording-file adapter uploads the browser-normalized WAV through `audio.data` base64 — accepted by the API although the documentation marks `audio.url` required (verified against the live API on 2026-08-29 with a temporary test credential) — then polls `query` with an empty `{}` body and reads completion from the `X-Api-Status-Code` and `X-Api-Message` response headers (`20000000` OK; `20000001` processing in progress, or `20000000` with an empty body, keeps polling; `20000003` no-valid-speech returns an empty text as a result value, not a failure). Polling follows the Tencent recording-file pattern (D-041) inside the 120-second cloud timeout.
 - Decision: the bidirectional streaming interface (`bigmodel_async`, interim text and the `enable_nonstream` second pass) and the recording-file 极速版 and 闲时版 variants are deferred; they are additive provider entries or service options, not protocol rework.
 - Rationale: the dual-service shape reuses proven lifecycle patterns — the Tencent realtime session (`src/asr/tencent-cloud-asr.ts`) for the WS transport and the Tencent submit/poll adapter for recording-file — while the binary framer and response parsing stay Volcano-specific, satisfying the boundary that future cloud ASR providers ship their own protocol and smoke test. X-Api-Key-only auth keeps a single secret field, and the new console is the current credential path, so legacy tokens stay out until a user needs them. The base64 direct-upload path is load-bearing for the product: without it the recording-file service would require hosting the recording at a public URL, which the plugin cannot do, which is why it was verified live before acceptance.
+
+## D-049 — dsh 0.1.2 development line
+
+- Status: accepted (2026-09-01). Establishes a new development line; D-035 remains the live compatibility and peer policy for the `master` 0.2 maintenance line.
+- Decision: `master` and npm `latest` remain on dsh-ears 0.2 and support dsh `0.1.0-rc.6` through `0.1.1-rc.2`. The `next` branch is rebuilt from `master` as dsh-ears `0.3.0-alpha.0` and targets only the dsh 0.1.2 package family, initially the exact `0.1.2-alpha.3` development baseline. Changes needed only for the 0.1.2 API family are not backported to the 0.2 line.
+- Decision: the 0.3 line adopts the 0.1.2 contracts directly. The Host uses the current Typert Remote error API. The Client uses the current Remote mount, slot, locale, and snapshot-store contracts; `@deepseek-ai/dsh-client-store` is an implementation dependency bundled into `client.js`. The 0.3 line carries no runtime compatibility layer for the older rc package family.
+- Decision: dsh peers on the 0.3 line use a strict floor of `^0.1.2-alpha.3`; Cordis uses `^4.0.2` and Schemastery uses `^3.18.2`. If a later 0.1.2 release introduces a breaking API change, the floor advances with a recorded decision. The `next` README and About surface identify alpha.3 as a development baseline and distinguish it from the supported npm `latest` line.
+- Branch policy: the existing remote `next` history is replaced from `master` after local automated certification. Subsequent development may push directly to `next`; CI runs on its pushes and pull requests. Maintenance changes from `master` are merged periodically while preserving the 0.3 version, peer floor, development-baseline documentation, and 0.1.2 integration checks.
+- Certification: during alpha development, `next` must pass check, test, build, package verification, and a dsh `0.1.2-alpha.3` Host boot, Client-asset, and strict-Remote smoke on Ubuntu; the ordinary matrix retains Ubuntu and Windows. Promotion requires repeating those gates against the exact 0.1.2 release selected by the upstream npm `latest` tag, plus a Windows browser smoke covering settings, real-microphone Web Speech, an editable draft, Agent-default-model polishing, and manual sending.
+- Promotion: when upstream npm `latest` first points to a 0.1.2 release and the promotion gate passes, `next` may enter `master` through a pull request and publish stable dsh-ears `0.3.0`, even when the selected upstream version retains an alpha or rc suffix. Release authorization is separate from development-line authorization. After a successful 0.3.0 release, `next` is deleted.
+- Rationale: dsh 0.1.2 replaces both the Typert error boundary and core Client packages. A separate development line lets the new product use those contracts natively while the published 0.2 line remains reliable for its established Host family.
+
+## D-050 — dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0
+
+- Status: accepted (2026-09-04). Supersedes D-049's alpha development baseline and promotion condition; D-035 remains the compatibility policy for dsh-ears versions earlier than 0.3.0.
+- Upstream baseline: the official dsh npm `latest` release and repository tag are `0.1.2-rc.1`. The 0.1.2 family is a breaking Host/Client API line relative to dsh 0.1.1.
+- Decision: dsh-ears `0.3.0` supports dsh `0.1.2-rc.1` and newer `0.1.x` releases only. Direct dsh peers use the strict floor `^0.1.2-rc.1`; the compile, lockfile, CI, and compatibility-smoke baseline is exact `0.1.2-rc.1`.
+- Decision: dsh-ears 0.3 carries no compatibility layer for dsh 0.1.1. Users who stay on dsh 0.1.1 must install dsh-ears `<0.3.0`; the README documents the pinned install command in Chinese and English.
+- Certification: the release candidate must pass typecheck, tests, build, package verification, release metadata validation, and the dsh `0.1.2-rc.1` Host/Client/strict-Remote compatibility smoke. The Windows browser smoke covering settings, real-microphone Web Speech, editable draft, Agent-default-model polishing, and manual sending remains a manual release gate.
+- Release policy: `next` is the prepared source for the 0.3.0 promotion. Merging to `master`, pushing, npm publication, release tags, and deleting `next` still require explicit maintainer authorization under D-009.
+- Rationale: moving the peer floor and user-facing compatibility statement together prevents package managers from installing the breaking 0.3 client into a dsh 0.1.1 Host while preserving the maintained pre-0.3 plugin line for existing users.
