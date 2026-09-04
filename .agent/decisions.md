@@ -474,7 +474,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 ## D-051 — dsh 0.1.2-rc.1 open minimum
 
 - Status: accepted (2026-09-04). Supersedes D-050's `0.1.x`-only compatibility range and strict caret peer floor. D-050's 0.1.2 API migration, exact certification baseline, and pre-0.3 compatibility guidance remain live.
-- Decision: dsh-ears `0.3.0` requires dsh `>=0.1.2-rc.1`. The README prerequisite, compatibility badge, direct dsh peer dependencies, package verification, and release documentation all state this minimum without a `0.1.x` upper-bound claim.
+- Decision: dsh-ears `0.3.0` requires dsh `>=0.1.2-rc.1`. The README prerequisite, compatibility badge, About surface, direct dsh peer dependencies, package verification, and release documentation all state this minimum without a `0.1.x` upper-bound claim.
 - Decision: compile, lockfile, CI, and compatibility smoke remain pinned to exact dsh `0.1.2-rc.1`; this is the certified baseline, not an upper bound. Users who stay on dsh 0.1.1 must install dsh-ears `<0.3.0`.
 - Release policy: explicit maintainer authorization was granted on 2026-09-04 to promote PR #46 from `next` to `master`, publish dsh-ears `0.3.0`, push the `v0.3.0` tag, and delete `next` after release verification under D-009.
 - Rationale: the public contract is a minimum supported DSH version. Keeping the peer range and user-facing copy aligned prevents dsh 0.1.1 installations while avoiding an unsupported upper-bound statement.
