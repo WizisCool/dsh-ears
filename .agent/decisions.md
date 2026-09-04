@@ -11,7 +11,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-003 | First ASR milestone | Historical: M2 was Web Speech only. Whisper and cloud ASR later shipped. |
 | D-004 | LLM ownership | Accepted |
 | D-005 | Host/Client packaging | Accepted |
-| D-006 | Compatibility | Extended by D-030, D-034, D-035, and D-050. Current release-line policy is D-050. |
+| D-006 | Compatibility | Extended by D-030, D-034, D-035, D-050, and D-051. Current release-line policy is D-051. |
 | D-007 | Deferred scope | Partially superseded. Whisper and cloud ASR shipped. Emotion UI remains deferred (D-015). |
 | D-008 | Language and public quality | Accepted. Public landing page is Chinese-first. |
 | D-009 | Release safety | Accepted. First public release authorized 2026-08-19. Later push/publish/visibility still need explicit approval. |
@@ -40,7 +40,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-032 | Bailian + per-provider keys | Accepted |
 | D-033 | About tab | Accepted. First public release authorized 2026-08-19. |
 | D-034 | Triple host compatibility for rc.6, rc.7, and rc.8 | Accepted; peer floor superseded by D-035 |
-| D-035 | dsh 0.1.1 compatibility and open peers | Accepted for dsh-ears `<0.3.0`; superseded for the current release line by D-050. |
+| D-035 | dsh 0.1.1 compatibility and open peers | Accepted for dsh-ears `<0.3.0`; superseded for the current release line by D-050 and D-051. |
 | D-036 | Wire-safe optional fields on strict RPC results | Accepted |
 | D-037 | OS-aware Local Whisper setup guidance | **Fully superseded by D-039.** |
 | D-038 | User-facing copy style | Accepted; revises D-024's punctuation rule |
@@ -54,7 +54,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-047 | SiliconFlow CN cloud ASR with deferred international edition | Accepted |
 | D-048 | Volcengine streaming and recording-file recognition | Accepted; implementation tracks issue #37 |
 | D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
-| D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Accepted (live compatibility and release-line policy). |
+| D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Superseded by D-051 for the compatibility range; migration and certification history remains. |
+| D-051 | dsh 0.1.2-rc.1 open minimum | Accepted (live compatibility and release-line policy). |
 
 ## D-001 — Project identity
 
@@ -470,3 +471,10 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Certification: the release candidate must pass typecheck, tests, build, package verification, release metadata validation, and the dsh `0.1.2-rc.1` Host/Client/strict-Remote compatibility smoke. The Windows browser smoke covering settings, real-microphone Web Speech, editable draft, Agent-default-model polishing, and manual sending remains a manual release gate.
 - Release policy: `next` is the prepared source for the 0.3.0 promotion. Merging to `master`, pushing, npm publication, release tags, and deleting `next` still require explicit maintainer authorization under D-009.
 - Rationale: moving the peer floor and user-facing compatibility statement together prevents package managers from installing the breaking 0.3 client into a dsh 0.1.1 Host while preserving the maintained pre-0.3 plugin line for existing users.
+## D-051 — dsh 0.1.2-rc.1 open minimum
+
+- Status: accepted (2026-09-04). Supersedes D-050's `0.1.x`-only compatibility range and strict caret peer floor. D-050's 0.1.2 API migration, exact certification baseline, and pre-0.3 compatibility guidance remain live.
+- Decision: dsh-ears `0.3.0` requires dsh `>=0.1.2-rc.1`. The README prerequisite, compatibility badge, direct dsh peer dependencies, package verification, and release documentation all state this minimum without a `0.1.x` upper-bound claim.
+- Decision: compile, lockfile, CI, and compatibility smoke remain pinned to exact dsh `0.1.2-rc.1`; this is the certified baseline, not an upper bound. Users who stay on dsh 0.1.1 must install dsh-ears `<0.3.0`.
+- Release policy: explicit maintainer authorization was granted on 2026-09-04 to promote PR #46 from `next` to `master`, publish dsh-ears `0.3.0`, push the `v0.3.0` tag, and delete `next` after release verification under D-009.
+- Rationale: the public contract is a minimum supported DSH version. Keeping the peer range and user-facing copy aligned prevents dsh 0.1.1 installations while avoiding an unsupported upper-bound statement.
