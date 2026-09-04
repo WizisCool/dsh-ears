@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 export const PLUGIN_LICENSE = 'MIT'
 export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
 export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
-export const DSH_COMPATIBILITY = '>=0.1.2-rc.1 <0.2.0'
+export const DSH_COMPATIBILITY = '>=0.1.2-rc.1'
 /**
  * `add` re-resolves `latest` from the registry and rewrites the saved range,
  * so the one command works for first install, in-range updates, and crossings
