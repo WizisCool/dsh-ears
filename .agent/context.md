@@ -21,7 +21,7 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 ## Compatibility
 
 - Published maintenance line: dsh-ears versions before 0.3.0 support dsh through `0.1.1-rc.2` under D-035.
-- Current release line: dsh-ears `0.3.0` requires dsh `>=0.1.2-rc.1`, compiles and smokes against exact `0.1.2-rc.1`, and declares that minimum in its peer ranges (D-051). Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
+- Current release line: dsh-ears `0.3.1` requires dsh `>=0.1.2-rc.1`, compiles against exact `0.1.5-rc.1`, and smokes against both `0.1.2-rc.1` and `0.1.5-rc.1`; the peer ranges retain the minimum from D-051. Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
 - Node: `^22.19.0 || >=24.0.0`.
 - Promotion, npm publication, and release tags require explicit authorization after automated certification. The `0.3.0` release was authorized on 2026-09-04; its Windows browser smoke remains a documented manual gate.
 

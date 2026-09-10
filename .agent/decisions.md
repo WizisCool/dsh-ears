@@ -56,6 +56,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
 | D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Superseded by D-051 for the compatibility range; migration and certification history remains. |
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted (live compatibility and release-line policy). |
+| D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; retain the dsh 0.1.2 minimum after dual smoke certification. |
 
 ## D-001 — Project identity
 
@@ -478,3 +479,10 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: compile, lockfile, CI, and compatibility smoke remain pinned to exact dsh `0.1.2-rc.1`; this is the certified baseline, not an upper bound. Users who stay on dsh 0.1.1 must install dsh-ears `<0.3.0`.
 - Release policy: explicit maintainer authorization was granted on 2026-09-04 to promote PR #46 from `next` to `master`, publish dsh-ears `0.3.0`, push the `v0.3.0` tag, and delete `next` after release verification under D-009.
 - Rationale: the public contract is a minimum supported DSH version. Keeping the peer range and user-facing copy aligned prevents dsh 0.1.1 installations while avoiding an unsupported upper-bound statement.
+
+## D-052 — dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1
+
+- Status: accepted (2026-09-10).
+- Decision: dsh-ears `0.3.1` retains the peer minimum `>=0.1.2-rc.1`, updates the compile baseline to exact `0.1.5-rc.1`, and certifies both dsh `0.1.2-rc.1` and `0.1.5-rc.1` with the compatibility smoke.
+- Decision: `@deepseek-ai/dsh-client-store` moves to `0.1.5-rc.1`; `zustand` and `immer` remain explicit dsh-ears dependencies because the new client-store package no longer declares them while the published client bundle must self-contain them.
+- Rationale: no consumed Host/Client API break was found in typecheck, the full test suite, build, or the dsh 0.1.5 Web/Remote smoke. The older 0.1.2 baseline remains an existing certification target and is re-run for the release.

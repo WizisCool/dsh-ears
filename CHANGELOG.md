@@ -2,6 +2,16 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.3.1] - 2026-09-10
+
+dsh 0.1.5 compatibility release.
+
+### Changed
+
+- The compile and compatibility-smoke baseline now includes dsh `0.1.5-rc.1` while the supported minimum remains `>=0.1.2-rc.1`.
+- Compatibility CI exercises both dsh `0.1.2-rc.1` and `0.1.5-rc.1`.
+- `zustand` and `immer` are explicit dependencies so the dsh-client-store implementation used by the client bundle remains self-contained with dsh `0.1.5-rc.1`.
+
 ## [0.3.0] - 2026-09-04
 
 Breaking compatibility release for the dsh 0.1.2 package family.
