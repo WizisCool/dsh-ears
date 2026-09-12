@@ -133,7 +133,7 @@
     "@thesvg/react": "^3.3.1",
     "lightningcss": "^1.33.0",
     "react": "^18.3.1",
-    "tsdown": "^0.22.14",
+    "tsdown": "^0.23.0",
     "typescript": "7.0.2",
     "vitest": "^5.0.0"
   }
