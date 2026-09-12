@@ -15,7 +15,8 @@ import { CloudProviderController } from '../src/client/cloud-provider-controller
  *
  * The engine is React-free: `createSnapshotStore` is zustand's vanilla store
  * extended with `subscribeWithSelector`, an immer-backed draft update, and a
- * dev-only deep freeze.
+ * deep freeze applied to every `set` (`devFreeze` upstream — the name says dev,
+ * but nothing gates it at build time).
  */
 
 interface PanelState {
