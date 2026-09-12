@@ -22,18 +22,21 @@ interface PanelState {
   status: 'loading' | 'ready'
   rows: { id: string; label: string; selected: boolean }[]
   meta: { revisions: number }
+  /** Carried only by the initial snapshot, so the replacement case can tell a wholesale `set` from a merge. */
+  legacyNotice?: string
 }
 
 function initialPanel(): PanelState {
   return {
     status: 'loading',
     rows: [{ id: 'a', label: 'first', selected: false }],
-    meta: { revisions: 0 }
+    meta: { revisions: 0 },
+    legacyNotice: 'initial only'
   }
 }
 
 describe('bundled snapshot-store engine', () => {
-  it('publishes the initial snapshot and notifies subscribers on set', () => {
+  it('publishes the initial snapshot, notifies on set, and stops after unsubscribe', () => {
     const store = createSnapshotStore(initialPanel())
     let notifications = 0
     const unsubscribe = store.subscribe(() => {
@@ -45,9 +48,15 @@ describe('bundled snapshot-store engine', () => {
     const next: PanelState = { status: 'ready', rows: [], meta: { revisions: 1 } }
     store.set(next)
 
+    // `set` replaces the snapshot wholesale, so the field that only the initial
+    // state carries must be gone; a merge implementation would keep it.
     expect(store.getSnapshot()).toEqual(next)
+    expect('legacyNotice' in store.getSnapshot()).toBe(false)
     expect(notifications).toBe(1)
+
     unsubscribe()
+    store.set(initialPanel())
+    expect(notifications).toBe(1)
   })
 
   it('deep-freezes engine state and leaves earlier snapshots untouched', () => {
