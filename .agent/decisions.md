@@ -56,7 +56,8 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-049 | dsh 0.1.2 development line | Historical development baseline; promoted and superseded by D-050. |
 | D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Superseded by D-051 for the compatibility range; migration and certification history remains. |
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted (live compatibility and release-line policy). |
-| D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; retain the dsh 0.1.2 minimum after dual smoke certification. |
+| D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
+| D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted; dsh 0.1.5-rc.2 replaces 0.1.5-rc.1 as the newest certification target with no source change. |
 
 ## D-001 — Project identity
 
@@ -486,3 +487,11 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: dsh-ears `0.3.1` retains the peer minimum `>=0.1.2-rc.1`, updates the compile baseline to exact `0.1.5-rc.1`, and certifies both dsh `0.1.2-rc.1` and `0.1.5-rc.1` with the compatibility smoke.
 - Decision: `@deepseek-ai/dsh-client-store` moves to `0.1.5-rc.1`; `zustand` and `immer` remain explicit dsh-ears dependencies because the new client-store package no longer declares them while the published client bundle must self-contain them.
 - Rationale: no consumed Host/Client API break was found in typecheck, the full test suite, build, or the dsh 0.1.5 Web/Remote smoke. The older 0.1.2 baseline remains an existing certification target and is re-run for the release.
+
+## D-053 — dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2
+
+- Status: accepted (2026-09-18). Supersedes D-052 as the newest certification target; D-052's decisions about the `0.1.2-rc.1` minimum and the explicitly declared `zustand`/`immer` dependencies remain live.
+- Decision: dsh-ears `0.3.2` retains the peer minimum `>=0.1.2-rc.1`, moves the compile baseline to exact `0.1.5-rc.2`, and certifies dsh `0.1.2-rc.1` and `0.1.5-rc.2` with the compatibility smoke. `0.1.5-rc.1` is superseded as a certification target within the same rc line rather than carried alongside rc.2.
+- Decision: `@deepseek-ai/dsh-client-store` moves to `0.1.5-rc.2`.
+- Rationale: a package-diff audit of all 113 `@deepseek-ai` packages reachable from the dsh `0.1.5-rc.2` CLI, together with every package dsh-ears consumes, found no Host/Client API change. The only published code difference is an internal `CODE_FILE_ARTWORK` icon table and its declaration file inside `@deepseek-ai/dsh-client-ui-primitives`; that package's `lib/types/index.d.ts` is byte-identical between rc.1 and rc.2 and the new module is not re-exported. Every other package differs at most in its `package.json` bytes, with no dependency added, removed, or re-pinned outside the `0.1.5-rc.*` line, and the upstream `dsh-v0.1.5-rc.2` release notes describe only feedback-dialog and delivered-file-card polish. Typecheck, the full test suite, build, package verification, and the dsh `0.1.5-rc.2` Web/Remote smoke pass, as does the retained `0.1.2-rc.1` floor.
+- Note: `pnpm-workspace.yaml` `minimumReleaseAgeExclude` was deliberately left unchanged. It exists for packages younger than pnpm 11's 24-hour release-age gate, and `0.1.5-rc.2` was published 2026-09-10, so the gate cannot reject it.

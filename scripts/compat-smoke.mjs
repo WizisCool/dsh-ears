@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
   '0.1.2-rc.1',
-  '0.1.5-rc.1'
+  '0.1.5-rc.2'
 ])
 
 function resolveWindowsCommand(command) {

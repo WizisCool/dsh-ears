@@ -2,6 +2,18 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.3.2] - 2026-09-18
+
+dsh 0.1.5-rc.2 certification patch. No dsh-ears source change was required.
+
+### Changed
+
+- The compile and compatibility-smoke baseline moves from dsh `0.1.5-rc.1` to `0.1.5-rc.2`; the supported minimum remains `>=0.1.2-rc.1`.
+- Compatibility CI exercises dsh `0.1.2-rc.1` and `0.1.5-rc.2`. `0.1.5-rc.1` is superseded as a certification target within the same rc line.
+- `@deepseek-ai/dsh-client-store` moves to `0.1.5-rc.2`; `zustand` and `immer` remain explicit dependencies so the client bundle stays self-contained.
+
+Upstream `0.1.5-rc.2` changes only delivered-file card layout and code-file icon artwork. The public type surface of `@deepseek-ai/dsh-client-ui-primitives` is byte-identical to `0.1.5-rc.1`, and no other consumed package differs outside its `package.json` bytes.
+
 ## [0.3.1] - 2026-09-10
 
 dsh 0.1.5 compatibility release.
