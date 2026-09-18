@@ -40,9 +40,24 @@ reviews:
     - path: "tests/**"
       instructions: >
         Focused vitest suites mirroring shipped modules. Do not demand 80% docstring coverage.
+    - path: ".agent/decisions.md"
+      instructions: >
+        Append-only ADR history. The ADR body is immutable and must not be rewritten;
+        a superseding ADR instead "marks the old status" in the status index, as
+        required by .agent/README.md. Do not review as code.
+    - path: ".agent/PLAN.md"
+      instructions: >
+        Living project-status document. Its compatibility statements track the current
+        release line and are updated in place each release, so do not ask for the
+        superseded statement to be retained alongside the new one. Do not review as code.
+    - path: ".agent/context.md"
+      instructions: >
+        Living architecture and compatibility-status document. Its compatibility
+        statements track the current release line and are updated in place each release.
+        Do not review as code.
     - path: ".agent/**"
       instructions: >
-        Append-only ADR history. Do not review as code.
+        Project process, plan, and research records. Do not review as code.
 
   pre_merge_checks:
     docstrings:
