@@ -68,7 +68,7 @@ importers:
         version: 3.18.2
       '@thesvg/react':
         specifier: ^3.3.1
-        version: 3.3.2(react@18.3.1)
+        version: 3.3.8(react@18.3.1)
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.4
@@ -414,8 +414,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@thesvg/react@3.3.2':
-    resolution: {integrity: sha512-1pccJgkFbyE0b7BG1RXQgHQuTpeeW0jeqSZfkjyEQKfyJ39pur5TsOLTDibelK3mWFSXdzUiqiKZNuh1evWxsQ==}
+  '@thesvg/react@3.3.8':
+    resolution: {integrity: sha512-6p7Js50t4oY3doJ9UvcJeIAlccAQqDUIi4mPI9T+on8n+Xxmdam3Syryxaay2SI3+pIfOfeQCNBshMeMUTfEkw==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=18'
@@ -1371,7 +1371,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@thesvg/react@3.3.2(react@18.3.1)':
+  '@thesvg/react@3.3.8(react@18.3.1)':
     dependencies:
       react: 18.3.1
 
