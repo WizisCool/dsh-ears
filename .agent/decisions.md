@@ -58,6 +58,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted (live compatibility and release-line policy). |
 | D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
 | D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted; dsh 0.1.5-rc.2 replaces 0.1.5-rc.1 as the newest certification target with no source change. |
+| D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Accepted. npm tarballs are the supported distribution; generated `lib/` stays untracked and fixed-commit Store installation is out of scope. |
 
 ## D-001 — Project identity
 
@@ -495,3 +496,11 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: `@deepseek-ai/dsh-client-store` moves to `0.1.5-rc.2`.
 - Rationale: a package-diff audit of all 113 `@deepseek-ai` packages reachable from the dsh `0.1.5-rc.2` CLI, together with every package dsh-ears consumes, found no Host/Client API change. The only published code difference is an internal `CODE_FILE_ARTWORK` icon table and its declaration file inside `@deepseek-ai/dsh-client-ui-primitives`; that package's `lib/types/index.d.ts` is byte-identical between rc.1 and rc.2 and the new module is not re-exported. Every other package differs at most in its `package.json` bytes, with no dependency added, removed, or re-pinned outside the `0.1.5-rc.*` line, and the upstream `dsh-v0.1.5-rc.2` release notes describe only feedback-dialog and delivered-file-card polish. Typecheck, the full test suite, build, package verification, and the dsh `0.1.5-rc.2` Web/Remote smoke pass, as does the retained `0.1.2-rc.1` floor.
 - Note: `pnpm-workspace.yaml` `minimumReleaseAgeExclude` was deliberately left unchanged. It exists for packages younger than pnpm 11's 24-hour release-age gate, and `0.1.5-rc.2` was published 2026-09-10, so the gate cannot reject it.
+
+## D-054 — npm-first distribution and DSH-Store fixed-commit boundary
+
+- Status: accepted (2026-09-27).
+- Decision: npm is the canonical installation and update channel. The supported install command remains `dsh plugin --profile web add dsh-ears`; source installs must run the documented `pnpm build` step before registering the local plugin.
+- Decision: `lib/` remains generated output. It is excluded from Git and is created by `prepack`, then included in the npm tarball with the Host, Client, Remote, and declaration entry points. Runtime artifacts are not committed to the repository and no `prepare` lifecycle script is added for Git installs.
+- Decision: DSH-Store fixed-commit installation is not a supported distribution path for this plugin. The Store statically checks that every manifest entry exists in the fixed commit and does not execute build scripts. dsh-ears also depends on a native runtime and Host capabilities for files, network, child processes, and credentials, so it is intentionally outside the Store's automatic-approval policy even if generated artifacts were committed.
+- Rationale: the existing npm release already contains the complete runnable package, while committing generated bundles would duplicate source-of-truth artifacts and add review and release drift without making the plugin eligible for automatic fixed-commit approval. Keeping the supported install surface explicit prevents Store status from being mistaken for an npm package defect. DSH-Store issue #1170 records the resulting blocked state.
