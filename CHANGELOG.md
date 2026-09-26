@@ -2,7 +2,7 @@
 
 All notable changes to dsh-ears are recorded here.
 
-## [0.3.3] - Unreleased
+## [0.3.3] - 2026-09-27
 
 dsh 0.1.5-rc.3 certification preparation. No dsh-ears runtime source change was required.
 

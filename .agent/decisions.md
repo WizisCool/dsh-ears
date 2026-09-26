@@ -59,7 +59,7 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
 | D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted for 0.3.2; superseded as the newest certification target by D-055. |
 | D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Accepted. npm tarballs are the supported distribution; generated `lib/` stays untracked and fixed-commit Store installation is out of scope. |
-| D-055 | dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3 | Accepted for the prepared 0.3.3 line; rc.3 replaces rc.2 as the newest certification target with no runtime source change. |
+| D-055 | dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3 | Accepted for the 0.3.3 release line; rc.3 replaces rc.2 as the newest certification target with no runtime source change. |
 
 ## D-001 — Project identity
 
