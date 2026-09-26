@@ -57,8 +57,9 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 | D-050 | dsh 0.1.2-rc.1 promotion and dsh-ears 0.3.0 | Superseded by D-051 for the compatibility range; migration and certification history remains. |
 | D-051 | dsh 0.1.2-rc.1 open minimum | Accepted (live compatibility and release-line policy). |
 | D-052 | dsh 0.1.5-rc.1 compatibility for dsh-ears 0.3.1 | Accepted; the dsh 0.1.2 minimum is retained. Superseded as the newest certification target by D-053. |
-| D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted; dsh 0.1.5-rc.2 replaces 0.1.5-rc.1 as the newest certification target with no source change. |
+| D-053 | dsh 0.1.5-rc.2 compatibility for dsh-ears 0.3.2 | Accepted for 0.3.2; superseded as the newest certification target by D-055. |
 | D-054 | npm-first distribution and DSH-Store fixed-commit boundary | Accepted. npm tarballs are the supported distribution; generated `lib/` stays untracked and fixed-commit Store installation is out of scope. |
+| D-055 | dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3 | Accepted for the prepared 0.3.3 line; rc.3 replaces rc.2 as the newest certification target with no runtime source change. |
 
 ## D-001 — Project identity
 
@@ -504,3 +505,12 @@ Decisions are append-only. Read this status index first. A later ADR that supers
 - Decision: `lib/` remains generated output. It is excluded from Git and is created by `prepack`, then included in the npm tarball with the Host, Client, Remote, and declaration entry points. Runtime artifacts are not committed to the repository and no `prepare` lifecycle script is added for Git installs.
 - Decision: DSH-Store fixed-commit installation is not a supported distribution path for this plugin. The Store statically checks that every manifest entry exists in the fixed commit and does not execute build scripts. dsh-ears also depends on a native runtime and Host capabilities for files, network, child processes, and credentials, so it is intentionally outside the Store's automatic-approval policy even if generated artifacts were committed.
 - Rationale: the existing npm release already contains the complete runnable package, while committing generated bundles would duplicate source-of-truth artifacts and add review and release drift without making the plugin eligible for automatic fixed-commit approval. Keeping the supported install surface explicit prevents Store status from being mistaken for an npm package defect. DSH-Store issue #1170 records the resulting blocked state.
+
+## D-055 — dsh 0.1.5-rc.3 compatibility for dsh-ears 0.3.3
+
+- Status: accepted (2026-09-27). Supersedes D-053 as the newest certification target for the prepared 0.3.3 line; D-051's `0.1.2-rc.1` minimum remains live.
+- Decision: dsh-ears `0.3.3` retains the peer minimum `>=0.1.2-rc.1`, moves the compile baseline to exact `0.1.5-rc.3`, and certifies dsh `0.1.2-rc.1` and `0.1.5-rc.3` with the compatibility smoke. `0.1.5-rc.2` is superseded as a certification target within the same rc line.
+- Decision: `@deepseek-ai/dsh-client-store` and every direct dsh development dependency move to `0.1.5-rc.3`; `zustand` and `immer` remain explicit implementation dependencies for the self-contained browser bundle.
+- Rationale: the `dsh-v0.1.5-rc.2` to `dsh-v0.1.5-rc.3` upstream range contains three commits, and the only non-manifest/lockfile changes are dependency-verification scripts. Tarball comparison for all 13 dsh packages consumed by dsh-ears found no runtime or declaration changes; each package differs only in `package.json`, for rc.3 versions, rc.3 dependency ranges, and the Cordis/Schemastery vendor pins. Typecheck, the full 556-test suite, build, package verification, and the dsh `0.1.5-rc.3` Web/Remote smoke pass, while the `0.1.2-rc.1` floor remains in the compatibility matrix. The smoke fixture pins the Cordis plugin family co-tested with Cordis 4.0.2 because later plugin releases require Cordis 4.0.3/4.0.4; this keeps the floor test reproducible rather than changing with registry drift.
+- Release policy: `0.3.3` and its changelog are prepared on `master`, but the tag, npm publication, GitHub Release, and Windows browser smoke remain pending separate maintainer authorization.
+- Note: `pnpm-workspace.yaml` `minimumReleaseAgeExclude` is unchanged. `0.1.5-rc.3` was published 2026-09-22 and is outside pnpm 11's 24-hour release-age gate.

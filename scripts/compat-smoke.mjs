@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
   '0.1.2-rc.1',
-  '0.1.5-rc.2'
+  '0.1.5-rc.3'
 ])
 
 function resolveWindowsCommand(command) {
@@ -175,6 +175,20 @@ async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm
     version: '0.0.0',
     private: true
   }, null, 2) + '\n')
+  // dsh 0.1.2-rc.1 uses caret ranges for its Cordis plugins. Later plugin
+  // releases require Cordis 4.0.3/4.0.4, so pin the family that was co-tested
+  // with the pinned 4.0.2 floor instead of letting registry drift change it.
+  await writeFile(join(smokeProject, 'pnpm-workspace.yaml'), [
+    'packages:',
+    '  - .',
+    'overrides:',
+    "  '@deepseek-ai/cordis-plugin-group': 1.0.2",
+    "  '@deepseek-ai/cordis-plugin-hmr': 1.0.17",
+    "  '@deepseek-ai/cordis-plugin-include': 1.0.7",
+    "  '@deepseek-ai/cordis-plugin-loader': 1.0.3",
+    "  '@deepseek-ai/cordis-plugin-timer': 1.1.4",
+    ''
+  ].join('\n'))
 
   const tarballName = `${String(manifest.name).replace(/^@/u, '').replaceAll('/', '-')}-${manifest.version}.tgz`
   await runCommand(pnpm, ['pack', '--pack-destination', smokeProject], { cwd: projectRoot, env })
@@ -194,7 +208,7 @@ async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm
     tarball
   ]
   console.log(`[compat] installing dsh ${dshVersion} in an isolated project`)
-  await runCommand(pnpm, ['add', '--ignore-workspace', '--save-exact', ...allowedBuilds.map((name) => `--allow-build=${name}`), ...specs], { cwd: smokeProject, env })
+  await runCommand(pnpm, ['add', '--save-exact', ...allowedBuilds.map((name) => `--allow-build=${name}`), ...specs], { cwd: smokeProject, env })
   const pluginRoot = join(smokeProject, 'node_modules', manifest.name)
   const installedManifest = JSON.parse(await readFile(join(pluginRoot, 'package.json'), 'utf8'))
   if (installedManifest.version !== manifest.version) throw new Error(`compat smoke installed an unexpected plugin version: ${installedManifest.version}`)

@@ -21,7 +21,7 @@ Those tutorials cover Host `apply` / `inject` / `ctx.effect`, cordis.yml `Config
 ## Compatibility
 
 - Published maintenance line: dsh-ears versions before 0.3.0 support dsh through `0.1.1-rc.2` under D-035.
-- Current release line: dsh-ears `0.3.2` requires dsh `>=0.1.2-rc.1`, compiles against exact `0.1.5-rc.2`, and smokes against both `0.1.2-rc.1` and `0.1.5-rc.2`; the peer ranges retain the minimum from D-051. Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
+- Current master line: dsh-ears `0.3.3` is prepared but not yet published; it requires dsh `>=0.1.2-rc.1`, compiles against exact `0.1.5-rc.3`, and smokes against both `0.1.2-rc.1` and `0.1.5-rc.3`; the peer ranges retain the minimum from D-051. Users on dsh 0.1.1 must install dsh-ears `<0.3.0`; there is no runtime compatibility layer.
 - Node: `^22.19.0 || >=24.0.0`.
 - Distribution: npm is the canonical installation and update channel. Generated `lib/` artifacts are included in the npm tarball but intentionally remain untracked in Git; fixed-commit DSH-Store installation is out of scope (D-054).
 - Promotion, npm publication, and release tags require explicit authorization after automated certification. The `0.3.0` release was authorized on 2026-09-04; its Windows browser smoke remains a documented manual gate.

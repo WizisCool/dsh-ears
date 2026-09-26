@@ -2,6 +2,19 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.3.3] - Unreleased
+
+dsh 0.1.5-rc.3 certification preparation. No dsh-ears runtime source change was required.
+
+### Changed
+
+- The compile and compatibility-smoke baseline moves from dsh `0.1.5-rc.2` to `0.1.5-rc.3`; the supported minimum remains `>=0.1.2-rc.1`.
+- Compatibility CI exercises dsh `0.1.2-rc.1` and `0.1.5-rc.3`. `0.1.5-rc.2` is superseded as a certification target within the same rc line.
+- `@deepseek-ai/dsh-client-store` and all direct dsh development dependencies move to `0.1.5-rc.3`; `zustand` and `immer` remain explicit dependencies so the client bundle stays self-contained.
+- The compatibility smoke pins the Cordis plugin family co-tested with the `0.1.2-rc.1`/Cordis 4.0.2 floor so later plugin releases cannot change that fixture through registry drift.
+
+Upstream `0.1.5-rc.3` changes only release manifests, lockfile, and dependency-verification scripts. Every consumed package has identical runtime code and public declarations to `0.1.5-rc.2`; each package manifest differs only in version, rc.3 dependency ranges, and the Cordis/Schemastery vendor pins.
+
 ## [0.3.2] - 2026-09-18
 
 dsh 0.1.5-rc.2 certification patch. No dsh-ears source change was required.
