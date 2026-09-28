@@ -42,7 +42,9 @@ Desktop application: install from its plugin manager. The desktop app owns a res
 > **Still using dsh 0.1.x?** dsh-ears `0.4.1` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
 >
 > ```sh
-> # dsh 0.1.2–0.1.7
+> # dsh 0.1.2 through 0.1.6
+> dsh plugin --profile web add "dsh-ears@<0.4.0"
+> # dsh 0.1.7 (dsh-ears 0.4.0 requires dsh 0.1.7-rc.2 or later)
 > dsh plugin --profile web add "dsh-ears@<0.4.1"
 > # dsh 0.1.1
 > dsh plugin --profile web add "dsh-ears@<0.3.0"

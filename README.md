@@ -42,7 +42,9 @@ dsh plugin --profile web add dsh-ears
 > **仍在使用 dsh 0.1.x？** dsh-ears `0.4.1` 要求 dsh `>=0.2.0-rc.1`，dsh 会直接拒绝在旧版本上安装。请继续使用对应的旧版本线：
 >
 > ```sh
-> # dsh 0.1.2–0.1.7
+> # dsh 0.1.2–0.1.6
+> dsh plugin --profile web add "dsh-ears@<0.4.0"
+> # dsh 0.1.7（dsh-ears 0.4.0 要求 dsh 0.1.7-rc.2 及以后）
 > dsh plugin --profile web add "dsh-ears@<0.4.1"
 > # dsh 0.1.1
 > dsh plugin --profile web add "dsh-ears@<0.3.0"
