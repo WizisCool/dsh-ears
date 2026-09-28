@@ -125,14 +125,14 @@ export function createFakeSettingsForms(options: FakeSettingsFormsOptions = {}):
   }
 
   const update = vi.fn(async (_ns: unknown, patch: object, expectedRevision?: number) => {
-    const next = merge(user === undefined ? resolved : user, patch)
-    user = next
+    const nextUser = merge(user === undefined ? resolved : user, patch)
     await write(merge(resolved, patch), expectedRevision)
+    user = nextUser
   })
 
   const replace = vi.fn(async (_ns: unknown, section: object, expectedRevision?: number) => {
-    user = section
     await write(section, expectedRevision)
+    user = section
   })
 
   const mutate = vi.fn(async (_ns: unknown, ops: readonly { op: string; path: string[] }[], expectedRevision?: number) => {
@@ -144,8 +144,8 @@ export function createFakeSettingsForms(options: FakeSettingsFormsOptions = {}):
         else parent[op.path[op.path.length - 1] as string] = (op as { value?: unknown }).value
       }
     }
-    user = next
     await write(merge(resolved, next), expectedRevision)
+    user = next
   })
 
   return {
