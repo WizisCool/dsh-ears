@@ -31,7 +31,8 @@ dsh 0.2 has no stable release yet: `0.2.0-rc.1` is the npm `next` release and th
 
 ### Verification notes
 
-- Automated evidence does not include executing the browser client in a real renderer, or the manual desktop click-through (plugin row and localized metadata, settings page, real-microphone Web Speech, editable draft, polished send). Those remain human gates.
+- The manual desktop click-through passed on 2026-09-28 on the shipped desktop application (`0.2.0-rc.1`). dsh-ears `0.4.1` was installed from its packed tarball into the application's own `desktop` profile through its plugin manager, and the plugin row and localized metadata, the `dsh-ears` settings page, real-microphone Web Speech recognition, the editable draft, polishing, and manual sending all behaved as expected. That run satisfies the gate D-057 left in force for later releases; it is a recorded manual result rather than automated evidence.
+- Automated evidence still does not execute the browser client in a real renderer. Only the compatibility smoke's client contribution fetch is automated.
 
 ## [0.4.0] - 2026-09-28
 
