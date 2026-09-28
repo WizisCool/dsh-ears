@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.1.2--rc.1-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.1.2-rc.1"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.1.7--rc.2-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.1.7-rc.2"></a>
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <!-- Download badge icon: Akar Icons, MIT, © 2020-present Arturo Wibawa — https://github.com/artcoholic/akar-icons -->
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/dt/dsh-ears?style=flat-square&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTEyIDE1VjNtMCAxMmwtNC00bTQgNGw0LTRNMiAxN2wuNjIxIDIuNDg1QTIgMiAwIDAgMCA0LjU2MSAyMWgxNC44NzdhMiAyIDAgMCAwIDEuOTQtMS41MTVMMjIgMTciLz48L3N2Zz4%3D" alt="npm downloads"></a>
@@ -27,7 +27,7 @@ dsh-ears 为 DeepSeek Harness 提供语音输入与 LLM 润色整理能力。支
 
 ## 安装
 
-前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.1.2-rc.1`，以及 Node.js `^22.19.0 || >=24.0.0`。
+前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.1.7-rc.2`，以及 Node.js `^22.19.0 || >=24.0.0`。
 
 ### 通过 npm 安装
 
@@ -39,6 +39,12 @@ dsh plugin --profile web add dsh-ears
 >
 > ```sh
 > dsh plugin --profile web add "dsh-ears@<0.3.0"
+> ```
+
+> **仍在使用 dsh 0.1.2–0.1.5？** dsh 0.1.7 移除了 dsh-ears `0.3.x` 依赖的设置、图标与 Remote 接口，因此 dsh-ears `0.4.0` 要求 dsh `>=0.1.7-rc.2`。请继续使用 0.3 版本线：
+>
+> ```sh
+> dsh plugin --profile web add "dsh-ears@<0.4.0"
 > ```
 
 ### 从源码安装
