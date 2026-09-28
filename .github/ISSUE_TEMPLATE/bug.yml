@@ -63,7 +63,8 @@ body:
     attributes:
       label: DeepSeek Harness
       options:
-        - 0.1.2-rc.1
+        - 0.1.7-rc.2
+        - 0.1.2-rc.1 – 0.1.5-rc.3 (requires dsh-ears <0.4.0)
         - 0.1.1-rc.2 (requires dsh-ears <0.3.0)
         - Other (say which in notes)
     validations:
@@ -74,7 +75,7 @@ body:
     attributes:
       label: dsh-ears version
       description: Settings → About, or `from source`.
-      placeholder: 0.3.0
+      placeholder: 0.4.0
     validations:
       required: true
 
