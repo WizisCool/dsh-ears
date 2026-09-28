@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
-  '0.1.7-rc.2'
+  '0.2.0-rc.1'
 ])
 
 /**
@@ -272,6 +272,32 @@ async function callRemote(baseUrl, cookie, method, args) {
   return rpc.result.value
 }
 
+const SETTINGS_SETTLE_TIMEOUT_MS = 20_000
+const SETTINGS_POLL_INTERVAL_MS = 250
+
+/**
+ * Read the settings view until `predicate` holds, then return that view.
+ *
+ * The Host imports a legacy `settings.yaml` only after the Loader has settled
+ * every entry, so the first read after boot can precede the imported values.
+ * Measured on dsh `0.2.0-rc.1`: the seeded canonical model, credential, and
+ * backend were all live 2 s after the first read that still showed the
+ * defaults. Polling keeps the canonical assertions strict without making them
+ * depend on how fast one host finishes that import.
+ */
+async function waitForSettingsValue(baseUrl, cookie, predicate, description) {
+  const deadline = Date.now() + SETTINGS_SETTLE_TIMEOUT_MS
+  let value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
+  while (!predicate(value)) {
+    if (Date.now() >= deadline) {
+      throw new Error(`settings did not reach ${description} within ${SETTINGS_SETTLE_TIMEOUT_MS}ms: ${JSON.stringify({ model: value?.settings?.cloudAsrGroqModel, backend: value?.settings?.asrBackend, credential: value?.cloudAsrGroqApiKeyConfigured })}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, SETTINGS_POLL_INTERVAL_MS))
+    value = await callRemote(baseUrl, cookie, 'dshEars/getSettings', {})
+  }
+  return value
+}
+
 /** Start dsh web and return its base URL with a browser session cookie. */
 async function bootWeb({ dshBin, projectRoot, env }) {
   const server = startServer(dshBin, ['web', '--no-open', '--host', '127.0.0.1', '--port', '0'], {
@@ -345,14 +371,14 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
 
     console.log(`[compat] checking the ${scenario} settings document`)
     if (scenario === 'canonical') {
-      // The v4 section dsh-ears 0.3.x wrote must be imported into the profile
-      // entry config, read live, and keep its secret Host-side only.
-      if (value.settings.cloudAsrGroqModel !== 'whisper-large-v3-turbo') {
-        throw new Error(`the seeded canonical model was not read: ${JSON.stringify(value.settings.cloudAsrGroqModel)}`)
-      }
-      if (value.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the seeded canonical credential did not reach the Host')
+      // The legacy document is renamed before the Host writes anything, so it is
+      // consumed even when the section cannot be mapped.
       if (!existsSync(join(smokeHome, 'settings.yaml.imported'))) throw new Error('the legacy settings document was not renamed after import')
       if (existsSync(join(smokeHome, 'settings.yaml'))) throw new Error('the legacy settings document was not consumed')
+      // The v4 section dsh-ears 0.3.x wrote must be imported into the profile
+      // entry config, read live, and keep its secret Host-side only.
+      const imported = await waitForSettingsValue(baseUrl, cookie, (candidate) => candidate?.settings?.cloudAsrGroqModel === 'whisper-large-v3-turbo', 'the seeded canonical model')
+      if (imported.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the seeded canonical credential did not reach the Host')
     }
     if (scenario === 'legacy') {
       // Diagnostic until the observed behavior is codified: the pre-0.3 section
@@ -381,8 +407,8 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     }
     if (scenario === 'canonical') {
       // An unrelated save and a restart must not disturb the imported section.
-      if (restarted.settings.cloudAsrGroqModel !== 'whisper-large-v3-turbo') throw new Error('the imported model did not survive the write and restart')
-      if (restarted.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the imported credential did not survive the write and restart')
+      const reimported = await waitForSettingsValue(second.baseUrl, second.cookie, (candidate) => candidate?.settings?.cloudAsrGroqModel === 'whisper-large-v3-turbo', 'the imported canonical model after the restart')
+      if (reimported.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the imported credential did not survive the write and restart')
     }
     if (scenario === 'legacy') {
       console.log(`[compat] legacy after write model=${JSON.stringify(restarted.settings.cloudAsrGroqModel)} credential=${restarted.cloudAsrGroqApiKeyConfigured}`)
@@ -401,7 +427,7 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
 function printHelp() {
   console.log('Usage: node scripts/compat-smoke.mjs --dsh-version <version> [--scenario fresh|canonical|legacy]')
   console.log(`Verified versions: ${VERIFIED_DSH_SMOKE_VERSIONS.join(', ')}`)
-  console.log(`Scenarios: ${SMOKE_SCENARIOS.join(', ')}`)
+  console.log(`Scenarios: ${SMOKE_SCENARIOS.join(', ')} (default: every scenario, one isolated profile each)`)
   console.log('Boots a temporary dsh web profile with the local plugin, calls getSettings, writes a settings field, restarts, and reads it back.')
 }
 
@@ -416,9 +442,14 @@ if (invokedPath === modulePath) {
     const dshVersion = index >= 0 ? args[index + 1] : undefined
     const scenarioIndex = args.indexOf('--scenario')
     const scenario = scenarioIndex >= 0 ? args[scenarioIndex + 1] : undefined
+    // Every scenario runs by default so a certification pass covers the fresh
+    // install and both upgrade documents instead of only the first one.
+    const scenarios = scenario === undefined ? SMOKE_SCENARIOS : [scenario]
     try {
-      const result = await runCompatibilitySmoke({ dshVersion, scenario })
-      console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a redacted view, and a settings write survived a restart`)
+      for (const selected of scenarios) {
+        const result = await runCompatibilitySmoke({ dshVersion, scenario: selected })
+        console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a redacted view, and a settings write survived a restart`)
+      }
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error))
       process.exitCode = 1
