@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.1.7--rc.2-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.1.7-rc.2"></a>
+  <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/dsh-%3E%3D0.2.0--rc.1-1a73e8?style=flat-square&logo=deepseek&logoColor=white" alt="dsh >= 0.2.0-rc.1"></a>
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/v/dsh-ears?style=flat-square&logo=npm" alt="npm version"></a>
   <!-- Download badge icon: Akar Icons, MIT, © 2020-present Arturo Wibawa — https://github.com/artcoholic/akar-icons -->
   <a href="https://www.npmjs.com/package/dsh-ears"><img src="https://img.shields.io/npm/dt/dsh-ears?style=flat-square&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTEyIDE1VjNtMCAxMmwtNC00bTQgNGw0LTRNMiAxN2wuNjIxIDIuNDg1QTIgMiAwIDAgMCA0LjU2MSAyMWgxNC44NzdhMiAyIDAgMCAwIDEuOTQtMS41MTVMMjIgMTciLz48L3N2Zz4%3D" alt="npm downloads"></a>
@@ -27,24 +27,27 @@ dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It
 
 ## Install
 
-Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.1.7-rc.2`, and Node.js `^22.19.0 || >=24.0.0`.
+Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`, and Node.js `^22.19.0 || >=24.0.0`.
 
 ### Install from npm
+
+Web UI:
 
 ```sh
 dsh plugin --profile web add dsh-ears
 ```
 
-> **Still using dsh 0.1.1?** dsh 0.1.2 contains breaking changes, so dsh-ears `0.3.0` no longer supports dsh 0.1.1. Install a plugin version earlier than `0.3.0` instead:
->
-> ```sh
-> dsh plugin --profile web add "dsh-ears@<0.3.0"
-> ```
+Desktop application: install from its plugin manager. The desktop app owns a reserved profile named `desktop` and the `dsh` CLI refuses to manage it, so there is no command-line equivalent. dsh-ears needs no separate desktop build — both surfaces load the same `web` client bundle.
 
-> **Still using dsh 0.1.2–0.1.5?** dsh 0.1.7 removed the settings, icon, and Remote APIs that dsh-ears `0.3.x` uses, so dsh-ears `0.4.0` requires dsh `>=0.1.7-rc.2`. Stay on the 0.3 line instead:
+> **Still using dsh 0.1.x?** dsh-ears `0.4.1` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
 >
 > ```sh
+> # dsh 0.1.2 through 0.1.6
 > dsh plugin --profile web add "dsh-ears@<0.4.0"
+> # dsh 0.1.7 (dsh-ears 0.4.0 requires dsh 0.1.7-rc.2 or later)
+> dsh plugin --profile web add "dsh-ears@<0.4.1"
+> # dsh 0.1.1
+> dsh plugin --profile web add "dsh-ears@<0.3.0"
 > ```
 
 ### Install from source
