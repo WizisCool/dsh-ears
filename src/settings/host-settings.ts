@@ -34,33 +34,36 @@ export function findEarsSettingsForm(
  * The resolved entry config carries schema defaults, the composition base layer,
  * and the user layer, with `role('secret')` values intact. `userLayerAvailable`
  * reports whether the profile holds an explicit user override, which decides
- * whether a canonicalizing migration may rewrite the entry config.
+ * whether a canonicalizing migration may rewrite the entry config; `revision`
+ * is the version of that document, which every write built from this read must
+ * still be standing on.
  */
-export function readEarsSettingsRaw(provider: EarsSettingsProvider | undefined): { raw: unknown; userLayerAvailable: boolean } {
+export function readEarsSettingsRaw(provider: EarsSettingsProvider | undefined): {
+  raw: unknown
+  userLayerAvailable: boolean
+  revision: number | undefined
+} {
   const form = findEarsSettingsForm(provider, false)
-  if (form === undefined || form.value === undefined) return { raw: {}, userLayerAvailable: false }
-  return { raw: form.value, userLayerAvailable: form.user !== undefined }
-}
-
-/**
- * The revision a write must still be standing on.
- *
- * dsh refuses a write whose `expectedRevision` moved, so reading it immediately
- * before the write turns a concurrent settings change into a rejection instead
- * of a silent overwrite.
- */
-export function earsSettingsRevision(provider: EarsSettingsProvider | undefined): number | undefined {
-  return findEarsSettingsForm(provider, true)?.revision
+  if (form === undefined || form.value === undefined) return { raw: {}, userLayerAvailable: false, revision: undefined }
+  return { raw: form.value, userLayerAvailable: form.user !== undefined, revision: form.revision }
 }
 
 /** Merge one nested settings patch into the profile's user layer. */
-export async function updateEarsSettingsPatch(provider: EarsSettingsProvider | undefined, patch: object): Promise<void> {
+export async function updateEarsSettingsPatch(
+  provider: EarsSettingsProvider | undefined,
+  patch: object,
+  expectedRevision: number | undefined
+): Promise<void> {
   if (provider === undefined) return
-  await provider.update(SETTINGS_NAMESPACE, patch, earsSettingsRevision(provider))
+  await provider.update(SETTINGS_NAMESPACE, patch, expectedRevision)
 }
 
 /** Replace the profile's user layer with one complete nested settings section. */
-export async function replaceEarsSettingsSection(provider: EarsSettingsProvider | undefined, section: object): Promise<void> {
+export async function replaceEarsSettingsSection(
+  provider: EarsSettingsProvider | undefined,
+  section: object,
+  expectedRevision: number | undefined
+): Promise<void> {
   if (provider === undefined) return
-  await provider.replace(SETTINGS_NAMESPACE, section, earsSettingsRevision(provider))
+  await provider.replace(SETTINGS_NAMESPACE, section, expectedRevision)
 }

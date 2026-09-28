@@ -135,9 +135,9 @@ export class PolishService extends TypertRemoteService {
     // browser as a failure, so validation runs before anything is persisted.
     validateSettings(next)
     if (!isFutureSettingsSchema(current.raw) && (current.userLayerAvailable || current.repairedFields.length > 0)) {
-      await replaceEarsSettingsSection(provider, next)
+      await replaceEarsSettingsSection(provider, next, current.revision)
     } else {
-      await updateEarsSettingsPatch(provider, flatSettingsPatchToStoredPatch(patch))
+      await updateEarsSettingsPatch(provider, flatSettingsPatchToStoredPatch(patch), current.revision)
     }
     // A successful acceleration write establishes a new availability context.
     // Unrelated settings writes keep the short-lived native availability cache.
@@ -667,7 +667,7 @@ export class PolishService extends TypertRemoteService {
     return this.settingsProvider() === undefined ? DEFAULT_EARS_SETTINGS : this.readSettingsSnapshot().settings
   }
 
-  private readSettingsSnapshot(): { raw: unknown; userLayerAvailable: boolean; settings: EarsSettings; stored: ReturnType<typeof normalizeStoredEarsSettings>; repairedFields: readonly string[] } {
+  private readSettingsSnapshot(): { raw: unknown; userLayerAvailable: boolean; revision: number | undefined; settings: EarsSettings; stored: ReturnType<typeof normalizeStoredEarsSettings>; repairedFields: readonly string[] } {
     const rawState = readEarsSettingsRaw(this.settingsProvider())
     const canonical = normalizeStoredEarsSettings(rawState.raw)
     const repair = repairInvalidEarsSettings(flattenStoredSettings(canonical))
@@ -678,14 +678,19 @@ export class PolishService extends TypertRemoteService {
       // migration must not turn every runtime read into another write attempt.
       this.settingsMigrationAttempted = true
       if (rawState.userLayerAvailable) {
-        void this.replaceSettings(canonical).catch(() => undefined)
+        void this.replaceSettings(canonical, rawState.revision).catch(() => undefined)
       }
     }
-    return { raw: rawState.raw, userLayerAvailable: rawState.userLayerAvailable, settings, stored, repairedFields: repair.repairedFields }
+    return { raw: rawState.raw, userLayerAvailable: rawState.userLayerAvailable, revision: rawState.revision, settings, stored, repairedFields: repair.repairedFields }
   }
 
-  private replaceSettings(next: Record<string, unknown>): Promise<void> {
-    return replaceEarsSettingsSection(this.settingsProvider(), next)
+  /**
+   * Rewrite the stored section in its canonical shape without moving it
+   * forward: the write is built from a snapshot and must land on that same
+   * revision, or dsh refuses it.
+   */
+  private replaceSettings(next: Record<string, unknown>, expectedRevision: number | undefined): Promise<void> {
+    return replaceEarsSettingsSection(this.settingsProvider(), next, expectedRevision)
   }
 
   private async resolveReasoningEffort(provider: string, model: string, requested: string, signal: AbortSignal): Promise<string | undefined> {

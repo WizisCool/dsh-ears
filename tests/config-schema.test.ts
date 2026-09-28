@@ -4,7 +4,7 @@ import { DSH_COMPATIBILITY } from '../src/about.js'
 import { EARS_SETTINGS_SCHEMA_VERSION, DEFAULT_EARS_SETTINGS, SETTINGS_NAMESPACE } from '../src/config.js'
 import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
 import { defaultStoredEarsSettings, flattenStoredSettings, unflattenEarsSettings } from '../src/settings-store.js'
-import { earsSettingsRevision, findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../src/settings/host-settings.js'
+import { findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../src/settings/host-settings.js'
 import { createFakeSettingsForms } from './helpers/settings-forms.js'
 
 /**
@@ -98,18 +98,18 @@ describe('host settings access', () => {
   it('answers reads with defaults while the entry is not described', () => {
     const provider = createFakeSettingsForms({ described: false })
     expect(findEarsSettingsForm(provider, false)).toBeUndefined()
-    expect(earsSettingsRevision(provider)).toBeUndefined()
+    expect(readEarsSettingsRaw(provider).revision).toBeUndefined()
     expect(flattenStoredSettings(readEarsSettingsRaw(provider).raw)).toEqual(DEFAULT_EARS_SETTINGS)
   })
 
   it('answers reads without a settings service at all', () => {
     expect(findEarsSettingsForm(undefined, true)).toBeUndefined()
-    expect(readEarsSettingsRaw(undefined)).toEqual({ raw: {}, userLayerAvailable: false })
+    expect(readEarsSettingsRaw(undefined)).toEqual({ raw: {}, userLayerAvailable: false, revision: undefined })
   })
 
   it('merges a nested patch into the user layer at the entry id', async () => {
     const provider = createFakeSettingsForms()
-    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } })
+    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } }, readEarsSettingsRaw(provider).revision)
     expect(provider.update).toHaveBeenCalledWith(SETTINGS_NAMESPACE, { polishing: { enabled: false } }, 0)
     expect(provider.resolvedSection().polishing).toMatchObject({ enabled: false })
   })
@@ -117,15 +117,15 @@ describe('host settings access', () => {
   it('replaces the user layer wholesale', async () => {
     const provider = createFakeSettingsForms()
     const section = unflattenEarsSettings(DEFAULT_EARS_SETTINGS)
-    await replaceEarsSettingsSection(provider, section)
+    await replaceEarsSettingsSection(provider, section, readEarsSettingsRaw(provider).revision)
     expect(provider.replace).toHaveBeenCalledWith(SETTINGS_NAMESPACE, section, 0)
   })
 
-  it('refuses a write whose revision moved', async () => {
+  it('refuses a write built from a snapshot whose revision moved', async () => {
     const provider = createFakeSettingsForms()
-    const stale = earsSettingsRevision(provider)
-    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } })
-    await expect(provider.update(SETTINGS_NAMESPACE, { polishing: { enabled: true } }, stale)).rejects.toThrow('settings conflict')
+    const stale = readEarsSettingsRaw(provider).revision
+    await updateEarsSettingsPatch(provider, { polishing: { enabled: false } }, readEarsSettingsRaw(provider).revision)
+    await expect(updateEarsSettingsPatch(provider, { polishing: { enabled: true } }, stale)).rejects.toThrow('settings conflict')
   })
 
   it('reports the configured dsh range the About page shows', () => {

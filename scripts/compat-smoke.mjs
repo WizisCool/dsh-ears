@@ -295,6 +295,8 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     await stopServer(server.child)
     const second = await bootWeb({ dshBin: prepared.dshBin, projectRoot: smokeProject, env })
     server = second.server
+    const restartedRoot = await waitForHttp(second.baseUrl, '/', { headers: { cookie: second.cookie } })
+    if (!restartedRoot.ok) throw new Error(`dsh web root returned HTTP ${restartedRoot.status} after the restart`)
     const restarted = await callRemote(second.baseUrl, second.cookie, 'dshEars/getSettings', {})
     if (restarted?.settings?.webSpeechLanguage !== 'en-US') {
       throw new Error('the settings write did not survive a dsh web restart')

@@ -13,7 +13,7 @@ import { PolishService, validateSettings } from '../src/polish/service.js'
 import { resolvePolishRoute } from '../src/polish/route.js'
 import { remoteTextResultSchema } from '../src/remote-contract.js'
 import { createFakeSettingsForms } from './helpers/settings-forms.js'
-import { defaultStoredEarsSettings, unflattenEarsSettings } from '../src/settings-store.js'
+import { defaultStoredEarsSettings, flattenStoredSettings, unflattenEarsSettings } from '../src/settings-store.js'
 
 const whisperCapabilities = vi.hoisted(() => ({
   available: ['default', 'vulkan', 'cuda'] as Array<'default' | 'vulkan' | 'cuda'>,
@@ -1135,6 +1135,27 @@ describe('PolishService', () => {
 
     await expect(context.get('dshEarsPolish')?.updateSettings({ webSpeechLanguage: 'en-US' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
     expect(settings.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses a settings write that raced another settings client', async () => {
+    // The write is built from a snapshot, so a change that lands between the
+    // read and the write must be refused rather than silently overwritten.
+    const settings = createFakeSettingsForms()
+    const update = vi.fn(async (ns: unknown, patch: object, expectedRevision?: number) => {
+      await settings.update(ns, { recognition: { maxRecordingSeconds: 60 } }, undefined)
+      return settings.update(ns, patch, expectedRevision)
+    })
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', { ...settings, update } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    await expect(service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)).rejects.toThrow('settings conflict')
+    expect((settings.resolvedSection().recognition as { maxRecordingSeconds: number }).maxRecordingSeconds).toBe(60)
+    expect(flattenStoredSettings(settings.resolvedSection()).webSpeechLanguage).not.toBe('en-US')
   })
 
   it('does not prepare a route when the request is already aborted', async () => {
