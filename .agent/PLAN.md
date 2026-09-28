@@ -18,6 +18,8 @@ M1–M6 and the first-release product surface through D-033 are implemented. The
 
 The dsh-ears 0.2 maintenance line supports dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035), and the 0.3 line supports dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055). The `master` 0.4 release line requires dsh `>=0.1.7-rc.2` (D-056): upstream 0.1.7 removed `ctx.settings.register`, renamed the client icon exports, and moved strict Typert codecs onto a `create()` factory, so dsh-ears 0.4 carries no runtime compatibility layer for the earlier dsh lines. Users on dsh 0.1.2–0.1.5 must install dsh-ears `<0.4.0`, and users on dsh 0.1.1 dsh-ears `<0.3.0`. All lines require Node `^22.19.0 || >=24.0.0`.
 
+The `master` 0.4.1 patch requires dsh `>=0.2.0-rc.1` (D-058). It is the first release that runs on the official desktop client, and it drops pre-0.2.0 support outright: upstream 0.2.0-rc.1 changes no API this plugin consumes, so the patch is a compatibility, desktop-support, and verification move with no runtime source change. Users on dsh 0.1.2–0.1.7 must install dsh-ears `<0.4.1`, and the host refuses the install rather than warning. The desktop application composes the same `web` client platform as the Web UI, so one bundle serves both and the manifest keeps `dsh.client.platform: "web"`.
+
 ## Architecture
 
 The package has two faces:
@@ -49,12 +51,13 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins — "language" now meaning the per-provider recognition-language fields (D-042). Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
-3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification; the 0.3.3 compatibility release certified dsh `0.1.5-rc.3` while retaining the 0.1.2 floor (D-051/D-055). The 0.4.0 release raises the floor to dsh `>=0.1.7-rc.2` for the certificate-target line and ports the settings, icon, and Typert codec surfaces (D-056); the Windows browser smoke remains a manual release gate.
+3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification; the 0.3.3 compatibility release certified dsh `0.1.5-rc.3` while retaining the 0.1.2 floor (D-051/D-055). The 0.4.0 release raises the floor to dsh `>=0.1.7-rc.2` for the certificate-target line and ports the settings, icon, and Typert codec surfaces (D-056); the Windows browser smoke remains a manual release gate. The 0.4.1 patch raises the floor to dsh `>=0.2.0-rc.1`, drops pre-0.2.0 support, and certifies the desktop surface with the same client bundle (D-058); its manual desktop click-through and the desktop-plugin-manager install path are the remaining human gates.
 4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.
 
 ## dsh integration
 
 - Published `dsh.bundle.patch` activates the Host entry. `dsh.client` declares the browser package.
+- The Web UI and the official desktop client load the same `web` client platform, so one client bundle serves both. Web installs use `dsh plugin --profile web add dsh-ears`; desktop installs go through the application's own plugin manager into its reserved `desktop` profile, which the `dsh` CLI refuses to manage by design.
 - Development `.dsh/cordis.patch.yml` is machine-local and HMR-only. Install the plugin once with `dsh plugin --profile web add <path>`; the development patch must not insert a second loader entry.
 - Browser slots: `conversation.input.right`, `conversation.input.dock`, `settings.section`.
 - Client Remote calls use a Cordis child scope that injects `remote.dshEars`.
@@ -97,4 +100,4 @@ dsh-ears/
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035) and the 0.3 line covers dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055); dsh-ears 0.4.0 compiles against exact `0.1.7-rc.2`, certifies that version only, and requires the `>=0.1.7-rc.2` peer minimum (D-056)
+- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035) and the 0.3 line covers dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055); dsh-ears 0.4.0 compiles against exact `0.1.7-rc.2` (D-056), and dsh-ears 0.4.1 compiles against exact `0.2.0-rc.1`, certifies that version only, and requires the `>=0.2.0-rc.1` peer minimum (D-058)

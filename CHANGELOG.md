@@ -2,6 +2,37 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.4.1] - 2026-09-28
+
+dsh 0.2.0 support. The supported minimum moves to dsh `>=0.2.0-rc.1`, and dsh-ears `0.4.1` is the first release that runs on the dsh 0.2 desktop client; `0.4.0` remains the last release for dsh 0.1.x. The range break lands in a patch release, and dsh enforces it: an install on dsh `0.1.7-rc.2` is refused instead of run. No runtime source change was required, because every dsh package dsh-ears consumes kept its public contract across that step.
+
+dsh 0.2 has no stable release yet: `0.2.0-rc.1` is the npm `next` release and the version the DeepSeek Harness desktop application ships.
+
+### Changed
+
+- **The supported dsh minimum is `>=0.2.0-rc.1`**, replacing `>=0.1.7-rc.2`. The peer minimum, `engines.dsh`, the compile baseline, lockfile, CI matrix, compatibility smoke, package verification, About surface, and READMEs all state that one version. dsh enforces that floor through `peerDependencies` on `@deepseek-ai/dsh*`; `engines.dsh` is declarative metadata that the running version does not read.
+- **Pre-0.2.0 hosts are refused rather than tolerated.** The compatibility gate reads the declared peer ranges when a plugin is admitted or installed, so installing this release on dsh `0.1.7-rc.2` stops with `installation rejected: Plugin dsh-ears@0.4.1 is incompatible with dsh 0.1.7-rc.2` and offers the same-version exemption path instead. Users on dsh 0.1.2–0.1.7 stay on dsh-ears `<0.4.1`; users on dsh 0.1.1 stay on dsh-ears `<0.3.0`.
+- The compatibility smoke runs `fresh`, `canonical`, and `legacy` in one certification pass. Each scenario keeps its own isolated profile, so a failing upgrade document no longer hides behind a passing fresh install.
+- `pnpm-workspace.yaml` records `minimumReleaseAgeExclude` entries for the `0.2.0-rc.1` packages, because that release is younger than pnpm's release-age gate.
+
+### Added
+
+- **Desktop is a profile, not a second client platform.** The dsh 0.2 desktop application composes the same `@deepseek-ai/dsh-web-app` bundle as the Web UI, and its client-modules service honours exactly one plugin platform word: `web`. The plugin therefore keeps `dsh.client.platform: "web"` and `exports["./client"]` unchanged, and works on both surfaces from one bundle. Desktop installs go through the application's own plugin manager into its reserved `desktop` profile; the `dsh` CLI refuses to manage that profile by design.
+
+### Upstream context
+
+- dsh `0.2.0-rc.1` is the first candidate of the 0.2 line. Its user-facing changes are the desktop client, plugin-management and settings-page interaction work, and the arrival of automation as an optional plugin bundle.
+- Tarball comparison against `0.1.7-rc.2` found no breaking change in any package this plugin consumes. Ten of the thirteen are byte-identical outside their `package.json`; the three that differ only widen types (`SessionInput.submit(mode?, source?)`, `TextShimmer` children, `overlayTopMargin()` return value) or add optional desktop submission metadata. The settings service, client icon exports, slot registration, credentials, `ctx.llm`, and the strict Typert `create()` codec contract are unchanged, and `@deepseek-ai/cordis` `~4.0.4` with `@deepseek-ai/schemastery` `~3.18.4` stay the vendor pins.
+
+### Upgrade evidence
+
+- Measured on a real dsh `0.2.0-rc.1` host: the client contribution is served, `getSettings` returns a redacted view, a settings write through the strict Remote applies live, and the write survives a `dsh web` restart — in all three settings-document scenarios, including the canonical v4 section that dsh-ears 0.3.x wrote and the pre-0.3 flat section the Host declines to import.
+- The legacy `settings.yaml` import is asynchronous, so a certification run must wait for it rather than assert on the first read. On dsh `0.2.0-rc.1` the seeded canonical model, credential, and backend were live two seconds after a first read that still showed defaults; the smoke now polls the settings view until the imported values settle, which keeps the canonical assertions strict on every host instead of encoding a latency difference as an expectation.
+
+### Verification notes
+
+- Automated evidence does not include executing the browser client in a real renderer, or the manual desktop click-through (plugin row and localized metadata, settings page, real-microphone Web Speech, editable draft, polished send). Those remain human gates.
+
 ## [0.4.0] - 2026-09-28
 
 dsh 0.1.7 support. This is a breaking release: the supported minimum moves to dsh `>=0.1.7-rc.2`, and the plugin is ported to the settings, icon, and Remote contracts that `0.1.7` introduced.
