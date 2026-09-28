@@ -1137,6 +1137,28 @@ describe('PolishService', () => {
     expect(settings.update).not.toHaveBeenCalled()
   })
 
+  it('keeps an ordinary write a merge once the profile already stores overrides', async () => {
+    // `replace` merges the whole document onto the inherited layer, so using it
+    // for an ordinary save would pin every resolved default as an explicit user
+    // override and stop later profile changes from reaching those fields.
+    const stored = unflattenEarsSettings({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'zh-CN' })
+    const settings = createFakeSettingsForms({ stored, user: { recognition: { webSpeech: { language: 'zh-CN' } } } })
+    const context = new Context()
+    context.provide('llm', {} as never)
+    context.provide('settings', settings as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    await service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)
+
+    expect(settings.update).toHaveBeenCalledOnce()
+    expect(settings.replace).not.toHaveBeenCalled()
+    expect(settings.userSection()).toEqual({ recognition: { webSpeech: { language: 'en-US' } } })
+    expect(flattenStoredSettings(settings.resolvedSection()).webSpeechLanguage).toBe('en-US')
+  })
+
   it('refuses a settings write that raced another settings client', async () => {
     // The write is built from a snapshot, so a change that lands between the
     // read and the write must be refused rather than silently overwritten.

@@ -134,7 +134,12 @@ export class PolishService extends TypertRemoteService {
     // A rejected write must leave the stored section untouched and reach the
     // browser as a failure, so validation runs before anything is persisted.
     validateSettings(next)
-    if (!isFutureSettingsSchema(current.raw) && (current.userLayerAvailable || current.repairedFields.length > 0)) {
+    if (!isFutureSettingsSchema(current.raw) && current.repairedFields.length > 0) {
+      // Rewriting the whole canonical document is the only way to replace a
+      // stored value that failed validation, so a repair writes the override
+      // layer wholesale. An ordinary patch must not: `replace` merges onto the
+      // inherited layer, which would turn every resolved default into an
+      // explicit user override and pin it against later profile changes.
       await replaceEarsSettingsSection(provider, next, current.revision)
     } else {
       await updateEarsSettingsPatch(provider, flatSettingsPatchToStoredPatch(patch), current.revision)
