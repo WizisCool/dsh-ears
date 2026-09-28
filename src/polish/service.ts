@@ -22,7 +22,7 @@ import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, Remo
 import { applySpokenEnumerationLayout } from './enumeration.js'
 import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute, type PolishRouteSelection } from './route.js'
-import { applyFlatSettingsPatch, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, isFutureSettingsSchema, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
+import { applyFlatSettingsPatchWithSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, isFutureSettingsSchema, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../settings/host-settings.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
 import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
@@ -130,10 +130,13 @@ export class PolishService extends TypertRemoteService {
     if (provider === undefined) return this.getSettings()
     signal.throwIfAborted()
     const current = this.readSettingsSnapshot()
-    const next = applyFlatSettingsPatch(current.stored, patch)
+    const { requested, next } = applyFlatSettingsPatchWithSettings(current.stored, patch)
     // A rejected write must leave the stored section untouched and reach the
-    // browser as a failure, so validation runs before anything is persisted.
-    validateSettings(next)
+    // browser as a failure, so the values the caller asked to store are
+    // validated before anything is persisted. Validating the canonical document
+    // instead would accept an illegal selector, because building it normalizes
+    // enumerated fields to a legal value.
+    validateEarsSettings(requested)
     if (!isFutureSettingsSchema(current.raw) && current.repairedFields.length > 0) {
       // Rewriting the whole canonical document is the only way to replace a
       // stored value that failed validation, so a repair writes the override
@@ -864,12 +867,6 @@ function sanitizeJsonErrorParams(params: EarsErrorParams | undefined): EarsError
   if (sanitized === undefined) return undefined
   return Object.fromEntries(Object.entries(sanitized).filter(([, value]) => typeof value === 'string' || Number.isFinite(value))) as EarsErrorParams
 }
-
-/** Field-level integrity check applied before one settings write is persisted. */
-export function validateSettings(settings: unknown): void {
-  validateEarsSettings(flattenStoredSettings(settings))
-}
-
 function decodeAudio(value: string): Uint8Array {
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) throw new EarsError(EARS_ERROR_CODES.asrAudioInvalid, 'The recorded audio is not valid base64')
   const audio = Buffer.from(value, 'base64')

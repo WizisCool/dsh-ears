@@ -7,31 +7,30 @@ import { unflattenEarsSettings } from '../../src/settings-store.js'
 /**
  * In-memory stand-in for the dsh 0.1.7 settings service.
  *
- * It resolves stored values through the real `EarsSettingsSchema`, so defaults,
- * `loose()` fallbacks, and `role('secret')` slots behave as they do on a Host,
- * and it enforces the same pieces of the write contract the plugin relies on:
- * writes are validated before they land, and a stale `expectedRevision` is
- * refused. Layer semantics match dsh: `value` is the resolved document, `user`
- * exists only once something was written.
+ * It resolves through the real `EarsSettingsSchema` and projects the result the
+ * way dsh does: `value` is the resolved entry config with undeclared fields
+ * removed, and `user` is the override layer. Writes resolve the candidate before
+ * they land (an unresolvable document is refused, as the Host refuses it) and a
+ * stale `expectedRevision` is refused. Only the surface the plugin uses is
+ * modelled — `describe`, `update`, and `replace`.
  */
 export type FakeSettingsForms = {
   readonly writable: boolean
-  describe: (options?: { redactSecrets?: boolean }) => unknown[]
+  describe: ReturnType<typeof vi.fn>
   update: ReturnType<typeof vi.fn>
   replace: ReturnType<typeof vi.fn>
-  mutate: ReturnType<typeof vi.fn>
-  /** Raw user layer, for assertions. */
+  /** Raw override layer, for assertions. */
   userSection: () => Record<string, unknown>
-  /** Resolved document, for assertions. */
+  /** Projected resolved document, as `describe().value` reports it. */
   resolvedSection: () => Record<string, unknown>
 }
 
 type FakeSettingsFormsOptions = {
-  /** Stored settings; a flat `EarsSettings` object is converted to the stored shape. */
+  /** Raw profile document (stored shape, or any legacy shape). */
   stored?: unknown
   /** Whether the fake profile accepts writes. */
   writable?: boolean
-  /** Reported user layer; derived from writes when omitted. */
+  /** Reported override layer; derived from writes when omitted. */
   user?: unknown
   /** Whether `describe` reports the entry at all. */
   described?: boolean
@@ -41,6 +40,11 @@ const SECRET_PATHS: readonly (readonly string[])[] = CLOUD_ASR_PROVIDERS.map((pr
   const definition = provider.fields.find((candidate) => candidate.field === provider.credentialField)
   return ['cloudAsr', provider.storageKey, definition?.storageKey ?? 'apiKey']
 })
+
+/** A profile document for settings that are already in their canonical flat form. */
+export function settingsDocument(settings: EarsSettings | Record<string, unknown>): Record<string, unknown> {
+  return unflattenEarsSettings(settings as EarsSettings) as unknown as Record<string, unknown>
+}
 
 /** Unwrap the volatile references schemastery produces for volatile fields. */
 function plain(value: unknown): unknown {
@@ -54,17 +58,34 @@ function plain(value: unknown): unknown {
   return value
 }
 
-/** Resolve raw settings exactly as the settings service resolves an entry config. */
-export function resolveStoredSettings(raw: unknown): Record<string, unknown> {
+/** Resolve a raw document through the real schema, the way the Host resolves an entry config. */
+function resolveDocument(raw: unknown): Record<string, unknown> {
   const result = EarsSettingsSchema['~standard'].validate(raw)
   if (result.issues) throw new Error(`settings did not resolve: ${JSON.stringify(result.issues)}`)
   return plain(result.value) as Record<string, unknown>
 }
 
-function storedShape(settings: unknown): Record<string, unknown> {
-  if (settings === undefined) return unflattenEarsSettings(DEFAULT_EARS_SETTINGS) as unknown as Record<string, unknown>
-  const record = settings as Record<string, unknown>
-  return 'schemaVersion' in record ? record : unflattenEarsSettings(settings as EarsSettings) as unknown as Record<string, unknown>
+/**
+ * Keep only the fields the form declares.
+ *
+ * dsh projects an entry config onto its Config schema before a settings caller
+ * sees it, so an undeclared stored field — every pre-0.3 flat key, for example —
+ * is invisible through this service.
+ */
+function project(schema: unknown, value: unknown): unknown {
+  if (!isRecord(value)) return value
+  const dict = (schema as { dict?: Record<string, unknown> }).dict
+  if (dict === undefined) return value
+  const result: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(dict)) {
+    if (!(key in value)) continue
+    result[key] = project(child, value[key])
+  }
+  return result
+}
+
+function projectDocument(raw: unknown): Record<string, unknown> {
+  return project(EarsSettingsSchema, resolveDocument(raw)) as Record<string, unknown>
 }
 
 function merge(base: unknown, patch: unknown): unknown {
@@ -90,64 +111,50 @@ function valueAt(value: unknown, path: readonly string[]): unknown {
 export function createFakeSettingsForms(options: FakeSettingsFormsOptions = {}): FakeSettingsForms {
   const writable = options.writable ?? true
   const described = options.described ?? true
-  let resolved = storedShape(options.stored)
+  let config: unknown = options.stored ?? {}
   let user: unknown = options.user
   let revision = 0
 
   const describe = vi.fn((describeOptions?: { redactSecrets?: boolean }) => {
     if (!described) return []
     const redact = describeOptions?.redactSecrets === true
-    const redacted = redact ? removeSecrets(resolved) : resolved
+    const value = projectDocument(config)
+    const userLayer = user === undefined ? undefined : projectDocument(user)
     return [{
       ns: SETTINGS_NAMESPACE,
       autoGenerate: false,
       schema: EarsSettingsSchema.toJSON(),
-      value: redacted,
-      ...(user === undefined ? {} : { user: redact ? removeSecrets(user) : user }),
+      value: redact ? removeSecrets(value) : value,
+      ...(userLayer === undefined ? {} : { user: redact ? removeSecrets(userLayer) : userLayer }),
       revision,
       applies: 'live',
       ...(redact
-        ? { secrets: SECRET_PATHS.map((path) => ({ path: [...path], set: valueAt(resolved, path) !== undefined && valueAt(resolved, path) !== '' })) }
+        ? { secrets: SECRET_PATHS.map((path) => ({ path: [...path], set: valueAt(value, path) !== undefined && valueAt(value, path) !== '' })) }
         : {})
     }]
   })
 
-  const write = async (next: unknown, expectedRevision?: number): Promise<void> => {
+  const write = async (nextConfig: unknown, expectedRevision?: number): Promise<void> => {
     if (!writable) throw new Error('the profile is read-only')
     if (expectedRevision !== undefined && expectedRevision !== revision) {
       throw new Error(`settings conflict: expected ${expectedRevision}, at ${revision}`)
     }
-    // A Host resolves the entry config, so an invalid document is refused
-    // before it is persisted.
-    resolveStoredSettings(next)
-    resolved = next as Record<string, unknown>
+    // An unresolvable document is refused before it is persisted, as the Host does.
+    resolveDocument(nextConfig)
+    config = nextConfig
     revision += 1
   }
 
   const update = vi.fn(async (_ns: unknown, patch: object, expectedRevision?: number) => {
-    // The user layer holds explicit overrides only, so it starts empty rather
-    // than from the resolved document, which already carries the defaults.
+    // The override layer holds explicit fields only, so it starts empty.
     const nextUser = merge(user ?? {}, patch)
-    await write(merge(resolved, patch), expectedRevision)
+    await write(merge(config, patch), expectedRevision)
     user = nextUser
   })
 
   const replace = vi.fn(async (_ns: unknown, section: object, expectedRevision?: number) => {
-    await write(section, expectedRevision)
+    await write(structuredClone(section), expectedRevision)
     user = structuredClone(section)
-  })
-
-  const mutate = vi.fn(async (_ns: unknown, ops: readonly { op: string; path: string[] }[], expectedRevision?: number) => {
-    const next: unknown = structuredClone(user ?? resolved)
-    for (const op of ops) {
-      const parent = op.path.slice(0, -1).reduce<unknown>((node, key) => (isRecord(node) ? node[key] : undefined), next)
-      if (isRecord(parent)) {
-        if (op.op === 'unset') delete parent[op.path[op.path.length - 1] as string]
-        else parent[op.path[op.path.length - 1] as string] = (op as { value?: unknown }).value
-      }
-    }
-    await write(merge(resolved, next), expectedRevision)
-    user = next
   })
 
   return {
@@ -155,9 +162,8 @@ export function createFakeSettingsForms(options: FakeSettingsFormsOptions = {}):
     describe,
     update,
     replace,
-    mutate,
-    userSection: () => (user === undefined ? {} : user as Record<string, unknown>),
-    resolvedSection: () => resolved
+    userSection: () => (user === undefined ? {} : (user as Record<string, unknown>)),
+    resolvedSection: () => projectDocument(config)
   }
 }
 

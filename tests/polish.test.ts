@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, validateEarsSettings } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../src/asr/mimo-asr.js'
@@ -9,10 +9,10 @@ import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, withW
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
-import { PolishService, validateSettings } from '../src/polish/service.js'
+import { PolishService } from '../src/polish/service.js'
 import { resolvePolishRoute } from '../src/polish/route.js'
 import { remoteTextResultSchema } from '../src/remote-contract.js'
-import { createFakeSettingsForms } from './helpers/settings-forms.js'
+import { createFakeSettingsForms, settingsDocument } from './helpers/settings-forms.js'
 import { defaultStoredEarsSettings, flattenStoredSettings, unflattenEarsSettings } from '../src/settings-store.js'
 
 const whisperCapabilities = vi.hoisted(() => ({
@@ -130,7 +130,7 @@ describe('resolvePolishRoute', () => {
 
 describe('stored settings recovery', () => {
   it('accepts a Groq key write while the cloud model is not yet selected (D-024 deadlock regression)', () => {
-    expect(() => validateSettings({
+    expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'groq',
@@ -140,7 +140,7 @@ describe('stored settings recovery', () => {
   })
 
   it('accepts a custom provider without an endpoint while cloud ASR is selected', () => {
-    expect(() => validateSettings({
+    expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
@@ -149,7 +149,7 @@ describe('stored settings recovery', () => {
   })
 
   it('still rejects a malformed endpoint value', () => {
-    expect(() => validateSettings({
+    expect(() => validateEarsSettings({
       ...DEFAULT_EARS_SETTINGS,
       asrBackend: 'cloud-openai',
       cloudAsrProvider: 'custom',
@@ -165,7 +165,7 @@ describe('stored settings recovery', () => {
     ['display name', { settingsDisplayName: 'removed-name' }, 'settingsDisplayName', 'display name']
   ])('keeps the Host service available for an invalid stored %s', async (_label, invalidPatch, repairedField, errorText) => {
     const invalidSettings = { ...DEFAULT_EARS_SETTINGS, ...invalidPatch }
-    const settings = createFakeSettingsForms({ stored: invalidSettings })
+    const settings = createFakeSettingsForms({ stored: settingsDocument(invalidSettings) })
     const context = createContextWithSettingsProvider({}, settings)
 
     const fiber = await context.plugin(PolishService)
@@ -210,7 +210,7 @@ describe('stored settings recovery', () => {
       expect((repaired.recognition as Record<string, unknown>).cloudProvider).toBe('groq')
       expect((repaired.general as Record<string, unknown>).shortcut).toMatchObject({ value: 'ctrl+shift+space' })
       expect(service.getSettings().recoveredSettingsFields).toEqual([])
-      expect(() => validateSettings(unflattenEarsSettings(invalidSettings))).toThrow('ASR backend')
+      expect(() => validateEarsSettings(invalidSettings)).toThrow('ASR backend')
     } finally {
       await fiber.dispose()
     }
@@ -602,11 +602,11 @@ describe('PolishService', () => {
       }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     const settings = createFakeSettingsForms({
-      stored: {
+      stored: settingsDocument({
         ...DEFAULT_EARS_SETTINGS,
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: 'gsk_old'
-      }
+      })
     })
     const context = new Context()
     context.provide('llm', {} as never)
@@ -692,7 +692,7 @@ describe('PolishService', () => {
   it('preserves an explicit acceleration that is unavailable on the current platform', async () => {
     whisperCapabilities.available = ['default']
     whisperCapabilities.default = 'default'
-    const settings = createFakeSettingsForms({ stored: { ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'cuda' } })
+    const settings = createFakeSettingsForms({ stored: settingsDocument({ ...DEFAULT_EARS_SETTINGS, localWhisperAcceleration: 'cuda' }) })
     const context = new Context()
     context.provide('llm', {} as never)
     context.provide('settings', settings as never)
@@ -712,7 +712,7 @@ describe('PolishService', () => {
     whisperCapabilities.available = ['default']
     whisperCapabilities.default = 'default'
     const settings = createFakeSettingsForms({
-      stored: { ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'base-language', localWhisperAcceleration: 'cuda' }
+      stored: settingsDocument({ ...DEFAULT_EARS_SETTINGS, webSpeechLanguage: 'base-language', localWhisperAcceleration: 'cuda' })
     })
     const context = new Context()
     context.provide('llm', {} as never)
@@ -827,14 +827,17 @@ describe('PolishService', () => {
 
     const groqContext = new Context()
     groqContext.provide('llm', {} as never)
-    groqContext.provide('settings', createFakeSettingsForms({ stored: {
+    groqContext.provide('settings', createFakeSettingsForms({
+      stored: settingsDocument({
         ...DEFAULT_EARS_SETTINGS,
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'groq',
         cloudAsrGroqApiKey: 'gsk_test',
         cloudAsrGroqModel: 'whisper-large-v3-turbo',
         cloudAsrGroqLanguage: 'zh'
-      } }) as never)
+
+      })
+    }) as never)
     fibers.push(await groqContext.plugin(PolishService))
     const groqService = groqContext.get('dshEarsPolish')
     if (groqService === undefined) throw new Error('Polish service is missing')
@@ -843,14 +846,17 @@ describe('PolishService', () => {
 
     const customContext = new Context()
     customContext.provide('llm', {} as never)
-    customContext.provide('settings', createFakeSettingsForms({ stored: {
+    customContext.provide('settings', createFakeSettingsForms({
+      stored: settingsDocument({
         ...DEFAULT_EARS_SETTINGS,
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'custom',
         cloudAsrCustomEndpoint: 'https://asr.example.test/audio/transcriptions',
         cloudAsrCustomModel: 'whisper-1',
         cloudAsrCustomLanguage: 'en'
-      } }) as never)
+
+      })
+    }) as never)
     fibers.push(await customContext.plugin(PolishService))
     const customService = customContext.get('dshEarsPolish')
     if (customService === undefined) throw new Error('Polish service is missing')
@@ -859,7 +865,8 @@ describe('PolishService', () => {
 
     const bailianContext = new Context()
     bailianContext.provide('llm', {} as never)
-    bailianContext.provide('settings', createFakeSettingsForms({ stored: {
+    bailianContext.provide('settings', createFakeSettingsForms({
+      stored: settingsDocument({
         ...DEFAULT_EARS_SETTINGS,
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'bailian',
@@ -867,7 +874,9 @@ describe('PolishService', () => {
         cloudAsrBailianHost: 'https://dashscope.aliyuncs.com',
         cloudAsrBailianModel: 'fun-asr-flash',
         cloudAsrBailianLanguage: 'ja'
-      } }) as never)
+
+      })
+    }) as never)
     fibers.push(await bailianContext.plugin(PolishService))
     const bailianService = bailianContext.get('dshEarsPolish')
     if (bailianService === undefined) throw new Error('Polish service is missing')
@@ -878,7 +887,8 @@ describe('PolishService', () => {
     mimo.mockResolvedValue('mimo result')
     const mimoContext = new Context()
     mimoContext.provide('llm', {} as never)
-    mimoContext.provide('settings', createFakeSettingsForms({ stored: {
+    mimoContext.provide('settings', createFakeSettingsForms({
+      stored: settingsDocument({
         ...DEFAULT_EARS_SETTINGS,
         asrBackend: 'cloud-openai',
         cloudAsrProvider: 'mimo',
@@ -886,7 +896,9 @@ describe('PolishService', () => {
         cloudAsrMimoService: 'api',
         cloudAsrMimoModel: 'mimo-v2.5-asr',
         cloudAsrMimoLanguage: 'zh'
-      } }) as never)
+
+      })
+    }) as never)
     fibers.push(await mimoContext.plugin(PolishService))
     const mimoService = mimoContext.get('dshEarsPolish')
     if (mimoService === undefined) throw new Error('Polish service is missing')
@@ -924,7 +936,7 @@ describe('PolishService', () => {
     const availability = vi.mocked(isWhisperAvailable)
     availability.mockClear()
     availability.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
-    const settings = createFakeSettingsForms({ stored: DEFAULT_EARS_SETTINGS })
+    const settings = createFakeSettingsForms({ stored: settingsDocument(DEFAULT_EARS_SETTINGS) })
     const context = new Context()
     context.provide('llm', {} as never)
     context.provide('settings', settings as never)
@@ -1137,6 +1149,66 @@ describe('PolishService', () => {
     expect(settings.update).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['Whisper acceleration', { localWhisperAcceleration: 'tensorrt' }, 'Whisper acceleration'],
+    ['Deepgram service', { cloudAsrDeepgramService: 'batch' }, 'Deepgram ASR service'],
+    ['Tencent service', { cloudAsrTencentService: 'batch' }, 'Tencent Cloud ASR service'],
+    ['MiMo service', { cloudAsrMimoService: 'anonymous' }, 'Unknown dsh-ears MiMo ASR service'],
+    ['MiMo cluster', { cloudAsrMimoCluster: 'moon' }, 'Unknown dsh-ears MiMo cluster'],
+    ['Volcengine service', { cloudAsrVolcengineService: 'batch' }, 'Volcengine ASR service'],
+    ['Volcengine realtime resource', { cloudAsrVolcengineRealtimeModel: 'volc.nope' }, 'Unknown dsh-ears Volcengine realtime resource id'],
+    ['Volcengine recording resource', { cloudAsrVolcengineRecordingModel: 'volc.nope' }, 'Unknown dsh-ears Volcengine recording resource id']
+  ])('rejects an invalid %s and persists nothing', async (_label, invalidPatch, errorText) => {
+    const settings = createFakeSettingsForms({ stored: settingsDocument(DEFAULT_EARS_SETTINGS) })
+    const context = createContextWithSettingsProvider({}, settings)
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      const before = structuredClone(settings.resolvedSection())
+
+      // Building the canonical document normalizes enumerated fields to a legal
+      // value, so a write has to be judged on the values the caller asked for.
+      await expect(service.updateSettings(invalidPatch, new AbortController().signal)).rejects.toThrow(errorText)
+
+      expect(settings.update).not.toHaveBeenCalled()
+      expect(settings.replace).not.toHaveBeenCalled()
+      expect(settings.resolvedSection()).toEqual(before)
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('rejects a wrong-typed value and persists nothing', async () => {
+    const settings = createFakeSettingsForms({ stored: settingsDocument(DEFAULT_EARS_SETTINGS) })
+    const context = createContextWithSettingsProvider({}, settings)
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await expect(service.updateSettings({ maxRecordingSeconds: '120' }, new AbortController().signal)).rejects.toThrow('recording limit')
+      expect(settings.update).not.toHaveBeenCalled()
+      expect(settings.replace).not.toHaveBeenCalled()
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('still accepts a valid selector write', async () => {
+    const settings = createFakeSettingsForms({ stored: settingsDocument(DEFAULT_EARS_SETTINGS) })
+    const context = createContextWithSettingsProvider({}, settings)
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await service.updateSettings({ localWhisperAcceleration: 'cuda' }, new AbortController().signal)
+      expect(settings.update).toHaveBeenCalledOnce()
+      expect(flattenStoredSettings(settings.resolvedSection()).localWhisperAcceleration).toBe('cuda')
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
   it('keeps an ordinary write a merge once the profile already stores overrides', async () => {
     // `replace` merges the whole document onto the inherited layer, so using it
     // for an ordinary save would pin every resolved default as an explicit user
@@ -1316,7 +1388,7 @@ describe('PolishService custom system prompt', () => {
 })
 
 function createContext(llm: unknown, settings = DEFAULT_EARS_SETTINGS): Context {
-  return createContextWithSettingsProvider(llm, createFakeSettingsForms({ stored: settings }))
+  return createContextWithSettingsProvider(llm, createFakeSettingsForms({ stored: settingsDocument(settings) }))
 }
 
 function createContextWithSettingsProvider(llm: unknown, settingsProvider: unknown): Context {

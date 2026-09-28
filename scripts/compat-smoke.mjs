@@ -10,6 +10,50 @@ export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
   '0.1.7-rc.2'
 ])
 
+/**
+ * Which settings document the smoke starts from.
+ *
+ * - `fresh`: an empty profile.
+ * - `canonical`: the v4 section dsh-ears 0.3.x wrote, seeded into the legacy
+ *   `settings.yaml` the Host imports into the profile entry config.
+ * - `legacy`: the pre-0.3 flat section, which uses undeclared field names.
+ */
+export const SMOKE_SCENARIOS = Object.freeze(['fresh', 'canonical', 'legacy'])
+
+/** A complete v4 document with placeholder credentials. */
+function canonicalSettingsDocument() {
+  return {
+    schemaVersion: 4,
+    general: {
+      displayName: 'dsh-ears',
+      shortcut: { enabled: true, value: 'ctrl+shift+space' },
+      soundsEnabled: true
+    },
+    recognition: {
+      backend: 'cloud-openai',
+      webSpeech: { language: '' },
+      localWhisper: { model: 'tiny', acceleration: 'default', language: '' },
+      cloudProvider: 'groq',
+      maxRecordingSeconds: 120
+    },
+    cloudAsr: {
+      groq: { apiKey: 'gsk_canonical_fixture', model: 'whisper-large-v3-turbo', language: '' }
+    },
+    polishing: { enabled: true, provider: '', model: '', reasoningEffort: '', prompt: '' }
+  }
+}
+
+/** The flat section a pre-0.3 dsh-ears stored. */
+function legacySettingsDocument() {
+  return {
+    asrBackend: 'cloud-openai',
+    cloudAsrProvider: 'groq',
+    cloudAsrApiKey: 'gsk_legacy_fixture',
+    cloudAsrModel: 'whisper-large-v3-turbo',
+    maxRecordingSeconds: 120
+  }
+}
+
 function resolveWindowsCommand(command) {
   if (isAbsolute(command)) return command
   if (command.includes('/') || command.includes('\\')) return resolve(command)
@@ -254,9 +298,12 @@ async function bootWeb({ dshBin, projectRoot, env }) {
  * This is intentionally not called an end-to-end ASR test; it does not contact
  * an ASR provider or an LLM.
  */
-export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion, pnpm = 'pnpm' } = {}) {
+export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url))), dshVersion, scenario = 'fresh', pnpm = 'pnpm' } = {}) {
   if (!VERIFIED_DSH_SMOKE_VERSIONS.includes(dshVersion)) {
     throw new Error(`compat smoke requires one of the verified DSH versions: ${VERIFIED_DSH_SMOKE_VERSIONS.join(', ')}`)
+  }
+  if (!SMOKE_SCENARIOS.includes(scenario)) {
+    throw new Error(`compat smoke requires one of the scenarios: ${SMOKE_SCENARIOS.join(', ')}`)
   }
 
   const smokeHome = await mkdtemp(join(tmpdir(), 'dsh-ears-compat-'))
@@ -267,6 +314,13 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     const prepared = await prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm, env })
     console.log('[compat] registering the packed plugin')
     await runCommand(pnpm, ['exec', 'dsh', 'plugin', '--profile', 'web', 'add', prepared.pluginRoot], { cwd: smokeProject, env })
+    if (scenario !== 'fresh') {
+      // The Host imports the removed settings.yaml into the profile entry config
+      // once the composition settles. JSON is valid YAML, so no emitter is needed.
+      const section = scenario === 'canonical' ? canonicalSettingsDocument() : legacySettingsDocument()
+      await writeFile(join(smokeHome, 'settings.yaml'), `${JSON.stringify({ 'dsh-ears': section }, null, 2)}\n`)
+      console.log(`[compat] seeded a ${scenario} settings.yaml`)
+    }
     console.log('[compat] starting dsh web')
     const first = await bootWeb({ dshBin: prepared.dshBin, projectRoot: smokeProject, env })
     server = first.server
@@ -289,6 +343,23 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     }
     if (value.settings.webSpeechLanguage === 'en-US') throw new Error('the smoke project already stores its probe value')
 
+    console.log(`[compat] checking the ${scenario} settings document`)
+    if (scenario === 'canonical') {
+      // The v4 section dsh-ears 0.3.x wrote must be imported into the profile
+      // entry config, read live, and keep its secret Host-side only.
+      if (value.settings.cloudAsrGroqModel !== 'whisper-large-v3-turbo') {
+        throw new Error(`the seeded canonical model was not read: ${JSON.stringify(value.settings.cloudAsrGroqModel)}`)
+      }
+      if (value.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the seeded canonical credential did not reach the Host')
+      if (!existsSync(join(smokeHome, 'settings.yaml.imported'))) throw new Error('the legacy settings document was not renamed after import')
+      if (existsSync(join(smokeHome, 'settings.yaml'))) throw new Error('the legacy settings document was not consumed')
+    }
+    if (scenario === 'legacy') {
+      // Diagnostic until the observed behavior is codified: the pre-0.3 section
+      // uses undeclared field names, which the Host refuses to import.
+      console.log(`[compat] legacy model=${JSON.stringify(value.settings.cloudAsrGroqModel)} credential=${value.cloudAsrGroqApiKeyConfigured} imported=${existsSync(join(smokeHome, 'settings.yaml.imported'))}`)
+    }
+
     // The 0.1.7 settings model derives the form from the exported Config and
     // writes into the profile entry config. The write must apply live and
     // survive a restart, not only live in a registered namespace.
@@ -308,8 +379,16 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
     if (restarted?.settings?.webSpeechLanguage !== 'en-US') {
       throw new Error('the settings write did not survive a dsh web restart')
     }
+    if (scenario === 'canonical') {
+      // An unrelated save and a restart must not disturb the imported section.
+      if (restarted.settings.cloudAsrGroqModel !== 'whisper-large-v3-turbo') throw new Error('the imported model did not survive the write and restart')
+      if (restarted.cloudAsrGroqApiKeyConfigured !== true) throw new Error('the imported credential did not survive the write and restart')
+    }
+    if (scenario === 'legacy') {
+      console.log(`[compat] legacy after write model=${JSON.stringify(restarted.settings.cloudAsrGroqModel)} credential=${restarted.cloudAsrGroqApiKeyConfigured}`)
+    }
 
-    return { dshVersion, baseUrl, clientServed: true, settingsLoaded: true, settingsPersisted: true }
+    return { dshVersion, scenario, baseUrl, clientServed: true, settingsLoaded: true, settingsPersisted: true }
   } finally {
     console.log('[compat] stopping dsh web and cleaning temporary projects')
     if (server !== undefined) await stopServer(server.child)
@@ -320,9 +399,10 @@ export async function runCompatibilitySmoke({ projectRoot = resolve(fileURLToPat
 }
 
 function printHelp() {
-  console.log('Usage: node scripts/compat-smoke.mjs --dsh-version <version>')
+  console.log('Usage: node scripts/compat-smoke.mjs --dsh-version <version> [--scenario fresh|canonical|legacy]')
   console.log(`Verified versions: ${VERIFIED_DSH_SMOKE_VERSIONS.join(', ')}`)
-  console.log('Boots a temporary dsh web profile with the local plugin and calls getSettings.')
+  console.log(`Scenarios: ${SMOKE_SCENARIOS.join(', ')}`)
+  console.log('Boots a temporary dsh web profile with the local plugin, calls getSettings, writes a settings field, restarts, and reads it back.')
 }
 
 const invokedPath = process.argv[1] === undefined ? undefined : resolve(process.argv[1])
@@ -334,9 +414,11 @@ if (invokedPath === modulePath) {
   } else {
     const index = args.indexOf('--dsh-version')
     const dshVersion = index >= 0 ? args[index + 1] : undefined
+    const scenarioIndex = args.indexOf('--scenario')
+    const scenario = scenarioIndex >= 0 ? args[scenarioIndex + 1] : undefined
     try {
-      const result = await runCompatibilitySmoke({ dshVersion })
-      console.log(`Compatibility smoke passed for dsh ${result.dshVersion}: Client asset served, getSettings returned a redacted view, and a settings write survived a restart`)
+      const result = await runCompatibilitySmoke({ dshVersion, scenario })
+      console.log(`Compatibility smoke passed for dsh ${result.dshVersion} (${result.scenario}): Client asset served, getSettings returned a redacted view, and a settings write survived a restart`)
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error))
       process.exitCode = 1

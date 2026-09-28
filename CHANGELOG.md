@@ -22,7 +22,12 @@ dsh 0.1.7 support. This is a breaking release: the supported minimum moves to ds
 - Package verification executes the built Remote descriptor table, checks that the client bundle inlines every endpoint, and rejects the removed icon names in the shipped bundle.
 - The compatibility smoke now writes a settings field through the strict Remote, restarts `dsh web`, and confirms the write survived, which exercises the new settings path end to end on a real host.
 
-Upstream `0.1.7` replaces the plugin-settings namespace model with Loader-entry config forms, so a settings section now lives in the profile entry config rather than a plugin-owned document. Sections written by `0.3.x` already use the canonical nested v4 shape and carry over unchanged; the pre-0.3 flat shapes are not read on this line.
+Upstream `0.1.7` replaces the plugin-settings namespace model with Loader-entry config forms, so a settings section now lives in the profile entry config rather than a plugin-owned document. A section written by `0.3.x` already uses the canonical nested v4 shape and carries over unchanged — verified on a real `0.1.7-rc.2` host, including that the stored credential still reaches the Host while staying redacted on the wire. The pre-0.3 flat shapes are undeclared fields that the Host refuses to import, so those values stay in `settings.yaml.imported`; the users affected are the ones already routed to dsh-ears `<0.3.0>` on dsh 0.1.1.
+
+### Verification notes
+
+- The isolated compatibility smoke additionally runs settings-document scenarios (empty, canonical v4, pre-0.3 flat) against a real dsh `0.1.7-rc.2`, and its assertions fail the run rather than only logging.
+- Automated evidence does not include executing the browser client in a real renderer, or the manual Windows/desktop browser smoke; those remain human gates.
 
 ## [0.3.3] - 2026-09-27
 

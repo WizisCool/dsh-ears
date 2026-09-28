@@ -16,7 +16,7 @@ import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERV
  *   tears down the service or the settings page that is writing it.
  * - `loose()` falls back to the field default instead of failing resolution, so
  *   one corrupt stored value cannot stop the whole plugin from loading. Writes
- *   are still validated before they are persisted (see `validateSettings`).
+ *   are still validated before they are persisted.
  *
  * Groups stay plain objects: schemastery rejects a volatile field nested inside
  * a volatile one, and only leaves carry values.

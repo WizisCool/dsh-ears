@@ -431,15 +431,30 @@ export function flatSettingsPatchToStoredPatch(patch: EarsSettingsPatch): Record
 }
 
 export function applyFlatSettingsPatch(stored: unknown, patch: EarsSettingsPatch): StoredEarsSettings {
+  return applyFlatSettingsPatchWithSettings(stored, patch).next
+}
+
+/**
+ * Apply one flat patch and report the requested values it was built from.
+ *
+ * `unflattenEarsSettings` normalizes enumerated fields to a legal value, which
+ * is right for recovering a corrupt stored document but would silently accept an
+ * illegal write. The caller validates {@link requested} — the values as asked
+ * for — and persists `next`.
+ */
+export function applyFlatSettingsPatchWithSettings(
+  stored: unknown,
+  patch: EarsSettingsPatch
+): { requested: EarsSettings; next: StoredEarsSettings } {
   const currentStored = normalizeStoredEarsSettings(stored)
   const current = flattenStoredSettings(currentStored)
-  const next: EarsSettings = { ...current }
+  const requested: EarsSettings = { ...current }
   for (const [key, value] of Object.entries(patch)) {
     if (value !== undefined && isFlatSettingKey(key)) {
-      ;(next as unknown as Record<string, unknown>)[key] = value
+      ;(requested as unknown as Record<string, unknown>)[key] = value
     }
   }
-  return unflattenEarsSettings(next)
+  return { requested, next: unflattenEarsSettings(requested) }
 }
 
 export function storedSettingsNeedRewrite(raw: unknown): boolean {
