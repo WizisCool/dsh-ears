@@ -16,7 +16,7 @@ The implementation supports browser Web Speech, Host-side local Whisper through 
 
 M1–M6 and the first-release product surface through D-033 are implemented. The first public release (`0.1.0`, public GitHub, npm) was authorized on 2026-08-19; the rc.8 compatibility patch (`0.1.1`, D-034) followed on 2026-08-20. Later publish, tag, and visibility changes still need an explicit maintainer decision (D-009).
 
-The dsh-ears 0.2 maintenance line supports dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035). The `master` 0.3 release line requires dsh `>=0.1.2-rc.1` because upstream 0.1.2 is breaking (D-051); dsh-ears 0.3.3 also certifies dsh `0.1.5-rc.3` without raising that floor. Users who remain on dsh 0.1.1 must install dsh-ears `<0.3.0`. Both lines require Node `^22.19.0 || >=24.0.0`.
+The dsh-ears 0.2 maintenance line supports dsh `0.1.0-rc.6` through `0.1.1-rc.2` (D-030, extended by D-034 and D-035), and the 0.3 line supports dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055). The `master` 0.4 release line requires dsh `>=0.1.7-rc.2` (D-056): upstream 0.1.7 removed `ctx.settings.register`, renamed the client icon exports, and moved strict Typert codecs onto a `create()` factory, so dsh-ears 0.4 carries no runtime compatibility layer for the earlier dsh lines. Users on dsh 0.1.2–0.1.5 must install dsh-ears `<0.4.0`, and users on dsh 0.1.1 dsh-ears `<0.3.0`. All lines require Node `^22.19.0 || >=24.0.0`.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins — "language" now meaning the per-provider recognition-language fields (D-042). Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
-3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification. The 0.3.3 compatibility release moves the newest certification target from dsh `0.1.5-rc.2` to `0.1.5-rc.3` while retaining the 0.1.2 floor; the Windows browser smoke remains a manual release gate (D-051/D-055).
+3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification; the 0.3.3 compatibility release certified dsh `0.1.5-rc.3` while retaining the 0.1.2 floor (D-051/D-055). The 0.4.0 release raises the floor to dsh `>=0.1.7-rc.2` for the certificate-target line and ports the settings, icon, and Typert codec surfaces (D-056); the Windows browser smoke remains a manual release gate.
 4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.
 
 ## dsh integration
@@ -97,4 +97,4 @@ dsh-ears/
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035); dsh-ears 0.3.3 compiles against exact `0.1.5-rc.3`, certifies both 0.1.2 and 0.1.5, and retains a `>=0.1.2-rc.1` peer minimum (D-055)
+- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035) and the 0.3 line covers dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055); dsh-ears 0.4.0 compiles against exact `0.1.7-rc.2`, certifies that version only, and requires the `>=0.1.7-rc.2` peer minimum (D-056)

@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 import type { ChangeEvent, ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { IconChevronDownOutline14, Input, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, Input, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import Github from '@thesvg/react/github'
 import {
   AlibabaCloudIcon,
@@ -529,7 +529,7 @@ function SelectRow({ label, hint, value, options, entries, placeholder, disabled
         anchor={
           <button type="button" className={styles.selector} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
             <span className={styles.selectorLabel}>{labelText}</span>
-            <IconChevronDownOutline14 className={styles.chevron} />
+            <IconChevronDownOutlineRegular className={styles.chevron} />
           </button>
         }
       />
@@ -739,7 +739,7 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
           anchor={
             <button type="button" className={styles.selector} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-invalid={invalid} disabled={disabled} onClick={() => setOpen((current) => !current)}>
               <span className={styles.selectorLabel}>{labelText}</span>
-              <IconChevronDownOutline14 className={styles.chevron} />
+              <IconChevronDownOutlineRegular className={styles.chevron} />
             </button>
           }
         />

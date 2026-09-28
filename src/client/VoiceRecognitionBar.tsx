@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { IconLoadingOutline16, IconStopFill16, IconTrashOutline16, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconLoadingOutlineRegular, IconStopFillRegular, IconTrashOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { fallbackTranslate, type Translate } from './settings-locale.js'
 import { recognitionBarAction, useVoiceInputSession, VOICE_WAVEFORM_SLOTS, type VoiceInputSession } from './voice-session.js'
 import { statusLabel } from './voice-error.js'
@@ -71,7 +71,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
           <div className={styles.status} role="status" aria-live="polite">
             <span className={styles.indicator} aria-hidden="true" />
             <span className={styles.label} title={label}>{label}</span>
-            {processing ? <IconLoadingOutline16 className={styles.spinner} size={16} /> : notice ? null : <Waveform levels={display.levels} />}
+            {processing ? <IconLoadingOutlineRegular className={styles.spinner} size={16} /> : notice ? null : <Waveform levels={display.levels} />}
           </div>
           <Tooltip label={actionLabel} side="top" delayMs={200}>
             <button
@@ -81,7 +81,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
               disabled={action === 'busy'}
               onClick={() => action === 'discard' ? voiceSession.requestCancel() : voiceSession.requestStop()}
             >
-              {action === 'discard' ? <IconTrashOutline16 size={14} /> : <IconStopFill16 size={16} />}
+              {action === 'discard' ? <IconTrashOutlineRegular size={14} /> : <IconStopFillRegular size={16} />}
             </button>
           </Tooltip>
         </div>

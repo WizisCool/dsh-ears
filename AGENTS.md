@@ -14,7 +14,7 @@ Voice-input plugin for DeepSeek Harness. The package has two faces: a Host Cordi
 
 ## Setup
 
-Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `>=0.1.2-rc.1`. dsh-ears 0.3 uses the `>=0.1.2-rc.1` dsh peer minimum because the upstream 0.1.2 line is breaking (D-051).
+Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `>=0.1.7-rc.2`. dsh-ears 0.4 uses that peer minimum because upstream 0.1.7 removed `ctx.settings.register`, renamed the client icon exports, and moved strict Typert codecs onto a `create()` factory (D-056).
 
 ```sh
 pnpm install

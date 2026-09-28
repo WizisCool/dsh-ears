@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-ears 语音输入",
+    "description": "用语音在输入框写作，发送前可用 dsh 模型润色；支持本地 Whisper 与多家云端识别"
+  }
+}

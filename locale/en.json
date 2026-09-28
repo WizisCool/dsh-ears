@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-ears",
+    "description": "Dictate into the composer, then polish the text through a dsh model before sending"
+  }
+}

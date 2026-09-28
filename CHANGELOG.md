@@ -2,6 +2,33 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.4.0] - 2026-09-28
+
+dsh 0.1.7 support. This is a breaking release: the supported minimum moves to dsh `>=0.1.7-rc.2`, and the plugin is ported to the settings, icon, and Remote contracts that `0.1.7` introduced.
+
+### Changed
+
+- **Host settings use the exported `Config`.** The plugin no longer calls `ctx.settings.register`, which dsh 0.1.7 removed; it exports its settings schema as the Cordis `Config` and reads and writes through the dsh settings service instead. Every leaf is volatile, so saving a field applies live rather than recomposing the plugin entry, and a corrupt stored value falls back to its field default instead of preventing the plugin from loading.
+- **Settings validation moved to the write path.** Field-scoped validation still runs before a write is persisted, replacing the schema validation dsh performed at registration time.
+- **Client icons follow the 0.1.7 rename** from size-suffixed to weight-suffixed exports (`IconLoadingOutline16` → `IconLoadingOutlineRegular`, and the same for the stop, trash, and chevron glyphs). The previous names resolve to `undefined` on 0.1.7, which fails renderer boot.
+- **Every strict Remote codec now carries a `create()` factory**, on both parameters and results. dsh 0.1.7 rejects a codec without one, on the Host and again inside the client bundle's own copy of the descriptor table.
+- **The supported dsh minimum is `>=0.1.7-rc.2`**, replacing `>=0.1.2-rc.1`. The compile baseline, lockfile, CI matrix, compatibility smoke, package verification, About surface, and READMEs all move together. Users on dsh 0.1.2–0.1.5 must install `dsh-ears@<0.4.0`; users on dsh 0.1.1 must install `dsh-ears@<0.3.0`.
+- Entry configuration disables the automatically generated dsh settings form, because the plugin ships its own settings page.
+- `@deepseek-ai/cordis` moves to `^4.0.4` and `@deepseek-ai/schemastery` to `^3.18.4`, matching the versions dsh 0.1.7 ships.
+
+### Added
+
+- Plugin display metadata for the dsh settings and plugin surfaces: an `icon`, `locale/en.json`, and `locale/zh.json`, so the plugin shows a title, summary, and icon there instead of a bare package name.
+- Package verification executes the built Remote descriptor table, checks that the client bundle inlines every endpoint, and rejects the removed icon names in the shipped bundle.
+- The compatibility smoke now writes a settings field through the strict Remote, restarts `dsh web`, and confirms the write survived, which exercises the new settings path end to end on a real host.
+
+Upstream `0.1.7` replaces the plugin-settings namespace model with Loader-entry config forms, so a settings section now lives in the profile entry config rather than a plugin-owned document. A section written by `0.3.x` already uses the canonical nested v4 shape and carries over unchanged — verified on a real `0.1.7-rc.2` host, including that the stored credential still reaches the Host while staying redacted on the wire. The pre-0.3 flat shapes are undeclared fields that the Host refuses to import, so those values stay in `settings.yaml.imported`; the users affected are the ones already routed to dsh-ears `<0.3.0>` on dsh 0.1.1.
+
+### Verification notes
+
+- The isolated compatibility smoke additionally runs settings-document scenarios (empty, canonical v4, pre-0.3 flat) against a real dsh `0.1.7-rc.2`, and its assertions fail the run rather than only logging.
+- Automated evidence does not include executing the browser client in a real renderer, or the manual Windows/desktop browser smoke; those remain human gates.
+
 ## [0.3.3] - 2026-09-27
 
 dsh 0.1.5-rc.3 certification preparation. No dsh-ears runtime source change was required.
