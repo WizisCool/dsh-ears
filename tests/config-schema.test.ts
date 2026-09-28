@@ -112,6 +112,9 @@ describe('host settings access', () => {
     await updateEarsSettingsPatch(provider, { polishing: { enabled: false } }, readEarsSettingsRaw(provider).revision)
     expect(provider.update).toHaveBeenCalledWith(SETTINGS_NAMESPACE, { polishing: { enabled: false } }, 0)
     expect(provider.resolvedSection().polishing).toMatchObject({ enabled: false })
+    // The user layer records the override, not the defaults it resolves over.
+    expect(provider.userSection()).toEqual({ polishing: { enabled: false } })
+    expect(readEarsSettingsRaw(provider).userLayerAvailable).toBe(true)
   })
 
   it('replaces the user layer wholesale', async () => {

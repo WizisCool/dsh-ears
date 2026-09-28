@@ -68,7 +68,7 @@ function storedShape(settings: unknown): Record<string, unknown> {
 }
 
 function merge(base: unknown, patch: unknown): unknown {
-  if (!isRecord(base) || !isRecord(patch)) return patch
+  if (!isRecord(base) || !isRecord(patch)) return structuredClone(patch)
   const result: Record<string, unknown> = { ...base }
   for (const [key, value] of Object.entries(patch)) result[key] = merge(result[key], value)
   return result
@@ -125,18 +125,20 @@ export function createFakeSettingsForms(options: FakeSettingsFormsOptions = {}):
   }
 
   const update = vi.fn(async (_ns: unknown, patch: object, expectedRevision?: number) => {
-    const nextUser = merge(user === undefined ? resolved : user, patch)
+    // The user layer holds explicit overrides only, so it starts empty rather
+    // than from the resolved document, which already carries the defaults.
+    const nextUser = merge(user ?? {}, patch)
     await write(merge(resolved, patch), expectedRevision)
     user = nextUser
   })
 
   const replace = vi.fn(async (_ns: unknown, section: object, expectedRevision?: number) => {
     await write(section, expectedRevision)
-    user = section
+    user = structuredClone(section)
   })
 
   const mutate = vi.fn(async (_ns: unknown, ops: readonly { op: string; path: string[] }[], expectedRevision?: number) => {
-    let next: unknown = merge(undefined, user === undefined ? resolved : user)
+    const next: unknown = structuredClone(user ?? resolved)
     for (const op of ops) {
       const parent = op.path.slice(0, -1).reduce<unknown>((node, key) => (isRecord(node) ? node[key] : undefined), next)
       if (isRecord(parent)) {

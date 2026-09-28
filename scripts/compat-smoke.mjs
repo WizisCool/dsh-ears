@@ -235,9 +235,16 @@ async function bootWeb({ dshBin, projectRoot, env }) {
     env,
     timeoutMs: 90_000
   })
-  const baseUrl = await server.ready
-  const cookie = await exchangeLaunchToken(baseUrl)
-  return { server, baseUrl, cookie }
+  try {
+    const baseUrl = await server.ready
+    const cookie = await exchangeLaunchToken(baseUrl)
+    return { server, baseUrl, cookie }
+  } catch (error) {
+    // Ownership of the child passes to the caller only on success, so a failed
+    // boot must release it here instead of leaving the Host running.
+    await stopServer(server.child)
+    throw error
+  }
 }
 
 /**
