@@ -16,7 +16,7 @@ vi.mock('react', () => ({
 }))
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
-  IconChevronDownOutline14: () => null,
+  IconChevronDownOutlineRegular: () => null,
   Input: () => null,
   Menu: ({ anchor }: { anchor: unknown }) => anchor,
   Tooltip: ({ children }: { children: unknown }) => children

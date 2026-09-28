@@ -26,7 +26,7 @@ vi.mock('@deepseek-ai/dsh-client-store', () => ({
 }))
 
 vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => ({
-  IconChevronDownOutline14: () => null,
+  IconChevronDownOutlineRegular: () => null,
   Input: () => null,
   Menu: () => null,
   Tooltip: ({ children }: { children: unknown }) => children

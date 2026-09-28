@@ -281,8 +281,32 @@ describe('settings Remote contract', () => {
     expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'finishRealtime', 'listCloudProviderModels', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
   })
 
-  it('keeps the cloud model capability metadata in the public Typert declaration', () => {
-    const service = TYPERT.model.services[0]
+  it('gives every codec the strict create() factory dsh 0.1.7 requires', () => {
+    // dsh 0.1.7 replaced the strict codec's `schema` property with a `create()`
+    // factory and rejects a descriptor without it, on the Host and again inside
+    // the client's own inlined copy of this table (issue #71).
+    const codecs: Array<{ subject: string; codec: unknown }> = []
+    for (const descriptor of EARS_REMOTE_DESCRIPTORS) {
+      for (const parameter of descriptor.parameters) {
+        codecs.push({ subject: `${descriptor.id} parameter ${parameter.name}`, codec: parameter.codec })
+      }
+      codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
+    }
+    expect(codecs).toHaveLength(36)
+
+    for (const { subject, codec } of codecs) {
+      const value = codec as { mode?: unknown; typeSymbol?: unknown; create?: unknown }
+      expect(value.mode, subject).toBe('strict')
+      expect(typeof value.typeSymbol, subject).toBe('string')
+      expect(value, subject).not.toHaveProperty('schema')
+      expect(typeof value.create, subject).toBe('function')
+      const created = (value.create as () => { parse?: unknown })()
+      expect(typeof created?.parse, subject).toBe('function')
+      expect(() => (created as { parse(value: unknown): unknown }).parse(19_999)).toThrow()
+    }
+  })
+
+  it('keeps the cloud model capability metadata in the public Typert declaration', () => {    const service = TYPERT.model.services[0]
     const cloudModelsType = service?.types.find((type) => type.name === 'CloudProviderModelsView')
     if (cloudModelsType === undefined) throw new Error('CloudProviderModelsView declaration is missing')
     expect(cloudModelsType.declaration).toContain("transport?: 'listen-v1' | 'listen-v2'")

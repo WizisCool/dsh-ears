@@ -1,4 +1,17 @@
+import type { TypertCodec, TypertSchema } from '@deepseek-ai/dsh-typert-protocol'
 import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+
+/**
+ * One strict wire codec over a zod v4 schema.
+ *
+ * The Typert strict contract carries its schema behind a `create()` factory so
+ * the boundary materializes it on first use, rather than reading a `schema`
+ * property. Every descriptor in this table builds its codecs here, which keeps
+ * the factory present on all 36 codecs by construction.
+ */
+function strictCodec(typeSymbol: string, schema: TypertSchema): TypertCodec {
+  return { mode: 'strict', typeSymbol, create: () => schema }
+}
 
 /**
  * The one wire-level descriptor table used by both the Host manifest and the
@@ -13,11 +26,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     method: 'listRoutes',
     invocation: { kind: 'direct' },
     parameters: [],
-    result: {
-      mode: 'strict',
-      typeSymbol: 'dsh-ears#PolishRoute[]',
-      schema: listRoutesResultSchema
-    }
+    result: strictCodec('dsh-ears#PolishRoute[]', listRoutesResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/listAsrBackends',
@@ -26,11 +35,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     method: 'listAsrBackends',
     invocation: { kind: 'direct' },
     parameters: [],
-    result: {
-      mode: 'strict',
-      typeSymbol: 'dsh-ears#AsrBackendInfo[]',
-      schema: listAsrBackendsResultSchema
-    }
+    result: strictCodec('dsh-ears#AsrBackendInfo[]', listAsrBackendsResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/getAbout',
@@ -39,7 +44,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     method: 'getAbout',
     invocation: { kind: 'direct' },
     parameters: [],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#AboutInfo', schema: aboutInfoSchema }
+    result: strictCodec('dsh-ears#AboutInfo', aboutInfoSchema)
   },
   {
     id: 'dsh-ears#dshEars/checkForUpdate',
@@ -49,7 +54,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     invocation: { kind: 'direct' },
     parameters: [],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#UpdateCheckResult', schema: updateCheckResultSchema }
+    result: strictCodec('dsh-ears#UpdateCheckResult', updateCheckResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/getSettings',
@@ -58,7 +63,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     method: 'getSettings',
     invocation: { kind: 'direct' },
     parameters: [],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
+    result: strictCodec('dsh-ears#EarsSettingsView', earsSettingsViewSchema)
   },
   {
     id: 'dsh-ears#dshEars/listCloudProviderModels',
@@ -71,11 +76,11 @@ export const EARS_REMOTE_DESCRIPTORS = [
         name: 'provider',
         wire: 'provider',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: cloudAsrProviderSchema }
+        codec: strictCodec('string', cloudAsrProviderSchema)
       }
     ],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#CloudProviderModelsView', schema: cloudProviderModelsViewSchema }
+    result: strictCodec('dsh-ears#CloudProviderModelsView', cloudProviderModelsViewSchema)
   },
   {
     id: 'dsh-ears#dshEars/updateSettings',
@@ -87,10 +92,10 @@ export const EARS_REMOTE_DESCRIPTORS = [
       name: 'patch',
       wire: 'patch',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsPatch', schema: earsSettingsPatchSchema }
+      codec: strictCodec('dsh-ears#EarsSettingsPatch', earsSettingsPatchSchema)
     }],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#EarsSettingsView', schema: earsSettingsViewSchema }
+    result: strictCodec('dsh-ears#EarsSettingsView', earsSettingsViewSchema)
   },
   {
     id: 'dsh-ears#dshEars/transcribe',
@@ -103,17 +108,17 @@ export const EARS_REMOTE_DESCRIPTORS = [
         name: 'audioBase64',
         wire: 'audioBase64',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema }
+        codec: strictCodec('string', audioBase64Schema)
       },
       {
         name: 'mimeType',
         wire: 'mimeType',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: audioMimeTypeSchema }
+        codec: strictCodec('string', audioMimeTypeSchema)
       }
     ],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
+    result: strictCodec('dsh-ears#RemoteTextResult', remoteTextResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/listReasoningEfforts',
@@ -126,16 +131,16 @@ export const EARS_REMOTE_DESCRIPTORS = [
         name: 'provider',
         wire: 'provider',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       },
       {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       }
     ],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#ReasoningEffortsView', schema: reasoningEffortsViewSchema }
+    result: strictCodec('dsh-ears#ReasoningEffortsView', reasoningEffortsViewSchema)
   },
   {
     id: 'dsh-ears#dshEars/getWhisperModelState',
@@ -147,9 +152,9 @@ export const EARS_REMOTE_DESCRIPTORS = [
       name: 'model',
       wire: 'model',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+      codec: strictCodec('string', textSchema)
     }],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
   {
     id: 'dsh-ears#dshEars/downloadWhisperModel',
@@ -161,9 +166,9 @@ export const EARS_REMOTE_DESCRIPTORS = [
       name: 'model',
       wire: 'model',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+      codec: strictCodec('string', textSchema)
     }],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
   {
     id: 'dsh-ears#dshEars/deleteWhisperModel',
@@ -175,9 +180,9 @@ export const EARS_REMOTE_DESCRIPTORS = [
       name: 'model',
       wire: 'model',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+      codec: strictCodec('string', textSchema)
     }],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
   {
     id: 'dsh-ears#dshEars/cancelWhisperModelDownload',
@@ -189,9 +194,9 @@ export const EARS_REMOTE_DESCRIPTORS = [
       name: 'model',
       wire: 'model',
       source: 'json',
-      codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+      codec: strictCodec('string', textSchema)
     }],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#WhisperModelState', schema: whisperModelStateSchema }
+    result: strictCodec('dsh-ears#WhisperModelState', whisperModelStateSchema)
   },
   {
     id: 'dsh-ears#dshEars/startRealtime',
@@ -201,7 +206,7 @@ export const EARS_REMOTE_DESCRIPTORS = [
     invocation: { kind: 'direct' },
     parameters: [],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeSession', schema: realtimeSessionSchema }
+    result: strictCodec('dsh-ears#RealtimeSession', realtimeSessionSchema)
   },
   {
     id: 'dsh-ears#dshEars/sendRealtimeAudio',
@@ -210,11 +215,11 @@ export const EARS_REMOTE_DESCRIPTORS = [
     method: 'sendRealtimeAudio',
     invocation: { kind: 'direct' },
     parameters: [
-      { name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } },
-      { name: 'audioBase64', wire: 'audioBase64', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: audioBase64Schema } }
+      { name: 'sessionId', wire: 'sessionId', source: 'json', codec: strictCodec('string', textSchema) },
+      { name: 'audioBase64', wire: 'audioBase64', source: 'json', codec: strictCodec('string', audioBase64Schema) }
     ],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeTranscript', schema: realtimeTranscriptSchema }
+    result: strictCodec('dsh-ears#RealtimeTranscript', realtimeTranscriptSchema)
   },
   {
     id: 'dsh-ears#dshEars/finishRealtime',
@@ -222,9 +227,9 @@ export const EARS_REMOTE_DESCRIPTORS = [
     namespace: 'dshEars',
     method: 'finishRealtime',
     invocation: { kind: 'direct' },
-    parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
+    parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: strictCodec('string', textSchema) }],
     cancellation: { parameter: 'signal' },
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#RemoteTextResult', schema: remoteTextResultSchema }
+    result: strictCodec('dsh-ears#RemoteTextResult', remoteTextResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/cancelRealtime',
@@ -232,8 +237,8 @@ export const EARS_REMOTE_DESCRIPTORS = [
     namespace: 'dshEars',
     method: 'cancelRealtime',
     invocation: { kind: 'direct' },
-    parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema } }],
-    result: { mode: 'strict', typeSymbol: 'dsh-ears#RealtimeCancelled', schema: realtimeCancelledSchema }
+    parameters: [{ name: 'sessionId', wire: 'sessionId', source: 'json', codec: strictCodec('string', textSchema) }],
+    result: strictCodec('dsh-ears#RealtimeCancelled', realtimeCancelledSchema)
   },
   {
     id: 'dsh-ears#dshEars/polish',
@@ -246,32 +251,28 @@ export const EARS_REMOTE_DESCRIPTORS = [
         name: 'transcript',
         wire: 'transcript',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       },
       {
         name: 'provider',
         wire: 'provider',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       },
       {
         name: 'model',
         wire: 'model',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       },
       {
         name: 'reasoningEffort',
         wire: 'reasoningEffort',
         source: 'json',
-        codec: { mode: 'strict', typeSymbol: 'string', schema: textSchema }
+        codec: strictCodec('string', textSchema)
       }
     ],
     cancellation: { parameter: 'signal' },
-    result: {
-      mode: 'strict',
-      typeSymbol: 'dsh-ears#RemoteTextResult',
-      schema: remoteTextResultSchema
-    }
+    result: strictCodec('dsh-ears#RemoteTextResult', remoteTextResultSchema)
   }
 ] as const
