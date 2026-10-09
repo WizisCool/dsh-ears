@@ -122,7 +122,7 @@
     "@deepseek-ai/dsh-api-remotes": "0.2.0-rc.1",
     "@deepseek-ai/dsh-client-locale": "0.2.0-rc.1",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.0-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.1",
     "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.1",
     "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.0-rc.1",
