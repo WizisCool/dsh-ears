@@ -391,6 +391,9 @@ describe('cloud ASR runtime readiness', () => {
     expect(bailianGenerationUrl('https://ws-test.cn-beijing.maas.aliyuncs.com/')).toBe(
       'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
     )
+    expect(bailianGenerationUrl('https://ws-test.cn-beijing.maas.aliyuncs.com/compatible-mode/v1')).toBe(
+      'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
+    )
     expect(cloudAsrEndpointFor(settings({
       cloudAsrProvider: 'bailian',
       cloudAsrBailianHost: 'https://ws-test.cn-beijing.maas.aliyuncs.com'

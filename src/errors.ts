@@ -23,6 +23,8 @@ export const EARS_ERROR_CODES = {
   backendLocalUnavailable: 'backend.localUnavailable',
   backendCloudUnavailable: 'backend.cloudUnavailable',
   asrModelNotConfigured: 'asr.modelNotConfigured',
+  asrModelUnsupported: 'asr.modelUnsupported',
+  asrModelNotFound: 'asr.modelNotFound',
   asrApiKeyNotConfigured: 'asr.apiKeyNotConfigured',
   asrEndpointInvalid: 'asr.endpointInvalid',
   asrEndpointHasCredentials: 'asr.endpointHasCredentials',

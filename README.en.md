@@ -100,7 +100,7 @@ Transcription results are always written to an editable draft and are never sent
 | Local Whisper | Local transcription after recording stops | Download GGML models in settings |
 | [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
 | [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |
-| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | [DashScope synchronous transcription](https://help.aliyun.com/zh/model-studio/developer-reference/tongyi-qianwen-audio-api) | API key, model name; max 300 s per recording |
+| [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | [DashScope synchronous transcription](https://www.alibabacloud.com/help/en/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) | API key, synchronous model ID; max 300 s per recording |
 | [Tencent Cloud](https://cloud.tencent.com/product/asr) | [Recording file recognition](https://cloud.tencent.com/document/api/1093/37823) or [real-time WebSocket](https://cloud.tencent.com/document/api/1093/48982) | AppID, SecretID, SecretKey, `engine_type` |
 | [Xiaomi MiMo](https://mimo.mi.com) | [Speech Recognition API](https://mimo.mi.com/docs/en-US/api/audio/Speech-Recognition), supporting standard API or [Token Plan](https://mimo.mi.com/docs/en-US/tokenplan/Token%20Plan/subscription) | API key, model name (e.g. `mimo-v2.5-asr`); Token Plan requires a regional cluster |
 | [SiliconFlow (CN)](https://siliconflow.cn) | [Audio Transcription API](https://api-docs.siliconflow.cn/docs/api/audio-transcriptions-post) | API key, model name (e.g. `FunAudioLLM/SenseVoiceSmall`) |
@@ -108,6 +108,8 @@ Transcription results are always written to an editable draft and are never sent
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
 > **Local Whisper**: Runs whisper.cpp locally via `@fugood/whisper.node` without Python, FFmpeg, or external dependencies. Supports downloading and managing GGML models (`tiny` (default) through `turbo`) in settings, with `default` (auto), `vulkan`, or `cuda` acceleration.
+>
+> **Alibaba Cloud Model Studio**: the upgraded console issues a workspace-specific API host (Beijing: `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`; Singapore: `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`). Enter that host and a **synchronous model ID** (`qwen3-asr-flash`, `qwen-audio-3.1-asr-flash`, or `fun-asr-flash-2026-06-15`), not the console display name and not a `-filetrans`, `-streaming`, `-message`, or `-realtime` variant — those use asynchronous or WebSocket APIs that dsh-ears does not support.
 >
 > **Volcengine**: Accepts only the new-console API Key (`X-Api-Key`) authentication (legacy AppID + Access Token is not supported). Obtain keys from the [console API Key page](https://console.volcengine.com/speech/new/setting/apikeys).
 
@@ -131,7 +133,7 @@ After installation, a dsh-ears section appears in the Web UI settings page, orga
 ## Known limitations
 
 - The Web Speech backend relies on the browser implementation; audio may be sent to browser vendor servers for processing and is not a strictly local/offline solution.
-- Alibaba Cloud Model Studio (Bailian) recordings are capped at 300 seconds per audio.
+- Alibaba Cloud Model Studio (Bailian) recordings are capped at 300 seconds per audio; Qwen-Audio 3.1 may return no words for very short or silent audio, so prefer `qwen3-asr-flash` for short voice input.
 - Deepgram Flux models require the Listen V2 protocol and are currently unsupported.
 - Local Whisper has a single-recording limit of 24 MB and a 120-second transcription timeout.
 - Acceleration backend (`default` / `vulkan` / `cuda`) is locked after the first native module load; switching requires restarting `dsh web`.
