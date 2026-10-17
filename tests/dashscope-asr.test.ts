@@ -40,8 +40,11 @@ describe('DashScope ASR request shape', () => {
     expect(bailianModelTransportConflict('qwen3-asr-flash')).toBeUndefined()
     expect(bailianModelTransportConflict('fun-asr-flash-2026-06-15')).toBeUndefined()
     expect(bailianModelTransportConflict('qwen-audio-3.1-asr-flash-filetrans')).toBe('filetrans')
+    expect(bailianModelTransportConflict('qwen3-asr-flash-filetrans-2025-11-17')).toBe('filetrans')
     expect(bailianModelTransportConflict('qwen-audio-3.1-asr-flash-streaming')).toBe('streaming')
+    expect(bailianModelTransportConflict('qwen-audio-3.1-asr-flash-streaming-2026-01-01')).toBe('streaming')
     expect(bailianModelTransportConflict('qwen-audio-3.1-asr-flash-message')).toBe('message')
+    expect(bailianModelTransportConflict('qwen-audio-3.1-asr-flash-message-2026-01-01')).toBe('message')
     expect(bailianModelTransportConflict('qwen3-asr-flash-realtime')).toBe('realtime')
     expect(bailianModelTransportConflict('qwen-audio-3.0-realtime-flash')).toBe('realtime')
     expect(bailianModelTransportConflict('fun-asr-realtime')).toBe('realtime')
@@ -175,12 +178,12 @@ describe('transcribeDashScopeAsr', () => {
       mimeType: 'audio/webm',
       language: 'zh-CN',
       endpoint: 'https://ws-test.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-      model: 'qwen-audio-3.1-asr-flash-filetrans',
+      model: 'qwen3-asr-flash-filetrans-2025-11-17',
       credential: 'sk_test',
       signal: new AbortController().signal
     })).rejects.toMatchObject({
       code: EARS_ERROR_CODES.asrModelUnsupported,
-      params: { model: 'qwen-audio-3.1-asr-flash-filetrans' }
+      params: { model: 'qwen3-asr-flash-filetrans-2025-11-17' }
     })
     expect(fetchMock).not.toHaveBeenCalled()
   })

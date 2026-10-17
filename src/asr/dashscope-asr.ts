@@ -41,9 +41,9 @@ export function bailianModelTransportConflict(model: string): BailianModelTransp
   const name = model.trim().toLowerCase()
   if (name === '') return undefined
   if (BAILIAN_ASYNC_ONLY_MODELS.has(name)) return 'async-file'
-  if (name.endsWith('-filetrans')) return 'filetrans'
-  if (name.endsWith('-streaming')) return 'streaming'
-  if (name.endsWith('-message')) return 'message'
+  if (/-filetrans(?:-|$)/.test(name)) return 'filetrans'
+  if (/-streaming(?:-|$)/.test(name)) return 'streaming'
+  if (/-message(?:-|$)/.test(name)) return 'message'
   if (/-realtime(?:-|$)/.test(name)) return 'realtime'
   return undefined
 }
