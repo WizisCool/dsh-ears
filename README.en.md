@@ -39,7 +39,7 @@ dsh plugin --profile web add dsh-ears
 
 Desktop application: install from its plugin manager. The desktop app owns a reserved profile named `desktop` and the `dsh` CLI refuses to manage it, so there is no command-line equivalent. dsh-ears needs no separate desktop build — both surfaces load the same `web` client bundle.
 
-> **Still using dsh 0.1.x?** dsh-ears `0.4.2` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
+> **Still using dsh 0.1.x?** dsh-ears `0.4.3` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
 >
 > ```sh
 > # dsh 0.1.2 through 0.1.6

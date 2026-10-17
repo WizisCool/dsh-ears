@@ -124,7 +124,7 @@ if (!Array.isArray(clientInject)) fail('dsh.client.inject must be an array')
 else if (clientInject.includes('@deepseek-ai/dsh-client-runtime')) fail('dsh.client.inject must not include dsh-client-runtime')
 if (Object.hasOwn(manifest.peerDependencies ?? {}, '@deepseek-ai/dsh-client-runtime')) fail('peerDependencies must not include dsh-client-runtime')
 
-requireManifestValue('version', manifest.version, '0.4.2')
+requireManifestValue('version', manifest.version, '0.4.3')
 requireManifestValue('peerDependencies[@deepseek-ai/cordis]', manifest.peerDependencies?.['@deepseek-ai/cordis'], '^4.0.4')
 requireManifestValue('peerDependencies[@deepseek-ai/schemastery]', manifest.peerDependencies?.['@deepseek-ai/schemastery'], '^3.18.4')
 const expectedDshPeers = [

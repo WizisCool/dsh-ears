@@ -2,6 +2,29 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.4.3] - 2026-10-17
+
+Bailian console guidance. The upgraded Alibaba Cloud Model Studio console lists each ASR family with its synchronous, file-transcription, streaming, message, and realtime members side by side. This patch rejects the non-synchronous variants before they reach the sync endpoint, turns model-selection and model-not-found failures into actionable guidance, and treats Qwen-Audio 3.1's short-audio no-word reply as empty speech. No dsh baseline or peer-range change: `0.4.3` is a drop-in patch for `0.4.2`.
+
+### Fixed
+
+- **Non-synchronous Bailian models are rejected before the request.** `-filetrans`, `-streaming`, `-message`, and `-realtime` variants, including dated snapshots such as `qwen3-asr-flash-filetrans-2025-11-17`, and async-only `fun-asr` / `paraformer-v2` ids return `asr.modelUnsupported` with a localized synchronous-model example. Previously they reached the sync endpoint and failed with `url error, please check url`.
+- **Unknown Bailian model ids get actionable guidance.** A provider `Model not exist.` reply is mapped to `asr.modelNotFound`, which asks for the exact case-sensitive model ID and confirmation that the model is enabled in the current workspace.
+- **Qwen-Audio 3.1 no-word replies end quietly.** `CLIENT_ERROR: ASR_RESPONSE_HAVE_NO_WORDS` is treated as empty audio, so very short or silent clips no longer surface as an upstream failure. Short voice input should prefer `qwen3-asr-flash`; both READMEs record that limitation.
+- **Bailian response parsing accepts both placements.** Top-level `text` / `sentence.text` and the nested `output.*` shapes returned by the workspace-specific and legacy hosts are read.
+
+### Changed
+
+- **Bailian settings guidance follows the upgraded console.** The API-host hint names the workspace-specific Beijing and Singapore hosts and the allowed `/compatible-mode/v1` suffix; the model hint asks for the model ID and warns against display names and `-filetrans` / `-streaming` / `-message` variants.
+- **Both READMEs document the console upgrade.** They list the supported synchronous models, the unsupported transport variants, the short-audio limitation, and the current non-realtime HTTP API reference.
+- D-060 records the model-selection and no-word decisions.
+
+### Verification notes
+
+- `pnpm check`, `pnpm test` (588 tests), `pnpm build`, `pnpm verify:package`, and `pnpm release:check` pass.
+- The CI matrix passes on Ubuntu and Windows, the dependency audit passes, and both DSH compatibility smokes (`0.2.0-rc.1` and `0.2.1-rc.2`) pass.
+- The existing manual gates are unchanged: a real renderer and a real microphone are not automated.
+
 ## [0.4.2] - 2026-10-17
 
 dsh 0.2.1 support. The compile, lockfile, and certification baseline moves to dsh `0.2.1-rc.2`, the newest published dsh release, while the supported minimum stays at `>=0.2.0-rc.1`. Upstream again changed no API this plugin consumes, so this is a baseline and certification move with no runtime source change and no floor break: `0.4.2` is a drop-in patch for every host that already runs `0.4.1`.

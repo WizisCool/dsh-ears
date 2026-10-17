@@ -1,6 +1,6 @@
 {
   "name": "dsh-ears",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Voice input plugin for DeepSeek Harness: microphone, transcription, and optional dsh LLM polishing into an editable draft",
   "icon": "./assets/icon.svg",
   "license": "MIT",
