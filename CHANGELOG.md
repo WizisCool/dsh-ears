@@ -2,6 +2,29 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.4.2] - 2026-10-17
+
+dsh 0.2.1 support. The compile, lockfile, and certification baseline moves to dsh `0.2.1-rc.2`, the newest published dsh release, while the supported minimum stays at `>=0.2.0-rc.1`. Upstream again changed no API this plugin consumes, so this is a baseline and certification move with no runtime source change and no floor break: `0.4.2` is a drop-in patch for every host that already runs `0.4.1`.
+
+### Changed
+
+- **The compile and lockfile baseline is dsh `0.2.1-rc.2`.** Every `@deepseek-ai/dsh-*` development pin, the bundled `@deepseek-ai/dsh-client-store` implementation dependency, `@deepseek-ai/cordis` (`4.0.5`), and `@deepseek-ai/schemastery` (`3.18.5`) move together. Bumping a single package in that family is not a valid state: a newer dsh package resolves its own copy of `dsh-llm`, and the branded `ReasoningEffortId` / `ToolCallId` / `MessageId` types of the two copies do not unify, so the tree stops type-checking.
+- **The supported dsh minimum is unchanged at `>=0.2.0-rc.1`.** The peer ranges, `engines.dsh`, the READMEs and their badge, the About surface, and package verification keep stating that floor. The open `>=` range is deliberate (D-058): it admits later 0.2.x hosts without a new plugin release, so a newer certification target is not a compatibility break.
+- **The compatibility smoke certifies two dsh lines.** The CI matrix and `scripts/compat-smoke.mjs` cover `0.2.0-rc.1` and `0.2.1-rc.2`, and the smoke now takes each line's cordis/schemastery pins from a per-version table instead of one row pinned for every host, because dsh 0.2.1 peers `~4.0.5` and `~3.18.5`.
+- Dependabot groups every `@deepseek-ai/*` update into one pull request, so the release line cannot be bumped one package at a time again. The seven per-package pull requests this replaced are recorded in the repository as superseded, not merged.
+
+### Upstream context
+
+- dsh `0.2.1-rc.2` is the npm `next` release; npm `latest` remains `0.2.0-rc.2` and no stable `0.2.1` exists yet. The line's user-facing work is the plugin market, session-query and terminal tooling, and a resource-scoped access-control model for Remote calls.
+- Tarball comparison of the thirteen packages this plugin consumes against `0.2.0-rc.1` found only additive or optional changes. `@deepseek-ai/dsh-settings`, `@deepseek-ai/dsh-client-locale`, `@deepseek-ai/dsh-client-store`, and `@deepseek-ai/dsh-client-ui-settings-plugins` are unchanged outside `package.json`; `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` are unchanged outside their version. The rest add declarations: Typert gains `resources`, `principal`, and `TypertRemoteValue`, `TypertCodec` keeps requiring `create()` through that value type, `LlmCallConfig` is split into `LlmCallControls` plus the captured route without losing a field, and the conversation, settings, and primitives surfaces add `draft`, `user-text`, `CommandChip`, `InlineEditor`, `MenuGroup`, and `HoverCardGroup` exports. The exported Cordis `Config` settings policy, `settings.describe()`/`update()`/`replace()`, the icon exports, slot registration, `ctx.credentials`, `ctx.llm`, and the strict Typert `create()` codec contract are unchanged.
+- The new Remote access-control layer gives a call that names no resource the built-in `global` resource, and dsh-ears' namespace touches no session, workspace, or file identity, so it needs no resource declaration. The certification run exercises that path through the real HTTP Remote boundary rather than by inspection.
+
+### Verification notes
+
+- `pnpm check`, `pnpm test` (582 tests), `pnpm build`, `pnpm verify:package`, and `pnpm release:check` pass against the `0.2.1-rc.2` baseline with no source change.
+- The compatibility smoke ran its `fresh`, `canonical`, and `legacy` scenarios against dsh `0.2.1-rc.2` and against dsh `0.2.0-rc.1`. Each run served the Client contribution, returned a redacted `getSettings` view, applied a settings write through the strict Remote, and read that write back after a `dsh web` restart. The same build passes on both lines, which is what makes the unchanged `>=0.2.0-rc.1` floor an assertion instead of a claim.
+- The existing manual gates are unchanged: a real renderer and a real microphone are not automated, so the desktop and browser click-through remains a manual result rather than a test.
+
 ## [0.4.1] - 2026-09-28
 
 dsh 0.2.0 support. The supported minimum moves to dsh `>=0.2.0-rc.1`, and dsh-ears `0.4.1` is the first release that runs on the dsh 0.2 desktop client; `0.4.0` remains the last release for dsh 0.1.x. The range break lands in a patch release, and dsh enforces it: an install on dsh `0.1.7-rc.2` is refused instead of run. No runtime source change was required, because every dsh package dsh-ears consumes kept its public contract across that step.

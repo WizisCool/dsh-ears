@@ -7,8 +7,19 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
-  '0.2.0-rc.1'
+  '0.2.0-rc.1',
+  '0.2.1-rc.2'
 ])
+
+/**
+ * Vendor generations each certified dsh line ships. The plugin takes cordis and
+ * schemastery as peers, so a smoke project must install the pair that the host
+ * under test actually carries instead of one row pinned for every line.
+ */
+const DSH_VENDOR_PINS = Object.freeze({
+  '0.2.0-rc.1': { cordis: '4.0.4', schemastery: '3.18.4' },
+  '0.2.1-rc.2': { cordis: '4.0.5', schemastery: '3.18.5' }
+})
 
 /**
  * Which settings document the smoke starts from.
@@ -201,9 +212,11 @@ async function stopServer(child) {
 }
 
 function peerDependencySpecs(manifest, dshVersion) {
+  const vendor = DSH_VENDOR_PINS[dshVersion]
+  if (vendor === undefined) throw new Error(`compat smoke has no vendor pins for dsh ${dshVersion}`)
   return Object.keys(manifest.peerDependencies ?? {}).map((name) => {
-    if (name === '@deepseek-ai/cordis') return `${name}@4.0.4`
-    if (name === '@deepseek-ai/schemastery') return `${name}@3.18.4`
+    if (name === '@deepseek-ai/cordis') return `${name}@${vendor.cordis}`
+    if (name === '@deepseek-ai/schemastery') return `${name}@${vendor.schemastery}`
     if (name.startsWith('@deepseek-ai/dsh-')) return `${name}@${dshVersion}`
     if (name === 'react') return `${name}@18.3.1`
     throw new Error(`compat smoke does not know how to pin peer dependency ${name}`)
@@ -218,9 +231,9 @@ async function prepareSmokeProject({ projectRoot, smokeProject, dshVersion, pnpm
     version: '0.0.0',
     private: true
   }, null, 2) + '\n')
-  // The dsh 0.1.7 cordis plugin family all peer `~4.0.4`, matching the pinned
-  // Cordis above, so the resolver picks its own co-tested generation instead of
-  // an override list.
+  // The dsh cordis plugin family peers `~4.0.4` on 0.2.0 and `~4.0.5` on 0.2.1,
+  // matching the vendor pins above, so the resolver picks its own co-tested
+  // generation instead of an override list.
   await writeFile(join(smokeProject, 'pnpm-workspace.yaml'), [
     'packages:',
     '  - .',

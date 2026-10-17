@@ -20,6 +20,8 @@ The dsh-ears 0.2 maintenance line supports dsh `0.1.0-rc.6` through `0.1.1-rc.2`
 
 The `master` 0.4.1 patch requires dsh `>=0.2.0-rc.1` (D-058). It is the first release that runs on the official desktop client, and it drops pre-0.2.0 support outright: upstream 0.2.0-rc.1 changes no API this plugin consumes, so the patch is a compatibility, desktop-support, and verification move with no runtime source change. Users on dsh 0.1.2–0.1.7 must install dsh-ears `<0.4.1`, and the host refuses the install rather than warning. The desktop application composes the same `web` client platform as the Web UI, so one bundle serves both and the manifest keeps `dsh.client.platform: "web"`.
 
+The `master` 0.4.2 patch moves the compile, lockfile, and certification baseline to dsh `0.2.1-rc.2`, the newest published dsh release, and keeps the `>=0.2.0-rc.1` floor (D-059). It is likewise a baseline and certification move with no runtime source change, and it ships as a patch because the open range already admitted 0.2.1 hosts. The compatibility smoke certifies both `0.2.0-rc.1` and `0.2.1-rc.2`.
+
 ## Architecture
 
 The package has two faces:
@@ -51,7 +53,7 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 1. D-018 remains open: `transcribe()` reads backend/model/language when the Host RPC begins — "language" now meaning the per-provider recognition-language fields (D-042). Snapshotting those settings at recording start, or locking them during capture, needs an explicit protocol decision.
 2. Live Groq, Bailian, Tencent Cloud, `zh`, and Windows smokes are still pending. Windows launcher probing is implemented but not smoke-tested on Windows.
-3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification; the 0.3.3 compatibility release certified dsh `0.1.5-rc.3` while retaining the 0.1.2 floor (D-051/D-055). The 0.4.0 release raises the floor to dsh `>=0.1.7-rc.2` for the certificate-target line and ports the settings, icon, and Typert codec surfaces (D-056); the Windows browser smoke remains a manual release gate. The 0.4.1 patch raises the floor to dsh `>=0.2.0-rc.1`, drops pre-0.2.0 support, and certifies the desktop surface with the same client bundle (D-058); its manual desktop click-through passed on 2026-09-28 through the application's own plugin manager, so the next client-surface work is the settings-page relocation to the Plugins panel.
+3. The 0.3 release was promoted from `next` to `master` by PR #46 after explicit maintainer authorization and automated dsh `0.1.2-rc.1` certification; the 0.3.3 compatibility release certified dsh `0.1.5-rc.3` while retaining the 0.1.2 floor (D-051/D-055). The 0.4.0 release raises the floor to dsh `>=0.1.7-rc.2` for the certificate-target line and ports the settings, icon, and Typert codec surfaces (D-056); the Windows browser smoke remains a manual release gate. The 0.4.1 patch raises the floor to dsh `>=0.2.0-rc.1`, drops pre-0.2.0 support, and certifies the desktop surface with the same client bundle (D-058); its manual desktop click-through passed on 2026-09-28 through the application's own plugin manager, so the next client-surface work is the settings-page relocation to the Plugins panel. The 0.4.2 patch re-baselines on dsh `0.2.1-rc.2` without moving the floor and certifies both 0.2 lines (D-059); like 0.4.1 it changes no runtime source, so it carries the 0.4.1 manual results forward and adds no new manual gate.
 4. Emotion recognition/UI stays deferred (D-015). Tencent Cloud standard recording and realtime services share one provider configuration and keep credentials on the Host.
 
 ## dsh integration
@@ -100,4 +102,4 @@ dsh-ears/
 
 - [DeepSeek Harness development guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
 - [DeepSeek Harness GitHub repository](https://github.com/deepseek-ai/deepseek-harness)
-- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035) and the 0.3 line covers dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055); dsh-ears 0.4.0 compiles against exact `0.1.7-rc.2` (D-056), and dsh-ears 0.4.1 compiles against exact `0.2.0-rc.1`, certifies that version only, and requires the `>=0.2.0-rc.1` peer minimum (D-058)
+- Pre-0.3 maintenance packages target dsh through `0.1.1-rc.2` (D-035) and the 0.3 line covers dsh `0.1.2-rc.1` through `0.1.5-rc.3` (D-051, D-055); dsh-ears 0.4.0 compiles against exact `0.1.7-rc.2` (D-056), dsh-ears 0.4.1 compiles against exact `0.2.0-rc.1` and requires the `>=0.2.0-rc.1` peer minimum (D-058), and dsh-ears 0.4.2 compiles against exact `0.2.1-rc.2`, certifies `0.2.0-rc.1` and `0.2.1-rc.2`, and keeps that same `>=0.2.0-rc.1` peer minimum (D-059)

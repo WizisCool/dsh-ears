@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      # The dsh release line, its cordis/schemastery pins, and the cordis plugin
+      # family must move in lockstep. Bumped one package at a time they stop
+      # type-checking, because a newer dsh package resolves a second copy of
+      # dsh-llm and the branded types of the two copies do not unify.
+      deepseek:
+        patterns:
+          - '@deepseek-ai/*'
     ignore:
       # engines declares ^22.19.0 || >=24.0.0; typings from newer Node lines
       # would let type checking admit APIs no supported runtime has. Minor and
