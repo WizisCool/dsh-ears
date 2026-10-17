@@ -20,6 +20,8 @@ describe('voice failure classification', () => {
   it('treats missing keys and hosts as configuration issues', () => {
     expect(classifyVoiceFailure('The cloud ASR API key is not configured', EARS_ERROR_CODES.asrApiKeyNotConfigured)).toBe('config')
     expect(classifyVoiceFailure('The cloud ASR model is not configured', EARS_ERROR_CODES.asrModelNotConfigured)).toBe('config')
+    expect(classifyVoiceFailure('Bailian model uses the filetrans transport', EARS_ERROR_CODES.asrModelUnsupported)).toBe('config')
+    expect(classifyVoiceFailure('Model not exist', EARS_ERROR_CODES.asrModelNotFound)).toBe('config')
     expect(classifyVoiceFailure('Bailian ASR host must use HTTPS without credentials', EARS_ERROR_CODES.asrEndpointInvalid)).toBe('config')
   })
 

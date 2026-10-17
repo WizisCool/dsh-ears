@@ -54,6 +54,8 @@ const CONFIG_ERROR_CODES = new Set<string>([
   EARS_ERROR_CODES.backendLocalUnavailable,
   EARS_ERROR_CODES.backendCloudUnavailable,
   EARS_ERROR_CODES.asrModelNotConfigured,
+  EARS_ERROR_CODES.asrModelUnsupported,
+  EARS_ERROR_CODES.asrModelNotFound,
   EARS_ERROR_CODES.asrApiKeyNotConfigured,
   EARS_ERROR_CODES.asrEndpointInvalid,
   EARS_ERROR_CODES.asrEndpointHasCredentials,

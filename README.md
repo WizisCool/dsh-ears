@@ -100,7 +100,7 @@ dsh plugin --profile web remove dsh-ears
 | 本地 Whisper | 录音结束后本地转写 | 在设置页下载 GGML 模型 |
 | [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
 | [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
-| [阿里云百炼](https://www.aliyun.com/product/bailian) | [DashScope 同步转写](https://help.aliyun.com/zh/model-studio/developer-reference/tongyi-qianwen-audio-api) | API key、模型名；单次最长 300 秒 |
+| [阿里云百炼](https://www.aliyun.com/product/bailian) | [DashScope 同步转写](https://help.aliyun.com/zh/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) | API key、同步模型 ID；单次最长 300 秒 |
 | [腾讯云](https://cloud.tencent.com/product/asr) | [录音文件识别](https://cloud.tencent.com/document/api/1093/37823)或[实时语音识别](https://cloud.tencent.com/document/api/1093/48982) | AppID、SecretID、SecretKey、`engine_type` |
 | [小米 MiMo](https://mimo.mi.com) | [语音识别 API](https://mimo.mi.com/docs/zh-CN/api/audio/Speech-Recognition)，支持标准 API 或 [Token Plan](https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription) | API key、模型名（如 `mimo-v2.5-asr`）；Token Plan 需选择区域集群 |
 | [硅基流动 (CN)](https://siliconflow.cn) | [语音转写 API](https://api-docs.siliconflow.cn/docs/api/audio-transcriptions-post) | API key、模型名（如 `FunAudioLLM/SenseVoiceSmall`） |
@@ -108,6 +108,8 @@ dsh plugin --profile web remove dsh-ears
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
 > **本地 Whisper**：基于 `@fugood/whisper.node` 本地运行 whisper.cpp，无需 Python、FFmpeg 或外部依赖。支持在设置页下载管理 GGML 模型（`tiny`（默认）至 `turbo`），并可选 `default`（自动）、`vulkan` 或 `cuda` 加速。
+>
+> **阿里云百炼**：升级后的控制台使用业务空间专属域名（华北2 北京为 `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`，新加坡为 `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`）。请填写该 API Host 和**同步模型 ID**（如 `qwen3-asr-flash`、`qwen-audio-3.1-asr-flash`、`fun-asr-flash-2026-06-15`），不要填控制台显示名称，也不要使用 `-filetrans`、`-streaming`、`-message`、`-realtime` 变体，这些模型走异步任务或 WebSocket 接口，dsh-ears 不支持。
 >
 > **火山引擎**：仅支持新版控制台的 API Key（`X-Api-Key`）鉴权（不支持旧版 AppID + Access Token），可在[控制台 API Key 管理](https://console.volcengine.com/speech/new/setting/apikeys)页面获取。
 
@@ -131,7 +133,7 @@ dsh plugin --profile web remove dsh-ears
 ## 已知限制
 
 - Web Speech 后端依赖浏览器实现，音频可能被发送到浏览器厂商的服务端处理，不是完全的本地/离线方案。
-- 百炼单次录音最长 300 秒。
+- 百炼单次录音最长 300 秒；Qwen-Audio-3.1 对极短或静音音频可能返回“无词”，短语音输入建议使用 `qwen3-asr-flash`。
 - Deepgram Flux 系列模型需要 Listen V2 协议，当前不支持。
 - 本地 Whisper 单次音频限制 24 MB，转写超时 120 秒。
 - 加速方式（`default` / `vulkan` / `cuda`）在首次 native 加载后锁定，切换需重启 `dsh web`。

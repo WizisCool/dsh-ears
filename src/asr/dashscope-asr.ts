@@ -19,6 +19,35 @@ export function isQwen3AsrFlashModel(model: string): boolean {
   return /^qwen3-asr-flash/i.test(model.trim())
 }
 
+/** Transport families that cannot be reached through the synchronous adapter. */
+export type BailianModelTransportConflict = 'async-file' | 'filetrans' | 'streaming' | 'message' | 'realtime'
+
+/** Console models that only exist as asynchronous file-transcription jobs. */
+const BAILIAN_ASYNC_ONLY_MODELS = new Set([
+  'fun-asr',
+  'paraformer-v2',
+  'paraformer-8k-v2'
+])
+
+/**
+ * The upgraded Model Studio console lists every member of an ASR family side by
+ * side. Only the plain synchronous id belongs in this adapter: the other
+ * variants take a public file URL, an asynchronous task, or a WebSocket
+ * handshake. Posting one of them to the synchronous endpoint fails later with
+ * an opaque provider error such as `url error, please check url`, which reads
+ * like a plugin defect instead of a model-selection mistake.
+ */
+export function bailianModelTransportConflict(model: string): BailianModelTransportConflict | undefined {
+  const name = model.trim().toLowerCase()
+  if (name === '') return undefined
+  if (BAILIAN_ASYNC_ONLY_MODELS.has(name)) return 'async-file'
+  if (/-filetrans(?:-|$)/.test(name)) return 'filetrans'
+  if (/-streaming(?:-|$)/.test(name)) return 'streaming'
+  if (/-message(?:-|$)/.test(name)) return 'message'
+  if (/-realtime(?:-|$)/.test(name)) return 'realtime'
+  return undefined
+}
+
 export function audioFormatFromMime(mimeType: string): string {
   const normalized = mimeType.toLowerCase().split(';', 1)[0] ?? ''
   if (normalized === 'audio/wav' || normalized === 'audio/x-wav') return 'wav'
@@ -91,6 +120,15 @@ export function extractDashScopeTranscript(parsed: unknown): string {
       }
     }
   }
+  // Workspace-specific and legacy DashScope hosts have returned the transcript
+  // at the top level as well as under `output`. Read either placement so a
+  // host-side shape change cannot turn a successful recognition into silence.
+  const topLevel = firstText(parsed.text)
+  if (topLevel !== undefined) return topLevel
+  if (isRecord(parsed.sentence)) {
+    const topLevelSentence = firstText(parsed.sentence.text)
+    if (topLevelSentence !== undefined) return topLevelSentence
+  }
   const message = typeof parsed.message === 'string' ? parsed.message.trim() : ''
   if (message !== '') throw new EarsError(EARS_ERROR_CODES.asrInvalidResponse, message)
   return ''
@@ -101,6 +139,14 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
   options.signal.throwIfAborted()
   const model = options.model.trim()
   if (model === '') throw new EarsError(EARS_ERROR_CODES.asrModelNotConfigured, 'The cloud ASR model is not configured')
+  const transportConflict = bailianModelTransportConflict(model)
+  if (transportConflict !== undefined) {
+    throw new EarsError(
+      EARS_ERROR_CODES.asrModelUnsupported,
+      `Bailian model "${model}" uses the ${transportConflict} transport; voice input needs a synchronous model such as "qwen-audio-3.1-asr-flash"`,
+      { model }
+    )
+  }
   const credential = options.credential.trim()
   if (credential === '') throw new EarsError(EARS_ERROR_CODES.asrApiKeyNotConfigured, 'The cloud ASR API key is not configured')
   const endpoint = validateEndpoint(options.endpoint)
@@ -136,6 +182,9 @@ export async function transcribeDashScopeAsr(options: DashScopeAsrOptions): Prom
     }
     if (!response.ok) {
       if (isDashScopeEmptyAudioError(parsed, response.status)) return ''
+      if (isDashScopeModelNotFound(parsed)) {
+        throw new EarsError(EARS_ERROR_CODES.asrModelNotFound, dashScopeErrorDetail(parsed, response.status), { model, status: response.status })
+      }
       throw new EarsError(EARS_ERROR_CODES.asrHttpFailed, dashScopeErrorDetail(parsed, response.status), { status: response.status })
     }
     return extractDashScopeTranscript(parsed)
@@ -169,6 +218,12 @@ export function dashScopeErrorFields(parsed: unknown): { code: string; message: 
   return { code, message }
 }
 
+/** Whether the provider rejected the request because the model id is unknown. */
+export function isDashScopeModelNotFound(parsed: unknown): boolean {
+  const { code, message } = dashScopeErrorFields(parsed)
+  return /model\s+not\s+(?:exist|found)/i.test(`${code} ${message}`)
+}
+
 export function dashScopeErrorDetail(parsed: unknown, status: number): string {
   const { code, message } = dashScopeErrorFields(parsed)
   if (code !== '' && message !== '' && message !== code) return `${code}: ${message}`
@@ -181,6 +236,8 @@ const EMPTY_AUDIO_MARKERS = [
   'no speech',
   'no valid speech',
   'no voice',
+  'no words',
+  'asr_response_have_no_words',
   'empty audio',
   'audio is empty',
   'too short',
