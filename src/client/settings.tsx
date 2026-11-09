@@ -509,7 +509,7 @@ function SelectRow({ label, hint, value, options, entries, placeholder, disabled
   const items: readonly MenuEntry[] = valueTooltip
     ? menuItems.map((item) => {
         if ('type' in item || item.label === item.id) return item
-        return { ...item, label: <Tooltip label={item.id} side="top" delayMs={200}><span>{item.label}</span></Tooltip> }
+        return { ...item, label: <Tooltip label={item.id} side="top" delayMs={200} portal><span>{item.label}</span></Tooltip> }
       })
     : menuItems
   return (
