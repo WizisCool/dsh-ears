@@ -2,6 +2,30 @@
 
 All notable changes to dsh-ears are recorded here.
 
+## [0.4.4] - 2026-11-09
+
+Reported-defect fixes and a compatibility baseline refresh. This patch keeps the dsh `>=0.2.0-rc.1` floor and moves the compile, lockfile, and certification target to dsh `0.2.1-rc.4`. It fixes the composer tooltip repaint loop, a voice stop that could leave the recognition bar stuck, and the in-process native Whisper runtime that could abort the whole Host during GPU cleanup.
+
+### Fixed
+
+- **Composer tooltips portal out of the composer seat.** The primitives `Tooltip` rendered its bubble inline by default, and the composer seat's `will-change: transform` made it the containing block for the bubble's fixed layout. Hovering the microphone at the bottom of a conversation repainted the message list. All six client tooltips now portal, and a source invariant test fails on a new inline tooltip (#107).
+- **A voice stop can no longer trap the UI in `recording`.** Web Speech ends at a 1.2-second watchdog with whatever was heard when the browser accepts `stop()` but never delivers `onend`; MediaRecorder settles after 3 seconds with the chunks already received; realtime capture stop is bounded at 4 seconds before finishing the remote session (#96).
+- **Local Whisper runs in a sacrificial worker process.** `@fugood/whisper.node` no longer loads in the Host, so a native SIGABRT during Metal cleanup cannot terminate DSH or its other sessions. The worker releases the model context on success, failure, cancellation, replacement, model deletion, shutdown, and IPC disconnect; release failures surface as `whisper.releaseFailed`, and an unexpected worker exit rejects one request as `whisper.workerFailed` before the next request starts a fresh worker. Abort and timeout cancel cooperatively, then kill an unresponsive worker after five seconds; shutdown is bounded at 3 seconds plus a 0.5-second SIGKILL grace (D-061, fixes #97).
+- **The Host never loads the native addon.** Platform packages are resolved, not required, in the Host. Package verification fails if `lib/index.js` references `@fugood/whisper.node` and requires the shipped `lib/asr/whisper-worker.js`.
+
+### Changed
+
+- **The compile and certification baseline is dsh `0.2.1-rc.4`** while the supported minimum stays `>=0.2.0-rc.1`. The dsh family and `@deepseek-ai/dsh-client-store` move together, and CI certifies `0.2.0-rc.1` and `0.2.1-rc.4`. `0.2.2-rc.1` needs a separate cordis 4.1 / schemastery 3.19 port (D-062).
+- **The open dependency updates ride the same validated tree:** tsdown `0.23.4`, vitest `5.1.0`, zustand `5.0.16`, immer `11.2.9`, `@thesvg/react` `4.0.4`, and pnpm/action-setup `v6.1.1`.
+- **Two Local Whisper failure codes are localized.** `whisper.workerFailed` and `whisper.releaseFailed` join the structured voice-error copy in Chinese and English.
+
+### Verification notes
+
+- `pnpm check`, `pnpm test` (610 tests), `pnpm build`, `pnpm verify:package`, and `pnpm release:check` pass.
+- The CI matrix passes on Ubuntu and Windows, the dependency audit passes, and both DSH compatibility smokes (`0.2.0-rc.1` and `0.2.1-rc.4`) pass.
+- A built-worker smoke loaded the real native addon inside the child, failed only on a deliberately missing model file, and exited 0; the Host bundle contains no native reference.
+- The macOS Metal SIGABRT reproducer was not re-run: no Metal-capable machine is available here, so the real-GPU smoke remains an owed manual gate. The tooltip fix carries the reporter's desktop A/B verification; no new real-renderer or real-microphone click-through is claimed.
+
 ## [0.4.3] - 2026-10-17
 
 Bailian console guidance. The upgraded Alibaba Cloud Model Studio console lists each ASR family with its synchronous, file-transcription, streaming, message, and realtime members side by side. This patch rejects the non-synchronous variants before they reach the sync endpoint, turns model-selection and model-not-found failures into actionable guidance, and treats Qwen-Audio 3.1's short-audio no-word reply as empty speech. No dsh baseline or peer-range change: `0.4.3` is a drop-in patch for `0.4.2`.
