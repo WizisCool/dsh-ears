@@ -8,6 +8,7 @@ export interface RecordedAudio {
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
 const WARM_HOLD_MS = 8_000
+const STOP_FALLBACK_MS = 3_000
 
 let warmStream: MediaStream | undefined
 let warming: Promise<void> | undefined
@@ -104,6 +105,7 @@ export class MediaRecorderSession {
   private stopPromise: Promise<RecordedAudio> | undefined
   private stopReject: ((reason: unknown) => void) | undefined
   private stopCleanup: (() => void) | undefined
+  private stopFallbackTimer: ReturnType<typeof setTimeout> | undefined
   private totalBytes = 0
   private recordingError: Error | undefined
 
@@ -170,6 +172,7 @@ export class MediaRecorderSession {
       const cleanup = () => {
         this.recorder.removeEventListener('stop', onStop)
         this.recorder.removeEventListener('error', onError)
+        this.clearStopFallback()
         if (this.stopCleanup === cleanup) this.stopCleanup = undefined
       }
       const fail = (error: unknown) => {
@@ -191,11 +194,22 @@ export class MediaRecorderSession {
         void this.finish().then(resolve, reject)
       }
       const onError = () => fail(new Error('Media recording failed'))
+      // A recorder that accepts stop() without delivering dataavailable/stop
+      // would otherwise leave the caller awaiting forever and trap the voice
+      // UI in "recording". Settle with the audio that did arrive instead.
+      const onFallback = () => {
+        if (settled) return
+        settled = true
+        cleanup()
+        this.stopReject = undefined
+        void this.finish().then(resolve, reject)
+      }
 
       this.stopReject = (reason) => fail(reason)
       this.stopCleanup = cleanup
       this.recorder.addEventListener('stop', onStop)
       this.recorder.addEventListener('error', onError)
+      this.stopFallbackTimer = setTimeout(onFallback, STOP_FALLBACK_MS)
       try {
         this.recorder.stop()
       } catch (error) {
@@ -211,6 +225,7 @@ export class MediaRecorderSession {
     this.closed = true
     this.stopCleanup?.()
     this.stopCleanup = undefined
+    this.clearStopFallback()
     this.stopReject?.(abortError())
     this.stopReject = undefined
     if (this.recorder.state !== 'inactive') {
@@ -242,6 +257,12 @@ export class MediaRecorderSession {
       this.chunks.length = 0
       this.totalBytes = 0
     }
+  }
+
+  private clearStopFallback(): void {
+    if (this.stopFallbackTimer === undefined) return
+    clearTimeout(this.stopFallbackTimer)
+    this.stopFallbackTimer = undefined
   }
 }
 

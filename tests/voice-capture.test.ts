@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   decideMicrophoneClick,
   isSupersededMediaCapture,
   reuseInFlightPromise,
   resolveCaptureBackend,
+  settleWithin,
   shouldAbandonPendingCapture,
   voiceToggleAction,
   webSpeechCommittedTranscript
@@ -160,5 +161,29 @@ describe('webSpeechCommittedTranscript', () => {
       sessionDraft: 'replaced',
       baseDraft: 'hello'
     })).toBe('replaced')
+  })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+describe('settleWithin', () => {
+  it('returns the settled value before the deadline', async () => {
+    await expect(settleWithin(Promise.resolve('stopped'), 1_000)).resolves.toEqual({ settled: true, value: 'stopped' })
+  })
+
+  it('propagates a rejection that arrives before the deadline', async () => {
+    await expect(settleWithin(Promise.reject(new Error('stop failed')), 1_000)).rejects.toThrow('stop failed')
+  })
+
+  it('reports the deadline and consumes a late rejection', async () => {
+    vi.useFakeTimers()
+    let rejectLate!: (error: Error) => void
+    const pending = settleWithin(new Promise<void>((_, reject) => { rejectLate = reject }), 4_000)
+    await vi.advanceTimersByTimeAsync(4_000)
+    await expect(pending).resolves.toEqual({ settled: false })
+    rejectLate(new Error('late stop failure'))
+    await Promise.resolve()
   })
 })

@@ -10,6 +10,7 @@ afterEach(() => {
   else Object.defineProperty(globalThis, 'navigator', originalNavigator)
   if (originalMediaRecorder === undefined) Reflect.deleteProperty(globalThis, 'MediaRecorder')
   else Object.defineProperty(globalThis, 'MediaRecorder', originalMediaRecorder)
+  vi.useRealTimers()
 })
 
 describe('MediaRecorderSession', () => {
@@ -196,5 +197,62 @@ describe('MediaRecorderSession', () => {
 
     expect(getUserMedia).toHaveBeenCalledTimes(1)
     expect(stopTrack).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('MediaRecorderSession stop watchdog', () => {
+  it('settles with the audio received so far when the recorder never emits stop', async () => {
+    vi.useFakeTimers()
+    const stopTrack = vi.fn()
+    const stream = { getTracks: () => [{ stop: stopTrack }] }
+    let recorder: FakeRecorder | undefined
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void { this.state = 'inactive' }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: class extends FakeRecorder {
+      constructor() {
+        super()
+        recorder = this
+      }
+    } })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    recorder?.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([Uint8Array.from([7, 8])], { type: 'audio/webm' }) }))
+    const pending = session.stop()
+    await vi.advanceTimersByTimeAsync(3_000)
+    const result = await pending
+
+    expect(atob(result.base64)).toBe('\x07\x08')
+    expect(stopTrack).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the watchdog when the recorder stops normally', async () => {
+    vi.useFakeTimers()
+    const stream = { getTracks: () => [{ stop: vi.fn() }] }
+    class FakeRecorder extends EventTarget {
+      static isTypeSupported(): boolean { return false }
+      state: RecordingState = 'inactive'
+      mimeType = 'audio/webm'
+      start(): void { this.state = 'recording' }
+      stop(): void {
+        this.state = 'inactive'
+        this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([Uint8Array.from([9])], { type: 'audio/webm' }) }))
+        this.dispatchEvent(new Event('stop'))
+      }
+    }
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } })
+    Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: FakeRecorder })
+
+    const session = await MediaRecorderSession.create()
+    session.start()
+    const result = await session.stop()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(atob(result.base64)).toBe('\x09')
   })
 })
