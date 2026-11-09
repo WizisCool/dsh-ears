@@ -73,7 +73,7 @@ export function VoiceRecognitionBar({ voiceSession, t: slotT, earsT }: VoiceReco
             <span className={styles.label} title={label}>{label}</span>
             {processing ? <IconLoadingOutlineRegular className={styles.spinner} size={16} /> : notice ? null : <Waveform levels={display.levels} />}
           </div>
-          <Tooltip label={actionLabel} side="top" delayMs={200}>
+          <Tooltip label={actionLabel} side="top" delayMs={200} portal>
             <button
               type="button"
               className={styles.stop}
