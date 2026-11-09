@@ -174,7 +174,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
 
   if (!active && !busy && backend === null) {
     return (
-      <Tooltip label={t('voiceUnavailable')} side="top" delayMs={200}>
+      <Tooltip label={t('voiceUnavailable')} side="top" delayMs={200} portal>
         <button
           ref={buttonRef}
           type="button"
@@ -190,7 +190,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
 
   if (!active && !busy && configUnavailable !== null) {
     return (
-      <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200}>
+      <Tooltip label={micUnavailableTooltip(configUnavailable, backendInfo.backends, t)} side="top" delayMs={200} portal>
         <button
           ref={buttonRef}
           type="button"
@@ -215,7 +215,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
   if (!active && !busy && !backendAvailable) {
     const unavailableLabel = backend === 'web-speech' ? t('voiceUnavailableWebSpeech') : t('voiceUnavailableRecorder')
     return (
-      <Tooltip label={unavailableLabel} side="top" delayMs={200}>
+      <Tooltip label={unavailableLabel} side="top" delayMs={200} portal>
         <button
           ref={buttonRef}
           type="button"
@@ -617,7 +617,7 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
   const ariaLabel = busy ? t('voiceBusy') : active ? t('voiceStop') : t('voiceStart')
 
   return (
-    <Tooltip label={tooltipLabel} side="top" delayMs={200}>
+    <Tooltip label={tooltipLabel} side="top" delayMs={200} portal>
       <button
         ref={buttonRef}
         type="button"
