@@ -16,13 +16,15 @@ import { base64ByteLength, classifyVoiceFailure, failureMessage, isTrivialRecord
 import { commitTranscript, updateDraft } from './voice-flow.js'
 import { matchesShortcut } from '../shortcut.js'
 import { fallbackTranslate, localizedErrorText, type Translate } from './settings-locale.js'
-import { resolveCaptureBackend, isSupersededMediaCapture, reuseInFlightPromise, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
+import { resolveCaptureBackend, isSupersededMediaCapture, reuseInFlightPromise, settleWithin, shouldAbandonPendingCapture, webSpeechCommittedTranscript } from './voice-capture.js'
 import { micUnavailableReason, type MicUnavailableReason } from './mic-availability.js'
 import type { BackendHook, WhisperModelHook } from './settings-controller.js'
 import { playClick, resumeSounds, retainSounds } from './sounds.js'
 import { createVoiceStateSetter, useVoiceInputSession, type VoiceInputSession } from './voice-session.js'
 import { isTranscriptionStillCurrent, prepareRecordedAudioForBackend, type MediaCaptureBackend } from './local-whisper-audio.js'
 import { isCloudAsrRealtime } from '../asr/providers.js'
+
+const REALTIME_STOP_TIMEOUT_MS = 4_000
 
 type VoiceInputButtonProps = {
   readonly useInput: SnapshotSelectorHook<InputState>
@@ -332,7 +334,10 @@ export function MicrophoneButton({ useInput, inputActions, remote, useEarsSettin
       const epoch = voiceSession.captureEpoch()
       setState('transcribing')
       try {
-        await capture.stop()
+        // Web Audio teardown can stall in embedded shells. Audio chunks were
+        // already delivered, so bound the wait and finish the remote session
+        // instead of trapping the UI in "transcribing".
+        await settleWithin(capture.stop(), REALTIME_STOP_TIMEOUT_MS)
         if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return
         const result = await remote.finishRealtime(sessionId, controller.signal)
         if (!mountedRef.current || controller.signal.aborted || !voiceSession.isCurrentEpoch(epoch)) return

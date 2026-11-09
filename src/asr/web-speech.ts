@@ -50,12 +50,16 @@ type SpeechRecognitionWindow = Window & {
 
 export type WebSpeechSessionOptions = {
   language: string
+  /** Watchdog for shells that accept stop() but never deliver an end event. */
+  stopFallbackMs?: number
   onStart?: () => void
   onInterim: (text: string) => void
   onFinal: (text: string) => void
   onError: (error: Error) => void
   onEnd: (text: string) => void
 }
+
+const DEFAULT_STOP_FALLBACK_MS = 1_200
 
 export function isWebSpeechAvailable(): boolean {
   return getSpeechRecognitionConstructor() !== undefined
@@ -70,6 +74,7 @@ export class WebSpeechSession {
   private lastHeard = ''
   private ended = false
   private silent = false
+  private stopTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(options: WebSpeechSessionOptions) {
     const Recognition = getSpeechRecognitionConstructor()
@@ -105,6 +110,7 @@ export class WebSpeechSession {
     if (!this.active || this.ended || this.silent) return
     this.stopping = true
     this.active = false
+    this.armStopFallback()
     try {
       this.recognition.stop()
     } catch {
@@ -117,6 +123,7 @@ export class WebSpeechSession {
     this.silent = true
     this.stopping = true
     this.active = false
+    this.clearStopFallback()
     this.recognition.onstart = null
     this.recognition.onresult = null
     this.recognition.onerror = null
@@ -194,7 +201,34 @@ export class WebSpeechSession {
   private endOnce(): void {
     if (this.ended || this.silent) return
     this.ended = true
+    this.clearStopFallback()
     this.options.onEnd(this.finalText !== '' ? this.finalText : this.lastHeard)
+  }
+
+  /**
+   * Some Chromium shells accept start() and stop() but never deliver an end
+   * event, which left the recognition bar in "recording" forever and made
+   * every later stop click a no-op. End the session at the deadline so the
+   * caller can leave the recording state with whatever was heard.
+   */
+  private armStopFallback(): void {
+    this.clearStopFallback()
+    this.stopTimer = setTimeout(() => {
+      this.stopTimer = undefined
+      if (this.ended || this.silent) return
+      try {
+        this.recognition.abort()
+      } catch {
+        // The session ends below even when the browser rejects abort().
+      }
+      this.endOnce()
+    }, this.options.stopFallbackMs ?? DEFAULT_STOP_FALLBACK_MS)
+  }
+
+  private clearStopFallback(): void {
+    if (this.stopTimer === undefined) return
+    clearTimeout(this.stopTimer)
+    this.stopTimer = undefined
   }
 }
 

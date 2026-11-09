@@ -36,6 +36,7 @@ afterEach(() => {
     globalThis.window = originalWindow
   }
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe('appendSpeech', () => {
@@ -165,5 +166,97 @@ describe('WebSpeechSession', () => {
 
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onEnd).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('WebSpeechSession stop watchdog', () => {
+  it('ends a stop that never receives an end event', () => {
+    vi.useFakeTimers()
+    const recognitions: FakeRecognition[] = []
+    class Recognition extends FakeRecognition {
+      constructor() {
+        super()
+        recognitions.push(this)
+        this.stop = vi.fn()
+        this.abort = vi.fn()
+      }
+    }
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      stopFallbackMs: 1_200,
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError: vi.fn(),
+      onEnd
+    })
+
+    session.start()
+    recognitions[0].emitResult({ isFinal: false, transcript: '第一帮我看一下项目结构' })
+    session.stop()
+    expect(onEnd).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1_199)
+    expect(onEnd).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(recognitions[0].abort).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledWith('第一帮我看一下项目结构')
+  })
+
+  it('clears the watchdog when the browser delivers the end event', () => {
+    vi.useFakeTimers()
+    const recognitions: FakeRecognition[] = []
+    class Recognition extends FakeRecognition {
+      constructor() {
+        super()
+        recognitions.push(this)
+      }
+    }
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      stopFallbackMs: 1_200,
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError: vi.fn(),
+      onEnd
+    })
+
+    session.start()
+    session.stop()
+    expect(onEnd).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(5_000)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(recognitions[0].abort).not.toHaveBeenCalled()
+  })
+
+  it('clears the watchdog when the session is aborted during teardown', () => {
+    vi.useFakeTimers()
+    class Recognition extends FakeRecognition {
+      constructor() {
+        super()
+        this.stop = vi.fn()
+      }
+    }
+    globalThis.window = { SpeechRecognition: Recognition } as unknown as Window & typeof globalThis
+    const onEnd = vi.fn()
+    const session = new WebSpeechSession({
+      language: 'zh-CN',
+      stopFallbackMs: 1_200,
+      onInterim: vi.fn(),
+      onFinal: vi.fn(),
+      onError: vi.fn(),
+      onEnd
+    })
+
+    session.start()
+    session.stop()
+    session.abort()
+    vi.advanceTimersByTime(5_000)
+    expect(onEnd).not.toHaveBeenCalled()
   })
 })
