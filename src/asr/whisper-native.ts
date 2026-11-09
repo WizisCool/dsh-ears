@@ -53,6 +53,15 @@ export class WhisperNativeUnavailableError extends EarsError {
 
 const nativeRequire = createRequire(import.meta.url)
 
+/**
+ * Resolve platform packages from whisper.node's own dependency context. Under
+ * pnpm's isolated layout the platform binary is an optional dependency of
+ * whisper.node, not of dsh-ears, so resolving from this module would miss it.
+ */
+export function whisperNodeRequire(): NodeRequire {
+  return createRequire(nativeRequire.resolve('@fugood/whisper.node'))
+}
+
 export function whisperNativePackageName(
   variant: LibVariant = 'default',
   platform: NodeJS.Platform = process.platform,
@@ -110,7 +119,7 @@ export function resolveWhisperNativePackage(
 ): string {
   const packageName = whisperNativePackageName(variant, platform, arch)
   try {
-    (resolver ?? nativeRequire).resolve(packageName)
+    ;(resolver ?? whisperNodeRequire()).resolve(packageName)
   } catch (error) {
     throw new WhisperNativeUnavailableError(packageName, error)
   }

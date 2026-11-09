@@ -70,7 +70,7 @@ export class WhisperWorkerClient implements LocalWhisperWorker {
     const scriptPath = options.scriptPath ?? WhisperWorkerClient.scriptPath()
     const spawnChild = options.fork ?? fork
     if (options.fork === undefined && !existsSync(scriptPath)) {
-      throw workerFailure('The Local Whisper worker entry is missing', scriptPath)
+      throw workerFailure('The Local Whisper worker entry is missing', 'lib/asr/whisper-worker.js')
     }
 
     try {

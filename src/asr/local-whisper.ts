@@ -209,7 +209,7 @@ export class LocalWhisperRuntime {
       options.signal.removeEventListener('abort', forwardExternalAbort)
       timeoutController.signal.removeEventListener('abort', forwardTimeoutAbort)
       combined.signal.removeEventListener('abort', stopOnAbort)
-      await rm(directory, { recursive: true, force: true })
+      await rm(directory, { recursive: true, force: true }).catch(() => undefined)
     }
   }
 

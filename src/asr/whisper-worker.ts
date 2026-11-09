@@ -1,7 +1,6 @@
-import { createRequire } from 'node:module'
 import type { LibVariant, TranscriptionJob, WhisperContext } from '@fugood/whisper.node'
 import { EARS_ERROR_CODES, EarsError, isEarsErrorCode, sanitizeEarsErrorText, type EarsErrorParams } from '../errors.js'
-import { whisperNativePackageName, WhisperNativeUnavailableError, WhisperRestartRequiredError } from './whisper-native.js'
+import { whisperNativePackageName, whisperNodeRequire, WhisperNativeUnavailableError, WhisperRestartRequiredError } from './whisper-native.js'
 import type { WhisperWorkerError, WhisperWorkerRequest, WhisperWorkerResponse, WhisperWorkerValue } from './whisper-worker-protocol.js'
 
 /**
@@ -29,7 +28,12 @@ type RuntimeContext = {
   readonly context: WhisperContext
 }
 
-const nativeRequire = createRequire(import.meta.url)
+let nativeRequire: NodeRequire | undefined
+
+function platformRequire(): NodeRequire {
+  nativeRequire ??= whisperNodeRequire()
+  return nativeRequire
+}
 
 let api: WhisperNodeApi | undefined
 let apiVariant: LibVariant | undefined
@@ -105,7 +109,16 @@ async function initContext(modelPath: string, variant: LibVariant, useGpu: boole
   }
   if (runtime !== undefined) await releaseContext()
   const native = await loadWhisperNodeApi(variant)
-  const context = await native.initWhisper({ filePath: modelPath, useGpu }, variant)
+  let context: WhisperContext
+  try {
+    context = await native.initWhisper({ filePath: modelPath, useGpu }, variant)
+  } catch (error) {
+    throw new EarsError(
+      EARS_ERROR_CODES.asrUnexpected,
+      'Local Whisper could not initialize the model',
+      { detail: sanitizeEarsErrorText(errorText(error)) }
+    )
+  }
   runtime = { key, context }
 }
 
@@ -126,6 +139,13 @@ async function transcribe(audioPath: string, language: string | null): Promise<W
   try {
     const result = await job.promise
     return { kind: 'text', text: result.result, isAborted: result.isAborted }
+  } catch (error) {
+    if (error instanceof EarsError) throw error
+    throw new EarsError(
+      EARS_ERROR_CODES.asrUnexpected,
+      'Local Whisper transcription failed',
+      { detail: sanitizeEarsErrorText(errorText(error)) }
+    )
   } finally {
     if (activeJob === job) activeJob = undefined
   }
@@ -163,7 +183,7 @@ async function loadWhisperNodeApi(variant: LibVariant): Promise<WhisperNodeApi> 
   }
   const packageName = whisperNativePackageName(variant)
   try {
-    const native = nativeRequire(packageName) as { WhisperContext?: unknown } | undefined
+    const native = platformRequire()(packageName) as { WhisperContext?: unknown } | undefined
     if (native === undefined || typeof native.WhisperContext !== 'function') {
       throw new Error('the package did not expose WhisperContext')
     }
@@ -200,7 +220,11 @@ async function disconnectAndExit(): Promise<void> {
 
 function send(message: WhisperWorkerResponse): void {
   if (typeof process.send !== 'function' || !process.connected) return
-  process.send(message, () => undefined)
+  try {
+    process.send(message, () => undefined)
+  } catch {
+    // The Host channel closed between the check and the send.
+  }
 }
 
 function sendFinal(id: number, error: WhisperWorkerError | undefined): void {
@@ -212,7 +236,12 @@ function sendFinal(id: number, error: WhisperWorkerError | undefined): void {
     exit()
     return
   }
-  process.send(response, () => exit())
+  try {
+    process.send(response, () => exit())
+  } catch {
+    exit()
+    return
+  }
   // The channel callback can be dropped when the Host is tearing down; the
   // context is already released, so exiting is container-safe.
   setTimeout(exit, 500).unref()
