@@ -143,7 +143,7 @@ const expectedDshPeers = [
   '@deepseek-ai/dsh-typert-protocol'
 ]
 for (const name of expectedDshPeers) requireManifestValue(`peerDependencies[${name}]`, manifest.peerDependencies?.[name], '>=0.2.0-rc.1')
-requireManifestValue('dependencies[@deepseek-ai/dsh-client-store]', manifest.dependencies?.['@deepseek-ai/dsh-client-store'], '0.2.1-rc.2')
+requireManifestValue('dependencies[@deepseek-ai/dsh-client-store]', manifest.dependencies?.['@deepseek-ai/dsh-client-store'], '0.2.1-rc.4')
 if (Object.hasOwn(manifest.peerDependencies ?? {}, '@deepseek-ai/dsh-client-store')) fail('dsh-client-store must be an implementation dependency, not a peer')
 if (clientInject?.includes('@deepseek-ai/dsh-client-store')) fail('dsh.client.inject must not include bundled dsh-client-store')
 

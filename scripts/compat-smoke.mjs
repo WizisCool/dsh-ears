@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
   '0.2.0-rc.1',
-  '0.2.1-rc.2'
+  '0.2.1-rc.4'
 ])
 
 /**
@@ -18,7 +18,7 @@ export const VERIFIED_DSH_SMOKE_VERSIONS = Object.freeze([
  */
 const DSH_VENDOR_PINS = Object.freeze({
   '0.2.0-rc.1': { cordis: '4.0.4', schemastery: '3.18.4' },
-  '0.2.1-rc.2': { cordis: '4.0.5', schemastery: '3.18.5' }
+  '0.2.1-rc.4': { cordis: '4.0.5', schemastery: '3.18.5' }
 })
 
 /**
