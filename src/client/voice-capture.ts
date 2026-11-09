@@ -64,6 +64,36 @@ export function isSupersededMediaCapture(latestGeneration: number, generation: n
 }
 
 /**
+ * Await an operation with a deadline. A rejection that arrives before the
+ * deadline still propagates; a rejection after it is consumed so the caller
+ * is never trapped by a browser API that never settles.
+ */
+export function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<{ settled: true; value: T } | { settled: false }> {
+  return new Promise((resolve, reject) => {
+    let done = false
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      resolve({ settled: false })
+    }, Math.max(0, timeoutMs))
+    promise.then(
+      (value) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        resolve({ settled: true, value })
+      },
+      (error: unknown) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
+    )
+  })
+}
+
+/**
  * Prefer the recognition session's own text. When the browser emits no final
  * result, recover the live draft slice written by interim updates.
  */
