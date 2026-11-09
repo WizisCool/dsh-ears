@@ -7,7 +7,10 @@ export default defineConfig([
     entry: {
       index: 'src/index.ts',
       typert: 'src/typert.ts',
-      remote: 'src/remote.ts'
+      remote: 'src/remote.ts',
+      // The sacrificial native runtime is a separate process, so it must ship
+      // as its own entry next to the bundled Host entry.
+      'asr/whisper-worker': 'src/asr/whisper-worker.ts'
     },
     outDir: 'lib',
     format: 'esm',

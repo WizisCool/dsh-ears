@@ -2,6 +2,8 @@
 
 export const EARS_ERROR_CODES = {
   whisperNativeUnavailable: 'whisper.nativeUnavailable',
+  whisperWorkerFailed: 'whisper.workerFailed',
+  whisperReleaseFailed: 'whisper.releaseFailed',
   whisperRestartRequired: 'whisper.restartRequired',
   whisperModelUnknown: 'whisper.modelUnknown',
   whisperModelUnverified: 'whisper.modelUnverified',

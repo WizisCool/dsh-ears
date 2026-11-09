@@ -32,7 +32,7 @@ On Windows, run this from PowerShell or Git Bash — `cmd.exe` does not expand `
 
 ## Local Whisper development
 
-Local Whisper uses the bundled `@fugood/whisper.node` native dependency and separately downloaded whisper.cpp GGML models. Do not add Python, Torch, FFmpeg, or CLI discovery code, and do not add a fallback engine. Browser capture is normalized to mono 16 kHz PCM16 WAV before the Host RPC.
+Local Whisper uses the bundled `@fugood/whisper.node` native dependency in a dedicated worker process, plus separately downloaded whisper.cpp GGML models. Do not add Python, Torch, FFmpeg, or CLI discovery code, and do not add a fallback engine. Browser capture is normalized to mono 16 kHz PCM16 WAV before the Host RPC. Keep the native addon out of the Host process: `src/asr/whisper-worker.ts` is its only loader, and the Host may resolve the platform package but must not `require()` it.
 
 The Recognition acceleration selector supports `default`, `vulkan`, and `cuda` according to the installed platform variant. The first native load fixes the process variant, so changing acceleration requires restarting the dsh Host. The root package is intentionally larger because platform variants are installed separately; model files remain outside the package cache and are never committed.
 

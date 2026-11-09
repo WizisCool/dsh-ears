@@ -66,7 +66,7 @@ tests/                    Vitest suites next to the shipped modules
 
 ## Local Whisper runtime
 
-Local Whisper is Host-only and uses the bundled `@fugood/whisper.node` native dependency plus separately downloaded whisper.cpp GGML models. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. Native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
+Local Whisper is Host-owned and runs the bundled `@fugood/whisper.node` native dependency in a dedicated Host-spawned worker process, plus separately downloaded whisper.cpp GGML models. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. The Host must never load the native addon itself: a native abort is process-fatal, so the worker is the only loader and the process that owns the model context. Native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
 
 ## Boundaries
 

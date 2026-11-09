@@ -65,9 +65,9 @@ Browser (`exports["./client"]`)
 
 ### Local Whisper
 
-The browser records a bounded one-shot payload, downmixes and resamples it to mono 16 kHz PCM16 WAV, and sends it through the final Host RPC. The Host writes the WAV to a private `mkdtemp()` directory and uses the bundled whisper.node native context. Model weights stay in the plugin's separate local model cache.
+The browser records a bounded one-shot payload, downmixes and resamples it to mono 16 kHz PCM16 WAV, and sends it through the final Host RPC. The Host writes the WAV to a private `mkdtemp()` directory and hands its path to a dedicated Whisper worker process, which owns the bundled whisper.node native context. The Host only resolves the platform package; it never loads the addon, because a native SIGABRT is process-fatal and must not be able to take the Host and every session with it (D-061). Model weights stay in the plugin's separate local model cache.
 
-Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects an unavailable native runtime or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The native runtime is disposed with the plugin scope. The selected Default/Vulkan/CUDA variant is fixed after first native load, so changing acceleration requires a dsh Host restart.
+Model availability uses `dshEars/getWhisperModelState` and `dshEars/downloadWhisperModel`. A model file counts as downloaded only when a `.dsh-ears-done` completion marker sits beside it (D-020). `transcribe()` rejects an unavailable native runtime or unmarked model instead of auto-downloading inside the 120-second transcription timeout. The worker releases its context on success, failure, cancellation, model deletion, shutdown, and IPC disconnect, and is killed after a bounded shutdown deadline. The selected Default/Vulkan/CUDA variant is fixed after first native load, so changing acceleration requires a dsh Host restart.
 
 ### Cloud ASR
 
@@ -125,7 +125,7 @@ Browser Client
   ├─ inputActions.setDraft()
   └─ dshEars/transcribe + dshEars/polish ──> Host
                                              ├─ dsh ctx.llm
-                                             ├─ whisper process
+                                             ├─ whisper worker process (native)
                                              └─ configured cloud endpoint
 ```
 
@@ -137,9 +137,10 @@ The client receives `remote.dshEars` through a Cordis child scope created after 
 - Host final ASR requests are bounded. Cloud ASR has a 120-second timeout. Unknown backend/model identifiers are rejected.
 - Host and Client Remote descriptors must agree on endpoint IDs, parameter shapes, codecs, result schemas, and cancellation metadata (`tests/remote-contract.test.ts`).
 - Whisper downloads are trustworthy only through their `.dsh-ears-done` marker. Discovery failures are negative-cached for 30 seconds.
-- Realtime sessions own their socket and idle timer; open failure, open timeout, external abort, failed send, finish, cancel, idle expiry, Host disposal, and aborted browser startup all release the session. A normal socket close is only a successful finish after a terminal metadata message or a final result, so an incomplete stream never becomes an empty success. Local Whisper model deletion crosses an exclusive context-release barrier: the active job is stopped, the native context is released, and the backing file is removed before any queued transcription may reopen the model.
+- Realtime sessions own their socket and idle timer; open failure, open timeout, external abort, failed send, finish, cancel, idle expiry, Host disposal, and aborted browser startup all release the session. A normal socket close is only a successful finish after a terminal metadata message or a final result, so an incomplete stream never becomes an empty success. Local Whisper model deletion crosses an exclusive context-release barrier in the worker: the active job is stopped, the native context is released, and the backing file is removed before any queued transcription may reopen the model. A failed release is surfaced, not swallowed.
+- Local Whisper failures stay inside the worker. An unexpected worker exit rejects the request in flight with `whisper.workerFailed` and the next request starts a fresh worker; the Host keeps serving every session. Abort and timeout stop the native job cooperatively, then kill an unresponsive worker after a bounded grace period.
 - Strict Remote result objects keep optional fields absent rather than explicitly `undefined`; the wire test replays the gateway's JSON-safety check (D-036).
-- Local Whisper uses the bundled native package and a separately downloaded whisper.cpp GGML model. Browser capture is normalized to mono 16 kHz PCM16 WAV. Runtime failures stay concise: the settings page reports native package or selected acceleration unavailability, with no Python/FFmpeg/CLI setup guide.
+- Local Whisper uses the bundled native package and a separately downloaded whisper.cpp GGML model. Browser capture is normalized to mono 16 kHz PCM16 WAV. Runtime failures stay concise: the settings page reports native package or selected acceleration unavailability, with no Python/FFmpeg/CLI setup guide. The worker validates the binding API on first use because resolution alone is not runtime compatibility.
 - The composer microphone grays out (D-021) on positive unavailability signals only. Active flow states stay enabled so stop remains reachable. Cloud readiness (key + model, plus Bailian host) is folded into the cloud backend's availability signal.
 - The voice shortcut (D-028) is in-page only. Idle starts, recording stops, transcribing/polishing is ignored. IME composition and key auto-repeat never trigger it. Events inside `[role="dialog"]` and hidden views are ignored. A gated microphone focuses the gray button instead of recording. Stored form is a canonical `ctrl+shift+space`-style string. Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. The field cannot be empty; Reset restores the default.
 
