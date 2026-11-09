@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { EARS_ERROR_CODES } from '../src/errors.js'
+import { EARS_ERROR_CODES, EarsError } from '../src/errors.js'
 import {
   defaultWhisperUseGpu,
   disposeWhisperRuntime,
@@ -14,25 +14,88 @@ import {
   whisperAccelerationCapabilities,
   whisperNativePackageName,
   WHISPER_NATIVE_UNAVAILABLE_CODE,
-  WHISPER_RESTART_REQUIRED_CODE
+  WHISPER_RESTART_REQUIRED_CODE,
+  type WhisperPackageResolver
 } from '../src/asr/local-whisper.js'
+import type { WhisperWorkerValue } from '../src/asr/whisper-worker-protocol.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { readBoundedText } from '../src/asr/transport.js'
 
-const native = vi.hoisted(() => ({
-  loadWhisperModule: vi.fn(async () => ({})),
-  initWhisper: vi.fn()
-}))
+const workerHarness = vi.hoisted(() => {
+  type Request = { type: string }
+  type Handler = (request: Request) => Promise<unknown>
+  const defaults: { init: Handler; transcribe: Handler; release: Handler } = {
+    init: async () => ({ kind: 'none' }),
+    transcribe: async () => ({ kind: 'text', text: 'ok', isAborted: false }),
+    release: async () => ({ kind: 'none' })
+  }
+  class FakeWorker {
+    static instances: FakeWorker[] = []
+    alive = true
+    readonly requests: Request[] = []
+    initHandler: Handler = defaults.init
+    transcribeHandler: Handler = defaults.transcribe
+    releaseHandler: Handler = defaults.release
+    readonly cancelActive = vi.fn()
+    readonly kill = vi.fn(() => { this.alive = false })
+    readonly shutdown = vi.fn(async () => { this.alive = false })
+    private exitListener: ((error: Error) => void) | undefined
+    constructor() { FakeWorker.instances.push(this) }
+    onExit(listener: (error: Error) => void): () => void {
+      this.exitListener = listener
+      return () => { if (this.exitListener === listener) this.exitListener = undefined }
+    }
+    exit(error: Error): void {
+      this.alive = false
+      this.exitListener?.(error)
+    }
+    request(payload: Request): Promise<unknown> {
+      this.requests.push(payload)
+      if (payload.type === 'init') return this.initHandler(payload)
+      if (payload.type === 'transcribe') return this.transcribeHandler(payload)
+      if (payload.type === 'release') return this.releaseHandler(payload)
+      return Promise.resolve({ kind: 'none' })
+    }
+    count(type: string): number {
+      return this.requests.filter((request) => request.type === type).length
+    }
+  }
+  const spawn = vi.fn(() => new FakeWorker())
+  const reset = () => {
+    defaults.init = async () => ({ kind: 'none' })
+    defaults.transcribe = async () => ({ kind: 'text', text: 'ok', isAborted: false })
+    defaults.release = async () => ({ kind: 'none' })
+  }
+  return { FakeWorker, defaults, reset, spawn }
+})
 
-vi.mock('@fugood/whisper.node', () => native)
+vi.mock('../src/asr/whisper-worker-client.js', () => ({ spawnWhisperWorker: workerHarness.spawn }))
 
 afterEach(async () => {
   await disposeWhisperRuntime()
-  native.loadWhisperModule.mockClear()
-  native.initWhisper.mockReset()
+  workerHarness.spawn.mockClear()
+  workerHarness.FakeWorker.instances.length = 0
+  workerHarness.reset()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
+
+function packageResolver(available: readonly string[], resolved: string[] = []): WhisperPackageResolver {
+  const names = new Set(available)
+  return {
+    resolve(name: string) {
+      if (!names.has(name)) throw new Error(`Missing test package: ${name}`)
+      resolved.push(name)
+      return name
+    }
+  }
+}
+
+function latestWorkerAfterSpawn(): InstanceType<typeof workerHarness.FakeWorker> {
+  const worker = workerHarness.FakeWorker.instances.at(-1)
+  if (worker === undefined) throw new Error('No fake Whisper worker was created')
+  return worker
+}
 
 function pcm16Wav(): Uint8Array {
   const audio = new Uint8Array(46)
@@ -75,19 +138,21 @@ describe('local whisper native preflight', () => {
     expect(whisperNativePackageName('cuda', 'linux', 'arm64')).toBe('@fugood/node-whisper-linux-arm64-cuda')
   })
 
-  it('only preflights the exact package and does not use a default fallback', () => {
-    const required: string[] = []
-    const packageName = preflightWhisperNativePackage('cuda', (name) => {
-      required.push(name)
-      return { WhisperContext: function WhisperContext() {} }
+  it('only resolves the exact package and does not use a default fallback', () => {
+    const resolved: string[] = []
+    const packageName = preflightWhisperNativePackage('cuda', {
+      resolve: (name) => {
+        resolved.push(name)
+        return name
+      }
     })
     expect(packageName).toBe(whisperNativePackageName('cuda'))
-    expect(required).toEqual([packageName])
+    expect(resolved).toEqual([packageName])
   })
 
-  it('reports an exact package load failure', () => {
+  it('reports an exact package that cannot be resolved', () => {
     try {
-      preflightWhisperNativePackage('cuda', (name) => { throw new Error(`${name} DLL failed`) })
+      preflightWhisperNativePackage('cuda', { resolve: (name) => { throw new Error(`${name} is missing`) } })
       throw new Error('expected preflight to fail')
     } catch (error) {
       expect(error).toMatchObject({ code: WHISPER_NATIVE_UNAVAILABLE_CODE })
@@ -95,28 +160,29 @@ describe('local whisper native preflight', () => {
   })
 
   it('lists only the native variants supported by each platform', () => {
-    const required: string[] = []
-    const requirePackage = ((name: string) => {
-      required.push(name)
-      return { WhisperContext: function WhisperContext() {} }
-    }) as NodeRequire
+    const resolved: string[] = []
+    const resolver = packageResolver([
+      whisperNativePackageName('default', 'darwin', 'arm64')
+    ], resolved)
 
-    expect(whisperAccelerationCapabilities('darwin', 'arm64', requirePackage)).toEqual({
+    expect(whisperAccelerationCapabilities('darwin', 'arm64', resolver)).toEqual({
       available: ['default'],
       default: 'default'
     })
-    expect(required).toEqual(['@fugood/node-whisper-darwin-arm64'])
-    expect(whisperAccelerationCapabilities('win32', 'arm64', requirePackage).available).toEqual(['default', 'vulkan'])
-    expect(whisperAccelerationCapabilities('freebsd', 'x64', requirePackage)).toEqual({ available: [], default: 'default' })
+    expect(resolved).toEqual(['@fugood/node-whisper-darwin-arm64'])
+    expect(whisperAccelerationCapabilities('win32', 'arm64', packageResolver([
+      whisperNativePackageName('default', 'win32', 'arm64')
+    ])).available).toEqual(['default'])
+    expect(whisperAccelerationCapabilities('freebsd', 'x64', packageResolver([]))).toEqual({ available: [], default: 'default' })
   })
 
   it('filters platform variants whose optional packages are not installed', () => {
-    const requirePackage = ((name: string) => {
-      if (name.endsWith('-cuda')) throw new Error('optional package is absent')
-      return { WhisperContext: function WhisperContext() {} }
-    }) as NodeRequire
+    const resolver = packageResolver([
+      whisperNativePackageName('default', 'linux', 'x64'),
+      whisperNativePackageName('vulkan', 'linux', 'x64')
+    ])
 
-    expect(whisperAccelerationCapabilities('linux', 'x64', requirePackage)).toEqual({
+    expect(whisperAccelerationCapabilities('linux', 'x64', resolver)).toEqual({
       available: ['default', 'vulkan'],
       default: 'default'
     })
@@ -132,74 +198,68 @@ describe('local whisper native preflight', () => {
 })
 
 describe('local Whisper backend', () => {
-  it('preflights variants without initializing or locking the native runtime', async () => {
-    const requirePackage = ((name: string) => ({ WhisperContext: function WhisperContext() {} })) as NodeRequire
+  it('preflights variants without spawning a native worker', async () => {
+    const resolver = packageResolver([
+      whisperNativePackageName('default'),
+      whisperNativePackageName('cuda')
+    ])
 
     await expect(Promise.all([
-      isWhisperAvailable('default', undefined, requirePackage),
-      isWhisperAvailable('cuda', undefined, requirePackage)
+      isWhisperAvailable('default', undefined, resolver),
+      isWhisperAvailable('cuda', undefined, resolver)
     ])).resolves.toEqual([true, true])
-    expect(native.loadWhisperModule).not.toHaveBeenCalled()
+    expect(workerHarness.spawn).not.toHaveBeenCalled()
     expect(getLoadedWhisperVariant()).toBeUndefined()
   })
 
   it('requires a Host restart only after an actual transcription initializes the variant', async () => {
-    native.initWhisper.mockResolvedValue({
-      transcribeFile: () => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'ok', segments: [], isAborted: false }) }),
-      release: vi.fn(async () => undefined)
-    })
-
     await expect(transcribeWithWhisper(transcriptionOptions({ variant: 'default' }))).resolves.toBe('ok')
     expect(getLoadedWhisperVariant()).toBe('default')
-    await expect(isWhisperAvailable('vulkan', undefined, ((name: string) => ({ WhisperContext: function WhisperContext() {} })) as NodeRequire)).rejects.toMatchObject({
+    expect(latestWorkerAfterSpawn().count('init')).toBe(1)
+
+    await expect(isWhisperAvailable('vulkan', undefined, packageResolver([]))).rejects.toMatchObject({
       code: WHISPER_RESTART_REQUIRED_CODE,
       loadedVariant: 'default',
       requestedVariant: 'vulkan'
     })
-    expect(native.loadWhisperModule).not.toHaveBeenCalledWith('vulkan')
   })
 
-  it('rejects non-WAV input before loading a native context', async () => {
+  it('rejects non-WAV input before starting a native worker', async () => {
     await expect(transcribeWithWhisper(transcriptionOptions({ mimeType: 'audio/webm' }))).rejects.toThrow('PCM16 WAV')
-    expect(native.initWhisper).not.toHaveBeenCalled()
+    expect(workerHarness.spawn).not.toHaveBeenCalled()
   })
 
   it('creates one long-lived context and serializes transcriptions on it', async () => {
-    const transcribeFile = vi.fn(() => ({
-      stop: vi.fn(async () => undefined),
-      promise: Promise.resolve({ result: '本地转录结果', segments: [], isAborted: false })
-    }))
-    const release = vi.fn(async () => undefined)
-    native.initWhisper.mockResolvedValue({ transcribeFile, release })
+    workerHarness.defaults.transcribe = async () => ({ kind: 'text', text: '本地转录结果', isAborted: false })
 
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('本地转录结果')
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('本地转录结果')
-    expect(native.initWhisper).toHaveBeenCalledTimes(1)
-    expect(native.initWhisper).toHaveBeenCalledWith({ filePath: 'C:/models/ggml-tiny.bin', useGpu: false }, 'default')
-    expect(transcribeFile).toHaveBeenCalledTimes(2)
+
+    const worker = latestWorkerAfterSpawn()
+    expect(workerHarness.spawn).toHaveBeenCalledTimes(1)
+    expect(worker.count('init')).toBe(1)
+    expect(worker.requests[0]).toMatchObject({
+      type: 'init',
+      modelPath: 'C:/models/ggml-tiny.bin',
+      variant: 'default',
+      useGpu: false
+    })
+    expect(worker.count('transcribe')).toBe(2)
   })
 
   it('keeps a new transcription behind an exclusive context-release operation', async () => {
-    let resolveFirst!: (value: { result: string; segments: []; isAborted: boolean }) => void
-    const firstStop = vi.fn(async () => undefined)
-    const transcribeFile = vi.fn(() => {
-      if (transcribeFile.mock.calls.length === 1) {
-        return {
-          stop: firstStop,
-          promise: new Promise((resolve) => { resolveFirst = resolve })
-        }
-      }
-      return {
-        stop: vi.fn(async () => undefined),
-        promise: Promise.resolve({ result: 'second result', segments: [], isAborted: false })
-      }
-    })
-    const release = vi.fn(async () => undefined)
-    native.initWhisper.mockResolvedValue({ transcribeFile, release })
+    let resolveFirst!: (value: WhisperWorkerValue) => void
+    let transcribeCalls = 0
+    workerHarness.defaults.transcribe = () => {
+      transcribeCalls += 1
+      if (transcribeCalls === 1) return new Promise((resolve) => { resolveFirst = resolve })
+      return Promise.resolve({ kind: 'text', text: 'second result', isAborted: false })
+    }
 
     const first = transcribeWithWhisper(transcriptionOptions())
     const firstRejection = expect(first).rejects.toMatchObject({ code: EARS_ERROR_CODES.asrUnexpected })
-    await vi.waitFor(() => expect(transcribeFile).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(transcribeCalls).toBe(1))
+    const worker = latestWorkerAfterSpawn()
 
     let allowExclusive!: () => void
     const exclusiveGate = new Promise<void>((resolve) => { allowExclusive = resolve })
@@ -207,94 +267,112 @@ describe('local Whisper backend', () => {
     const exclusive = withWhisperModelContextReleased(async () => {
       second = transcribeWithWhisper(transcriptionOptions())
       await Promise.resolve()
-      expect(transcribeFile).toHaveBeenCalledTimes(1)
+      expect(worker.count('transcribe')).toBe(1)
       await exclusiveGate
       return 'deleted'
     })
 
-    resolveFirst({ result: '', segments: [], isAborted: true })
+    resolveFirst({ kind: 'text', text: '', isAborted: true })
     await firstRejection
-    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(worker.count('release')).toBe(1))
     expect(second).toBeDefined()
-    expect(transcribeFile).toHaveBeenCalledTimes(1)
+    expect(worker.count('transcribe')).toBe(1)
 
     allowExclusive()
     await expect(exclusive).resolves.toBe('deleted')
     await expect(second).resolves.toBe('second result')
-    expect(transcribeFile).toHaveBeenCalledTimes(2)
+    expect(worker.count('transcribe')).toBe(2)
+    expect(worker.count('init')).toBe(2)
   })
 
-  it('calls stop on the active native job when AbortSignal aborts', async () => {
+  it('cancels the active worker job when AbortSignal aborts', async () => {
     const controller = new AbortController()
-    let resolvePromise: ((value: { result: string; segments: []; isAborted: boolean }) => void) | undefined
-    const stop = vi.fn(async () => undefined)
-    const transcribeFile = vi.fn(() => ({
-      stop,
-      promise: new Promise((resolve) => { resolvePromise = resolve })
-    }))
-    native.initWhisper.mockResolvedValue({ transcribeFile, release: vi.fn(async () => undefined) })
+    let resolveTranscription: ((value: WhisperWorkerValue) => void) | undefined
+    workerHarness.defaults.transcribe = () => new Promise((resolve) => { resolveTranscription = resolve })
 
     const pending = transcribeWithWhisper(transcriptionOptions({ signal: controller.signal }))
-    await vi.waitFor(() => expect(transcribeFile).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(workerHarness.FakeWorker.instances).toHaveLength(1))
+    const worker = latestWorkerAfterSpawn()
+    await vi.waitFor(() => expect(worker.count('transcribe')).toBe(1))
     controller.abort()
-    await vi.waitFor(() => expect(stop).toHaveBeenCalledTimes(1))
-    resolvePromise?.({ result: '', segments: [], isAborted: true })
+    await vi.waitFor(() => expect(worker.cancelActive).toHaveBeenCalledTimes(1))
     await expect(pending).rejects.toThrow()
+
+    resolveTranscription?.({ kind: 'text', text: '', isAborted: true })
+    await vi.waitFor(() => expect(worker.count('transcribe')).toBe(1))
   })
 
   it('rejects a queued caller immediately and skips its native job after cancellation', async () => {
-    let resolveFirst!: (value: { result: string; segments: []; isAborted: boolean }) => void
-    const firstPromise = new Promise<{ result: string; segments: []; isAborted: boolean }>((resolve) => { resolveFirst = resolve })
-    const transcribeFile = vi.fn()
-      .mockImplementationOnce(() => ({ stop: vi.fn(async () => undefined), promise: firstPromise }))
-      .mockImplementationOnce(() => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'should not run', segments: [], isAborted: false }) }))
-    native.initWhisper.mockResolvedValue({ transcribeFile, release: vi.fn(async () => undefined) })
+    let resolveFirst!: (value: WhisperWorkerValue) => void
+    workerHarness.defaults.transcribe = () => new Promise((resolve) => { resolveFirst = resolve })
 
     const first = transcribeWithWhisper(transcriptionOptions())
-    await vi.waitFor(() => expect(transcribeFile).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(workerHarness.FakeWorker.instances).toHaveLength(1))
+    const worker = latestWorkerAfterSpawn()
+    await vi.waitFor(() => expect(worker.count('transcribe')).toBe(1))
     const controller = new AbortController()
     const queued = transcribeWithWhisper(transcriptionOptions({ signal: controller.signal }))
     controller.abort(new Error('queued transcription cancelled'))
 
     await expect(queued).rejects.toThrow('queued transcription cancelled')
-    expect(transcribeFile).toHaveBeenCalledTimes(1)
+    expect(worker.count('transcribe')).toBe(1)
 
-    resolveFirst({ result: 'first result', segments: [], isAborted: false })
+    resolveFirst({ kind: 'text', text: 'first result', isAborted: false })
     await expect(first).resolves.toBe('first result')
-    await vi.waitFor(() => expect(native.initWhisper).toHaveBeenCalledTimes(1))
-    expect(transcribeFile).toHaveBeenCalledTimes(1)
+    expect(worker.count('init')).toBe(1)
+    expect(worker.count('transcribe')).toBe(1)
   })
 
   it('releases only the model context without disposing the runtime', async () => {
-    const release = vi.fn(async () => undefined)
-    native.initWhisper.mockResolvedValue({
-      transcribeFile: () => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'ok', segments: [], isAborted: false }) }),
-      release
-    })
-
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('ok')
+    const worker = latestWorkerAfterSpawn()
     await releaseWhisperModelContext()
-    expect(release).toHaveBeenCalledTimes(1)
+    expect(worker.count('release')).toBe(1)
 
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('ok')
-    expect(native.initWhisper).toHaveBeenCalledTimes(2)
+    expect(worker.count('init')).toBe(2)
+    expect(worker.shutdown).not.toHaveBeenCalled()
   })
 
-  it('releases the context and allows a fresh runtime after dispose', async () => {
-    const release = vi.fn(async () => undefined)
-    native.initWhisper.mockResolvedValue({
-      transcribeFile: () => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'ok', segments: [], isAborted: false }) }),
-      release
+  it('surfaces a failed release instead of deleting under a live context', async () => {
+    workerHarness.defaults.release = async () => {
+      throw new EarsError(EARS_ERROR_CODES.whisperReleaseFailed, 'native release failed')
+    }
+
+    await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('ok')
+    await expect(withWhisperModelContextReleased(async () => 'deleted')).rejects.toMatchObject({
+      code: EARS_ERROR_CODES.whisperReleaseFailed
     })
+  })
+
+  it('recovers with a fresh worker after an unexpected native crash', async () => {
+    let rejectTranscription!: (error: Error) => void
+    workerHarness.defaults.transcribe = () => new Promise((_, reject) => { rejectTranscription = reject })
+
+    const pending = transcribeWithWhisper(transcriptionOptions())
+    await vi.waitFor(() => expect(workerHarness.FakeWorker.instances).toHaveLength(1))
+    const firstWorker = latestWorkerAfterSpawn()
+    await vi.waitFor(() => expect(firstWorker.count('transcribe')).toBe(1))
+    const crash = new EarsError(EARS_ERROR_CODES.whisperWorkerFailed, 'worker aborted')
+    rejectTranscription(crash)
+    firstWorker.exit(crash)
+    await expect(pending).rejects.toMatchObject({ code: EARS_ERROR_CODES.whisperWorkerFailed })
+
+    workerHarness.defaults.transcribe = async () => ({ kind: 'text', text: 'after crash', isAborted: false })
+    await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('after crash')
+    expect(workerHarness.spawn).toHaveBeenCalledTimes(2)
+    expect(latestWorkerAfterSpawn().count('init')).toBe(1)
+  })
+
+  it('shuts the worker down and starts a fresh runtime after dispose', async () => {
     await transcribeWithWhisper(transcriptionOptions())
+    const worker = latestWorkerAfterSpawn()
     await disposeWhisperRuntime()
-    expect(release).toHaveBeenCalledTimes(1)
-    native.initWhisper.mockResolvedValue({
-      transcribeFile: () => ({ stop: vi.fn(async () => undefined), promise: Promise.resolve({ result: 'again', segments: [], isAborted: false }) }),
-      release: vi.fn(async () => undefined)
-    })
+    expect(worker.shutdown).toHaveBeenCalledTimes(1)
+
+    workerHarness.defaults.transcribe = async () => ({ kind: 'text', text: 'again', isAborted: false })
     await expect(transcribeWithWhisper(transcriptionOptions())).resolves.toBe('again')
-    expect(native.initWhisper).toHaveBeenCalledTimes(2)
+    expect(workerHarness.spawn).toHaveBeenCalledTimes(2)
   })
 })
 

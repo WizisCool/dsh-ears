@@ -1,207 +1,33 @@
-import { createRequire } from 'node:module'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { EARS_ERROR_CODES, EarsError } from '../errors.js'
+import type { LibVariant } from '@fugood/whisper.node'
+import { EARS_ERROR_CODES, EarsError, sanitizeEarsErrorText } from '../errors.js'
 import type { WhisperModelId } from '../config.js'
 import { whisperModelPath, type WhisperModelState } from './whisper-models.js'
-import type { LibVariant, TranscriptionJob, WhisperContext } from '@fugood/whisper.node'
+import { defaultWhisperUseGpu, preflightWhisperNativePackage, WhisperRestartRequiredError, type WhisperPackageResolver } from './whisper-native.js'
+import { spawnWhisperWorker, type LocalWhisperWorker } from './whisper-worker-client.js'
+
+export {
+  WHISPER_NATIVE_UNAVAILABLE_CODE,
+  WHISPER_NATIVE_VARIANTS,
+  WHISPER_RESTART_REQUIRED_CODE,
+  WhisperNativeUnavailableError,
+  WhisperRestartRequiredError,
+  defaultWhisperUseGpu,
+  platformWhisperVariants,
+  preflightWhisperNativePackage,
+  resolveWhisperNativePackage,
+  whisperAccelerationCapabilities,
+  whisperNativePackageName,
+  type WhisperAccelerationCapabilities,
+  type WhisperPackageResolver
+} from './whisper-native.js'
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024
-const COMMAND_TIMEOUT_MS = 5_000
 const TRANSCRIPTION_TIMEOUT_MS = 120_000
-const nativeRequire = createRequire(import.meta.url)
-
-function whisperNodeRequire(): NodeRequire {
-  const entry = nativeRequire.resolve('@fugood/whisper.node')
-  return createRequire(entry)
-}
-
-const WHISPER_NATIVE_VARIANTS: readonly LibVariant[] = ['default', 'vulkan', 'cuda']
-
-export interface WhisperAccelerationCapabilities {
-  readonly available: readonly LibVariant[]
-  readonly default: LibVariant
-}
-
-export const WHISPER_RESTART_REQUIRED_CODE = EARS_ERROR_CODES.whisperRestartRequired
-export const WHISPER_NATIVE_UNAVAILABLE_CODE = EARS_ERROR_CODES.whisperNativeUnavailable
-
-export class WhisperRestartRequiredError extends EarsError {
-  readonly loadedVariant: LibVariant
-  readonly requestedVariant: LibVariant
-
-  constructor(loadedVariant: LibVariant, requestedVariant: LibVariant) {
-    super(
-      WHISPER_RESTART_REQUIRED_CODE,
-      `Restart dsh to switch Local Whisper from "${loadedVariant}" to "${requestedVariant}"`,
-      { loadedVariant, requestedVariant }
-    )
-    this.name = 'WhisperRestartRequiredError'
-    this.loadedVariant = loadedVariant
-    this.requestedVariant = requestedVariant
-  }
-}
-
-export class WhisperNativeUnavailableError extends EarsError {
-  readonly packageName: string
-
-  constructor(packageName: string, cause: unknown) {
-    super(
-      WHISPER_NATIVE_UNAVAILABLE_CODE,
-      `Whisper native package "${packageName}" is unavailable`,
-      { packageName }
-    )
-    this.name = 'WhisperNativeUnavailableError'
-    this.packageName = packageName
-    Object.defineProperty(this, 'cause', {
-      value: cause,
-      configurable: true
-    })
-  }
-}
-
-interface WhisperNodeApi {
-  loadWhisperModule(variant?: LibVariant): Promise<unknown>
-  initWhisper(options: { filePath: string; useGpu?: boolean }, variant?: LibVariant): Promise<WhisperContext>
-}
-
-let nativeModulePromise: Promise<WhisperNodeApi> | undefined
-let nativeLoadPromise: Promise<WhisperNodeApi> | undefined
-let loadingVariant: LibVariant | undefined
-let loadedVariant: LibVariant | undefined
-let loadedNativeModule: WhisperNodeApi | undefined
-
-export function whisperNativePackageName(
-  variant: LibVariant = 'default',
-  platform: NodeJS.Platform = process.platform,
-  arch: string = process.arch
-): string {
-  const suffix = variant === 'default' ? '' : `-${variant}`
-  return `@fugood/node-whisper-${platform}-${arch}${suffix}`
-}
-
-/**
- * Return the native acceleration packages supported by the current platform
- * and installed dependency tree without initializing whisper.node. `default`
- * is the automatic selection: prefer the platform-default binary when it is
- * installed, otherwise use the first available platform variant.
- */
-export function whisperAccelerationCapabilities(
-  platform: NodeJS.Platform = process.platform,
-  arch: string = process.arch,
-  requirePackage?: NodeRequire
-): WhisperAccelerationCapabilities {
-  const candidates = platformWhisperVariants(platform, arch)
-  if (candidates.length === 0) return { available: [], default: 'default' }
-
-  let loadPackage: NodeRequire
-  try {
-    loadPackage = requirePackage ?? whisperNodeRequire()
-  } catch {
-    return { available: [], default: 'default' }
-  }
-
-  const available = candidates.filter((variant) => {
-    try {
-      const native = loadPackage(whisperNativePackageName(variant, platform, arch)) as { WhisperContext?: unknown } | undefined
-      return native !== undefined && typeof native.WhisperContext === 'function'
-    } catch {
-      return false
-    }
-  })
-  return {
-    available,
-    default: available.includes('default') ? 'default' : available[0] ?? 'default'
-  }
-}
-
-function platformWhisperVariants(platform: NodeJS.Platform, arch: string): readonly LibVariant[] {
-  if (platform === 'darwin' && (arch === 'x64' || arch === 'arm64')) return ['default']
-  if (platform === 'linux' && (arch === 'x64' || arch === 'arm64')) return WHISPER_NATIVE_VARIANTS
-  if (platform === 'win32' && arch === 'x64') return WHISPER_NATIVE_VARIANTS
-  if (platform === 'win32' && arch === 'arm64') return ['default', 'vulkan']
-  return []
-}
-
-/**
- * Load and validate exactly the platform package requested by whisper.node.
- * This is only a preflight: inference still goes through @fugood/whisper.node.
- */
-export function preflightWhisperNativePackage(
-  variant: LibVariant = 'default',
-  requirePackage?: NodeRequire
-): string {
-  const packageName = whisperNativePackageName(variant)
-  try {
-    const native = (requirePackage ?? whisperNodeRequire())(packageName) as { WhisperContext?: unknown } | undefined
-    if (native === undefined || typeof native.WhisperContext !== 'function') {
-      throw new Error('the package did not expose WhisperContext')
-    }
-  } catch (error) {
-    throw new WhisperNativeUnavailableError(packageName, error)
-  }
-  return packageName
-}
-
-/** The variant that this process first initialized through the strict runtime. */
-export function getLoadedWhisperVariant(): LibVariant | undefined {
-  return loadedVariant
-}
-
-/**
- * The native binding is intentionally loaded only when local Whisper is used.
- * The first successful load fixes the process variant because whisper.node has
- * a global module cache that cannot be cleared by a Cordis scope dispose.
- */
-async function loadNativeModule(variant: LibVariant): Promise<WhisperNodeApi> {
-  for (;;) {
-    if (loadedVariant !== undefined) {
-      if (loadedVariant !== variant) throw new WhisperRestartRequiredError(loadedVariant, variant)
-      if (loadedNativeModule === undefined) throw new Error('Whisper native module state is inconsistent')
-      return loadedNativeModule
-    }
-
-    const pending = nativeLoadPromise
-    if (pending !== undefined) {
-      const pendingVariant = loadingVariant
-      if (pendingVariant === variant) return pending
-
-      // Wait for in-flight load; if it fails, allow the requested variant to try.
-      try {
-        await pending
-      } catch {
-        if (nativeLoadPromise === pending) nativeLoadPromise = undefined
-        if (loadingVariant === pendingVariant) loadingVariant = undefined
-      }
-      continue
-    }
-
-    loadingVariant = variant
-    const loadPromise = (async () => {
-      preflightWhisperNativePackage(variant)
-      const modulePromise = nativeModulePromise ??= import('@fugood/whisper.node')
-      let native: WhisperNodeApi
-      try {
-        native = await modulePromise
-      } catch (error) {
-        if (nativeModulePromise === modulePromise) nativeModulePromise = undefined
-        throw error
-      }
-      await native.loadWhisperModule(variant)
-      loadedVariant = variant
-      loadedNativeModule = native
-      return native
-    })()
-    nativeLoadPromise = loadPromise
-    try {
-      return await loadPromise
-    } finally {
-      if (nativeLoadPromise === loadPromise) nativeLoadPromise = undefined
-      if (loadingVariant === variant) loadingVariant = undefined
-    }
-  }
-}
+const CANCEL_GRACE_MS = 5_000
+const RELEASE_TIMEOUT_MS = 10_000
 
 export interface LocalWhisperOptions {
   readonly audio: Uint8Array
@@ -218,21 +44,27 @@ export interface LocalWhisperOptions {
   readonly timeoutMs?: number
 }
 
-interface RuntimeContext {
-  readonly key: string
-  readonly context: WhisperContext
-}
+/** The Host-side face of one sacrificial Whisper worker process. */
+export type WhisperWorkerFactory = () => LocalWhisperWorker
 
 /**
- * Process-local whisper.node runtime. Owns one model context at a time,
- * serializes work on that context, and releases native resources on disposal.
+ * Process-local Whisper worker supervisor. It owns no native context: the
+ * worker process does. This class serializes work, keeps the acceleration
+ * variant stable, and turns a worker crash into one failed request instead of
+ * a fatal Host assertion.
  */
 export class LocalWhisperRuntime {
-  private context: RuntimeContext | undefined
-  private activeJob: TranscriptionJob | undefined
+  private worker: LocalWhisperWorker | undefined
+  private contextKey: string | undefined
+  private loadedVariant: LibVariant | undefined
   private queue: Promise<void> = Promise.resolve()
   private disposed = false
-  private loadedVariant: LibVariant | undefined
+
+  constructor(private readonly createWorker: WhisperWorkerFactory = () => spawnWhisperWorker()) {}
+
+  getLoadedVariant(): LibVariant | undefined {
+    return this.loadedVariant
+  }
 
   async transcribe(options: LocalWhisperOptions): Promise<string> {
     if (this.disposed) throw new EarsError(EARS_ERROR_CODES.backendLocalUnavailable, 'Local Whisper has been disposed')
@@ -248,14 +80,11 @@ export class LocalWhisperRuntime {
 
   /**
    * Run an operation while no transcription can start between releasing the
-   * native context and the operation. This is used for model deletion, where
-   * releasing the context and removing the backing file must be one barrier.
+   * native context and the operation. This is the model-deletion barrier.
    */
   async withContextReleased<T>(operation: () => Promise<T>): Promise<T> {
     const previous = this.queue
-    const activeStop = this.activeJob?.stop().catch(() => undefined)
     const run = previous.then(async () => {
-      await activeStop
       await this.releaseContextNow()
       return operation()
     })
@@ -266,20 +95,52 @@ export class LocalWhisperRuntime {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
-    await this.drainAndReleaseContext()
-  }
-
-  private async drainAndReleaseContext(): Promise<void> {
-    await this.activeJob?.stop().catch(() => undefined)
-    await this.queue.catch(() => undefined)
-    await this.releaseContextNow()
+    // An active native call may still be running. Ask the worker to stop it,
+    // then bound the drain: an unresponsive child is killed before shutdown.
+    this.worker?.cancelActive()
+    const killTimer = setTimeout(() => this.worker?.kill(), CANCEL_GRACE_MS)
+    try {
+      await this.queue.catch(() => undefined)
+    } finally {
+      clearTimeout(killTimer)
+    }
+    const worker = this.worker
+    this.worker = undefined
+    this.contextKey = undefined
+    if (worker === undefined) return
+    try {
+      await worker.shutdown()
+    } catch (error) {
+      reportWorkerDiagnostic(`The Local Whisper worker could not shut down cleanly: ${sanitizeEarsErrorText(errorText(error))}`)
+    }
   }
 
   private async releaseContextNow(): Promise<void> {
-    const context = this.context
-    this.context = undefined
-    this.activeJob = undefined
-    await context?.context.release().catch(() => undefined)
+    const worker = this.worker
+    this.contextKey = undefined
+    if (worker === undefined) return
+    if (!worker.alive) {
+      if (this.worker === worker) this.worker = undefined
+      return
+    }
+    try {
+      await worker.request({ type: 'release' }, { timeoutMs: RELEASE_TIMEOUT_MS })
+    } catch (error) {
+      // A dead worker released the context with its process. A live but
+      // unresponsive one cannot be trusted with the model file, so force the
+      // context away before reporting the failed barrier.
+      if (!worker.alive) {
+        if (this.worker === worker) this.worker = undefined
+        return
+      }
+      if (error instanceof EarsError && error.code === EARS_ERROR_CODES.whisperReleaseFailed) throw error
+      worker.kill()
+      throw new EarsError(
+        EARS_ERROR_CODES.whisperReleaseFailed,
+        'The Local Whisper model context could not be released',
+        { detail: sanitizeEarsErrorText(errorText(error)) }
+      )
+    }
   }
 
   private async transcribeNow(options: LocalWhisperOptions): Promise<string> {
@@ -296,7 +157,7 @@ export class LocalWhisperRuntime {
       throw new WhisperRestartRequiredError(this.loadedVariant, variant)
     }
     const useGpu = options.useGpu ?? defaultWhisperUseGpu(variant)
-    const context = await this.ensureContext(modelPath, variant, useGpu)
+    const worker = await this.ensureContext(modelPath, variant, useGpu)
     const directory = await mkdtemp(join(tmpdir(), 'dsh-ears-whisper-node-'))
     const inputPath = join(directory, 'recording.wav')
     const timeoutController = new AbortController()
@@ -307,60 +168,91 @@ export class LocalWhisperRuntime {
     }
     const forwardExternalAbort = () => forwardAbort(options.signal)
     const forwardTimeoutAbort = () => forwardAbort(timeoutController.signal)
+    let killTimer: ReturnType<typeof setTimeout> | undefined
+    const stopOnAbort = () => {
+      worker.cancelActive()
+      // A native call that ignores cooperative cancellation must not wedge the
+      // serial queue forever; the worker is sacrificial by design.
+      killTimer = setTimeout(() => worker.kill(), CANCEL_GRACE_MS)
+    }
     options.signal.addEventListener('abort', forwardExternalAbort, { once: true })
     timeoutController.signal.addEventListener('abort', forwardTimeoutAbort, { once: true })
+    combined.signal.addEventListener('abort', stopOnAbort, { once: true })
 
     try {
       options.signal.throwIfAborted()
       await writeFile(inputPath, options.audio)
-      const job = context.transcribeFile(inputPath, {
-        language: normalizeLanguage(options.language),
-        translate: false,
-        temperature: 0
+      combined.signal.throwIfAborted()
+      const request = worker.request({
+        type: 'transcribe',
+        audioPath: inputPath,
+        language: normalizeLanguage(options.language) ?? null
       })
-      this.activeJob = job
-      const stopOnAbort = () => {
-        void job.stop().catch(() => undefined)
-      }
-      combined.signal.addEventListener('abort', stopOnAbort, { once: true })
-      try {
-        const result = await job.promise
-        if (timeoutController.signal.aborted) throw timeoutController.signal.reason
-        options.signal.throwIfAborted()
-        if (result.isAborted) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Local Whisper transcription was aborted')
-        const text = result.result.trim()
-        if (text === '') throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Whisper returned no transcript')
-        return text
-      } catch (error) {
-        if (timeoutController.signal.aborted) throw timeoutController.signal.reason
-        options.signal.throwIfAborted()
-        throw error
-      } finally {
-        combined.signal.removeEventListener('abort', stopOnAbort)
-        if (this.activeJob === job) this.activeJob = undefined
-      }
+      // The abort listener may have run before the request registered its id,
+      // in which case cancelActive() had nothing to cancel.
+      if (combined.signal.aborted) worker.cancelActive()
+      const value = await request
+      if (timeoutController.signal.aborted) throw timeoutController.signal.reason
+      options.signal.throwIfAborted()
+      if (value.kind !== 'text') throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Local Whisper returned no transcription result')
+      if (value.isAborted) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Local Whisper transcription was aborted')
+      const text = value.text.trim()
+      if (text === '') throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Whisper returned no transcript')
+      return text
+    } catch (error) {
+      if (timeoutController.signal.aborted) throw timeoutController.signal.reason
+      options.signal.throwIfAborted()
+      throw error
     } finally {
       clearTimeout(timer)
+      if (killTimer !== undefined) clearTimeout(killTimer)
       options.signal.removeEventListener('abort', forwardExternalAbort)
       timeoutController.signal.removeEventListener('abort', forwardTimeoutAbort)
+      combined.signal.removeEventListener('abort', stopOnAbort)
       await rm(directory, { recursive: true, force: true })
     }
   }
 
-  private async ensureContext(modelPath: string, variant: LibVariant, useGpu: boolean): Promise<WhisperContext> {
+  private async ensureContext(modelPath: string, variant: LibVariant, useGpu: boolean): Promise<LocalWhisperWorker> {
     if (this.loadedVariant !== undefined && this.loadedVariant !== variant) {
       throw new WhisperRestartRequiredError(this.loadedVariant, variant)
     }
     const key = `${modelPath}\0${variant}\0${useGpu ? 'gpu' : 'cpu'}`
-    if (this.context?.key === key) return this.context.context
-    const previous = this.context
-    this.context = undefined
-    await previous?.context.release().catch(() => undefined)
-    const native = await loadNativeModule(variant)
+    const current = this.worker
+    if (current?.alive === true && this.contextKey === key) return current
+
+    const worker = this.ensureWorker()
+    // The worker releases any superseded context before loading this one, so
+    // the old key no longer describes worker state once init is in flight.
+    this.contextKey = undefined
+    await worker.request({ type: 'init', modelPath, variant, useGpu })
+    this.contextKey = key
     this.loadedVariant = variant
-    const context = await native.initWhisper({ filePath: modelPath, useGpu }, variant)
-    this.context = { key, context }
-    return context
+    return worker
+  }
+
+  private ensureWorker(): LocalWhisperWorker {
+    const current = this.worker
+    if (current?.alive === true) return current
+    let worker: LocalWhisperWorker
+    try {
+      worker = this.createWorker()
+    } catch (error) {
+      if (error instanceof EarsError) throw error
+      throw new EarsError(
+        EARS_ERROR_CODES.whisperWorkerFailed,
+        'The Local Whisper worker process could not start',
+        { detail: sanitizeEarsErrorText(errorText(error)) }
+      )
+    }
+    this.worker = worker
+    worker.onExit(() => {
+      if (this.worker === worker) {
+        this.worker = undefined
+        this.contextKey = undefined
+      }
+    })
+    return worker
   }
 }
 
@@ -379,47 +271,25 @@ export async function withWhisperModelContextReleased<T>(operation: () => Promis
   return runtime.withContextReleased(operation)
 }
 
-export function defaultWhisperUseGpu(
-  variant: LibVariant = 'default',
-  platform: NodeJS.Platform = process.platform,
-  arch: string = process.arch
-): boolean {
-  if (variant !== 'default') return true
-  return platform === 'darwin' && arch === 'arm64'
+/** The variant the Host has committed to for this process. */
+export function getLoadedWhisperVariant(): LibVariant | undefined {
+  return runtime.getLoadedVariant()
 }
 
-/** Check the exact native package without loading whisper.node's process-global module cache. */
-export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal, requirePackage?: NodeRequire): Promise<boolean> {
+/** Check the exact native package by resolution only; the worker loads it. */
+export async function isWhisperAvailable(variant: LibVariant = 'default', signal?: AbortSignal, resolver?: WhisperPackageResolver): Promise<boolean> {
   if (signal?.aborted) return false
-  if (loadedVariant !== undefined && loadedVariant !== variant) {
-    throw new WhisperRestartRequiredError(loadedVariant, variant)
+  const loaded = runtime.getLoadedVariant()
+  if (loaded !== undefined && loaded !== variant) {
+    throw new WhisperRestartRequiredError(loaded, variant)
   }
-  const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(), COMMAND_TIMEOUT_MS)
-  let abortListener: (() => void) | undefined
-  const abortPromise = signal === undefined
-    ? undefined
-    : new Promise<never>((_, reject) => {
-        abortListener = () => reject(signal.reason)
-        signal.addEventListener('abort', abortListener, { once: true })
-        if (signal.aborted) abortListener()
-      })
   try {
-    const preflight = Promise.resolve().then(() => {
-      if (signal?.aborted) return false
-      if (loadedVariant !== undefined && loadedVariant !== variant) {
-        throw new WhisperRestartRequiredError(loadedVariant, variant)
-      }
-      preflightWhisperNativePackage(variant, requirePackage)
-      return true
-    })
-    return abortPromise === undefined ? await Promise.race([preflight, waitForTimeout(timeout.signal)]) : await Promise.race([preflight, abortPromise, waitForTimeout(timeout.signal)])
+    if (signal?.aborted) return false
+    preflightWhisperNativePackage(variant, resolver)
+    return true
   } catch (error) {
     if (error instanceof WhisperRestartRequiredError) throw error
     return false
-  } finally {
-    clearTimeout(timer)
-    if (abortListener !== undefined) signal?.removeEventListener('abort', abortListener)
   }
 }
 
@@ -431,6 +301,10 @@ export function validateWhisperTranscription(state: WhisperModelState): void {
 
 export async function transcribeWithWhisper(options: LocalWhisperOptions): Promise<string> {
   return runtime.transcribe(options)
+}
+
+function reportWorkerDiagnostic(message: string): void {
+  console.warn(`[dsh-ears] ${sanitizeEarsErrorText(message)}`)
 }
 
 function rejectOnAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -456,16 +330,6 @@ function rejectOnAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> 
         reject(error)
       }
     )
-  })
-}
-
-function waitForTimeout(signal: AbortSignal): Promise<false> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve(false)
-      return
-    }
-    signal.addEventListener('abort', () => resolve(false), { once: true })
   })
 }
 
@@ -506,4 +370,10 @@ function isPcm16Mono16kWav(audio: Uint8Array): boolean {
 
 function ascii(bytes: Uint8Array, offset: number, length: number): string {
   return String.fromCharCode(...bytes.subarray(offset, offset + length))
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return String(error)
 }

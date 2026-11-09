@@ -56,6 +56,7 @@ if (manifest.engines?.node !== '^22.19.0 || >=24.0.0') {
 
 requireFile('main', manifest.main)
 requireFile('types', manifest.types)
+requireFile('whisper worker entry', 'lib/asr/whisper-worker.js')
 requireExport('.', 'default')
 requireExport('.', 'types')
 requireExport('./client', 'default')
@@ -149,6 +150,12 @@ if (clientInject?.includes('@deepseek-ai/dsh-client-store')) fail('dsh.client.in
 const hostBundle = existsSync(join(root, 'lib', 'index.js')) ? readFileSync(join(root, 'lib', 'index.js'), 'utf8') : ''
 if (hostBundle.includes('TypertLookupFailure')) fail('lib/index.js must not reference TypertLookupFailure')
 if (/settings\s*\.\s*register\s*\(/u.test(hostBundle)) fail('lib/index.js must not call the removed settings.register API')
+// A native SIGABRT is process-fatal. The Host may resolve the platform package
+// but must never load the addon; the dedicated worker is the only loader.
+if (hostBundle.includes('@fugood/whisper.node')) fail('lib/index.js must not load @fugood/whisper.node; the native runtime belongs to the Whisper worker')
+if (!hostBundle.includes('asr/whisper-worker.js')) fail('lib/index.js must point at the shipped Whisper worker entry')
+const workerBundle = existsSync(join(root, 'lib', 'asr', 'whisper-worker.js')) ? readFileSync(join(root, 'lib', 'asr', 'whisper-worker.js'), 'utf8') : ''
+if (workerBundle !== '' && !workerBundle.includes('@fugood/whisper.node')) fail('lib/asr/whisper-worker.js must load @fugood/whisper.node')
 const clientBundle = existsSync(join(root, 'lib', 'client.js')) ? readFileSync(join(root, 'lib', 'client.js'), 'utf8') : ''
 for (const name of ['@deepseek-ai/dsh-client-runtime', '@deepseek-ai/dsh-client-store', 'zustand', 'immer']) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')

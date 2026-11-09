@@ -195,6 +195,8 @@ export const localeZh = {
   loadFailed: '无法读取配置，请稍后重试',
   saveFailed: '保存失败，修改已保留',
   errorWhisperNativeUnavailable: '当前加速后端的 Whisper 运行时不可用',
+  errorWhisperWorkerFailed: '本地 Whisper 引擎意外停止：{detail}',
+  errorWhisperReleaseFailed: '本地 Whisper 引擎无法释放模型上下文：{detail}',
   errorWhisperRestartRequired: '切换推理模式需要重启dsh',
   errorWhisperModelUnknown: '已安装的 Whisper 不认识模型“{model}”',
   errorWhisperModelUnverified: '模型文件未通过完整性检查，请重新下载',
@@ -435,6 +437,8 @@ export const localeEn = {
   loadFailed: 'Could not load the plugin configuration, try again later',
   saveFailed: 'Save failed, your changes were kept',
   errorWhisperNativeUnavailable: 'The Whisper runtime for the selected acceleration is unavailable',
+  errorWhisperWorkerFailed: 'The local Whisper engine stopped unexpectedly: {detail}',
+  errorWhisperReleaseFailed: 'The local Whisper engine could not release its model context: {detail}',
   errorWhisperRestartRequired: 'Restart dsh to switch the inference mode',
   errorWhisperModelUnknown: 'The installed Whisper does not know the model “{model}”',
   errorWhisperModelUnverified: 'The model file could not be verified, download it again',
@@ -492,6 +496,8 @@ export function fallbackTranslate(key: string, params?: Record<string, unknown>)
 
 const ERROR_LOCALE_KEYS: Record<EarsErrorCode, LocaleKey> = {
   [EARS_ERROR_CODES.whisperNativeUnavailable]: 'errorWhisperNativeUnavailable',
+  [EARS_ERROR_CODES.whisperWorkerFailed]: 'errorWhisperWorkerFailed',
+  [EARS_ERROR_CODES.whisperReleaseFailed]: 'errorWhisperReleaseFailed',
   [EARS_ERROR_CODES.whisperRestartRequired]: 'errorWhisperRestartRequired',
   [EARS_ERROR_CODES.whisperModelUnknown]: 'errorWhisperModelUnknown',
   [EARS_ERROR_CODES.whisperModelUnverified]: 'errorWhisperModelUnverified',

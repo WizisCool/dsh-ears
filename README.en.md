@@ -107,7 +107,7 @@ Transcription results are always written to an editable draft and are never sent
 | [Volcengine](https://www.volcengine.com/product/doubao) | [Doubao audio file recognition](https://docs.volcengine.com/docs/6561/1354868) or [Doubao one-way streaming ASR](https://docs.volcengine.com/docs/6561/2628951) | API key (new-console `X-Api-Key`), resource ID |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
-> **Local Whisper**: Runs whisper.cpp locally via `@fugood/whisper.node` without Python, FFmpeg, or external dependencies. Supports downloading and managing GGML models (`tiny` (default) through `turbo`) in settings, with `default` (auto), `vulkan`, or `cuda` acceleration.
+> **Local Whisper**: Runs whisper.cpp locally via `@fugood/whisper.node` in a dedicated worker process, so a native crash does not take down the host or its other sessions, without Python, FFmpeg, or external dependencies. Supports downloading and managing GGML models (`tiny` (default) through `turbo`) in settings, with `default` (auto), `vulkan`, or `cuda` acceleration.
 >
 > **Alibaba Cloud Model Studio**: the upgraded console issues a workspace-specific API host (Beijing: `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`; Singapore: `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`). Enter that host and a **synchronous model ID** (`qwen3-asr-flash`, `qwen-audio-3.1-asr-flash`, or `fun-asr-flash-2026-06-15`), not the console display name and not a `-filetrans`, `-streaming`, `-message`, or `-realtime` variant — those use asynchronous or WebSocket APIs that dsh-ears does not support.
 >
@@ -137,6 +137,7 @@ After installation, a dsh-ears section appears in the Web UI settings page, orga
 - Deepgram Flux models require the Listen V2 protocol and are currently unsupported.
 - Local Whisper has a single-recording limit of 24 MB and a 120-second transcription timeout.
 - Acceleration backend (`default` / `vulkan` / `cuda`) is locked after the first native module load; switching requires restarting `dsh web`.
+- The Local Whisper native runtime loads in a dedicated worker process. It releases the model context before exiting, and also releases it when the Host exits or loses the IPC channel.
 
 ## Local development
 

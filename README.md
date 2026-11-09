@@ -107,7 +107,7 @@ dsh plugin --profile web remove dsh-ears
 | [火山引擎](https://www.volcengine.com/product/doubao) | [录音文件识别（大模型）](https://docs.volcengine.com/docs/6561/1354868)或[单向流式语音识别](https://docs.volcengine.com/docs/6561/2628951) | API key（新版控制台 X-Api-Key）、资源 ID |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
-> **本地 Whisper**：基于 `@fugood/whisper.node` 本地运行 whisper.cpp，无需 Python、FFmpeg 或外部依赖。支持在设置页下载管理 GGML 模型（`tiny`（默认）至 `turbo`），并可选 `default`（自动）、`vulkan` 或 `cuda` 加速。
+> **本地 Whisper**：基于 `@fugood/whisper.node` 本地运行 whisper.cpp（原生运行时在独立工作进程中，原生崩溃不会拖垮 Host 及其它会话），无需 Python、FFmpeg 或外部依赖。支持在设置页下载管理 GGML 模型（`tiny`（默认）至 `turbo`），并可选 `default`（自动）、`vulkan` 或 `cuda` 加速。
 >
 > **阿里云百炼**：升级后的控制台使用业务空间专属域名（华北2 北京为 `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`，新加坡为 `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`）。请填写该 API Host 和**同步模型 ID**（如 `qwen3-asr-flash`、`qwen-audio-3.1-asr-flash`、`fun-asr-flash-2026-06-15`），不要填控制台显示名称，也不要使用 `-filetrans`、`-streaming`、`-message`、`-realtime` 变体，这些模型走异步任务或 WebSocket 接口，dsh-ears 不支持。
 >
@@ -137,6 +137,7 @@ dsh plugin --profile web remove dsh-ears
 - Deepgram Flux 系列模型需要 Listen V2 协议，当前不支持。
 - 本地 Whisper 单次音频限制 24 MB，转写超时 120 秒。
 - 加速方式（`default` / `vulkan` / `cuda`）在首次 native 加载后锁定，切换需重启 `dsh web`。
+- 本地 Whisper 的原生运行时在独立工作进程中加载；进程退出前会释放模型上下文，Host 退出或失联时也会释放。
 
 ## 本地开发
 
