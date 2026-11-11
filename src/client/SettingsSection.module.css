@@ -6,19 +6,70 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brandLogo {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex: none;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 2px;
+}
+
 .title {
   margin: 0;
   color: var(--dsw-alias-label-primary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  line-height: 24px;
+  line-height: 20px;
 }
 
 .intro {
-  margin: -4px 0 2px;
+  margin: 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   line-height: 20px;
+}
+
+.dependentSettings[data-disabled='true'] {
+  opacity: 0.48;
+}
+
+.healthControl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+
+.healthStatus {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.healthStatus[data-state='available'] {
+  color: var(--dsw-alias-state-success-primary, #188038);
+}
+
+.healthStatus[data-state='unavailable'] {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .notice {
@@ -234,6 +285,51 @@
 }
 
 .selector:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.switch {
+  box-sizing: border-box;
+  width: 40px;
+  height: 24px;
+  flex: none;
+  padding: 3px;
+  border: none;
+  border-radius: 12px;
+  background: var(--dsw-alias-border-l3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.switch[aria-checked='true'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.switchThumb {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-layer-1);
+  transform: translateX(0);
+}
+
+.switch[aria-checked='true'] .switchThumb {
+  transform: translateX(16px);
+}
+
+.switch:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px var(--dsw-alias-interactive-bg-hover);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 3px;
+}
+
+.switch:disabled {
   cursor: default;
   opacity: 0.6;
 }

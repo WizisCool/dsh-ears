@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { whisperAccelerationCapabilities, whisperNativePackageName, type WhisperPackageResolver } from '../src/asr/local-whisper.js'
+import { LocalWhisperRuntime, whisperAccelerationCapabilities, whisperNativePackageName, type LocalWhisperWorker, type WhisperPackageResolver } from '../src/asr/local-whisper.js'
+import { float32PcmToPcm16Wav } from '../src/asr/pcm-wav.js'
 
 function resolverPackages(available: readonly string[]): WhisperPackageResolver {
   const names = new Set(available)
@@ -39,5 +40,35 @@ describe('Local Whisper acceleration defaults', () => {
       available: [],
       default: 'default'
     })
+  })
+})
+
+describe('Local Whisper detailed transcription', () => {
+  it('returns the worker segment times alongside the complete transcript', async () => {
+    const worker: LocalWhisperWorker = {
+      alive: true,
+      request: async (payload) => payload.type === 'transcribe'
+        ? { kind: 'text', text: 'Hello.', isAborted: false, segments: [{ text: 'Hello.', start: 0.1, end: 0.9 }] }
+        : { kind: 'none' },
+      cancelActive: () => undefined,
+      kill: () => undefined,
+      shutdown: async () => undefined,
+      onExit: () => () => undefined
+    }
+    const runtime = new LocalWhisperRuntime(() => worker)
+    try {
+      await expect(runtime.transcribeDetailed({
+        audio: float32PcmToPcm16Wav(new Float32Array(16_000).fill(0.1), 16_000),
+        mimeType: 'audio/wav',
+        language: 'en',
+        model: 'tiny',
+        signal: new AbortController().signal,
+        modelPath: '/models/tiny.bin',
+        variant: 'default',
+        useGpu: false
+      })).resolves.toEqual({ text: 'Hello.', segments: [{ text: 'Hello.', start: 0.1, end: 0.9 }] })
+    } finally {
+      await runtime.dispose()
+    }
   })
 })

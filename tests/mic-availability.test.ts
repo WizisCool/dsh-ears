@@ -29,13 +29,21 @@ describe('micUnavailableReason', () => {
   it('reports a downloading whisper model with its progress', () => {
     const ready: BackendState = { status: 'ready', backends: [backendInfo('local-whisper', true)] }
     expect(micUnavailableReason('local-whisper', ready, whisperView({ runtimeAvailable: true, downloaded: false, downloading: true, progress: 0.42, bytes: 1, totalBytes: 2, error: null })))
-      .toEqual({ kind: 'model-downloading', percent: 0.42 })
+      .toEqual({ kind: 'model-downloading', backendId: 'local-whisper', percent: 0.42 })
   })
 
   it('reports a missing whisper model as the gray reason', () => {
     const ready: BackendState = { status: 'ready', backends: [backendInfo('local-whisper', true)] }
     expect(micUnavailableReason('local-whisper', ready, whisperView({ runtimeAvailable: true, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null })))
-      .toEqual({ kind: 'model-not-downloaded' })
+      .toEqual({ kind: 'model-not-downloaded', backendId: 'local-whisper' })
+  })
+
+  it('gates SenseVoice recording on its downloaded model', () => {
+    const ready: BackendState = { status: 'ready', backends: [backendInfo('local-sensevoice', true)] }
+    expect(micUnavailableReason('local-sensevoice', ready, whisperView({ runtimeAvailable: true, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null })))
+      .toEqual({ kind: 'model-not-downloaded', backendId: 'local-sensevoice' })
+    expect(micUnavailableReason('local-sensevoice', ready, whisperView({ runtimeAvailable: true, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: 100, error: null })))
+      .toBeNull()
   })
 
   it('returns null when the whisper state query failed instead of graying on missing information', () => {

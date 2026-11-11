@@ -14,7 +14,7 @@ Voice-input plugin for DeepSeek Harness. The package has two faces: a Host Cordi
 
 ## Setup
 
-Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `>=0.2.0-rc.1`. dsh-ears 0.4.4 keeps that peer minimum because dsh 0.2.0 is the line that ships the official desktop client, and it compiles against dsh `0.2.1-rc.4` while certifying both that version and `0.2.0-rc.1`. Upstream changed no API this plugin consumes across 0.1.7-rc.2 → 0.2.1-rc.4, so it carries no runtime compatibility layer for pre-0.2.0 hosts (D-058, D-062).
+Node `^22.19.0 || >=24.0.0`, pnpm `11.19.0` (`packageManager`), and dsh `>=0.2.0-rc.1`. dsh-ears 0.5.0 keeps that peer minimum because dsh 0.2.0 is the line that ships the official desktop client, and it compiles against dsh `0.2.1-rc.4` while certifying both that version and `0.2.0-rc.1`. Upstream changed no API this plugin consumes across 0.1.7-rc.2 → 0.2.1-rc.4, so it carries no runtime compatibility layer for pre-0.2.0 hosts (D-058, D-062).
 
 ```sh
 pnpm install
@@ -50,8 +50,9 @@ src/config.ts             Shared constants and validation
 src/config-schema.ts      Host-only schemastery schema
 src/remote-contract.ts    Strict Host/Client wire schemas
 src/shortcut.ts           Shared voice-shortcut logic
-src/asr/                  Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, custom cloud
+src/asr/                  Web Speech, Whisper, SenseVoice, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, custom cloud
 src/polish/               Host LLM polish
+src/agent-audio-tools.ts  Agent-facing audio transcription, polish, and export tools
 tests/                    Vitest suites next to the shipped modules
 .agent/                   Plan, architecture, ADRs, optional research
 ```
@@ -64,13 +65,14 @@ tests/                    Vitest suites next to the shipped modules
 - Follow official DeepSeek Harness package shape, naming, lifecycle, and TypeScript style where they apply.
 - English for source, comments, public documentation, context, issue-ready text, and commit messages. Runtime product prompts may be Chinese when the product requires Chinese output.
 
-## Local Whisper runtime
+## Local ASR runtimes
 
-Local Whisper is Host-owned and runs the bundled `@fugood/whisper.node` native dependency in a dedicated Host-spawned worker process, plus separately downloaded whisper.cpp GGML models. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. The Host must never load the native addon itself: a native abort is process-fatal, so the worker is the only loader and the process that owns the model context. Native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
+Local Whisper and SenseVoice are Host-owned and run their native inference libraries in separate Host-spawned worker processes. Whisper uses the bundled `@fugood/whisper.node` dependency and downloaded whisper.cpp GGML files. SenseVoice uses `sherpa-onnx-node` and separately downloaded Small ONNX model/token files; the default model is INT8. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Python, Torch, FFmpeg, CLI discovery, and fallback engines are out of scope. The Host must never load either native addon itself: a native abort is process-fatal, so each worker is the only loader and owns its model context. Whisper native acceleration is selected with `default`, `vulkan`, or `cuda`; changing it after the first native load requires restarting the dsh Host.
 
 ## Boundaries
 
-- Host owns credentials, process spawn, cloud calls, and Whisper. The browser never receives a cloud ASR key and never calls an LLM provider.
+- Host owns credentials, process spawn, local ASR, cloud calls, and LLM model health checks. The browser never receives a cloud ASR key and never calls an LLM provider.
+- Agent audio-file tools read only a user-supplied path/attachment and write transcript outputs to the current working directory or an explicit destination. Local native ASR remains worker-owned.
 - Polishing reuses dsh routes and Host `ctx.llm`. The plugin stores `{ provider, model }` plus an optional prompt, not a second LLM credential flow.
 - Emotion UI is deferred (D-015). Future cloud ASR providers need their own protocol and smoke test.
 - Do not push, publish to npm, create tags, or change repository visibility without explicit maintainer authorization.

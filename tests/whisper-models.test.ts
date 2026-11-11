@@ -90,6 +90,15 @@ describe('whisper.cpp model lifecycle', () => {
     await expect(stat(`${filePath}.partial`)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  it('uses the selected custom model source when downloading', async () => {
+    const fetch = vi.fn(async () => new Response(TEST_BYTES, { headers: { 'content-length': String(TEST_BYTES.byteLength) } })) as typeof globalThis.fetch
+    const { manager } = await makeManager(fetch)
+    await manager.downloadWhisperModel('tiny', true, 'https://mirror.example/whisper/')
+    const done = await waitForState(manager, (state) => !state.downloading)
+    expect(done.downloaded).toBe(true)
+    expect(fetch).toHaveBeenCalledWith('https://mirror.example/whisper/ggml-tiny.bin', expect.objectContaining({ redirect: 'follow' }))
+  })
+
   it('rejects a same-size model file after its bytes change', async () => {
     const { manager, cacheDir } = await makeManager()
     await manager.downloadWhisperModel('tiny', true)

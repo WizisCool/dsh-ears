@@ -1,14 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, repairInvalidEarsSettings, settingsPageLabel, validateEarsSettings } from '../src/config.js'
+import { ASR_BACKEND_IDS, BAILIAN_MAX_RECORDING_SECONDS, DEFAULT_EARS_SETTINGS, DEFAULT_SENSEVOICE_MODEL_BASE_URL, DEFAULT_WHISPER_MODEL_BASE_URL, LOCAL_MODEL_SOURCE_IDS, MAX_CLOUD_API_KEY_LENGTH, MAX_POLISH_PROMPT_LENGTH, SENSEVOICE_MODEL_IDS, WHISPER_ACCELERATION_IDS, effectiveRecognitionLanguage, effectiveRecordingSeconds, isBailianAsrHost, isHttpEndpoint, isValidLocalModelBaseUrl, repairInvalidEarsSettings, settingsPageLabel, validateEarsSettings } from '../src/config.js'
 
 describe('dsh-ears settings validation', () => {
   it('uses Web Speech and enabled polishing as the product defaults', () => {
     expect(DEFAULT_EARS_SETTINGS.asrBackend).toBe('web-speech')
     expect(DEFAULT_EARS_SETTINGS.localWhisperAcceleration).toBe('default')
+    expect(DEFAULT_EARS_SETTINGS.localWhisperModelSource).toBe('official')
+    expect(DEFAULT_EARS_SETTINGS.localWhisperModelBaseUrl).toBe(DEFAULT_WHISPER_MODEL_BASE_URL)
+    expect(DEFAULT_EARS_SETTINGS.localSenseVoiceModel).toBe('small-int8')
+    expect(DEFAULT_EARS_SETTINGS.localSenseVoiceModelSource).toBe('official')
+    expect(DEFAULT_EARS_SETTINGS.localSenseVoiceModelBaseUrl).toBe(DEFAULT_SENSEVOICE_MODEL_BASE_URL)
+    expect(ASR_BACKEND_IDS).toContain('local-sensevoice')
+    expect(SENSEVOICE_MODEL_IDS).toContain('small-fp32')
+    expect(LOCAL_MODEL_SOURCE_IDS).toEqual(['official', 'mirror', 'custom'])
     expect(DEFAULT_EARS_SETTINGS.polishingEnabled).toBe(true)
     expect(DEFAULT_EARS_SETTINGS.polishProvider).toBe('')
     expect(DEFAULT_EARS_SETTINGS.polishModel).toBe('')
     expect(DEFAULT_EARS_SETTINGS.polishReasoningEffort).toBe('')
+  })
+
+  it('validates selectable local model sources and download URLs', () => {
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localWhisperModelSource: 'mirror' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localSenseVoiceModel: 'small-fp32' })).not.toThrow()
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localWhisperModelSource: 'ftp' })).toThrow('model source')
+    expect(() => validateEarsSettings({ ...DEFAULT_EARS_SETTINGS, localSenseVoiceModelBaseUrl: 'file:///model' })).toThrow('base URL')
+    expect(isValidLocalModelBaseUrl('https://mirror.example/models/')).toBe(true)
+    expect(isValidLocalModelBaseUrl('https://mirror.example/models/?token=secret')).toBe(false)
+    const repaired = repairInvalidEarsSettings({ ...DEFAULT_EARS_SETTINGS, localSenseVoiceModel: 'other' } as typeof DEFAULT_EARS_SETTINGS)
+    expect(repaired.settings.localSenseVoiceModel).toBe('small-int8')
   })
 
   it('defaults the settings page name to dsh-ears and accepts the voice label', () => {

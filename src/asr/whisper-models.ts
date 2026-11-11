@@ -87,6 +87,7 @@ interface VerifiedFile {
 
 interface DownloadHandle {
   readonly model: WhisperModelId
+  readonly baseUrl?: string
   readonly filePath: string
   readonly partialPath: string
   readonly markerPath: string
@@ -238,7 +239,7 @@ export class WhisperModels {
     }
   }
 
-  async downloadWhisperModel(model: WhisperModelId, runtimeAvailable: boolean): Promise<WhisperModelState> {
+  async downloadWhisperModel(model: WhisperModelId, runtimeAvailable: boolean, baseUrl?: string): Promise<WhisperModelState> {
     if (this.disposed) return { ...EMPTY_STATE, runtimeAvailable }
     if (!isWhisperModelId(model)) return { ...EMPTY_STATE, runtimeAvailable }
 
@@ -263,6 +264,7 @@ export class WhisperModels {
       const filePath = this.modelPath(model, definition)
       const handle: DownloadHandle = {
         model,
+        baseUrl,
         filePath,
         partialPath: `${filePath}${DOWNLOAD_PARTIAL_SUFFIX}`,
         markerPath: `${filePath}${DOWNLOAD_MARKER_SUFFIX}`,
@@ -379,7 +381,7 @@ export class WhisperModels {
       }
       handle.controller.signal.throwIfAborted()
       if (this.fetchImpl === undefined) throw new Error('The Node fetch API is unavailable')
-      const url = modelUrl(definition, this.env)
+      const url = modelUrl(definition, handle.baseUrl, this.env)
       const response = await this.fetchImpl(url, { signal: handle.controller.signal, redirect: 'follow' })
       if (!response.ok) throw new Error(`Whisper model download failed with HTTP ${response.status}`)
       if (response.body === null) throw new Error('Whisper model download returned an empty body')
@@ -491,10 +493,13 @@ async function hashFile(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
-function modelUrl(definition: WhisperModelDefinition, env: NodeJS.ProcessEnv): string {
-  const base = env.DSH_EARS_WHISPER_MODEL_BASE_URL?.trim()
+function modelUrl(definition: WhisperModelDefinition, override: string | undefined, env: NodeJS.ProcessEnv): string {
+  const base = override?.trim() || env.DSH_EARS_WHISPER_MODEL_BASE_URL?.trim()
   if (base === undefined || base === '') return definition.url
-  return `${base.replace(/\/+$/, '')}/${definition.fileName}`
+  const url = new URL(base)
+  url.pathname = `${url.pathname.replace(/\/+$/, '')}/${definition.fileName}`
+  url.hash = ''
+  return url.toString()
 }
 
 function isWhisperModelId(value: string): value is WhisperModelId {

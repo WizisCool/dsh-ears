@@ -1,5 +1,32 @@
-export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'cloud-openai'] as const
+export const ASR_BACKEND_IDS = ['web-speech', 'local-whisper', 'local-sensevoice', 'cloud-openai'] as const
 export type AsrBackendId = typeof ASR_BACKEND_IDS[number]
+
+export const LOCAL_MODEL_SOURCE_IDS = ['official', 'mirror', 'custom'] as const
+export type LocalModelSourceId = typeof LOCAL_MODEL_SOURCE_IDS[number]
+export const DEFAULT_WHISPER_MODEL_BASE_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/'
+export const MIRROR_WHISPER_MODEL_BASE_URL = 'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/'
+const SENSEVOICE_MODEL_REPO = 'csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17'
+const SENSEVOICE_MODEL_REVISION = '6a65851692da9706cbddfac66ea9b96ebb1dee21'
+export const DEFAULT_SENSEVOICE_MODEL_BASE_URL = `https://huggingface.co/${SENSEVOICE_MODEL_REPO}/resolve/${SENSEVOICE_MODEL_REVISION}/`
+export const MIRROR_SENSEVOICE_MODEL_BASE_URL = `https://hf-mirror.com/${SENSEVOICE_MODEL_REPO}/resolve/${SENSEVOICE_MODEL_REVISION}/`
+export const SENSEVOICE_MODEL_IDS = ['small-int8', 'small-fp32'] as const
+export type SenseVoiceModelId = typeof SENSEVOICE_MODEL_IDS[number]
+export const DEFAULT_SENSEVOICE_MODEL: SenseVoiceModelId = 'small-int8'
+
+/** Local model URLs are administrator-controlled paths, never credential URLs. */
+export function isValidLocalModelBaseUrl(value: string): boolean {
+  if (value.trim() === '') return false
+  try {
+    const url = new URL(value.trim())
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && url.username === ''
+      && url.password === ''
+      && url.search === ''
+      && url.hash === ''
+  } catch {
+    return false
+  }
+}
 
 export const CLOUD_ASR_PROVIDER_IDS = ['groq', 'deepgram', 'bailian', 'tencent', 'mimo', 'siliconflow', 'volcengine', 'custom'] as const
 export type CloudAsrProviderId = typeof CLOUD_ASR_PROVIDER_IDS[number]
@@ -72,9 +99,16 @@ export interface RecognitionSettings {
   }
   localWhisper: {
     model: WhisperModelId | string
+    source: LocalModelSourceId | string
+    baseUrl: string
     /** `default` is the Host-selected automatic native variant. */
     acceleration: WhisperAccelerationId | string
     language: string
+  }
+  localSenseVoice: {
+    model: SenseVoiceModelId | string
+    source: LocalModelSourceId | string
+    baseUrl: string
   }
   cloudProvider: CloudAsrProviderId | string
   maxRecordingSeconds: number
@@ -87,9 +121,16 @@ export const DEFAULT_RECOGNITION_SETTINGS: RecognitionSettings = Object.freeze({
   }),
   localWhisper: Object.freeze({
     model: 'tiny',
+    source: 'official',
+    baseUrl: DEFAULT_WHISPER_MODEL_BASE_URL,
     // The Host resolves this automatic value against platform/native capabilities.
     acceleration: 'default',
     language: ''
+  }),
+  localSenseVoice: Object.freeze({
+    model: DEFAULT_SENSEVOICE_MODEL,
+    source: 'official',
+    baseUrl: DEFAULT_SENSEVOICE_MODEL_BASE_URL
   }),
   cloudProvider: 'groq',
   maxRecordingSeconds: 120

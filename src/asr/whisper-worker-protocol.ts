@@ -18,7 +18,12 @@ export type WhisperWorkerRequest = WhisperWorkerRequestPayload & { readonly id: 
 
 export type WhisperWorkerValue =
   | { readonly kind: 'none' }
-  | { readonly kind: 'text'; readonly text: string; readonly isAborted: boolean }
+  | {
+      readonly kind: 'text'
+      readonly text: string
+      readonly isAborted: boolean
+      readonly segments?: readonly { readonly text: string; readonly start: number; readonly end: number }[]
+    }
 
 export type WhisperWorkerError = {
   readonly message: string
@@ -46,5 +51,12 @@ function isWhisperWorkerValue(value: unknown): value is WhisperWorkerValue {
   if (value === null || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
   if (record.kind === 'none') return true
-  return record.kind === 'text' && typeof record.text === 'string' && typeof record.isAborted === 'boolean'
+  return record.kind === 'text'
+    && typeof record.text === 'string'
+    && typeof record.isAborted === 'boolean'
+    && (record.segments === undefined || (Array.isArray(record.segments) && record.segments.every((segment) => segment !== null
+      && typeof segment === 'object'
+      && typeof (segment as Record<string, unknown>).text === 'string'
+      && typeof (segment as Record<string, unknown>).start === 'number'
+      && typeof (segment as Record<string, unknown>).end === 'number')))
 }

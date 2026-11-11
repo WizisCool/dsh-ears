@@ -2,7 +2,7 @@ import { DEFAULT_EARS_SETTINGS, EARS_SETTINGS_SCHEMA_VERSION, type EarsSettings,
 import { DEFAULT_CLOUD_ASR_SETTINGS, type CloudAsrSettings } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS, type GeneralSettings } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS, type PolishingSettings } from './settings/polishing.js'
-import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, type RecognitionSettings } from './settings/recognition.js'
+import { DEFAULT_RECOGNITION_SETTINGS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, LOCAL_MODEL_SOURCE_IDS, SENSEVOICE_MODEL_IDS, type RecognitionSettings, type LocalModelSourceId } from './settings/recognition.js'
 import type { EarsSettingsPatch } from './remote-contract.js'
 import { migrateSettingsToCurrent } from './settings/migrations.js'
 export { migrateV1ToV2, migrateV2ToV3, migrateV3ToV4, migrateSettingsToCurrent } from './settings/migrations.js'
@@ -25,6 +25,7 @@ type StoredFieldMapping = {
 }
 
 const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
+  { field: 'voiceInputEnabled', path: ['general', 'voiceInputEnabled'] },
   { field: 'settingsDisplayName', path: ['general', 'displayName'] },
   { field: 'voiceShortcutEnabled', path: ['general', 'shortcut', 'enabled'] },
   { field: 'voiceShortcut', path: ['general', 'shortcut', 'value'] },
@@ -32,8 +33,13 @@ const CURRENT_STORED_FIELD_MAPPINGS: readonly StoredFieldMapping[] = [
   { field: 'asrBackend', path: ['recognition', 'backend'] },
   { field: 'webSpeechLanguage', path: ['recognition', 'webSpeech', 'language'] },
   { field: 'localWhisperModel', path: ['recognition', 'localWhisper', 'model'] },
+  { field: 'localWhisperModelSource', path: ['recognition', 'localWhisper', 'source'] },
+  { field: 'localWhisperModelBaseUrl', path: ['recognition', 'localWhisper', 'baseUrl'] },
   { field: 'localWhisperAcceleration', path: ['recognition', 'localWhisper', 'acceleration'] },
   { field: 'localWhisperLanguage', path: ['recognition', 'localWhisper', 'language'] },
+  { field: 'localSenseVoiceModel', path: ['recognition', 'localSenseVoice', 'model'] },
+  { field: 'localSenseVoiceModelSource', path: ['recognition', 'localSenseVoice', 'source'] },
+  { field: 'localSenseVoiceModelBaseUrl', path: ['recognition', 'localSenseVoice', 'baseUrl'] },
   { field: 'cloudAsrProvider', path: ['recognition', 'cloudProvider'] },
   { field: 'maxRecordingSeconds', path: ['recognition', 'maxRecordingSeconds'] },
   ...CLOUD_ASR_PROVIDERS.flatMap((provider) => provider.fields.map((definition) => ({
@@ -69,6 +75,7 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   const recognition = asRecord(record.recognition)
   const webSpeech = asRecord(recognition?.webSpeech)
   const localWhisper = asRecord(recognition?.localWhisper)
+  const localSenseVoice = asRecord(recognition?.localSenseVoice)
   const cloudAsr = asRecord(record.cloudAsr)
   const polishing = asRecord(record.polishing)
 
@@ -148,6 +155,11 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
   return {
     schemaVersion: EARS_SETTINGS_SCHEMA_VERSION,
     general: {
+      voiceInputEnabled: firstDefinedBoolean(
+        ownBoolean(general, 'voiceInputEnabled'),
+        ownBoolean(record, 'voiceInputEnabled'),
+        DEFAULT_GENERAL_SETTINGS.voiceInputEnabled
+      ),
       displayName: defaultSlotText(
         ownText(general, 'displayName'),
         ownText(record, 'settingsDisplayName'),
@@ -184,6 +196,18 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           ownText(record, 'localWhisperModel'),
           DEFAULT_RECOGNITION_SETTINGS.localWhisper.model
         ),
+        source: normalizeLocalModelSource(defaultSlotText(
+          ownText(localWhisper, 'source'),
+          ownText(recognition, 'localWhisperModelSource'),
+          ownText(record, 'localWhisperModelSource'),
+          DEFAULT_RECOGNITION_SETTINGS.localWhisper.source
+        )),
+        baseUrl: defaultSlotText(
+          ownText(localWhisper, 'baseUrl'),
+          ownText(recognition, 'localWhisperModelBaseUrl'),
+          ownText(record, 'localWhisperModelBaseUrl'),
+          DEFAULT_RECOGNITION_SETTINGS.localWhisper.baseUrl
+        ),
         acceleration: normalizeWhisperAcceleration(defaultSlotText(
           ownText(localWhisper, 'acceleration'),
           ownText(recognition, 'localWhisperAcceleration'),
@@ -191,6 +215,26 @@ export function normalizeStoredEarsSettings(raw: unknown): StoredEarsSettings {
           DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration
         )),
         language: ownText(localWhisper, 'language') ?? DEFAULT_RECOGNITION_SETTINGS.localWhisper.language
+      },
+      localSenseVoice: {
+        model: normalizeSenseVoiceModel(defaultSlotText(
+          ownText(localSenseVoice, 'model'),
+          ownText(recognition, 'localSenseVoiceModel'),
+          ownText(record, 'localSenseVoiceModel'),
+          DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model
+        )),
+        source: normalizeLocalModelSource(defaultSlotText(
+          ownText(localSenseVoice, 'source'),
+          ownText(recognition, 'localSenseVoiceModelSource'),
+          ownText(record, 'localSenseVoiceModelSource'),
+          DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.source
+        )),
+        baseUrl: defaultSlotText(
+          ownText(localSenseVoice, 'baseUrl'),
+          ownText(recognition, 'localSenseVoiceModelBaseUrl'),
+          ownText(record, 'localSenseVoiceModelBaseUrl'),
+          DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.baseUrl
+        )
       },
       cloudProvider: provider,
       webSpeech: {
@@ -339,10 +383,16 @@ export function flattenStoredSettings(raw: unknown): EarsSettings {
     asrBackend: stored.recognition.backend,
     webSpeechLanguage: stored.recognition.webSpeech.language,
     localWhisperModel: stored.recognition.localWhisper.model,
+    localWhisperModelSource: stored.recognition.localWhisper.source,
+    localWhisperModelBaseUrl: stored.recognition.localWhisper.baseUrl,
     localWhisperAcceleration: stored.recognition.localWhisper.acceleration,
     localWhisperLanguage: stored.recognition.localWhisper.language,
+    localSenseVoiceModel: stored.recognition.localSenseVoice.model,
+    localSenseVoiceModelSource: stored.recognition.localSenseVoice.source,
+    localSenseVoiceModelBaseUrl: stored.recognition.localSenseVoice.baseUrl,
     cloudAsrProvider: stored.recognition.cloudProvider,
     maxRecordingSeconds: stored.recognition.maxRecordingSeconds,
+    voiceInputEnabled: stored.general.voiceInputEnabled,
     voiceShortcutEnabled: stored.general.shortcut.enabled,
     voiceShortcut: stored.general.shortcut.value,
     voiceSoundsEnabled: stored.general.soundsEnabled,
@@ -366,6 +416,7 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
   return {
     schemaVersion: EARS_SETTINGS_SCHEMA_VERSION,
     general: {
+      voiceInputEnabled: settings.voiceInputEnabled,
       displayName: settings.settingsDisplayName,
       shortcut: {
         enabled: settings.voiceShortcutEnabled,
@@ -380,8 +431,15 @@ export function unflattenEarsSettings(settings: EarsSettings, acceleration = set
       },
       localWhisper: {
         model: settings.localWhisperModel,
+        source: settings.localWhisperModelSource,
+        baseUrl: settings.localWhisperModelBaseUrl,
         acceleration: normalizeWhisperAcceleration(acceleration),
         language: settings.localWhisperLanguage
+      },
+      localSenseVoice: {
+        model: settings.localSenseVoiceModel,
+        source: settings.localSenseVoiceModelSource,
+        baseUrl: settings.localSenseVoiceModelBaseUrl
       },
       cloudProvider: settings.cloudAsrProvider,
       maxRecordingSeconds: settings.maxRecordingSeconds
@@ -557,7 +615,9 @@ function isCanonicalStoredSettings(record: Record<string, unknown>): boolean {
   return record.schemaVersion === EARS_SETTINGS_SCHEMA_VERSION
     && !hasPath(record, ['recognition', 'language'])
     && !hasPath(record, ['cloudAsr', 'custom'])
-    && CURRENT_STORED_FIELD_MAPPINGS.every((mapping) => hasPath(record, mapping.path))
+    // Additive defaults within V4 do not pin inherited settings through a
+    // wholesale user-layer rewrite when an older profile omits these leaves.
+    && CURRENT_STORED_FIELD_MAPPINGS.every((mapping) => isAdditiveDefaultField(mapping.field) || hasPath(record, mapping.path))
 }
 
 function hasLegacySettingKeys(record: Record<string, unknown>): boolean {
@@ -581,6 +641,23 @@ function hasLegacySettingKeys(record: Record<string, unknown>): boolean {
 
 function normalizeWhisperAcceleration(value: string): WhisperAccelerationId {
   return (WHISPER_ACCELERATION_IDS as readonly string[]).includes(value) ? value as WhisperAccelerationId : 'default'
+}
+
+function normalizeLocalModelSource(value: string): LocalModelSourceId {
+  return (LOCAL_MODEL_SOURCE_IDS as readonly string[]).includes(value) ? value as LocalModelSourceId : 'official'
+}
+
+function normalizeSenseVoiceModel(value: string): string {
+  return (SENSEVOICE_MODEL_IDS as readonly string[]).includes(value) ? value : DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model
+}
+
+function isAdditiveDefaultField(field: keyof EarsSettings): boolean {
+  return field === 'voiceInputEnabled'
+    || field === 'localWhisperModelSource'
+    || field === 'localWhisperModelBaseUrl'
+    || field === 'localSenseVoiceModel'
+    || field === 'localSenseVoiceModelSource'
+    || field === 'localSenseVoiceModelBaseUrl'
 }
 
 function defaultText(...values: Array<string | undefined>): string {

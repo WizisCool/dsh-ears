@@ -1,7 +1,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
 import { EARS_REMOTE_DESCRIPTORS } from './remote-definitions.js'
-import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, PolishRoute, ReasoningEffortsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, LocalModelCatalog, ModelHealthResult, PolishRoute, ReasoningEffortsView, RealtimeSession, RealtimeTranscript, RemoteTextResult, UpdateCheckResult, WhisperModelState } from './remote-contract.js'
 
 export type EarsRemote = ClientRemote['dshEars']
 
@@ -14,7 +14,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     listCloudProviderModels: (provider: string, signal?: AbortSignal) => Promise<RemoteResult<CloudProviderModelsView>>
     listRoutes: () => Promise<RemoteResult<PolishRoute[]>>
     listAsrBackends: () => Promise<RemoteResult<AsrBackendInfo[]>>
+    listLocalModelOptions: (backend: string, source: string, baseUrl: string, signal?: AbortSignal) => Promise<RemoteResult<LocalModelCatalog>>
     listReasoningEfforts: (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    checkPolishModel: (provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<ModelHealthResult>>
     getWhisperModelState: (model: string) => Promise<RemoteResult<WhisperModelState>>
     downloadWhisperModel: (model: string) => Promise<RemoteResult<WhisperModelState>>
     cancelWhisperModelDownload: (model: string) => Promise<RemoteResult<WhisperModelState>>
@@ -35,7 +37,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshEars/listCloudProviderModels': (provider: string, signal?: AbortSignal) => Promise<RemoteResult<CloudProviderModelsView>>
     'dshEars/listRoutes': () => Promise<RemoteResult<PolishRoute[]>>
     'dshEars/listAsrBackends': () => Promise<RemoteResult<AsrBackendInfo[]>>
+    'dshEars/listLocalModelOptions': (backend: string, source: string, baseUrl: string, signal?: AbortSignal) => Promise<RemoteResult<LocalModelCatalog>>
     'dshEars/listReasoningEfforts': (provider: string, model: string) => Promise<RemoteResult<ReasoningEffortsView>>
+    'dshEars/checkPolishModel': (provider: string, model: string, reasoningEffort: string, signal?: AbortSignal) => Promise<RemoteResult<ModelHealthResult>>
     'dshEars/getWhisperModelState': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/downloadWhisperModel': (model: string) => Promise<RemoteResult<WhisperModelState>>
     'dshEars/cancelWhisperModelDownload': (model: string) => Promise<RemoteResult<WhisperModelState>>

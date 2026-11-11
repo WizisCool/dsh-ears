@@ -3,7 +3,7 @@ import { EARS_SETTINGS_SCHEMA_VERSION } from './config.js'
 import { DEFAULT_CLOUD_ASR_SETTINGS } from './settings/cloud-asr.js'
 import { DEFAULT_GENERAL_SETTINGS } from './settings/general.js'
 import { DEFAULT_POLISHING_SETTINGS } from './settings/polishing.js'
-import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS } from './settings/recognition.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERVICE_IDS, LOCAL_MODEL_SOURCE_IDS, MIMO_ASR_CLUSTERS, MIMO_ASR_SERVICE_IDS, SENSEVOICE_MODEL_IDS, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_SERVICE_IDS } from './settings/recognition.js'
 
 /**
  * Host settings schema, exported as the plugin's Cordis `Config`.
@@ -24,6 +24,7 @@ import { CLOUD_ASR_PROVIDER_IDS, DEFAULT_RECOGNITION_SETTINGS, DEEPGRAM_ASR_SERV
 export const EarsSettingsSchema = s.object({
   schemaVersion: s.number().default(EARS_SETTINGS_SCHEMA_VERSION).description('Settings schema version').loose().volatile(),
   general: s.object({
+    voiceInputEnabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.voiceInputEnabled).description('Enable voice input in the composer').loose().volatile(),
     displayName: s.string().default(DEFAULT_GENERAL_SETTINGS.displayName).description('Settings page display name: dsh-ears or voice').loose().volatile(),
     shortcut: s.object({
       enabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.shortcut.enabled).description('Enable the in-page voice shortcut').loose().volatile(),
@@ -32,15 +33,22 @@ export const EarsSettingsSchema = s.object({
     soundsEnabled: s.boolean().default(DEFAULT_GENERAL_SETTINGS.soundsEnabled).description('Play a synthesized click for voice input').loose().volatile()
   }).description('General dsh-ears presentation and input settings').collapse(),
   recognition: s.object({
-    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description('Recognition backend; Web Speech is the default: web-speech, local-whisper, or cloud-openai').loose().volatile(),
+    backend: s.string().default(DEFAULT_RECOGNITION_SETTINGS.backend).description(`Recognition backend: ${ASR_BACKEND_IDS.join(', ')}`).loose().volatile(),
     webSpeech: s.object({
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.webSpeech.language).description('Web Speech recognition language; leave empty to follow the dsh interface locale').loose().volatile()
     }).description('Web Speech live recognition').collapse(),
     localWhisper: s.object({
       model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.model).description('Local Whisper model id').loose().volatile(),
+      source: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.source).description(`Whisper model source: ${LOCAL_MODEL_SOURCE_IDS.join(', ')}`).loose().volatile(),
+      baseUrl: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.baseUrl).description('Whisper model source base URL').loose().volatile(),
       acceleration: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration).description('Local Whisper native acceleration; default selects an available variant automatically').loose().volatile(),
       language: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.language).description('Transcription language; leave empty for automatic detection').loose().volatile()
     }).description('Local Whisper model and native acceleration').collapse(),
+    localSenseVoice: s.object({
+      model: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model).description(`Local SenseVoice model: ${SENSEVOICE_MODEL_IDS.join(', ')}`).loose().volatile(),
+      source: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.source).description(`SenseVoice model source: ${LOCAL_MODEL_SOURCE_IDS.join(', ')}`).loose().volatile(),
+      baseUrl: s.string().default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.baseUrl).description('SenseVoice model source base URL').loose().volatile()
+    }).description('Local SenseVoice ONNX model').collapse(),
     cloudProvider: s.string().default(DEFAULT_RECOGNITION_SETTINGS.cloudProvider).description(`Active cloud ASR provider: ${CLOUD_ASR_PROVIDER_IDS.join(', ')}`).loose().volatile(),
     maxRecordingSeconds: s.number().default(DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds).description('Recording limit in seconds').loose().volatile()
   }).description('Audio recognition routing and limits').collapse(),

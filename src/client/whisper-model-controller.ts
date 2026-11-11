@@ -7,6 +7,9 @@ import { EARS_ERROR_CODES, type EarsErrorCode } from '../errors.js'
 export interface WhisperModelView {
   status: 'loading' | 'ready'
   state: WhisperModelState
+  models?: readonly string[]
+  catalogStatus?: 'loading' | 'ready' | 'error'
+  catalogError?: string | null
 }
 
 export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
@@ -21,6 +24,10 @@ export const EMPTY_WHISPER_STATE: WhisperModelState = Object.freeze({
 
 export interface WhisperModelControllerOptions {
   readonly currentModel: () => string
+  readonly currentBackend?: () => string
+  readonly currentSource?: () => string
+  readonly currentBaseUrl?: () => string
+  readonly fallbackModels?: () => readonly string[]
   readonly hasPendingAcceleration: () => boolean
 }
 
@@ -31,6 +38,7 @@ function failureMessage(message: string, fallback: string): string {
 
 function errorView(view: WhisperModelView, message: string, fallback: string, errorCode: EarsErrorCode, errorParams?: Readonly<Record<string, string | number>>): WhisperModelView {
   return {
+    ...view,
     status: 'ready',
     state: {
       ...view.state,
@@ -46,7 +54,7 @@ export class WhisperModelController {
   private readonly remote: EarsRemote
   private readonly options: WhisperModelControllerOptions
   private readonly store: SnapshotStore<WhisperModelView>
-  private view: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE }
+  private view: WhisperModelView = { status: 'loading', state: EMPTY_WHISPER_STATE, models: [], catalogStatus: 'loading', catalogError: null }
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private disposed = false
   private request = 0
@@ -93,14 +101,37 @@ export class WhisperModelController {
         this.refreshQueued = false
         const request = this.request
         const model = this.options.currentModel()
-        let nextView: WhisperModelView
+        const backend = this.options.currentBackend?.() ?? 'local-whisper'
+        const source = this.options.currentSource?.() ?? 'official'
+        const baseUrl = this.options.currentBaseUrl?.() ?? ''
+        let nextState: WhisperModelState
         try {
           const result = await this.remote.getWhisperModelState(model)
-          nextView = result.ok
-            ? { status: 'ready', state: result.value }
-            : errorView(this.view, result.error.message, 'Could not read the Whisper model state', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: result.error.message })
+          nextState = result.ok
+            ? result.value
+            : errorView(this.view, result.error.message, 'Could not read the local model state', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: result.error.message }).state
         } catch {
-          nextView = errorView(this.view, '', 'Whisper model state query failed', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: 'Whisper model state query failed' })
+          nextState = errorView(this.view, '', 'Local model state query failed', EARS_ERROR_CODES.whisperStateQueryFailed, { detail: 'Local model state query failed' }).state
+        }
+        const hasLocalModelBackend = backend === 'local-whisper' || backend === 'local-sensevoice'
+        let models = hasLocalModelBackend ? this.options.fallbackModels?.() ?? [] : []
+        let catalogError: string | null = null
+        if (hasLocalModelBackend) {
+          try {
+            const catalog = await this.remote.listLocalModelOptions(backend, source, baseUrl)
+            if (catalog.ok && catalog.value.backend === backend && catalog.value.models.length > 0) models = catalog.value.models
+            else if (catalog.ok) catalogError = 'No supported model files were found at this source.'
+            else catalogError = catalog.error.message
+          } catch (error) {
+            catalogError = error instanceof Error ? error.message : 'Could not read the local model list'
+          }
+        }
+        const nextView: WhisperModelView = {
+          status: 'ready',
+          state: nextState,
+          models,
+          catalogStatus: catalogError === null ? 'ready' : 'error',
+          catalogError
         }
         if (!this.disposed && request === this.request) {
           this.view = nextView
@@ -124,7 +155,7 @@ export class WhisperModelController {
       const result = await this.remote.downloadWhisperModel(model)
       if (!this.isCurrentMutation(request, model, accelerationRevision)) return
       this.view = result.ok
-        ? { status: 'ready', state: result.value }
+        ? { ...this.view, status: 'ready', state: result.value }
         : errorView(this.view, result.error.message, 'Could not start the model download', EARS_ERROR_CODES.whisperDownloadFailed, { detail: result.error.message })
       this.store.set(this.view)
     } catch {
@@ -145,7 +176,7 @@ export class WhisperModelController {
       const result = await this.remote.cancelWhisperModelDownload(model)
       if (!this.isCurrentMutation(request, model, accelerationRevision)) return
       this.view = result.ok
-        ? { status: 'ready', state: result.value }
+        ? { ...this.view, status: 'ready', state: result.value }
         : errorView(this.view, result.error.message, 'Could not cancel the download', EARS_ERROR_CODES.whisperCancelCleanupFailed, { detail: result.error.message })
       this.store.set(this.view)
     } catch {
@@ -166,7 +197,7 @@ export class WhisperModelController {
       const result = await this.remote.deleteWhisperModel(model)
       if (!this.isCurrentMutation(request, model, accelerationRevision)) return
       this.view = result.ok
-        ? { status: 'ready', state: result.value }
+        ? { ...this.view, status: 'ready', state: result.value }
         : errorView(this.view, result.error.message, 'Could not delete the model', EARS_ERROR_CODES.whisperDeleteFailed, { detail: result.error.message })
       this.store.set(this.view)
     } catch {
@@ -186,7 +217,7 @@ export class WhisperModelController {
   }
 
   private showPendingAcceleration(): void {
-    this.view = { status: 'loading', state: this.view.state }
+    this.view = { ...this.view, status: 'loading' }
     this.store.set(this.view)
     this.stopPolling()
   }

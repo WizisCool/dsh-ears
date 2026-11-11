@@ -1,5 +1,5 @@
 import type { TypertCodec, TypertSchema } from '@deepseek-ai/dsh-typert-protocol'
-import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, listRoutesResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
+import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProviderSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, listAsrBackendsResultSchema, localModelCatalogSchema, listRoutesResultSchema, modelHealthResultSchema, realtimeCancelledSchema, realtimeSessionSchema, realtimeTranscriptSchema, reasoningEffortsViewSchema, remoteTextResultSchema, textSchema, updateCheckResultSchema, whisperModelStateSchema } from './remote-contract.js'
 
 /**
  * One strict wire codec over a zod v4 schema.
@@ -7,7 +7,7 @@ import { aboutInfoSchema, audioBase64Schema, audioMimeTypeSchema, cloudAsrProvid
  * The Typert strict contract carries its schema behind a `create()` factory so
  * the boundary materializes it on first use, rather than reading a `schema`
  * property. Every descriptor in this table builds its codecs here, which keeps
- * the factory present on all 36 codecs by construction.
+ * the factory present on every codec by construction.
  */
 function strictCodec(typeSymbol: string, schema: TypertSchema): TypertCodec {
   return { mode: 'strict', typeSymbol, create: () => schema }
@@ -36,6 +36,20 @@ export const EARS_REMOTE_DESCRIPTORS = [
     invocation: { kind: 'direct' },
     parameters: [],
     result: strictCodec('dsh-ears#AsrBackendInfo[]', listAsrBackendsResultSchema)
+  },
+  {
+    id: 'dsh-ears#dshEars/listLocalModelOptions',
+    service: 'dshEarsPolish',
+    namespace: 'dshEars',
+    method: 'listLocalModelOptions',
+    invocation: { kind: 'direct' },
+    parameters: [
+      { name: 'backend', wire: 'backend', source: 'json', codec: strictCodec('string', textSchema) },
+      { name: 'source', wire: 'source', source: 'json', codec: strictCodec('string', textSchema) },
+      { name: 'baseUrl', wire: 'baseUrl', source: 'json', codec: strictCodec('string', textSchema) }
+    ],
+    cancellation: { parameter: 'signal' },
+    result: strictCodec('dsh-ears#LocalModelCatalog', localModelCatalogSchema)
   },
   {
     id: 'dsh-ears#dshEars/getAbout',
@@ -141,6 +155,20 @@ export const EARS_REMOTE_DESCRIPTORS = [
       }
     ],
     result: strictCodec('dsh-ears#ReasoningEffortsView', reasoningEffortsViewSchema)
+  },
+  {
+    id: 'dsh-ears#dshEars/checkPolishModel',
+    service: 'dshEarsPolish',
+    namespace: 'dshEars',
+    method: 'checkPolishModel',
+    invocation: { kind: 'direct' },
+    parameters: [
+      { name: 'provider', wire: 'provider', source: 'json', codec: strictCodec('string', textSchema) },
+      { name: 'model', wire: 'model', source: 'json', codec: strictCodec('string', textSchema) },
+      { name: 'reasoningEffort', wire: 'reasoningEffort', source: 'json', codec: strictCodec('string', textSchema) }
+    ],
+    cancellation: { parameter: 'signal' },
+    result: strictCodec('dsh-ears#ModelHealthResult', modelHealthResultSchema)
   },
   {
     id: 'dsh-ears#dshEars/getWhisperModelState',

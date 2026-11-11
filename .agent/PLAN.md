@@ -10,7 +10,7 @@ Give the dsh Web UI a native-feeling voice input flow:
 microphone → live transcript → optional dsh LLM polish → editable draft → manual send
 ```
 
-The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Groq, Deepgram, Alibaba Cloud Model Studio (Bailian / DashScope), Tencent Cloud standard recording file recognition and real-time speech recognition, Xiaomi MiMo (standard API and Token Plan subscription), SiliconFlow CN cloud ASR, Volcengine streaming and recording-file recognition, and a custom OpenAI-compatible cloud ASR backend. Local Whisper models are separate whisper.cpp GGML downloads; the browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
+The implementation supports browser Web Speech, Host-side local Whisper through the bundled `@fugood/whisper.node` native dependency, Host-side local SenseVoice through `sherpa-onnx-node`, Groq, Deepgram, Alibaba Cloud Model Studio (Bailian / DashScope), Tencent Cloud standard recording file recognition and real-time speech recognition, Xiaomi MiMo (standard API and Token Plan subscription), SiliconFlow CN cloud ASR, Volcengine streaming and recording-file recognition, and a custom OpenAI-compatible cloud ASR backend. Local Whisper GGML and SenseVoice ONNX models are separately downloaded, source-selectable (official, mirror, or custom URL), and SHA-256 verified. The default SenseVoice choice is SenseVoice Small ONNX INT8. The browser normalizes captured audio to mono 16 kHz PCM16 WAV. Web Speech may send audio to a browser vendor, so “zero cost” must not be described as “local/private recognition”.
 
 ## Status
 
@@ -33,7 +33,7 @@ The package has two faces:
 - Host: Cordis lifecycle, Host RPC, native `settings.section`, local/cloud ASR, and dsh `ctx.llm`.
 - Browser: composer microphone, session-scoped recognition card, Web Speech, MediaRecorder capture for final ASR, and `inputActions.setDraft()`.
 
-Web Speech runs in the browser and is not a PCM recorder. Local Whisper and file-based cloud ASR use a separate MediaRecorder source and a final-result Host RPC; Tencent realtime recognition uses a Host-owned WebSocket session with browser PCM chunks. Local Whisper receives browser-normalized mono 16 kHz PCM16 WAV, then uses a persistent whisper.node context. The first release does not switch backends during one recording.
+Web Speech runs in the browser and is not a PCM recorder. Local Whisper, local SenseVoice, and file-based cloud ASR use a separate MediaRecorder source and a final-result Host RPC; Tencent realtime recognition uses a Host-owned WebSocket session with browser PCM chunks. Local Whisper and SenseVoice receive browser-normalized mono 16 kHz PCM16 WAV and run in dedicated worker processes. The first release does not switch backends during one recording.
 
 After recording stops, polishing runs on the Host through dsh's existing LLM runtime and credentials. The plugin stores a selected `{ provider, model }` route, not a second provider configuration.
 
@@ -45,7 +45,9 @@ Four fixed Host configuration slots organize persisted settings: `general`, `rec
 
 - Composer microphone in `conversation.input.right` and a Task/Goal-style recognition card in `conversation.input.dock` (D-027). While transcribing or polishing, the stop square becomes a trash control that discards the in-flight voice task.
 - Settings page `dsh-ears` (`settings.section` id `dsh-ears`, nav order 16) with General, Recognition, Polishing, and About tabs (D-017, D-028, D-033). Rows are uncarded General-style hairlines with per-field auto-save (D-031): valid drafts flush after 400 ms, on blur, or on unmount. There is no Save/Discard footer.
-- Web Speech is the default recognition backend for new or incomplete settings, so a fresh install works without a model download; Local Whisper remains selectable and its `default` acceleration uses the Host's automatic platform/native-variant selection (D-046).
+- Web Speech is the default recognition backend for new or incomplete settings, so a fresh install works without a model download; Local Whisper remains selectable and its `default` acceleration uses the Host's automatic platform/native-variant selection (D-046). Local SenseVoice Small ONNX INT8 is selectable, defaults to the official model source, and offers an official/mirror/custom source selector with a dynamically probed model list.
+- Recognition settings have a manual backend/model readiness check. Polishing settings have a manual LLM route check that sends a short test request only after the user clicks it.
+- Agent file transcription tools accept user attachments or explicit audio paths, reuse the Host ASR and polishing services, and export UTF-8 TXT/MD/SRT/VTT/LRC. Supported audio inputs are WAV, MP3, FLAC, OGG Vorbis, OGG Opus, and WebM with Opus/Vorbis audio; all are normalized to WAV before recognition. M4A/AAC remains open pending a compatible decoder. SenseVoice Small INT8 is the default; subtitle jobs use real SenseVoice/Whisper timing and can switch engines for that file without changing saved settings.
 - Polishing is enabled by default and uses dsh's live `agent-default-model` selection when the dsh-ears route fields are empty (D-045).
 - Voice shortcut default `Ctrl+Shift+Space` (D-028). Modifier-only chords are valid. Bare typing keys and Alt/Option+letter chords are rejected. Reserved browser/OS chords warn amber.
 - Cloud ASR keys are per-provider Host `role('secret')` fields (D-023, D-032). The browser never reads a key value.
@@ -86,7 +88,7 @@ dsh-ears/
 ├── src/
 │   ├── index.ts              # Host plugin entry
 │   ├── client.ts / client/   # Browser composition
-│   ├── asr/                  # Web Speech, Whisper, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, SiliconFlow, Volcengine, custom
+│   ├── asr/                  # Web Speech, Whisper, SenseVoice, Groq, Deepgram, Bailian, Tencent Cloud, MiMo, SiliconFlow, Volcengine, custom
 │   ├── polish/               # Host LLM polish
 │   ├── config.ts             # Shared constants and validation
 │   ├── config-schema.ts      # Host-only schemastery schema

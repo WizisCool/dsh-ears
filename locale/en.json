@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-ears",
-    "description": "Dictate into the composer, then polish the text through a dsh model before sending"
+    "description": "Voice input and audio transcription with local Whisper and SenseVoice, cloud ASR, and Agent transcript and subtitle exports."
   }
 }

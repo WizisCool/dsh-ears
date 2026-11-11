@@ -33,6 +33,11 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
     ...source,
     schemaVersion: 2,
     general: {
+      voiceInputEnabled: firstDefinedBoolean(
+        booleanAt(source, ['general', 'voiceInputEnabled']),
+        booleanAt(source, ['voiceInputEnabled']),
+        DEFAULT_GENERAL_SETTINGS.voiceInputEnabled
+      ),
       displayName: firstNonEmpty(textAt(source, ['general', 'displayName']), textAt(source, ['settingsDisplayName']), DEFAULT_GENERAL_SETTINGS.displayName),
       shortcut: {
         enabled: firstDefinedBoolean(
@@ -54,7 +59,14 @@ export function migrateV1ToV2(raw: unknown): SettingsMigrationRecord {
       localWhisper: {
         ...localWhisper,
         model: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'model']), textAt(source, ['localWhisperModel']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.model),
+        source: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'source']), textAt(source, ['localWhisperModelSource']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.source),
+        baseUrl: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'baseUrl']), textAt(source, ['localWhisperModelBaseUrl']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.baseUrl),
         acceleration: firstNonEmpty(textAt(source, ['recognition', 'localWhisper', 'acceleration']), textAt(source, ['localWhisperAcceleration']), DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration)
+      },
+      localSenseVoice: {
+        model: firstNonEmpty(textAt(source, ['recognition', 'localSenseVoice', 'model']), textAt(source, ['localSenseVoiceModel']), DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model),
+        source: firstNonEmpty(textAt(source, ['recognition', 'localSenseVoice', 'source']), textAt(source, ['localSenseVoiceModelSource']), DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.source),
+        baseUrl: firstNonEmpty(textAt(source, ['recognition', 'localSenseVoice', 'baseUrl']), textAt(source, ['localSenseVoiceModelBaseUrl']), DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.baseUrl)
       },
       cloudProvider: provider,
       webSpeech: {

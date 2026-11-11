@@ -1,9 +1,73 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_EARS_SETTINGS } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, repairInvalidEarsSettings, validateEarsSettings } from '../src/config.js'
 import { CLOUD_ASR_PROVIDERS } from '../src/asr/providers.js'
 import { applyFlatSettingsPatch, defaultStoredEarsSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../src/settings-store.js'
 
 describe('canonical Host settings slots', () => {
+  it.each([undefined, 1, 2, 3, 4, 5])('preserves false in flat and nested schema %j settings', (schemaVersion) => {
+    for (const raw of [
+      { schemaVersion, voiceInputEnabled: false },
+      { schemaVersion, general: { voiceInputEnabled: false } },
+      { schemaVersion, voiceInputEnabled: true, general: { voiceInputEnabled: false } }
+    ]) {
+      const stored = normalizeStoredEarsSettings(raw)
+      expect(stored.general.voiceInputEnabled).toBe(false)
+      expect(flattenStoredSettings(stored).voiceInputEnabled).toBe(false)
+    }
+  })
+
+  it('keeps V4 canonical when only the additive input toggle is absent', () => {
+    const current = defaultStoredEarsSettings()
+    const { voiceInputEnabled: _voiceInputEnabled, ...general } = current.general
+    const previous = { ...current, general }
+
+    expect(current.schemaVersion).toBe(4)
+    expect(normalizeStoredEarsSettings(previous).general.voiceInputEnabled).toBe(true)
+    expect(flattenStoredSettings(previous).voiceInputEnabled).toBe(true)
+    expect(storedSettingsNeedRewrite(previous)).toBe(false)
+    expect(storedSettingsNeedRewrite({ ...previous, voiceInputEnabled: false })).toBe(true)
+    const { displayName: _displayName, ...incompleteGeneral } = general
+    expect(storedSettingsNeedRewrite({ ...previous, general: incompleteGeneral })).toBe(true)
+  })
+
+  it('round-trips disabled input independently of the shortcut and preserves it through unrelated patches', () => {
+    const flat = {
+      ...DEFAULT_EARS_SETTINGS,
+      voiceInputEnabled: false,
+      voiceShortcutEnabled: true,
+      localWhisperModelSource: 'mirror',
+      localWhisperModelBaseUrl: 'https://mirror.example/whisper/',
+      localSenseVoiceModel: 'small-fp32' as const,
+      localSenseVoiceModelSource: 'custom' as const,
+      localSenseVoiceModelBaseUrl: 'https://models.example/sensevoice/'
+    }
+    const stored = unflattenEarsSettings(flat)
+    expect(stored.general.voiceInputEnabled).toBe(false)
+    expect(stored.recognition.localWhisper).toMatchObject({ source: 'mirror', baseUrl: 'https://mirror.example/whisper/' })
+    expect(stored.recognition.localSenseVoice).toMatchObject({ model: 'small-fp32', source: 'custom', baseUrl: 'https://models.example/sensevoice/' })
+    expect(flattenStoredSettings(stored)).toEqual(flat)
+    expect(flatSettingsPatchToStoredPatch({ localSenseVoiceModel: 'small-fp32', localSenseVoiceModelSource: 'custom' })).toEqual({
+      recognition: { localSenseVoice: { model: 'small-fp32', source: 'custom' } }
+    })
+    expect(flatSettingsPatchToStoredPatch({ voiceInputEnabled: false })).toEqual({ general: { voiceInputEnabled: false } })
+    expect(flatSettingsPatchToStoredPatch({})).toEqual({})
+    expect(flatSettingsPatchToStoredPatch({ voiceInputEnabled: undefined })).toEqual({})
+    expect(applyFlatSettingsPatch(stored, { voiceSoundsEnabled: false }).general).toMatchObject({ voiceInputEnabled: false, soundsEnabled: false })
+    expect(applyFlatSettingsPatch(stored, { voiceInputEnabled: true }).general.voiceInputEnabled).toBe(true)
+    expect(flattenOverriddenSettings({ general: { voiceInputEnabled: false } })).toEqual(['voiceInputEnabled'])
+    expect(flattenOverriddenSettings({ voiceInputEnabled: false })).toEqual(['voiceInputEnabled'])
+  })
+
+  it.each([null, 0, 'false'])('defaults invalid stored voice input %j and rejects invalid writes', (voiceInputEnabled) => {
+    expect(normalizeStoredEarsSettings({ schemaVersion: 4, general: { voiceInputEnabled } }).general.voiceInputEnabled).toBe(true)
+    const invalid = { ...DEFAULT_EARS_SETTINGS, voiceInputEnabled } as unknown as typeof DEFAULT_EARS_SETTINGS
+    expect(() => validateEarsSettings(invalid)).toThrow('voice input enabled must be a boolean')
+    const repaired = repairInvalidEarsSettings(invalid)
+    expect(repaired.settings.voiceInputEnabled).toBe(true)
+    expect(repaired.repairedFields).toContain('voiceInputEnabled')
+    expect(() => validateEarsSettings(repaired.settings)).not.toThrow()
+  })
+
   it('fills and normalizes the Volcengine slot without legacy data', () => {
     const stored = normalizeStoredEarsSettings({ schemaVersion: 4 })
     expect(stored.cloudAsr.volcengine).toEqual({ apiKey: '', service: 'recording-file', realtimeModel: 'volc.seedasr.sauc.duration', recordingModel: 'volc.seedasr.auc', language: '' })
@@ -49,11 +113,13 @@ describe('canonical Host settings slots', () => {
 
     expect(stored.schemaVersion).toBe(4)
     expect(stored.general).toEqual({
+      voiceInputEnabled: true,
       displayName: 'dsh-ears',
       shortcut: { enabled: true, value: 'ctrl+shift+space' },
       soundsEnabled: true
     })
-    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'cuda', language: '' })
+    expect(stored.recognition.localWhisper).toMatchObject({ model: 'tiny', source: 'official', baseUrl: DEFAULT_EARS_SETTINGS.localWhisperModelBaseUrl, acceleration: 'cuda', language: '' })
+    expect(stored.recognition.localSenseVoice).toMatchObject({ model: 'small-int8', source: 'official', baseUrl: DEFAULT_EARS_SETTINGS.localSenseVoiceModelBaseUrl })
     expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_groq', model: 'whisper-large-v3-turbo', language: '' })
     expect(stored.cloudAsr.deepgram).toEqual({ apiKey: '', model: 'nova-3', language: '', service: 'recording-file' })
     expect(stored.cloudAsr.customOpenAi).toEqual({
@@ -206,7 +272,7 @@ describe('canonical Host settings slots', () => {
       polishing: { prompt: 'partial prompt' }
     })
 
-    expect(stored.recognition.localWhisper).toEqual({ model: 'tiny', acceleration: 'vulkan', language: '' })
+    expect(stored.recognition.localWhisper).toMatchObject({ model: 'tiny', source: 'official', baseUrl: DEFAULT_EARS_SETTINGS.localWhisperModelBaseUrl, acceleration: 'vulkan', language: '' })
     expect(stored.cloudAsr.groq).toEqual({ apiKey: 'gsk_grouped', model: '', language: '' })
     expect(stored.cloudAsr.customOpenAi).toEqual({ apiKey: '', endpoint: '', model: '', language: '' })
     expect(stored.polishing.prompt).toBe('partial prompt')

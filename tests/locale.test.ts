@@ -11,6 +11,15 @@ describe('dsh-ears locale dictionaries', () => {
     expect(Object.keys(localeEn).sort()).toEqual(Object.keys(localeZh).sort())
   })
 
+  it('uses concise voice input switch copy and the Chinese recognition section name', () => {
+    expect(localeZh.voiceInputEnabled).toBe('语音输入')
+    expect(localeEn.voiceInputEnabled).toBe('Voice input')
+    expect(localeZh.voiceInputEnabledHint).toBe('关闭后隐藏语音按钮并停用快捷键')
+    expect(localeEn.voiceInputEnabledHint).toBe('Turning off hides the voice button and disables its shortcut')
+    expect(localeZh.description).toBe('语音识别')
+    expect(localeEn.description).toBe('Speech recognition')
+  })
+
   it('keeps template parameters aligned across locales', () => {
     for (const key of Object.keys(localeZh) as Array<keyof typeof localeZh>) {
       expect(placeholders(localeEn[key])).toEqual(placeholders(localeZh[key]))
@@ -46,14 +55,18 @@ describe('dsh-ears locale dictionaries', () => {
   })
 
   it('uses current shortcut, Bailian, and polishing hints without terminal full stops', () => {
-    expect(localeZh.shortcutEnabledHint).toBe('设置语音输入的快捷键')
-    expect(localeZh.shortcutHint).toBe('设置开始/结束语音输入的热键')
+    expect(localeZh.shortcutEnabledHint).toBe('开启后可用快捷键控制语音输入')
+    expect(localeZh.shortcutHint).toBe('按此快捷键开始或结束语音输入')
+    expect(localeZh.soundsEnabledHint).toBe('开始和结束录音时播放提示音')
+    expect(localeZh.recordingLimitHint).toBe('达到设定时长后自动停止（1–600 秒）')
     expect(localeZh.bailianHostHint).toBe('填写控制台业务空间的 API Host（如 https://ws-xxxx.cn-beijing.maas.aliyuncs.com），可保留 /compatible-mode/v1 后缀')
     expect(localeZh.bailianModelHint).toBe('填写模型 ID（如 qwen3-asr-flash、qwen-audio-3.1-asr-flash），不要填显示名称或 -filetrans/-streaming/-message 变体')
     expect(localeZh.polishingHint).toBe('对转写的文本进行润色整理')
     expect(localeZh.localAccelerationHint).toBe('默认会按当前平台和可用 native variant 自动选择推理后端')
-    expect(localeEn.shortcutEnabledHint).toBe('Set the voice input shortcut')
-    expect(localeEn.shortcutHint).toBe('Set the hotkey that starts and stops voice input')
+    expect(localeEn.shortcutEnabledHint).toBe('Turn on to control voice input with a shortcut')
+    expect(localeEn.shortcutHint).toBe('Press this shortcut to start or stop voice input')
+    expect(localeEn.soundsEnabledHint).toBe('Play a sound when recording starts and stops')
+    expect(localeEn.recordingLimitHint).toBe('Automatically stops after 1–600 seconds')
     expect(localeEn.bailianHostHint).toBe('Enter the workspace API host from the console (e.g. https://ws-xxxx.cn-beijing.maas.aliyuncs.com); a /compatible-mode/v1 suffix is allowed')
     expect(localeEn.bailianModelHint).toBe('Enter the model ID (e.g. qwen3-asr-flash or qwen-audio-3.1-asr-flash), not the display name or a -filetrans/-streaming/-message variant')
     expect(localeEn.polishingHint).toBe('Polish and organize the transcribed text')

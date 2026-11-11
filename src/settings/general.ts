@@ -2,6 +2,7 @@ export const SETTINGS_DISPLAY_NAME_IDS = ['dsh-ears', 'voice'] as const
 export type SettingsDisplayNameId = typeof SETTINGS_DISPLAY_NAME_IDS[number]
 
 export interface GeneralSettings {
+  voiceInputEnabled: boolean
   displayName: SettingsDisplayNameId | string
   shortcut: {
     enabled: boolean
@@ -11,6 +12,7 @@ export interface GeneralSettings {
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = Object.freeze({
+  voiceInputEnabled: true,
   displayName: 'dsh-ears',
   shortcut: Object.freeze({
     enabled: true,
