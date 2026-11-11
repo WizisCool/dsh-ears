@@ -138,7 +138,15 @@ async function transcribe(audioPath: string, language: string | null): Promise<W
   activeJob = job
   try {
     const result = await job.promise
-    return { kind: 'text', text: result.result, isAborted: result.isAborted }
+    const segments = result.segments
+      .map((segment) => ({ text: segment.text.trim(), start: segment.t0 / 100, end: segment.t1 / 100 }))
+      .filter((segment) => segment.text !== '' && segment.end > segment.start)
+    return {
+      kind: 'text',
+      text: result.result,
+      isAborted: result.isAborted,
+      ...(segments.length === 0 ? {} : { segments })
+    }
   } catch (error) {
     if (error instanceof EarsError) throw error
     throw new EarsError(

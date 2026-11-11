@@ -19,15 +19,15 @@ describe('installed about info', () => {
     const about = readInstalledAboutInfo()
     expect(about.repository).toBe(PLUGIN_REPOSITORY_URL)
     expect(about.repositorySlug).toBe(PLUGIN_REPOSITORY_SLUG)
-    expect(about.version).toBe('0.4.4')
+    expect(about.version).toBe('0.5.0')
     expect(about.license).toBe('MIT')
     expect(about.dshCompatibility).toBe('>=0.2.0-rc.1')
     expect(about.updateCommand).toBe(UPDATE_COMMAND)
   })
 
   it('normalizes a git repository URL into a GitHub slug', () => {
-    expect(repositoryUrlFromPackage({ url: 'git+https://github.com/WizisCool/dsh-ears.git' })).toBe(PLUGIN_REPOSITORY_URL)
-    expect(repositorySlugFromUrl(PLUGIN_REPOSITORY_URL)).toBe('@WizisCool/dsh-ears')
+    expect(repositoryUrlFromPackage({ url: 'git+https://github.com/WizisCool/dsh-ears.git' })).toBe('https://github.com/WizisCool/dsh-ears')
+    expect(repositorySlugFromUrl(PLUGIN_REPOSITORY_URL)).toBe('@Pseudosalieri/dsh-ears')
   })
 
   it('falls back when a package.json field is missing', async () => {

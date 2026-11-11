@@ -77,6 +77,9 @@ describe('EarsSettingsController Whisper state', () => {
 
     expect(controller.getWhisperStore().getSnapshot()).toEqual({
       status: 'ready',
+      models: [],
+      catalogStatus: 'ready',
+      catalogError: null,
       state: {
         ...INITIAL_WHISPER_STATE,
         error: 'Whisper service unavailable',
@@ -1173,6 +1176,119 @@ function deferred<T>() {
   const promise = new Promise<T>((nextResolve) => { resolve = nextResolve })
   return { promise, resolve }
 }
+
+describe('EarsSettingsController voice input switch', () => {
+  it.each([true, false])('reads the persisted voice input value %s without changing the shortcut', async (voiceInputEnabled) => {
+    const initial = { ...DEFAULT_EARS_SETTINGS, voiceInputEnabled, voiceShortcutEnabled: false, voiceShortcut: 'ctrl+shift+f9' }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom(initial) })
+    }))
+    try {
+      await controller.refreshSettings()
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.text).toBe(voiceInputEnabled ? 'on' : 'off')
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(voiceInputEnabled)
+      expect(controller.getSettingsStore().getSnapshot().voiceShortcutEnabled).toBe(false)
+      expect(controller.getSettingsStore().getSnapshot().voiceShortcut).toBe('ctrl+shift+f9')
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('publishes the switch to the effective store only after the debounced save succeeds', async () => {
+    vi.useFakeTimers()
+    const pending = deferred<RemoteResult<EarsSettingsView>>()
+    const updateSettings = vi.fn(() => pending.promise)
+    const initial = { ...DEFAULT_EARS_SETTINGS, voiceShortcutEnabled: false, voiceShortcut: 'ctrl+shift+f9' }
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom(initial) }),
+      updateSettings
+    }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('voiceInputEnabled', 'off')
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.text).toBe('off')
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.invalid).toBe(false)
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS - 1)
+      expect(updateSettings).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(updateSettings).toHaveBeenCalledExactlyOnceWith({ voiceInputEnabled: false })
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      pending.resolve({ ok: true, value: settingsViewFrom({ ...initial, voiceInputEnabled: false }) })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(false)
+      expect(controller.getCardStore().getSnapshot().dirty).toBe(false)
+      expect(controller.getSettingsStore().getSnapshot().voiceShortcutEnabled).toBe(false)
+      expect(controller.getSettingsStore().getSnapshot().voiceShortcut).toBe('ctrl+shift+f9')
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps a rejected switch draft local and leaves effective voice input enabled', async () => {
+    vi.useFakeTimers()
+    const updateSettings = vi.fn(async () => ({ ok: false as const, error: { code: 'HOST_FAILURE', message: 'rejected', details: {} } }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('voiceInputEnabled', 'off')
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS)
+      expect(updateSettings).toHaveBeenCalledExactlyOnceWith({ voiceInputEnabled: false })
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      expect(controller.getCardStore().getSnapshot()).toMatchObject({ failed: true, dirty: true, voiceInputEnabled: { text: 'off' } })
+      await vi.advanceTimersByTimeAsync(SETTINGS_SAVE_DEBOUNCE_MS * 2)
+      expect(updateSettings).toHaveBeenCalledTimes(1)
+      controller.actions().discard()
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.text).toBe('on')
+      expect(controller.getSettingsStore().getSnapshot().voiceShortcutEnabled).toBe(DEFAULT_EARS_SETTINGS.voiceShortcutEnabled)
+    } finally {
+      controller.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('defaults missing voice input fields in older loaded and saved views to true', async () => {
+    const legacySettings = { ...DEFAULT_EARS_SETTINGS }
+    delete (legacySettings as Partial<EarsSettings>).voiceInputEnabled
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom(legacySettings) }))
+    const controller = new EarsSettingsController(createRemote({
+      getSettings: async () => ({ ok: true, value: settingsViewFrom(legacySettings) }),
+      updateSettings
+    }))
+    try {
+      await controller.refreshSettings()
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.text).toBe('on')
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      controller.actions().edit('voiceSoundsEnabled', 'off')
+      controller.actions().flush()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().dirty).toBe(false))
+      expect(updateSettings).toHaveBeenCalledExactlyOnceWith({ voiceSoundsEnabled: false })
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      expect(legacySettings).not.toHaveProperty('voiceInputEnabled')
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it('skips an invalid switch draft while saving other valid settings', async () => {
+    const updateSettings = vi.fn(async () => ({ ok: true as const, value: settingsViewFrom({ ...DEFAULT_EARS_SETTINGS, voiceSoundsEnabled: false }) }))
+    const controller = new EarsSettingsController(createRemote({ updateSettings }))
+    try {
+      await controller.refreshSettings()
+      controller.actions().edit('voiceInputEnabled', 'invalid')
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.invalid).toBe(true)
+      controller.actions().edit('voiceSoundsEnabled', 'off')
+      controller.actions().flush()
+      await vi.waitFor(() => expect(controller.getCardStore().getSnapshot().saving).toBe(false))
+      expect(updateSettings).toHaveBeenCalledExactlyOnceWith({ voiceSoundsEnabled: false })
+      expect(controller.getSettingsStore().getSnapshot().voiceInputEnabled).toBe(true)
+      expect(controller.getCardStore().getSnapshot().voiceInputEnabled.invalid).toBe(true)
+    } finally {
+      controller.dispose()
+    }
+  })
+})
 
 describe('EarsSettingsController voice shortcut fields', () => {
   it('stages and saves the shortcut enable switch as a boolean', async () => {

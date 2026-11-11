@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { callConfigEquals } from '@deepseek-ai/dsh-llm'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { DEFAULT_EARS_SETTINGS, validateEarsSettings } from '../src/config.js'
 import { TencentRealtimeAsrSession } from '../src/asr/tencent-cloud-asr.js'
 import { transcribeDashScopeAsr } from '../src/asr/dashscope-asr.js'
 import { transcribeMimoAsr } from '../src/asr/mimo-asr.js'
-import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, withWhisperModelContextReleased, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
+import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, transcribeWithWhisperDetailed, withWhisperModelContextReleased, WhisperRestartRequiredError } from '../src/asr/local-whisper.js'
 import { transcribeOpenAICompatible } from '../src/asr/openai-compatible.js'
 import { EARS_ERROR_CODES } from '../src/errors.js'
 import { POLISH_OUTPUT_GUARD, POLISH_SYSTEM_PROMPT, polishUserText, resolvePolishSystemPrompt } from '../src/polish/prompts.js'
@@ -18,6 +19,13 @@ import { defaultStoredEarsSettings, flattenStoredSettings, unflattenEarsSettings
 const whisperCapabilities = vi.hoisted(() => ({
   available: ['default', 'vulkan', 'cuda'] as Array<'default' | 'vulkan' | 'cuda'>,
   default: 'default' as 'default' | 'vulkan' | 'cuda'
+}))
+const senseVoiceRuntimeMocks = vi.hoisted(() => ({
+  transcribe: vi.fn(async () => 'SenseVoice transcript'),
+  transcribeDetailed: vi.fn(async () => ({ text: 'SenseVoice transcript', segments: [] as Array<{ text: string; start: number; end: number }> })),
+  dispose: vi.fn(async () => undefined),
+  release: vi.fn(async () => undefined),
+  withReleased: vi.fn(async (operation: () => Promise<unknown>) => operation())
 }))
 
 vi.mock('../src/asr/local-whisper.js', () => {
@@ -38,11 +46,20 @@ vi.mock('../src/asr/local-whisper.js', () => {
     isWhisperAvailable: vi.fn(async () => false),
     withWhisperModelContextReleased: vi.fn(async (operation: () => Promise<unknown>) => operation()),
     transcribeWithWhisper: vi.fn(),
+    transcribeWithWhisperDetailed: vi.fn(async () => ({ text: 'Whisper transcript', segments: [] as Array<{ text: string; start: number; end: number }> })),
     validateWhisperTranscription: vi.fn(),
     whisperAccelerationCapabilities: vi.fn(() => whisperCapabilities),
     WhisperRestartRequiredError
   }
 })
+
+vi.mock('../src/asr/sensevoice-runtime.js', () => ({
+  disposeSenseVoiceRuntime: senseVoiceRuntimeMocks.dispose,
+  releaseSenseVoiceModelContext: senseVoiceRuntimeMocks.release,
+  transcribeWithSenseVoice: senseVoiceRuntimeMocks.transcribe,
+  transcribeWithSenseVoiceDetailed: senseVoiceRuntimeMocks.transcribeDetailed,
+  withSenseVoiceModelContextReleased: senseVoiceRuntimeMocks.withReleased
+}))
 
 vi.mock('../src/asr/dashscope-asr.js', () => ({
   transcribeDashScopeAsr: vi.fn()
@@ -125,6 +142,78 @@ describe('resolvePolishRoute', () => {
       provider: 'provider',
       model: 'model'
     })
+  })
+})
+
+describe('polish model health check', () => {
+  it('sends a short request only when the health check is invoked', async () => {
+    let dispatchedConfig: Record<string, unknown> | undefined
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* (options: Record<string, unknown>) {
+        dispatchedConfig = options
+        if (!callConfigEquals(options as never, config as never)) {
+          throw new Error('prepared LLM call config changed before adapter dispatch')
+        }
+        yield { type: 'text-delta', text: 'OK' }
+      }
+    }))
+    const context = createContext({ prepareCall })
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await expect(service.checkPolishModel('test-provider', 'test-model', '', new AbortController().signal))
+        .resolves.toEqual({ status: 'available', message: 'The selected model responded successfully.' })
+      expect(prepareCall).toHaveBeenCalledExactlyOnceWith({
+        provider: 'test-provider',
+        model: 'test-model',
+        temperature: 0,
+        maxTokens: 8
+      }, expect.any(AbortSignal))
+      expect(dispatchedConfig).toMatchObject({ provider: 'test-provider', model: 'test-model', temperature: 0, maxTokens: 8 })
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('returns the provider failure for an unavailable model', async () => {
+    const prepareCall = vi.fn(async () => { throw new Error('provider timed out') })
+    const context = createContext({ prepareCall })
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await expect(service.checkPolishModel('test-provider', 'test-model', '', new AbortController().signal))
+        .resolves.toEqual({ status: 'unavailable', message: 'provider timed out' })
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('returns a sanitized provider finish error instead of replacing it with a generic polishing message', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* () {
+        yield {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: { code: 'AUTH_FAILED', message: 'Invalid bearer YOUR_API_KEY' }
+          }
+        }
+      }
+    }))
+    const context = createContext({ prepareCall })
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await expect(service.checkPolishModel('test-provider', 'test-model', '', new AbortController().signal))
+        .resolves.toEqual({ status: 'unavailable', message: 'Invalid Bearer [redacted]' })
+    } finally {
+      await fiber.dispose()
+    }
   })
 })
 
@@ -223,7 +312,150 @@ describe('PolishService', () => {
   afterEach(async () => {
     whisperCapabilities.available = ['default', 'vulkan', 'cuda']
     whisperCapabilities.default = 'default'
+    senseVoiceRuntimeMocks.transcribe.mockClear()
+    senseVoiceRuntimeMocks.transcribeDetailed.mockReset()
+    senseVoiceRuntimeMocks.transcribeDetailed.mockResolvedValue({ text: 'SenseVoice transcript', segments: [] })
+    senseVoiceRuntimeMocks.dispose.mockClear()
+    senseVoiceRuntimeMocks.release.mockClear()
     for (const fiber of fibers.splice(0).reverse()) await fiber.dispose()
+  })
+
+  it('registers Agent audio tools and prompt guidance when the Host provides those services', async () => {
+    const names = new Set<string>()
+    const sections = new Set<string>()
+    const context = createContext({})
+    context.provide('tools', {
+      register: (definition: { name: string }) => {
+        names.add(definition.name)
+        return () => { names.delete(definition.name) }
+      }
+    } as never)
+    context.provide('systemPrompt', {
+      section: (section: { name: string }) => {
+        sections.add(section.name)
+        return () => { sections.delete(section.name) }
+      }
+    } as never)
+    context.provide('sessions', { get: () => undefined } as never)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+
+    await vi.waitFor(() => expect([...names].sort()).toEqual(['export_transcript_file', 'polish_transcript', 'transcribe_audio_file']))
+    expect(sections.has('dsh-ears:audio-transcription-tools')).toBe(true)
+    fibers.splice(fibers.indexOf(fiber), 1)
+    await fiber.dispose()
+    expect(names.size).toBe(0)
+    expect(sections.size).toBe(0)
+  })
+
+  it('transcribes with the selected local SenseVoice model through the isolated runtime', async () => {
+    const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, asrBackend: 'local-sensevoice' })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')!
+    const modelState = {
+      runtimeAvailable: true,
+      downloaded: true,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: 100,
+      error: null
+    }
+    const modelManager = (service as unknown as { senseVoiceModels: { getModelState: (model: string, baseUrl: string, runtimeAvailable: boolean) => Promise<typeof modelState> } }).senseVoiceModels
+    vi.spyOn(modelManager, 'getModelState').mockResolvedValue(modelState)
+    senseVoiceRuntimeMocks.transcribe.mockResolvedValue('Recognized locally')
+
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({
+      status: 'ok',
+      text: 'Recognized locally'
+    })
+    expect(senseVoiceRuntimeMocks.transcribe).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'small-int8',
+      mimeType: 'audio/wav',
+      modelPath: expect.stringContaining('model.int8.onnx'),
+      tokensPath: expect.stringContaining('tokens.txt')
+    }))
+  })
+
+  it('uses SenseVoice Small INT8 for Agent file transcription and returns its timed segments', async () => {
+    const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, localSenseVoiceModel: 'small-int8' })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')!
+    const state = { runtimeAvailable: true, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: 100, error: null }
+    const manager = (service as unknown as { senseVoiceModels: { getModelState: (model: string, baseUrl: string, runtimeAvailable: boolean) => Promise<typeof state> } }).senseVoiceModels
+    vi.spyOn(manager, 'getModelState').mockResolvedValue(state)
+    senseVoiceRuntimeMocks.transcribeDetailed.mockResolvedValue({
+      text: '你好。',
+      segments: [{ text: '你好。', start: 0, end: 1.2 }]
+    })
+
+    await expect(service.transcribeAudioFile({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      engine: 'sensevoice',
+      senseVoiceModel: 'small-int8',
+      needsTimestamps: true,
+      signal: new AbortController().signal
+    })).resolves.toMatchObject({
+      text: '你好。',
+      backend: 'local-sensevoice',
+      model: 'small-int8',
+      timestampSource: 'backend',
+      segments: [{ start: 0, end: 1.2, text: '你好。' }]
+    })
+  })
+
+  it('falls back from a text-only configured backend to timestamp-capable SenseVoice for subtitles', async () => {
+    const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, asrBackend: 'local-whisper', localWhisperModel: 'tiny' })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')!
+    const whisperState = { runtimeAvailable: true, downloaded: true, downloading: false, progress: null, bytes: null, totalBytes: 100, error: null }
+    const senseVoiceState = { ...whisperState }
+    const whisperModels = (service as unknown as { whisperModels: { getWhisperModelState: (model: string, runtimeAvailable: boolean) => Promise<typeof whisperState> } }).whisperModels
+    const senseVoiceModels = (service as unknown as { senseVoiceModels: { getModelState: (model: string, baseUrl: string, runtimeAvailable: boolean) => Promise<typeof senseVoiceState> } }).senseVoiceModels
+    vi.spyOn(whisperModels, 'getWhisperModelState').mockResolvedValue(whisperState)
+    vi.spyOn(senseVoiceModels, 'getModelState').mockResolvedValue(senseVoiceState)
+    vi.mocked(transcribeWithWhisperDetailed).mockResolvedValue({ text: 'No alignment', segments: [] })
+    senseVoiceRuntimeMocks.transcribeDetailed.mockResolvedValue({
+      text: '带时间戳。',
+      segments: [{ text: '带时间戳。', start: 0.1, end: 1.4 }]
+    })
+
+    await expect(service.transcribeAudioFile({
+      audio: new Uint8Array([1]),
+      mimeType: 'audio/wav',
+      engine: 'configured',
+      senseVoiceModel: 'small-int8',
+      needsTimestamps: true,
+      signal: new AbortController().signal
+    })).resolves.toMatchObject({ backend: 'local-sensevoice', model: 'small-int8', timestampSource: 'backend' })
+    expect(transcribeWithWhisperDetailed).toHaveBeenCalledOnce()
+    expect(senseVoiceRuntimeMocks.transcribeDetailed).toHaveBeenCalledOnce()
+  })
+
+  it('reports local SenseVoice unavailable until its model is downloaded', async () => {
+    const context = createContext({}, { ...DEFAULT_EARS_SETTINGS, asrBackend: 'local-sensevoice' })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')!
+    const state = {
+      runtimeAvailable: true,
+      downloaded: false,
+      downloading: false,
+      progress: null,
+      bytes: null,
+      totalBytes: null,
+      error: null
+    }
+    const modelManager = (service as unknown as { senseVoiceModels: { getModelState: (model: string, baseUrl: string, runtimeAvailable: boolean) => Promise<typeof state> } }).senseVoiceModels
+    vi.spyOn(modelManager, 'getModelState').mockResolvedValue(state)
+
+    await expect(service.listAsrBackends()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'local-sensevoice', available: false, detailCode: EARS_ERROR_CODES.senseVoiceModelNotDownloaded })
+    ]))
   })
 
   it('does not extend a realtime session for invalid audio', async () => {
@@ -421,6 +653,40 @@ describe('PolishService', () => {
       maxTokens: 321,
       stop: ['<end>']
     })
+  })
+
+  it('polishes timestamped segments in one request and preserves their original times', async () => {
+    const prepareCall = vi.fn(async () => ({
+      config: {},
+      stream: async function* () {
+        yield { type: 'text-delta', text: '{"segments":[{"id":0,"text":"你好。"},{"id":1,"text":"你好，世界。"}]}' }
+      }
+    }))
+    const context = createContext({ prepareCall }, {
+      ...DEFAULT_EARS_SETTINGS,
+      polishingEnabled: true,
+      polishProvider: 'provider',
+      polishModel: 'model'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')!
+
+    await expect(service.polishAgentTranscript({
+      text: '你好你好世界',
+      segments: [
+        { start: 0, end: 1, text: '你好' },
+        { start: 1, end: 2, text: '你好世界' }
+      ]
+    }, new AbortController().signal)).resolves.toMatchObject({
+      polished: true,
+      text: '你好。你好，世界。',
+      segments: [
+        { start: 0, end: 1, text: '你好。' },
+        { start: 1, end: 2, text: '你好，世界。' }
+      ]
+    })
+    expect(prepareCall).toHaveBeenCalledOnce()
   })
 
   it('honors an explicit polish route and reasoning override over the DSH Agent default', async () => {
@@ -660,6 +926,78 @@ describe('PolishService', () => {
     expect(settings.update).not.toHaveBeenCalled()
     expect(settings.describe).toHaveBeenCalledWith({ redactSecrets: false })
     expect(settings.describe).toHaveBeenCalledWith({ redactSecrets: true })
+  })
+
+  it('defaults older V4 voice input without rewriting and persists the toggle as a narrow merge', async () => {
+    const current = defaultStoredEarsSettings()
+    const { voiceInputEnabled: _voiceInputEnabled, ...general } = current.general
+    const stored = { ...current, general }
+    const settings = createFakeSettingsForms({ stored, user: { general: { shortcut: { enabled: false } } } })
+    const context = createContextWithSettingsProvider({}, settings)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    expect(service.getSettings().settings.voiceInputEnabled).toBe(true)
+    await Promise.resolve()
+    expect(settings.replace).not.toHaveBeenCalled()
+    expect(settings.update).not.toHaveBeenCalled()
+
+    const disabled = await service.updateSettings({ voiceInputEnabled: false }, new AbortController().signal)
+    expect(disabled.settings.voiceInputEnabled).toBe(false)
+    expect(settings.update).toHaveBeenCalledWith('dsh-ears', { general: { voiceInputEnabled: false } }, 0)
+    expect(settings.userSection()).toEqual({ general: { shortcut: { enabled: false }, voiceInputEnabled: false } })
+
+    await service.updateSettings({ webSpeechLanguage: 'en-US' }, new AbortController().signal)
+    expect(service.getSettings().settings.voiceInputEnabled).toBe(false)
+    expect(settings.replace).not.toHaveBeenCalled()
+    expect(settings.userSection()).toEqual({
+      general: { shortcut: { enabled: false }, voiceInputEnabled: false },
+      recognition: { webSpeech: { language: 'en-US' } }
+    })
+  })
+
+  it.each([null, 0, 'false'])('rejects a wrong-typed voice input update %j before persistence', async (voiceInputEnabled) => {
+    const settings = createFakeSettingsForms({ stored: settingsDocument(DEFAULT_EARS_SETTINGS) })
+    const context = createContextWithSettingsProvider({}, settings)
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    const invalidPatch = { voiceInputEnabled } as unknown as { voiceInputEnabled: boolean }
+    await expect(service.updateSettings(invalidPatch, new AbortController().signal)).rejects.toThrow('voice input enabled must be a boolean')
+    expect(settings.update).not.toHaveBeenCalled()
+    expect(settings.replace).not.toHaveBeenCalled()
+    expect(service.getSettings().settings.voiceInputEnabled).toBe(true)
+  })
+
+  it('does not gate direct Host transcription or polishing when voice input is disabled', async () => {
+    vi.mocked(transcribeOpenAICompatible).mockResolvedValueOnce('raw transcript')
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* () {
+        yield { type: 'text-delta', text: 'polished transcript' }
+      }
+    }))
+    const context = createContext({ prepareCall }, {
+      ...DEFAULT_EARS_SETTINGS,
+      voiceInputEnabled: false,
+      asrBackend: 'cloud-openai',
+      cloudAsrProvider: 'groq',
+      cloudAsrGroqApiKey: 'gsk_test',
+      cloudAsrGroqModel: 'whisper-large-v3-turbo'
+    })
+    const fiber = await context.plugin(PolishService)
+    fibers.push(fiber)
+    const service = context.get('dshEarsPolish')
+    if (service === undefined) throw new Error('Polish service is missing')
+
+    expect(service.getSettings().settings.voiceInputEnabled).toBe(false)
+    await expect(service.transcribe('AQ==', 'audio/wav', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'raw transcript' })
+    await expect(service.polish('raw transcript', 'provider', 'model', '', new AbortController().signal)).resolves.toEqual({ status: 'ok', text: 'polished transcript' })
+    expect(prepareCall).toHaveBeenCalledOnce()
   })
 
   it('never rewrites an entry config whose fields dsh does not project', async () => {
@@ -1011,7 +1349,7 @@ describe('PolishService', () => {
     expect(JSON.parse(JSON.stringify(state))).toEqual(state)
 
     const downloadState = await service.downloadWhisperModel('tiny')
-    expect(downloadWhisperModel).toHaveBeenCalledWith('tiny', false)
+    expect(downloadWhisperModel).toHaveBeenCalledWith('tiny', false, DEFAULT_EARS_SETTINGS.localWhisperModelBaseUrl)
     expect(downloadState).toMatchObject({
       downloaded: true,
       runtimeAvailable: false,

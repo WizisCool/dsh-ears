@@ -44,6 +44,11 @@ export interface LocalWhisperOptions {
   readonly timeoutMs?: number
 }
 
+export interface LocalWhisperTranscript {
+  readonly text: string
+  readonly segments: readonly { readonly text: string; readonly start: number; readonly end: number }[]
+}
+
 /** The Host-side face of one sacrificial Whisper worker process. */
 export type WhisperWorkerFactory = () => LocalWhisperWorker
 
@@ -67,6 +72,10 @@ export class LocalWhisperRuntime {
   }
 
   async transcribe(options: LocalWhisperOptions): Promise<string> {
+    return (await this.transcribeDetailed(options)).text
+  }
+
+  async transcribeDetailed(options: LocalWhisperOptions): Promise<LocalWhisperTranscript> {
     if (this.disposed) throw new EarsError(EARS_ERROR_CODES.backendLocalUnavailable, 'Local Whisper has been disposed')
     const run = this.queue.then(() => this.transcribeNow(options))
     this.queue = run.then(() => undefined, () => undefined)
@@ -143,7 +152,7 @@ export class LocalWhisperRuntime {
     }
   }
 
-  private async transcribeNow(options: LocalWhisperOptions): Promise<string> {
+  private async transcribeNow(options: LocalWhisperOptions): Promise<LocalWhisperTranscript> {
     if (this.disposed) throw new EarsError(EARS_ERROR_CODES.backendLocalUnavailable, 'Local Whisper has been disposed')
     options.signal.throwIfAborted()
     if (options.audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
@@ -198,7 +207,8 @@ export class LocalWhisperRuntime {
       if (value.isAborted) throw new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Local Whisper transcription was aborted')
       const text = value.text.trim()
       if (text === '') throw new EarsError(EARS_ERROR_CODES.asrNoTranscript, 'Whisper returned no transcript')
-      return text
+      const segments = value.segments?.filter((segment) => segment.text.trim() !== '' && segment.end > segment.start) ?? []
+      return { text, segments }
     } catch (error) {
       if (timeoutController.signal.aborted) throw timeoutController.signal.reason
       options.signal.throwIfAborted()
@@ -303,6 +313,10 @@ export async function transcribeWithWhisper(options: LocalWhisperOptions): Promi
   return runtime.transcribe(options)
 }
 
+export async function transcribeWithWhisperDetailed(options: LocalWhisperOptions): Promise<LocalWhisperTranscript> {
+  return runtime.transcribeDetailed(options)
+}
+
 function reportWorkerDiagnostic(message: string): void {
   console.warn(`[dsh-ears] ${sanitizeEarsErrorText(message)}`)
 }
@@ -338,7 +352,7 @@ function normalizeLanguage(language: string): string | undefined {
   return value === '' ? undefined : value
 }
 
-function assertPcm16Wav(audio: Uint8Array, mimeType: string): void {
+export function assertPcm16Wav(audio: Uint8Array, mimeType: string): void {
   const normalized = mimeType.toLowerCase().split(';', 1)[0]
   if (normalized !== 'audio/wav' && normalized !== 'audio/x-wav') {
     throw new EarsError(EARS_ERROR_CODES.asrAudioInvalid, 'Local Whisper expects browser-normalized PCM16 WAV audio')

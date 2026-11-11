@@ -7,6 +7,29 @@ import {
 } from '../src/settings/migrations.js'
 
 describe('settings migrations', () => {
+  it.each([
+    { voiceInputEnabled: false },
+    { general: { voiceInputEnabled: false } },
+    { voiceInputEnabled: true, general: { voiceInputEnabled: false } }
+  ])('preserves a disabled voice input toggle when V1 rebuilds general: %j', (legacy) => {
+    const v2 = migrateV1ToV2(legacy)
+    expect(v2.general).toMatchObject({ voiceInputEnabled: false })
+    expect(migrateSettingsToCurrent(legacy).general).toMatchObject({ voiceInputEnabled: false })
+    expect(migrateSettingsToCurrent(migrateV2ToV3(v2)).general).toMatchObject({ voiceInputEnabled: false })
+  })
+
+  it('defaults voice input to true only when the V1 general toggle is absent or invalid', () => {
+    expect(migrateV1ToV2({}).general).toMatchObject({ voiceInputEnabled: true })
+    expect(migrateV1ToV2({ general: { voiceInputEnabled: 'false' } }).general).toMatchObject({ voiceInputEnabled: true })
+  })
+
+  it.each([2, 3, 4])('preserves an explicit disabled toggle through schema V%i migrations', (schemaVersion) => {
+    const source = { schemaVersion, general: { voiceInputEnabled: false } }
+    const before = structuredClone(source)
+    expect(migrateSettingsToCurrent(source).general).toMatchObject({ voiceInputEnabled: false })
+    expect(source).toEqual(before)
+  })
+
   it('maps the historical flat shape through each explicit schema stage', () => {
     const legacy = {
       asrBackend: 'cloud-openai',

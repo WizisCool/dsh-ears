@@ -70,6 +70,19 @@ describe('WhisperWorkerClient', () => {
     await expect(pending).resolves.toEqual({ kind: 'text', text: 'hello', isAborted: false })
   })
 
+  it('preserves Whisper segment timestamps across the worker protocol', async () => {
+    const { client, child } = createClient()
+    const pending = client.request({ type: 'transcribe', audioPath: '/tmp/a.wav', language: 'en' })
+    const segments = [{ text: 'Hello.', start: 0, end: 1.25 }]
+    child.emitMessage({
+      type: 'response',
+      id: 1,
+      ok: true,
+      value: { kind: 'text', text: 'Hello.', isAborted: false, segments }
+    })
+    await expect(pending).resolves.toEqual({ kind: 'text', text: 'Hello.', isAborted: false, segments })
+  })
+
   it('reconstructs a structured worker error', async () => {
     const { client, child } = createClient()
     const pending = client.request({ type: 'transcribe', audioPath: '/tmp/a.wav', language: 'zh' })

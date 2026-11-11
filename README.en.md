@@ -23,11 +23,13 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It supports in-browser Web Speech, local Whisper, and popular speech-to-text (ASR) APIs.
+dsh-ears adds voice input and LLM-powered text polishing to DeepSeek Harness. It supports in-browser Web Speech, local Whisper, local SenseVoice, and popular speech-to-text (ASR) APIs.
 
 ## Install
 
 Prerequisites: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`, and Node.js `^22.19.0 || >=24.0.0`.
+
+Upstream repository: [WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears).
 
 ### Install from npm
 
@@ -39,7 +41,7 @@ dsh plugin --profile web add dsh-ears
 
 Desktop application: install from its plugin manager. The desktop app owns a reserved profile named `desktop` and the `dsh` CLI refuses to manage it, so there is no command-line equivalent. dsh-ears needs no separate desktop build — both surfaces load the same `web` client bundle.
 
-> **Still using dsh 0.1.x?** dsh-ears `0.4.4` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
+> **Still using dsh 0.1.x?** dsh-ears `0.5.0` requires dsh `>=0.2.0-rc.1`, and dsh refuses to install it on an older host. Stay on the matching earlier line:
 >
 > ```sh
 > # dsh 0.1.2 through 0.1.6
@@ -92,12 +94,21 @@ Refresh the Web UI after uninstalling.
 
 Transcription results are always written to an editable draft and are never sent automatically. If the selected backend is not ready, the microphone icon is disabled — hover over it to see why.
 
+### Agent audio-file transcription
+
+Attach audio to a conversation or explicitly provide an audio-file path and ask for transcription. dsh-ears registers `transcribe_audio_file`, `polish_transcript`, and `export_transcript_file`; the Agent chooses whether to call them from the request. SenseVoice Small ONNX INT8 is the default file recognizer, with SenseVoice FP32 and Whisper selectable. The current DSH Host does not declare native audio input, so Agent file transcription uses dsh-ears; if a later model route can actually receive audio, the Agent prefers that native capability.
+
+Supported inputs are WAV, MP3, FLAC, OGG Vorbis, OGG Opus, and WebM containing Opus/Vorbis audio; inputs are normalized to WAV before recognition. Outputs are UTF-8 TXT, MD, SRT, VTT, or LRC. Subtitle formats require real ASR timestamps; when the selected method has none, this file task tries SenseVoice and then Whisper. Polishing follows the dsh-ears toggle. Missing local models are reported for manual download; tools never download models automatically.
+
+By default, `<audio name>.transcript.<format>` is written in the Agent's current working directory. A user-specified output path is also accepted. Existing files are never overwritten; the tool tries `-1`, `-2`, and later suffixes. The tool reads only the exact user-attached or user-named file and never scans directories.
+
 ## Recognition backends
 
 | Backend | How it works | Requirements |
 | --- | --- | --- |
 | Web Speech | In-browser real-time recognition | Default backend; Chromium-based browser |
-| Local Whisper | Local transcription after recording stops | Download GGML models in settings |
+| Local Whisper | Local transcription after recording stops | Choose a model and official, mirror, or custom source in settings, then download its GGML file |
+| Local SenseVoice | Local transcription after recording stops | SenseVoice Small ONNX INT8 is the default; FP32 is also available with official, mirror, or custom sources |
 | [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
 | [Deepgram](https://deepgram.com) | [Pre-recorded audio](https://developers.deepgram.com/docs/pre-recorded-audio) or [live audio streaming](https://developers.deepgram.com/docs/live-streaming-audio) | API key, model name (e.g. `nova-3`) |
 | [Alibaba Cloud Model Studio](https://www.alibabacloud.com/help/en/model-studio/what-is-model-studio) | [DashScope synchronous transcription](https://www.alibabacloud.com/help/en/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) | API key, synchronous model ID; max 300 s per recording |
@@ -107,7 +118,7 @@ Transcription results are always written to an editable draft and are never sent
 | [Volcengine](https://www.volcengine.com/product/doubao) | [Doubao audio file recognition](https://docs.volcengine.com/docs/6561/1354868) or [Doubao one-way streaming ASR](https://docs.volcengine.com/docs/6561/2628951) | API key (new-console `X-Api-Key`), resource ID |
 | Custom OpenAI-compatible | Sends to a specified `/audio/transcriptions` endpoint | Endpoint URL, API key, model name |
 
-> **Local Whisper**: Runs whisper.cpp locally via `@fugood/whisper.node` in a dedicated worker process, so a native crash does not take down the host or its other sessions, without Python, FFmpeg, or external dependencies. Supports downloading and managing GGML models (`tiny` (default) through `turbo`) in settings, with `default` (auto), `vulkan`, or `cuda` acceleration.
+> **Local models**: Choose Whisper or SenseVoice models in the Recognition tab. The Host downloads them into its local cache from the official source, a mirror, or a custom base URL, and probes that source to list available model files. Whisper defaults to `tiny`; SenseVoice defaults to Small ONNX INT8 and also offers FP32. Model files are SHA-256 verified. Both native inference runtimes run in dedicated worker processes, so a native crash cannot take down the Host. Python and FFmpeg are not required.
 >
 > **Alibaba Cloud Model Studio**: the upgraded console issues a workspace-specific API host (Beijing: `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`; Singapore: `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`). Enter that host and a **synchronous model ID** (`qwen3-asr-flash`, `qwen-audio-3.1-asr-flash`, or `fun-asr-flash-2026-06-15`), not the console display name and not a `-filetrans`, `-streaming`, `-message`, or `-realtime` variant — those use asynchronous or WebSocket APIs that dsh-ears does not support.
 >
@@ -117,6 +128,8 @@ Transcription results are always written to an editable draft and are never sent
 
 Enabled by default. Leave both provider and model empty to use dsh's default Agent model (including its default reasoning settings); you can also select any model configured in dsh. LLM credentials reuse dsh's existing configuration. Reasoning effort is configurable.
 
+The Polishing tab can manually check the selected model by sending a short test request, which may use model tokens. The Recognition tab health check reports browser support, local runtime/model files, or cloud configuration status.
+
 The default prompt removes filler words, fixes common ASR errors, handles self-corrections, and formats lists. Customize the prompt or view the default content in settings. If polishing fails or is cancelled, the raw transcript is preserved.
 
 ## Settings
@@ -125,14 +138,15 @@ After installation, a dsh-ears section appears in the Web UI settings page, orga
 
 | Tab | Configurable options |
 | --- | --- |
-| General | Settings display name, voice shortcut toggle and key combination, audio cues toggle, max recording duration (1–600 s, default 120 s) |
-| Recognition | Backend selection, language, local Whisper model and acceleration, cloud providers and credentials |
-| Polishing | Toggle, LLM provider and model, reasoning effort, custom prompt (up to 4,000 characters) |
+| General | Voice input toggle, voice shortcut toggle and key combination, audio cues toggle, max recording duration (1–600 s, default 120 s) |
+| Recognition | Backend, model source and available model list, language, Whisper acceleration, cloud providers and credentials; manual backend health check |
+| Polishing | Toggle, LLM provider and model, reasoning effort, custom prompt (up to 4,000 characters), manual model health check |
 | About | Version, license, dsh compatibility range, update checker |
 
 ## Known limitations
 
 - The Web Speech backend relies on the browser implementation; audio may be sent to browser vendor servers for processing and is not a strictly local/offline solution.
+- Agent file transcription accepts WAV, MP3, FLAC, OGG Vorbis, OGG Opus, and WebM containing Opus/Vorbis audio. M4A/AAC is not supported yet.
 - Alibaba Cloud Model Studio (Bailian) recordings are capped at 300 seconds per audio; Qwen-Audio 3.1 may return no words for very short or silent audio, so prefer `qwen3-asr-flash` for short voice input.
 - Deepgram Flux models require the Listen V2 protocol and are currently unsupported.
 - Local Whisper has a single-recording limit of 24 MB and a 120-second transcription timeout.

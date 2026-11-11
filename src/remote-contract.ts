@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { ASR_BACKEND_IDS, CLOUD_ASR_PROVIDER_IDS, DEEPGRAM_ASR_DEFAULT_SERVICE, DEEPGRAM_ASR_SERVICE_IDS, DEEPGRAM_DEFAULT_MODEL, LOCAL_MODEL_SOURCE_IDS, MAX_CLOUD_API_KEY_LENGTH, MIMO_ASR_CLUSTERS, MIMO_ASR_DEFAULT_CLUSTER, MIMO_ASR_DEFAULT_SERVICE, MIMO_ASR_SERVICE_IDS, MIMO_DEFAULT_MODEL, SETTINGS_DISPLAY_NAME_IDS, SENSEVOICE_MODEL_IDS, SILICONFLOW_DEFAULT_MODEL, TENCENT_ASR_SERVICE_IDS, VOLCENGINE_ASR_DEFAULT_SERVICE, VOLCENGINE_ASR_SERVICE_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_REALTIME_MODEL_IDS, VOLCENGINE_RECORDING_DEFAULT_MODEL, VOLCENGINE_RECORDING_MODEL_IDS, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS } from './config.js'
+import { DEFAULT_RECOGNITION_SETTINGS } from './settings/recognition.js'
 import type { AsrBackendId, EarsSettings, PolishRoute, WhisperAccelerationId } from './config.js'
 import type { EarsErrorCode, EarsErrorParams } from './errors.js'
 import type { AsrBackendInfo } from './asr/types.js'
@@ -14,8 +15,13 @@ export const earsSettingsSchema = z.object({
   asrBackend: z.string(),
   webSpeechLanguage: z.string(),
   localWhisperModel: z.string(),
+  localWhisperModelSource: z.enum(LOCAL_MODEL_SOURCE_IDS).default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.source as typeof LOCAL_MODEL_SOURCE_IDS[number]),
+  localWhisperModelBaseUrl: z.string().default(DEFAULT_RECOGNITION_SETTINGS.localWhisper.baseUrl),
   localWhisperAcceleration: z.string(),
   localWhisperLanguage: z.string(),
+  localSenseVoiceModel: z.enum(SENSEVOICE_MODEL_IDS).default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model as typeof SENSEVOICE_MODEL_IDS[number]),
+  localSenseVoiceModelSource: z.enum(LOCAL_MODEL_SOURCE_IDS).default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.source as typeof LOCAL_MODEL_SOURCE_IDS[number]),
+  localSenseVoiceModelBaseUrl: z.string().default(DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.baseUrl),
   cloudAsrProvider: z.string(),
   cloudAsrGroqApiKey: z.string(),
   cloudAsrGroqModel: z.string(),
@@ -51,6 +57,7 @@ export const earsSettingsSchema = z.object({
   cloudAsrVolcengineRecordingModel: z.string().default(VOLCENGINE_RECORDING_DEFAULT_MODEL),
   cloudAsrVolcengineLanguage: z.string().default(''),
   maxRecordingSeconds: z.number(),
+  voiceInputEnabled: z.boolean().default(true),
   voiceShortcutEnabled: z.boolean(),
   voiceShortcut: z.string(),
   voiceSoundsEnabled: z.boolean(),
@@ -66,8 +73,13 @@ export const earsSettingsPatchSchema = z.object({
   asrBackend: asrBackendSchema.optional(),
   webSpeechLanguage: z.string().optional(),
   localWhisperModel: whisperModelSchema.optional(),
+  localWhisperModelSource: z.enum(LOCAL_MODEL_SOURCE_IDS).optional(),
+  localWhisperModelBaseUrl: z.string().optional(),
   localWhisperAcceleration: z.enum(WHISPER_ACCELERATION_IDS).optional(),
   localWhisperLanguage: z.string().optional(),
+  localSenseVoiceModel: z.enum(SENSEVOICE_MODEL_IDS).optional(),
+  localSenseVoiceModelSource: z.enum(LOCAL_MODEL_SOURCE_IDS).optional(),
+  localSenseVoiceModelBaseUrl: z.string().optional(),
   cloudAsrProvider: cloudAsrProviderSchema.optional(),
   cloudAsrGroqApiKey: cloudCredentialSchema.optional(),
   cloudAsrGroqModel: z.string().optional(),
@@ -103,6 +115,7 @@ export const earsSettingsPatchSchema = z.object({
   cloudAsrVolcengineRecordingModel: z.enum(VOLCENGINE_RECORDING_MODEL_IDS).optional(),
   cloudAsrVolcengineLanguage: z.string().optional(),
   maxRecordingSeconds: z.number().optional(),
+  voiceInputEnabled: z.boolean().optional(),
   voiceShortcutEnabled: z.boolean().optional(),
   voiceShortcut: z.string().optional(),
   voiceSoundsEnabled: z.boolean().optional(),
@@ -168,6 +181,15 @@ export const whisperModelStateSchema = z.object({
   errorCode: z.string().optional(),
   errorParams: errorParamsSchema.optional()
 })
+export const localModelCatalogSchema = z.object({
+  backend: z.enum(['local-whisper', 'local-sensevoice']),
+  source: z.enum(LOCAL_MODEL_SOURCE_IDS),
+  models: z.array(z.string())
+})
+export const modelHealthResultSchema = z.object({
+  status: z.enum(['available', 'unavailable']),
+  message: z.string()
+})
 export const cloudProviderModelsViewSchema = z.object({
   status: z.enum(['ok', 'no-key', 'error', 'unsupported']),
   models: z.array(z.string()).optional(),
@@ -214,6 +236,8 @@ export type RemoteTextSuccess = Extract<RemoteTextResult, { status: 'ok' }>
 export type RemoteTextFailure = Extract<RemoteTextResult, { status: 'error' }>
 export type RealtimeSession = z.infer<typeof realtimeSessionSchema>
 export type RealtimeTranscript = z.infer<typeof realtimeTranscriptSchema>
+export type LocalModelCatalog = z.infer<typeof localModelCatalogSchema>
+export type ModelHealthResult = z.infer<typeof modelHealthResultSchema>
 
 export function remoteTextSuccess(text: string): RemoteTextSuccess {
   return { status: 'ok', text }
@@ -266,6 +290,7 @@ export type { AsrBackendInfo }
 export type { AsrBackendId, ReasoningEffortInfo, ReasoningEffortsView } from './config.js'
 export type { WhisperAccelerationId } from './config.js'
 export type { WhisperModelState } from './asr/whisper-models.js'
+export type SenseVoiceModelState = z.infer<typeof whisperModelStateSchema>
 export type CloudProviderModelsView = z.infer<typeof cloudProviderModelsViewSchema>
 export type AboutInfo = z.infer<typeof aboutInfoSchema>
 export type UpdateCheckResult = z.infer<typeof updateCheckResultSchema>

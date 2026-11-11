@@ -69,6 +69,19 @@ describe('exported plugin Config', () => {
     expect(resolve({}).schemaVersion).toBe(EARS_SETTINGS_SCHEMA_VERSION)
   })
 
+  it('defaults the additive voice input leaf to true and preserves an explicit false', () => {
+    const voiceInput = leaves.find((candidate) => candidate.path.join('.') === 'general.voiceInputEnabled')
+    expect(voiceInput?.leaf.type).toBe('boolean')
+    expect(voiceInput?.leaf.meta.default).toBe(true)
+    expect(resolve({ schemaVersion: 4, general: {} }).general).toMatchObject({ voiceInputEnabled: true })
+    expect(resolve({ general: { voiceInputEnabled: false } }).general).toMatchObject({ voiceInputEnabled: false })
+    expect(flattenStoredSettings(resolve({ general: { voiceInputEnabled: false } })).voiceInputEnabled).toBe(false)
+  })
+
+  it.each([null, 0, 'false'])('recovers a corrupt voice input leaf %j to the default', (voiceInputEnabled) => {
+    expect(resolve({ general: { voiceInputEnabled } }).general).toMatchObject({ voiceInputEnabled: true })
+  })
+
   it('falls back to the field default instead of failing resolution on a corrupt stored value', () => {
     expect(resolve({ general: { displayName: 42 } }).general).toMatchObject({ displayName: DEFAULT_EARS_SETTINGS.settingsDisplayName })
   })

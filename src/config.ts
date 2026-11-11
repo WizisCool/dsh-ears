@@ -20,13 +20,18 @@ import {
   VOLCENGINE_REALTIME_DEFAULT_MODEL,
   VOLCENGINE_RECORDING_DEFAULT_MODEL,
   effectiveRecognitionLanguage,
+  isValidLocalModelBaseUrl,
   isValidRecordingLimit,
+  LOCAL_MODEL_SOURCE_IDS,
+  MIRROR_SENSEVOICE_MODEL_BASE_URL,
+  MIRROR_WHISPER_MODEL_BASE_URL,
+  SENSEVOICE_MODEL_IDS,
   WHISPER_ACCELERATION_IDS,
   WHISPER_MODEL_IDS
 } from './settings/recognition.js'
 import { isBailianAsrHost, isHttpEndpoint, MAX_CLOUD_API_KEY_LENGTH } from './settings/cloud-asr.js'
 import { DEFAULT_POLISHING_SETTINGS, MAX_POLISH_PROMPT_LENGTH } from './settings/polishing.js'
-import { SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
+import { DEFAULT_GENERAL_SETTINGS, SETTINGS_DISPLAY_NAME_IDS } from './settings/general.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrFieldDefinition, cloudAsrFieldValue, validateCloudAsrFieldValue } from './asr/providers.js'
 import type {
   AsrBackendId,
@@ -35,6 +40,8 @@ import type {
   MimoAsrClusterId,
   MimoAsrServiceId,
   TencentAsrServiceId,
+  LocalModelSourceId,
+  SenseVoiceModelId,
   WhisperAccelerationId,
   WhisperModelId
 } from './settings/recognition.js'
@@ -44,6 +51,9 @@ export {
   ASR_BACKEND_IDS,
   BAILIAN_MAX_RECORDING_SECONDS,
   CLOUD_ASR_PROVIDER_IDS,
+  DEFAULT_SENSEVOICE_MODEL,
+  DEFAULT_SENSEVOICE_MODEL_BASE_URL,
+  DEFAULT_WHISPER_MODEL_BASE_URL,
   DEEPGRAM_ASR_DEFAULT_SERVICE,
   DEEPGRAM_ASR_SERVICE_IDS,
   DEEPGRAM_DEFAULT_MODEL,
@@ -63,7 +73,12 @@ export {
   VOLCENGINE_RECORDING_DEFAULT_MODEL,
   VOLCENGINE_RECORDING_MODEL_IDS,
   effectiveRecognitionLanguage,
+  isValidLocalModelBaseUrl,
   isValidRecordingLimit,
+  LOCAL_MODEL_SOURCE_IDS,
+  MIRROR_SENSEVOICE_MODEL_BASE_URL,
+  MIRROR_WHISPER_MODEL_BASE_URL,
+  SENSEVOICE_MODEL_IDS,
   WHISPER_ACCELERATION_IDS,
   WHISPER_MODEL_IDS
 } from './settings/recognition.js'
@@ -77,6 +92,8 @@ export type {
   MimoAsrClusterId,
   MimoAsrServiceId,
   TencentAsrServiceId,
+  LocalModelSourceId,
+  SenseVoiceModelId,
   WhisperAccelerationId,
   WhisperModelId
 } from './settings/recognition.js'
@@ -92,6 +109,11 @@ export interface EarsSettings {
   localWhisperModel: WhisperModelId | string
   localWhisperAcceleration: WhisperAccelerationId | string
   localWhisperLanguage: string
+  localWhisperModelSource: LocalModelSourceId | string
+  localWhisperModelBaseUrl: string
+  localSenseVoiceModel: SenseVoiceModelId | string
+  localSenseVoiceModelSource: LocalModelSourceId | string
+  localSenseVoiceModelBaseUrl: string
   cloudAsrProvider: CloudAsrProviderId | string
   cloudAsrGroqApiKey: string
   cloudAsrGroqModel: string
@@ -127,6 +149,7 @@ export interface EarsSettings {
   cloudAsrVolcengineRecordingModel: string
   cloudAsrVolcengineLanguage: string
   maxRecordingSeconds: number
+  voiceInputEnabled: boolean
   voiceShortcutEnabled: boolean
   voiceShortcut: string
   voiceSoundsEnabled: boolean
@@ -144,6 +167,11 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   localWhisperModel: DEFAULT_RECOGNITION_SETTINGS.localWhisper.model,
   localWhisperAcceleration: DEFAULT_RECOGNITION_SETTINGS.localWhisper.acceleration,
   localWhisperLanguage: DEFAULT_RECOGNITION_SETTINGS.localWhisper.language,
+  localWhisperModelSource: DEFAULT_RECOGNITION_SETTINGS.localWhisper.source,
+  localWhisperModelBaseUrl: DEFAULT_RECOGNITION_SETTINGS.localWhisper.baseUrl,
+  localSenseVoiceModel: DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.model,
+  localSenseVoiceModelSource: DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.source,
+  localSenseVoiceModelBaseUrl: DEFAULT_RECOGNITION_SETTINGS.localSenseVoice.baseUrl,
   cloudAsrProvider: DEFAULT_RECOGNITION_SETTINGS.cloudProvider,
   cloudAsrGroqApiKey: '',
   cloudAsrGroqModel: '',
@@ -179,6 +207,7 @@ export const DEFAULT_EARS_SETTINGS: EarsSettings = Object.freeze({
   cloudAsrVolcengineRecordingModel: VOLCENGINE_RECORDING_DEFAULT_MODEL,
   cloudAsrVolcengineLanguage: '',
   maxRecordingSeconds: DEFAULT_RECOGNITION_SETTINGS.maxRecordingSeconds,
+  voiceInputEnabled: DEFAULT_GENERAL_SETTINGS.voiceInputEnabled,
   voiceShortcutEnabled: true,
   voiceShortcut: 'ctrl+shift+space',
   voiceSoundsEnabled: true,
@@ -220,6 +249,11 @@ export function validateEarsSettings(settings: EarsSettings): void {
   if (!(ASR_BACKEND_IDS as readonly string[]).includes(settings.asrBackend)) throw new Error('Unknown dsh-ears ASR backend')
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(settings.localWhisperModel)) throw new Error('Unknown dsh-ears Whisper model')
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(settings.localWhisperAcceleration)) throw new Error('Unknown dsh-ears Whisper acceleration')
+  if (!(LOCAL_MODEL_SOURCE_IDS as readonly string[]).includes(settings.localWhisperModelSource)) throw new Error('Unknown dsh-ears Whisper model source')
+  if (!isValidLocalModelBaseUrl(settings.localWhisperModelBaseUrl)) throw new Error('Invalid dsh-ears Whisper model base URL')
+  if (!(SENSEVOICE_MODEL_IDS as readonly string[]).includes(settings.localSenseVoiceModel)) throw new Error('Unknown dsh-ears SenseVoice model')
+  if (!(LOCAL_MODEL_SOURCE_IDS as readonly string[]).includes(settings.localSenseVoiceModelSource)) throw new Error('Unknown dsh-ears SenseVoice model source')
+  if (!isValidLocalModelBaseUrl(settings.localSenseVoiceModelBaseUrl)) throw new Error('Invalid dsh-ears SenseVoice model base URL')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(settings.cloudAsrProvider)) throw new Error('Unknown dsh-ears cloud ASR provider')
   for (const provider of CLOUD_ASR_PROVIDERS) {
     for (const definition of provider.fields) {
@@ -229,6 +263,7 @@ export function validateEarsSettings(settings: EarsSettings): void {
     }
   }
   if (!isValidRecordingLimit(settings.maxRecordingSeconds)) throw new Error('dsh-ears recording limit must be between 1 and 600 seconds')
+  if (typeof settings.voiceInputEnabled !== 'boolean') throw new Error('dsh-ears voice input enabled must be a boolean')
   if (!isValidStoredShortcut(settings.voiceShortcut)) throw new Error('dsh-ears voice shortcut is invalid')
   if (settings.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) throw new Error('dsh-ears polish prompt is too long')
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(settings.settingsDisplayName)) throw new Error('Unknown dsh-ears settings display name')
@@ -251,6 +286,11 @@ export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsR
   if (!(ASR_BACKEND_IDS as readonly string[]).includes(repaired.asrBackend)) replaceWithDefault('asrBackend')
   if (!(WHISPER_MODEL_IDS as readonly string[]).includes(repaired.localWhisperModel)) replaceWithDefault('localWhisperModel')
   if (!(WHISPER_ACCELERATION_IDS as readonly string[]).includes(repaired.localWhisperAcceleration)) replaceWithDefault('localWhisperAcceleration')
+  if (!(LOCAL_MODEL_SOURCE_IDS as readonly string[]).includes(repaired.localWhisperModelSource)) replaceWithDefault('localWhisperModelSource')
+  if (!isValidLocalModelBaseUrl(repaired.localWhisperModelBaseUrl)) replaceWithDefault('localWhisperModelBaseUrl')
+  if (!(SENSEVOICE_MODEL_IDS as readonly string[]).includes(repaired.localSenseVoiceModel)) replaceWithDefault('localSenseVoiceModel')
+  if (!(LOCAL_MODEL_SOURCE_IDS as readonly string[]).includes(repaired.localSenseVoiceModelSource)) replaceWithDefault('localSenseVoiceModelSource')
+  if (!isValidLocalModelBaseUrl(repaired.localSenseVoiceModelBaseUrl)) replaceWithDefault('localSenseVoiceModelBaseUrl')
   if (!(CLOUD_ASR_PROVIDER_IDS as readonly string[]).includes(repaired.cloudAsrProvider)) replaceWithDefault('cloudAsrProvider')
 
   for (const provider of CLOUD_ASR_PROVIDERS) {
@@ -261,6 +301,7 @@ export function repairInvalidEarsSettings(settings: EarsSettings): EarsSettingsR
   }
 
   if (!isValidRecordingLimit(repaired.maxRecordingSeconds)) replaceWithDefault('maxRecordingSeconds')
+  if (typeof repaired.voiceInputEnabled !== 'boolean') replaceWithDefault('voiceInputEnabled')
   if (typeof repaired.voiceShortcut !== 'string' || !isValidStoredShortcut(repaired.voiceShortcut)) replaceWithDefault('voiceShortcut')
   if (typeof repaired.polishPrompt !== 'string' || repaired.polishPrompt.trim().length > MAX_POLISH_PROMPT_LENGTH) replaceWithDefault('polishPrompt')
   if (!(SETTINGS_DISPLAY_NAME_IDS as readonly string[]).includes(repaired.settingsDisplayName)) replaceWithDefault('settingsDisplayName')

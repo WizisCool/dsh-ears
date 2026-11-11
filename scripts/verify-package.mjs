@@ -125,7 +125,7 @@ if (!Array.isArray(clientInject)) fail('dsh.client.inject must be an array')
 else if (clientInject.includes('@deepseek-ai/dsh-client-runtime')) fail('dsh.client.inject must not include dsh-client-runtime')
 if (Object.hasOwn(manifest.peerDependencies ?? {}, '@deepseek-ai/dsh-client-runtime')) fail('peerDependencies must not include dsh-client-runtime')
 
-requireManifestValue('version', manifest.version, '0.4.4')
+requireManifestValue('version', manifest.version, '0.5.0')
 requireManifestValue('peerDependencies[@deepseek-ai/cordis]', manifest.peerDependencies?.['@deepseek-ai/cordis'], '^4.0.4')
 requireManifestValue('peerDependencies[@deepseek-ai/schemastery]', manifest.peerDependencies?.['@deepseek-ai/schemastery'], '^3.18.4')
 const expectedDshPeers = [
@@ -138,6 +138,8 @@ const expectedDshPeers = [
   '@deepseek-ai/dsh-client-ui-settings-plugins',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-credentials',
+  '@deepseek-ai/dsh-system-prompt',
+  '@deepseek-ai/dsh-tools',
   '@deepseek-ai/dsh-llm',
   '@deepseek-ai/dsh-settings',
   '@deepseek-ai/dsh-typert-protocol'
@@ -188,7 +190,7 @@ if (descriptors === undefined) {
     codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
     if (!clientBundle.includes(descriptor.id)) fail(`lib/client.js must inline the ${descriptor.id} descriptor`)
   }
-  if (codecs.length !== 36) fail(`the built descriptor table must carry 36 codecs, found ${codecs.length}`)
+  if (codecs.length !== 44) fail(`the built descriptor table must carry 44 codecs, found ${codecs.length}`)
   for (const { subject, codec } of codecs) {
     if (codec?.mode !== 'strict') fail(`${subject} must use a strict codec`)
     if (typeof codec?.create !== 'function') fail(`${subject} must provide a create() factory`)

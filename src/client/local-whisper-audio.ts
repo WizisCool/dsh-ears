@@ -6,7 +6,7 @@ export interface RecordedAudioPayload {
   readonly mimeType: string
 }
 
-export type MediaCaptureBackend = 'local-whisper' | 'cloud-openai'
+export type MediaCaptureBackend = 'local-whisper' | 'local-sensevoice' | 'cloud-openai'
 
 interface LocalWhisperAudioContext {
   decodeAudioData(audioData: ArrayBuffer): Promise<AudioBufferLike>
@@ -25,7 +25,7 @@ export interface LocalWhisperAudioOptions {
 
 /**
  * Prepare the MediaRecorder payload for the selected ASR backend.
- * Local Whisper, Tencent Cloud standard recording, Xiaomi MiMo, and Volcano
+ * Local Whisper, Local SenseVoice, Tencent Cloud standard recording, Xiaomi MiMo, and Volcano
  * Engine recording-file recognition get browser-decoded PCM WAV; other cloud
  * providers keep the original MediaRecorder codec.
  */
@@ -34,7 +34,7 @@ export function prepareRecordedAudioForBackend(
   audio: RecordedAudioPayload,
   options: LocalWhisperAudioOptions = {}
 ): Promise<RecordedAudioPayload> {
-  if (backend === 'local-whisper') return normalizeRecordedAudioForLocalWhisper(audio, options)
+  if (backend === 'local-whisper' || backend === 'local-sensevoice') return normalizeRecordedAudioForLocalWhisper(audio, options)
   if (backend === 'cloud-openai') {
     return (options.cloudProvider === 'tencent' || options.cloudProvider === 'mimo' || options.cloudProvider === 'volcengine')
       ? normalizeRecordedAudioForLocalWhisper(audio, options)

@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const PLUGIN_LICENSE = 'MIT'
-export const PLUGIN_REPOSITORY_URL = 'https://github.com/WizisCool/dsh-ears'
-export const PLUGIN_REPOSITORY_SLUG = '@WizisCool/dsh-ears'
+export const PLUGIN_REPOSITORY_URL = 'https://github.com/Pseudosalieri/dsh-ears'
+export const PLUGIN_REPOSITORY_SLUG = '@Pseudosalieri/dsh-ears'
 export const DSH_COMPATIBILITY = '>=0.2.0-rc.1'
 /**
  * `add` re-resolves `latest` from the registry and rewrites the saved range,

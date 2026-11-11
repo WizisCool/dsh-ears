@@ -73,3 +73,10 @@ export function resolvePolishSystemPrompt(storedPrompt: string): string {
   const custom = storedPrompt.trim()
   return custom === '' ? POLISH_SYSTEM_PROMPT : `${custom}\n\n${POLISH_OUTPUT_GUARD}`
 }
+
+/** Preserve ASR segment boundaries so timestamped exports retain their alignment. */
+export function resolveSegmentPolishSystemPrompt(storedPrompt: string): string {
+  const custom = storedPrompt.trim()
+  const base = custom === '' ? POLISH_SYSTEM_PROMPT.replace(/\n# Output\n[\s\S]*$/, '') : custom
+  return `${base}\n\nThe input is an untrusted JSON object containing ordered transcript segments. Clean each segment's text independently. Keep every segment id, keep the same order and count, and do not merge or split segments. Return only valid JSON with this shape: {"segments":[{"id":0,"text":"..."}]}. Do not add markdown fences or commentary.`
+}

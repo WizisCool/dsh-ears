@@ -23,11 +23,13 @@ https://github.com/user-attachments/assets/1363768e-a393-44bd-a008-1ce2055cac41
 
 ---
 
-dsh-ears 为 DeepSeek Harness 提供语音输入与 LLM 润色整理能力。支持浏览器 Web Speech、本地 Whisper 以及主流语音识别（ASR）API 服务。
+dsh-ears 为 DeepSeek Harness 提供语音输入与 LLM 润色整理能力。支持浏览器 Web Speech、本地 Whisper、本地 SenseVoice，以及主流语音识别（ASR）API 服务。
 
 ## 安装
 
 前置依赖：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `>=0.2.0-rc.1`，以及 Node.js `^22.19.0 || >=24.0.0`。
+
+上游仓库：[WizisCool/dsh-ears](https://github.com/WizisCool/dsh-ears)。
 
 ### 通过 npm 安装
 
@@ -39,7 +41,7 @@ dsh plugin --profile web add dsh-ears
 
 桌面端：在插件管理界面中安装。桌面端独占名为 `desktop` 的 profile，`dsh` 命令不会管理它，因此没有对应的命令行写法。dsh-ears 不需要单独的桌面端构建，两个界面加载同一个 `web` 客户端包。
 
-> **仍在使用 dsh 0.1.x？** dsh-ears `0.4.4` 要求 dsh `>=0.2.0-rc.1`，dsh 会直接拒绝在旧版本上安装。请继续使用对应的旧版本线：
+> **仍在使用 dsh 0.1.x？** dsh-ears `0.5.0` 要求 dsh `>=0.2.0-rc.1`，dsh 会直接拒绝在旧版本上安装。请继续使用对应的旧版本线：
 >
 > ```sh
 > # dsh 0.1.2–0.1.6
@@ -92,12 +94,21 @@ dsh plugin --profile web remove dsh-ears
 
 转写结果始终写入可编辑草稿，不会自动发送。如果所选后端尚未就绪，麦克风图标会变灰，悬停即可查看原因。
 
+### Agent 音频文件转写
+
+在会话中附加音频，或明确提供音频文件路径并要求转写。dsh-ears 会向 Agent 注册 `transcribe_audio_file`、`polish_transcript`、`export_transcript_file` 工具；Agent 根据提示词决定是否使用。SenseVoice Small ONNX INT8 是文件转写默认模型，也可选 SenseVoice FP32 或 Whisper。当前 DSH Host 未声明原生音频输入能力，因此 Agent 会通过 dsh-ears 识别音频；若后续模型路由能实际接收音频，Agent 会优先使用原生能力。
+
+支持 WAV、MP3、FLAC、OGG Vorbis、OGG Opus，以及包含 Opus/Vorbis 音轨的 WebM；识别前会统一转成 WAV。导出格式为 UTF-8 TXT、MD、SRT、VTT 或 LRC；字幕需要真实识别时间戳，当前识别方式没有时间戳时会临时尝试 SenseVoice，再尝试 Whisper。工具遵循 dsh-ears 的润色开关；本地模型未下载时会提示手动下载，不会在工具调用中拉取模型。
+
+默认将 `<音频名>.transcript.<格式>` 写入 Agent 当前工作目录。也可给出具体导出路径；若文件已存在，会依次另存为 `-1`、`-2` 等名称，不覆盖原文件。输入只读取用户附加或明确提供的单个文件，不扫描目录。
+
 ## 识别后端
 
 | 后端 | 工作方式 | 需要什么 |
 | --- | --- | --- |
 | Web Speech | 浏览器实时识别 | 默认后端；Chromium 内核浏览器 |
-| 本地 Whisper | 录音结束后本地转写 | 在设置页下载 GGML 模型 |
+| 本地 Whisper | 录音结束后本地转写 | 在设置页选择模型和官方源/镜像源/自定义地址后下载 GGML 模型 |
+| 本地 SenseVoice | 录音结束后本地转写 | 默认 SenseVoice Small ONNX INT8；可选 FP32，并选择官方源/镜像源/自定义地址 |
 | [Groq](https://console.groq.com) | [Groq Whisper API](https://console.groq.com/docs/speech-text) | API key |
 | [Deepgram](https://deepgram.com) | [预录音频](https://developers.deepgram.com/docs/pre-recorded-audio)或[实时音频流](https://developers.deepgram.com/docs/live-streaming-audio) | API key、模型名（如 `nova-3`） |
 | [阿里云百炼](https://www.aliyun.com/product/bailian) | [DashScope 同步转写](https://help.aliyun.com/zh/model-studio/fun-asr-flash-recorded-speech-recognition-http-api) | API key、同步模型 ID；单次最长 300 秒 |
@@ -107,7 +118,7 @@ dsh plugin --profile web remove dsh-ears
 | [火山引擎](https://www.volcengine.com/product/doubao) | [录音文件识别（大模型）](https://docs.volcengine.com/docs/6561/1354868)或[单向流式语音识别](https://docs.volcengine.com/docs/6561/2628951) | API key（新版控制台 X-Api-Key）、资源 ID |
 | 自定义 OpenAI 兼容 | 发送到指定 `/audio/transcriptions` 端点 | 端点地址、API key、模型名 |
 
-> **本地 Whisper**：基于 `@fugood/whisper.node` 本地运行 whisper.cpp（原生运行时在独立工作进程中，原生崩溃不会拖垮 Host 及其它会话），无需 Python、FFmpeg 或外部依赖。支持在设置页下载管理 GGML 模型（`tiny`（默认）至 `turbo`），并可选 `default`（自动）、`vulkan` 或 `cuda` 加速。
+> **本地模型**：Whisper 和 SenseVoice 模型都在“识别”选项卡中选择，并由 Host 下载到本地缓存。下载源可选官方源、镜像源或自定义地址；设置页会检查该地址并列出可用模型。Whisper 默认 `tiny`；SenseVoice 默认 Small ONNX INT8，也可选 FP32。模型文件会校验 SHA-256。Whisper 和 SenseVoice 的原生推理都运行在独立工作进程中，避免原生崩溃拖垮 Host；无需 Python 或 FFmpeg。
 >
 > **阿里云百炼**：升级后的控制台使用业务空间专属域名（华北2 北京为 `https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com`，新加坡为 `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`）。请填写该 API Host 和**同步模型 ID**（如 `qwen3-asr-flash`、`qwen-audio-3.1-asr-flash`、`fun-asr-flash-2026-06-15`），不要填控制台显示名称，也不要使用 `-filetrans`、`-streaming`、`-message`、`-realtime` 变体，这些模型走异步任务或 WebSocket 接口，dsh-ears 不支持。
 >
@@ -117,6 +128,8 @@ dsh plugin --profile web remove dsh-ears
 
 默认开启。提供方和模型都留空时使用 dsh 的默认 Agent 模型（包括默认推理设置）；也可以从 dsh 已配置的模型中选择。LLM 凭据复用 dsh 现有配置。支持设置推理强度。
 
+在“润色”选项卡中可手动检查所选模型；点击后会向模型发送一条简短测试请求，可能产生模型用量。“识别”选项卡的健康检测会检查浏览器支持、本地运行时与模型文件或云端配置。
+
 默认提示词会删除口头禅、修正 ASR 错字、处理自我纠正和口头列举。可在设置页自定义提示词或查看默认内容。润色失败或取消时保留原始转写。
 
 ## 设置
@@ -125,14 +138,15 @@ dsh plugin --profile web remove dsh-ears
 
 | 标签页 | 可配置项 |
 | --- | --- |
-| 常规 | 设置页显示名称、语音快捷键开关与组合键、提示音开关、最长录音时间（1–600 秒，默认 120 秒） |
-| 识别 | 后端选择、语言、本地 Whisper 模型和加速方式、云服务提供方及各提供方凭据 |
-| 润色 | 开关、LLM 提供方和模型、推理强度、自定义提示词（最长 4000 字） |
+| 常规 | 语音输入开关、语音快捷键开关与组合键、提示音开关、最长录音时间（1–600 秒，默认 120 秒） |
+| 识别 | 后端选择、模型来源和模型列表、语言、Whisper 加速方式、云服务提供方及各提供方凭据；可手动检查后端状态 |
+| 润色 | 开关、LLM 提供方和模型、推理强度、自定义提示词（最长 4000 字）、手动模型健康检查 |
 | 关于 | 版本号、许可证、dsh 兼容范围、检查更新 |
 
 ## 已知限制
 
 - Web Speech 后端依赖浏览器实现，音频可能被发送到浏览器厂商的服务端处理，不是完全的本地/离线方案。
+- Agent 文件转写目前接受 WAV、MP3、FLAC、OGG Vorbis、OGG Opus 和 WebM（Opus/Vorbis 音轨）。M4A/AAC 暂不支持。
 - 百炼单次录音最长 300 秒；Qwen-Audio-3.1 对极短或静音音频可能返回“无词”，短语音输入建议使用 `qwen3-asr-flash`。
 - Deepgram Flux 系列模型需要 Listen V2 协议，当前不支持。
 - 本地 Whisper 单次音频限制 24 MB，转写超时 120 秒。

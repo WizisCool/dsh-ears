@@ -1,13 +1,22 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-system-prompt'
+import type {} from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-working-directory'
 import { remoteErrorOf, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { SettingsForms } from '@deepseek-ai/dsh-settings'
 import type { LlmModelInfo, ReasoningEffortId, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type PolishRoute, type ReasoningEffortsView, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
-import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
+import { ASR_BACKEND_IDS, DEFAULT_EARS_SETTINGS, DEFAULT_SENSEVOICE_MODEL, SENSEVOICE_MODEL_IDS, VOLCENGINE_REALTIME_DEFAULT_MODEL, VOLCENGINE_RECORDING_DEFAULT_MODEL, WHISPER_ACCELERATION_IDS, WHISPER_MODEL_IDS, repairInvalidEarsSettings, validateEarsSettings, type AsrBackendId, type EarsSettings, type LocalModelSourceId, type PolishRoute, type ReasoningEffortsView, type SenseVoiceModelId, type WhisperAccelerationId, type WhisperModelId } from '../config.js'
+import { disposeWhisperRuntime, isWhisperAvailable, transcribeWithWhisper, transcribeWithWhisperDetailed, validateWhisperTranscription, whisperAccelerationCapabilities, withWhisperModelContextReleased, WhisperRestartRequiredError, type WhisperAccelerationCapabilities } from '../asr/local-whisper.js'
 import { WhisperModels } from '../asr/whisper-models.js'
 import type { WhisperModelState } from '../asr/whisper-models.js'
+import { isSenseVoiceRuntimeAvailable, resolveSherpaNativePackage } from '../asr/sensevoice-native.js'
+import { SenseVoiceModels, isSenseVoiceModelId } from '../asr/sensevoice-models.js'
+import { disposeSenseVoiceRuntime, transcribeWithSenseVoice, transcribeWithSenseVoiceDetailed, withSenseVoiceModelContextReleased } from '../asr/sensevoice-runtime.js'
+import { listLocalModelOptions as fetchLocalModelOptions } from '../asr/local-model-catalog.js'
+import { registerAgentAudioTools, type AgentAudioEngine, type AgentAudioRecognition, type AgentAudioPolishResult } from '../agent-audio-tools.js'
+import type { TranscriptDocument, TranscriptSegment } from '../asr/transcript.js'
 import { transcribeOpenAICompatible } from '../asr/openai-compatible.js'
 import { fetchCloudProviderModels } from '../asr/cloud-provider-models.js'
 import { transcribeDashScopeAsr } from '../asr/dashscope-asr.js'
@@ -18,14 +27,15 @@ import { VolcengineRealtimeAsrSession, transcribeVolcengineRecording } from '../
 import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialFor, cloudAsrEndpointFor, cloudAsrModelFor, cloudProviderEntry, isCloudAsrReady, isCloudAsrRealtime, type CloudAsrCredentialConfiguredField } from '../asr/providers.js'
 import type { AsrBackendInfo } from '../asr/types.js'
 import { remoteTextFailure, remoteTextSuccess } from '../remote-contract.js'
-import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, RemoteTextResult } from '../remote-contract.js'
+import type { CloudProviderModelsView, EarsSettingsPatch, EarsSettingsView, LocalModelCatalog, ModelHealthResult, RemoteTextResult } from '../remote-contract.js'
 import { applySpokenEnumerationLayout } from './enumeration.js'
-import { polishUserText, resolvePolishSystemPrompt } from './prompts.js'
+import { polishUserText, resolvePolishSystemPrompt, resolveSegmentPolishSystemPrompt } from './prompts.js'
 import { resolvePolishRoute, type PolishRouteSelection } from './route.js'
+import { joinSpacedSegments } from '../text-join.js'
 import { applyFlatSettingsPatchWithSettings, flatSettingsPatchToStoredPatch, flattenOverriddenSettings, flattenStoredSettings, isFutureSettingsSchema, normalizeStoredEarsSettings, storedSettingsNeedRewrite, unflattenEarsSettings } from '../settings-store.js'
 import { findEarsSettingsForm, readEarsSettingsRaw, replaceEarsSettingsSection, updateEarsSettingsPatch } from '../settings/host-settings.js'
 import { checkForPluginUpdate, readInstalledAboutInfo } from '../about.js'
-import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
+import { EARS_ERROR_CODES, EarsError, earsErrorCode, earsErrorParams, isEarsErrorCode, sanitizeEarsErrorParams, sanitizeEarsErrorText, type EarsErrorCode, type EarsErrorParams } from '../errors.js'
 import type { AboutInfo, UpdateCheckResult } from '../remote-contract.js'
 
 const MAX_TRANSCRIPT_CHARACTERS = 12_000
@@ -58,19 +68,29 @@ export class PolishService extends TypertRemoteService {
   private whisperAvailability: { variant: WhisperAccelerationId; expiresAt: number; value: Promise<boolean> } | undefined
   private cloudModelsFailure: { key: string; expiresAt: number; message: string; errorCode: EarsErrorCode; errorParams?: EarsErrorParams } | undefined
   private readonly whisperModels = new WhisperModels()
+  private readonly senseVoiceModels = new SenseVoiceModels()
   private readonly realtimeSessions = new Map<string, RealtimeSessionEntry>()
 
   constructor(ctx: Context) {
     super(ctx, 'dshEarsPolish', { namespace: 'dshEars' })
     this.whisperCapabilities = whisperAccelerationCapabilities()
+    ctx.inject(['tools', 'systemPrompt', 'sessions'], (toolsCtx) => {
+      toolsCtx.effect(() => registerAgentAudioTools(toolsCtx, {
+        transcribeAudioFile: (options) => this.transcribeAudioFile(options),
+        polishingEnabled: () => this.optionalSettings().polishingEnabled,
+        polishTranscript: (document, signal) => this.polishAgentTranscript(document, signal)
+      }), 'dsh-ears Agent audio tools')
+    })
     ctx.effect(() => async () => {
       this.whisperModels.dispose()
+      this.senseVoiceModels.dispose()
       for (const entry of this.realtimeSessions.values()) {
         clearTimeout(entry.timer)
         entry.session.close()
       }
       this.realtimeSessions.clear()
       await disposeWhisperRuntime()
+      await disposeSenseVoiceRuntime()
     }, 'dsh-ears whisper runtime lifecycle')
     ctx.inject(['settings'], (settingsCtx) => {
       this.settingsMigrationAttempted = false
@@ -188,10 +208,17 @@ export class PolishService extends TypertRemoteService {
       if (!isWhisperRestartRequiredError(error)) throw error
       localRestart = error
     }
-    const cloudAvailable = await this.cloudAsrIsAvailable(settings)
     const localDetail = localRestart === undefined
       ? localAvailable ? 'The whisper.node native runtime is available' : 'The selected Local Whisper native runtime is unavailable'
       : whisperRestartMessage(localRestart)
+    const senseVoiceRuntimeAvailable = isSenseVoiceRuntimeAvailable()
+    const senseVoiceModel = this.senseVoiceModel(settings.localSenseVoiceModel)
+    const senseVoiceState = await this.senseVoiceModels.getModelState(senseVoiceModel, settings.localSenseVoiceModelBaseUrl, senseVoiceRuntimeAvailable)
+    const senseVoiceAvailable = senseVoiceRuntimeAvailable && senseVoiceState.downloaded && senseVoiceState.error === null
+    const senseVoiceDetailCode = !senseVoiceRuntimeAvailable
+      ? EARS_ERROR_CODES.senseVoiceNativeUnavailable
+      : senseVoiceState.errorCode ?? (!senseVoiceState.downloaded ? EARS_ERROR_CODES.senseVoiceModelNotDownloaded : undefined)
+    const cloudAvailable = await this.cloudAsrIsAvailable(settings)
     return [
       {
         id: 'web-speech',
@@ -209,6 +236,17 @@ export class PolishService extends TypertRemoteService {
           : { detailCode: EARS_ERROR_CODES.whisperRestartRequired, detailParams: whisperRestartParams(localRestart) })
       },
       {
+        id: 'local-sensevoice',
+        name: 'Local SenseVoice',
+        available: senseVoiceAvailable,
+        detail: senseVoiceAvailable
+          ? 'SenseVoice is ready'
+          : !senseVoiceRuntimeAvailable
+            ? 'The sherpa-onnx native runtime is unavailable'
+            : senseVoiceState.error ?? 'Download a SenseVoice model to enable local recognition',
+        ...(senseVoiceDetailCode === undefined ? {} : { detailCode: senseVoiceDetailCode })
+      },
+      {
         id: 'cloud-openai',
         name: 'Cloud ASR',
         available: cloudAvailable,
@@ -216,6 +254,10 @@ export class PolishService extends TypertRemoteService {
         ...(cloudAvailable ? {} : { detailCode: EARS_ERROR_CODES.backendCloudUnavailable })
       }
     ]
+  }
+
+  async listLocalModelOptions(backend: string, source: string, baseUrl: string, signal: AbortSignal): Promise<LocalModelCatalog> {
+    return fetchLocalModelOptions(backend, source, baseUrl, signal)
   }
 
   async listCloudProviderModels(provider: string, signal: AbortSignal): Promise<CloudProviderModelsView> {
@@ -261,18 +303,32 @@ export class PolishService extends TypertRemoteService {
   }
 
   async getWhisperModelState(model: string): Promise<WhisperModelState> {
+    if (isSenseVoiceModelId(model)) {
+      return this.withSenseVoiceModelState(model, (id, runtimeAvailable) => this.senseVoiceModels.getModelState(id, this.optionalSettings().localSenseVoiceModelBaseUrl, runtimeAvailable))
+    }
     return this.withWhisperModelState(model, (id, runtimeAvailable) => this.whisperModels.getWhisperModelState(id, runtimeAvailable))
   }
 
   async downloadWhisperModel(model: string): Promise<WhisperModelState> {
-    return this.withWhisperModelState(model, (id, runtimeAvailable) => this.whisperModels.downloadWhisperModel(id, runtimeAvailable))
+    if (isSenseVoiceModelId(model)) {
+      return this.withSenseVoiceModelState(model, (id, runtimeAvailable) => this.senseVoiceModels.downloadModel(id, this.optionalSettings().localSenseVoiceModelBaseUrl, runtimeAvailable))
+    }
+    return this.withWhisperModelState(model, (id, runtimeAvailable) => this.whisperModels.downloadWhisperModel(id, runtimeAvailable, this.optionalSettings().localWhisperModelBaseUrl))
   }
 
   async cancelWhisperModelDownload(model: string): Promise<WhisperModelState> {
+    if (isSenseVoiceModelId(model)) {
+      return this.withSenseVoiceModelState(model, (id, runtimeAvailable) => this.senseVoiceModels.cancelDownload(id, runtimeAvailable))
+    }
     return this.withWhisperModelState(model, (id, runtimeAvailable) => this.whisperModels.cancelWhisperModelDownload(id, runtimeAvailable))
   }
 
   async deleteWhisperModel(model: string): Promise<WhisperModelState> {
+    if (isSenseVoiceModelId(model)) {
+      return this.withSenseVoiceModelState(model, async (id, runtimeAvailable) => {
+        return withSenseVoiceModelContextReleased(() => this.senseVoiceModels.deleteModel(id, runtimeAvailable))
+      })
+    }
     return this.withWhisperModelState(model, async (id, runtimeAvailable) => {
       return withWhisperModelContextReleased(() => this.whisperModels.deleteWhisperModel(id, runtimeAvailable))
     })
@@ -306,6 +362,47 @@ export class PolishService extends TypertRemoteService {
     }
   }
 
+  async checkPolishModel(provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<ModelHealthResult> {
+    const selectedProvider = provider.trim()
+    const selectedModel = model.trim()
+    if (selectedProvider === '' || selectedModel === '') {
+      return { status: 'unavailable', message: 'Select a model provider and model before checking.' }
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(new Error('The model health check timed out')), 15_000)
+    const forwardAbort = () => controller.abort(signal.reason)
+    signal.addEventListener('abort', forwardAbort, { once: true })
+    try {
+      signal.throwIfAborted()
+      const effort = reasoningEffort.trim()
+      const prepared = await this.ctx.llm.prepareCall({
+        provider: selectedProvider,
+        model: selectedModel,
+        temperature: 0,
+        maxTokens: 8,
+        ...(effort === '' ? {} : { reasoningEffort: effort as ReasoningEffortId })
+      }, controller.signal)
+      const message = createUserMessage({ content: [{ type: 'text', text: 'Reply with exactly: OK' }], source: { kind: 'user' } })
+      const response = await collectText(prepared.stream({
+        ...prepared.config,
+        messages: [message],
+        system: 'This is a model connectivity check. Reply with exactly: OK',
+        signal: controller.signal
+      }), 128)
+      signal.throwIfAborted()
+      if (controller.signal.aborted) throw controller.signal.reason
+      if (response === '') throw new Error('The selected model returned no text.')
+      return { status: 'available', message: 'The selected model responded successfully.' }
+    } catch (error) {
+      if (signal.aborted) signal.throwIfAborted()
+      const detail = sanitizeEarsErrorText(error instanceof Error ? error.message : String(error))
+      return { status: 'unavailable', message: detail === '' ? 'The selected model could not be reached.' : detail }
+    } finally {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', forwardAbort)
+    }
+  }
+
   async transcribe(audioBase64: string, mimeType: string, signal: AbortSignal): Promise<RemoteTextResult> {
     try {
       signal.throwIfAborted()
@@ -325,6 +422,22 @@ export class PolishService extends TypertRemoteService {
           language: settings.localWhisperLanguage,
           model,
           variant: acceleration,
+          signal
+        })
+        signal.throwIfAborted()
+        return remoteTextSuccess(text)
+      }
+      if (backend === 'local-sensevoice') {
+        const model = this.senseVoiceModel(settings.localSenseVoiceModel)
+        const runtimeAvailable = isSenseVoiceRuntimeAvailable()
+        const state = await this.senseVoiceModels.getModelState(model, settings.localSenseVoiceModelBaseUrl, runtimeAvailable)
+        validateSenseVoiceTranscription(state)
+        const text = await transcribeWithSenseVoice({
+          audio,
+          mimeType,
+          model,
+          modelPath: this.senseVoiceModels.modelPath(model),
+          tokensPath: this.senseVoiceModels.tokensPath(model),
           signal
         })
         signal.throwIfAborted()
@@ -554,6 +667,203 @@ export class PolishService extends TypertRemoteService {
     clearTimeout(entry.timer)
     entry.session.close()
     this.realtimeSessions.delete(sessionId)
+  }
+
+  async transcribeAudioFile(options: {
+    readonly audio: Uint8Array
+    readonly mimeType: string
+    readonly engine: AgentAudioEngine
+    readonly senseVoiceModel: SenseVoiceModelId
+    readonly needsTimestamps: boolean
+    readonly signal: AbortSignal
+  }): Promise<AgentAudioRecognition> {
+    options.signal.throwIfAborted()
+    const settings = this.requireSettings()
+    const senseVoiceModel = this.senseVoiceModel(options.senseVoiceModel || settings.localSenseVoiceModel || DEFAULT_SENSEVOICE_MODEL)
+    const engine = options.needsTimestamps && options.engine === 'configured' && settings.asrBackend !== 'local-whisper' && settings.asrBackend !== 'local-sensevoice'
+      ? 'sensevoice'
+      : options.engine
+    let primary: AgentAudioRecognition | undefined
+    let primaryError: unknown
+    try {
+      primary = await this.runAgentRecognitionEngine({ ...options, engine }, settings, senseVoiceModel)
+    } catch (error) {
+      if (options.signal.aborted) throw options.signal.reason
+      primaryError = error
+    }
+    if (!options.needsTimestamps) {
+      if (primary !== undefined) return primary
+      throw primaryError ?? new EarsError(EARS_ERROR_CODES.asrUnexpected, 'Audio file transcription failed')
+    }
+    if (primary?.segments.length) return primary
+
+    // Subtitle formats require real alignment. Try the preferred local
+    // timestamp-capable recognizers for this task only; saved ASR settings stay
+    // untouched and models are never downloaded from a tool call.
+    const preferredModels: Array<{ engine: 'sensevoice'; model: SenseVoiceModelId } | { engine: 'whisper' }> = [
+      { engine: 'sensevoice', model: senseVoiceModel },
+      { engine: 'sensevoice', model: DEFAULT_SENSEVOICE_MODEL },
+      { engine: 'whisper' }
+    ]
+    const attempted = new Set<string>(primary === undefined ? [] : [`${primary.backend}:${primary.model}`])
+    if (primaryError !== undefined) {
+      if (engine === 'sensevoice') attempted.add(`local-sensevoice:${senseVoiceModel}`)
+      else if (engine === 'whisper') attempted.add(`local-whisper:${settings.localWhisperModel}`)
+      else if (settings.asrBackend === 'local-sensevoice') attempted.add(`local-sensevoice:${senseVoiceModel}`)
+      else if (settings.asrBackend === 'local-whisper') attempted.add(`local-whisper:${settings.localWhisperModel}`)
+    }
+    const errors: string[] = []
+    if (primaryError !== undefined) errors.push(errorText(primaryError))
+    for (const candidate of preferredModels) {
+      if (candidate.engine === 'whisper') {
+        const model = whisperModel(settings.localWhisperModel)
+        const key = `local-whisper:${model}`
+        if (attempted.has(key)) continue
+        attempted.add(key)
+        try {
+          const result = await this.transcribeWhisperFileAudio(options.audio, options.signal, settings, model)
+          if (result.segments.length > 0) return result
+          errors.push('Local Whisper returned no timestamps')
+        } catch (error) {
+          if (options.signal.aborted) throw options.signal.reason
+          errors.push(errorText(error))
+        }
+        continue
+      }
+      const key = `local-sensevoice:${candidate.model}`
+      if (attempted.has(key)) continue
+      attempted.add(key)
+      try {
+        const result = await this.transcribeSenseVoiceFileAudio(options.audio, options.signal, settings, candidate.model)
+        if (result.segments.length > 0) return result
+        errors.push(`SenseVoice ${candidate.model} returned no timestamps`)
+      } catch (error) {
+        if (options.signal.aborted) throw options.signal.reason
+        errors.push(errorText(error))
+      }
+    }
+    throw new EarsError(
+      EARS_ERROR_CODES.asrServiceUnavailable,
+      'No installed SenseVoice or Whisper model could provide subtitle timestamps; download a local model in dsh-ears settings and retry',
+      { detail: errors.slice(0, 4).map(sanitizeEarsErrorText).join(' | ') }
+    )
+  }
+
+  private async runAgentRecognitionEngine(
+    options: { readonly audio: Uint8Array; readonly mimeType: string; readonly engine: AgentAudioEngine; readonly signal: AbortSignal },
+    settings: EarsSettings,
+    senseVoiceModel: SenseVoiceModelId
+  ): Promise<AgentAudioRecognition> {
+    if (options.engine === 'sensevoice') return this.transcribeSenseVoiceFileAudio(options.audio, options.signal, settings, senseVoiceModel)
+    if (options.engine === 'whisper') return this.transcribeWhisperFileAudio(options.audio, options.signal, settings)
+    if (settings.asrBackend === 'local-sensevoice') return this.transcribeSenseVoiceFileAudio(options.audio, options.signal, settings, senseVoiceModel)
+    if (settings.asrBackend === 'local-whisper') return this.transcribeWhisperFileAudio(options.audio, options.signal, settings)
+    if (settings.asrBackend === 'web-speech') {
+      throw new EarsError(EARS_ERROR_CODES.asrUnsupportedBackend, 'Web Speech cannot transcribe an audio file on the Host')
+    }
+    const result = await this.transcribe(Buffer.from(options.audio).toString('base64'), options.mimeType, options.signal)
+    if (result.status === 'error') {
+      const code = isEarsErrorCode(result.code) ? result.code : EARS_ERROR_CODES.asrUnexpected
+      throw new EarsError(code, result.message, result.params)
+    }
+    const backend = settings.asrBackend === 'cloud-openai' ? settings.cloudAsrProvider : settings.asrBackend
+    return {
+      text: result.text,
+      segments: [],
+      backend,
+      model: cloudAsrModelFor(settings),
+      timestampSource: 'none'
+    }
+  }
+
+  private async transcribeWhisperFileAudio(audio: Uint8Array, signal: AbortSignal, settings: EarsSettings, model = whisperModel(settings.localWhisperModel)): Promise<AgentAudioRecognition> {
+    const acceleration = this.whisperAcceleration(settings.localWhisperAcceleration)
+    const runtimeAvailable = await this.whisperIsAvailable(acceleration)
+    const state = await this.whisperModels.getWhisperModelState(model, runtimeAvailable)
+    validateWhisperTranscription(state)
+    const result = await transcribeWithWhisperDetailed({
+      audio,
+      mimeType: 'audio/wav',
+      language: settings.localWhisperLanguage,
+      model,
+      variant: acceleration,
+      signal
+    })
+    return { ...result, backend: 'local-whisper', model, timestampSource: result.segments.length > 0 ? 'backend' : 'none' }
+  }
+
+  private async transcribeSenseVoiceFileAudio(audio: Uint8Array, signal: AbortSignal, settings: EarsSettings, model: SenseVoiceModelId): Promise<AgentAudioRecognition> {
+    const runtimeAvailable = isSenseVoiceRuntimeAvailable()
+    const state = await this.senseVoiceModels.getModelState(model, settings.localSenseVoiceModelBaseUrl, runtimeAvailable)
+    validateSenseVoiceTranscription(state)
+    const result = await transcribeWithSenseVoiceDetailed({
+      audio,
+      mimeType: 'audio/wav',
+      model,
+      modelPath: this.senseVoiceModels.modelPath(model),
+      tokensPath: this.senseVoiceModels.tokensPath(model),
+      signal
+    })
+    return { ...result, backend: 'local-sensevoice', model, timestampSource: result.segments.length > 0 ? 'backend' : 'none' }
+  }
+
+  async polishAgentTranscript(document: TranscriptDocument, signal: AbortSignal): Promise<AgentAudioPolishResult> {
+    const settings = this.optionalSettings()
+    const segments = document.segments ?? []
+    const unchanged = { text: document.text, segments }
+    if (!settings.polishingEnabled) return { polished: false, ...unchanged, message: 'Polishing is disabled in dsh-ears settings' }
+    if (document.text.trim() === '' || document.text.length > MAX_TRANSCRIPT_CHARACTERS) {
+      return { polished: false, ...unchanged, message: 'The transcript is empty or exceeds the polish limit' }
+    }
+    if (segments.length === 0) {
+      const result = await this.polish(document.text, '', '', '', signal)
+      if (result.status === 'error') return { polished: false, ...unchanged, message: result.message }
+      return { polished: result.text !== document.text, text: result.text, segments, message: 'Transcript polishing completed' }
+    }
+
+    const route = resolvePolishRoute(settings, '', '', this.agentDefaultModelSelection())
+    if (route === null) return { polished: false, ...unchanged, message: 'No polishing model route is configured' }
+    const segmentInput = segments.map((segment, id) => ({ id, text: segment.text }))
+    const storedRouteMatches = settings.polishProvider.trim() === route.provider && settings.polishModel.trim() === route.model
+    const requestedEffort = storedRouteMatches ? settings.polishReasoningEffort.trim() : route.reasoningEffort ?? ''
+    const effort = await this.resolveReasoningEffort(route.provider, route.model, requestedEffort, signal)
+    const timeout = new AbortController()
+    const timer = setTimeout(() => timeout.abort(new EarsError(EARS_ERROR_CODES.polishTimedOut, 'Transcript polishing timed out')), POLISH_TIMEOUT_MS)
+    const forwardAbort = () => timeout.abort(signal.reason)
+    signal.addEventListener('abort', forwardAbort, { once: true })
+    try {
+      const prepared = await this.ctx.llm.prepareCall({
+        provider: route.provider,
+        model: route.model,
+        ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffortId })
+      }, timeout.signal)
+      const message = createUserMessage({
+        content: [{ type: 'text', text: polishUserText(JSON.stringify({ segments: segmentInput })) }],
+        source: { kind: 'user' }
+      })
+      const output = await collectText(prepared.stream({
+        ...prepared.config,
+        messages: [message],
+        system: resolveSegmentPolishSystemPrompt(settings.polishPrompt),
+        signal: timeout.signal
+      }), MAX_POLISHED_CHARACTERS)
+      signal.throwIfAborted()
+      const polishedTexts = parsePolishedSegments(output, segments.length)
+      if (polishedTexts === undefined) return { polished: false, ...unchanged, message: 'The polishing model returned an invalid segment list' }
+      const polishedSegments = segments.map((segment, index) => ({ ...segment, text: polishedTexts[index]! }))
+      return {
+        polished: polishedSegments.some((segment, index) => segment.text !== segments[index]!.text),
+        text: polishedSegments.reduce((text, segment) => joinSpacedSegments(text, segment.text), ''),
+        segments: polishedSegments,
+        message: 'Transcript segments polished; original timestamps were preserved'
+      }
+    } catch (error) {
+      signal.throwIfAborted()
+      return { polished: false, ...unchanged, message: sanitizeEarsErrorText(errorText(error)) }
+    } finally {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', forwardAbort)
+    }
   }
 
   async polish(transcript: string, provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<RemoteTextResult> {
@@ -789,6 +1099,19 @@ export class PolishService extends TypertRemoteService {
     })
   }
 
+  private async withSenseVoiceModelState(
+    model: string,
+    operation: (model: SenseVoiceModelId, runtimeAvailable: boolean) => Promise<WhisperModelState>
+  ): Promise<WhisperModelState> {
+    const id = this.senseVoiceModel(model)
+    return sanitizeWhisperModelState(await operation(id, isSenseVoiceRuntimeAvailable()))
+  }
+
+  private senseVoiceModel(value: string): SenseVoiceModelId {
+    if ((SENSEVOICE_MODEL_IDS as readonly string[]).includes(value)) return value as SenseVoiceModelId
+    throw new Error(`Unknown dsh-ears SenseVoice model: ${value}`)
+  }
+
   private async cloudAsrIsAvailable(settings: EarsSettings): Promise<boolean> {
     return isCloudAsrReady(settings)
   }
@@ -836,6 +1159,15 @@ function whisperModel(value: string): WhisperModelId {
   throw new Error(`Unknown dsh-ears Whisper model: ${value}`)
 }
 
+function validateSenseVoiceTranscription(state: WhisperModelState): void {
+  if (!state.runtimeAvailable) throw new EarsError(EARS_ERROR_CODES.senseVoiceNativeUnavailable, 'The sherpa-onnx runtime is unavailable')
+  if (state.error !== null) {
+    const code = state.errorCode !== undefined && isEarsErrorCode(state.errorCode) ? state.errorCode : EARS_ERROR_CODES.senseVoiceModelStateQueryFailed
+    throw new EarsError(code, state.error, state.errorParams)
+  }
+  if (!state.downloaded) throw new EarsError(EARS_ERROR_CODES.senseVoiceModelNotDownloaded, 'Download the SenseVoice model before recognition')
+}
+
 function whisperAccelerationOptions(capabilities: WhisperAccelerationCapabilities): WhisperAccelerationId[] {
   const available = capabilities.available as readonly WhisperAccelerationId[]
   return available.length === 0
@@ -867,12 +1199,33 @@ function sanitizeJsonErrorParams(params: EarsErrorParams | undefined): EarsError
   if (sanitized === undefined) return undefined
   return Object.fromEntries(Object.entries(sanitized).filter(([, value]) => typeof value === 'string' || Number.isFinite(value))) as EarsErrorParams
 }
+
+function parsePolishedSegments(value: string, expectedCount: number): string[] | undefined {
+  const unwrapped = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+  let parsed: unknown
+  try { parsed = JSON.parse(unwrapped) } catch { return undefined }
+  if (typeof parsed !== 'object' || parsed === null || !('segments' in parsed) || !Array.isArray(parsed.segments)) return undefined
+  if (parsed.segments.length !== expectedCount) return undefined
+  const texts: string[] = []
+  for (let index = 0; index < parsed.segments.length; index += 1) {
+    const segment = parsed.segments[index]
+    if (typeof segment !== 'object' || segment === null || !('id' in segment) || segment.id !== index || !('text' in segment) || typeof segment.text !== 'string') return undefined
+    texts.push(segment.text.trim())
+  }
+  return texts
+}
 function decodeAudio(value: string): Uint8Array {
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) throw new EarsError(EARS_ERROR_CODES.asrAudioInvalid, 'The recorded audio is not valid base64')
   const audio = Buffer.from(value, 'base64')
   if (audio.byteLength === 0) throw new EarsError(EARS_ERROR_CODES.asrAudioEmpty, 'The recorded audio is empty')
   if (audio.byteLength > 24 * 1024 * 1024) throw new EarsError(EARS_ERROR_CODES.asrAudioTooLarge, 'The recorded audio is too large')
   return new Uint8Array(audio)
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return String(error)
 }
 
 async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: number): Promise<string> {
@@ -888,7 +1241,11 @@ async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: nu
     }
 
     if (chunk.type === 'finish' && (chunk.reason.kind === 'error' || chunk.reason.kind === 'aborted')) {
-      throw new EarsError(EARS_ERROR_CODES.polishRouteFailed, 'The dsh LLM route did not complete polishing')
+      const detail = sanitizeEarsErrorText(chunk.reason.failure.message)
+      throw new EarsError(
+        EARS_ERROR_CODES.polishRouteFailed,
+        detail || 'The dsh LLM route did not complete polishing'
+      )
     }
 
     if (!sawDelta && chunk.type === 'block-end' && chunk.block.type === 'text') {

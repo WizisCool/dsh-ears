@@ -15,14 +15,15 @@ import {
   XiaomiMimoIcon
 } from './provider-icons.js'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, WHISPER_MODEL_IDS, effectiveRecognitionLanguage, settingsPageLabel } from '../config.js'
+import { DEFAULT_SENSEVOICE_MODEL_BASE_URL, DEFAULT_WHISPER_MODEL_BASE_URL, MAX_POLISH_PROMPT_LENGTH, MIMO_ASR_DEFAULT_CLUSTER, MIRROR_SENSEVOICE_MODEL_BASE_URL, MIRROR_WHISPER_MODEL_BASE_URL, SENSEVOICE_MODEL_IDS, WHISPER_MODEL_IDS, effectiveRecognitionLanguage } from '../config.js'
 import type { EarsSettings, PolishRoute } from '../config.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrBackendSelection, cloudAsrStaticModelsFor, cloudProviderEntry, type CloudAsrCredentialField, type CloudAsrProviderEntry } from '../asr/providers.js'
 import { POLISH_SYSTEM_PROMPT } from '../polish/prompts.js'
+import { isWebSpeechAvailable } from '../asr/web-speech.js'
 import { EMPTY_SHORTCUT_RECORDER, formatModifierChord, formatShortcut, isReservedShortcut, reduceShortcutRecorder, shortcutRejectReason } from '../shortcut.js'
 import type { ShortcutModifier, ShortcutRecorderInput } from '../shortcut.js'
-import type { AboutInfo, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, ModelHealthResult, UpdateCheckResult, WhisperModelState } from '../remote-contract.js'
 import type { CloudModelsHook, CloudModelsView, EarsCardHook, EarsCardState, EarsSettingsHook, FieldName, ReasoningEffortsHook, RouteHook, WhisperModelHook } from './settings-controller.js'
 import { localeEn, localizedErrorText, type LocaleKey, type Translate } from './settings-locale.js'
 import styles from './SettingsSection.module.css'
@@ -71,9 +72,12 @@ interface EarsSettingsSectionProps {
   readonly flush: () => void
   readonly refreshRoutes: () => void
   readonly retryCloudModels: () => void
+  readonly refreshLocalModelOptions: () => void
   readonly downloadModel: () => void
   readonly cancelModel: () => void
   readonly deleteModel: () => void
+  readonly checkPolishModel: (provider: string, model: string, effort: string) => Promise<ModelHealthResult>
+  readonly checkRecognitionHealth: () => Promise<AsrBackendInfo | null>
   readonly loadAbout: () => Promise<AboutInfo | null>
   readonly checkForUpdate: () => Promise<UpdateCheckResult>
 }
@@ -114,6 +118,60 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   const [activeTab, setActiveTab] = useState<'general' | 'recognition' | 'polishing' | 'about'>('general')
   const t = props.earsT
   const uiLocale = props.useUiLocale?.() ?? 'zh'
+  const voiceInputEnabled = state.voiceInputEnabled?.text !== 'off'
+  const voiceInputOptionsDisabled = !voiceInputEnabled || !state.writable
+  const [polishHealth, setPolishHealth] = useState<HealthCheckState>({ status: 'idle', message: '' })
+  const [recognitionHealth, setRecognitionHealth] = useState<HealthCheckState>({ status: 'idle', message: '' })
+  const polishHealthKey = `${state.polishProvider.text}\0${state.polishModel.text}\0${state.polishReasoningEffort.text}`
+  const recognitionHealthKey = `${state.asrBackend.text}\0${state.localWhisperModel.text}\0${state.localSenseVoiceModel.text}\0${state.cloudAsrProvider.text}`
+  const polishHealthKeyRef = useRef(polishHealthKey)
+  const recognitionHealthKeyRef = useRef(recognitionHealthKey)
+  polishHealthKeyRef.current = polishHealthKey
+  recognitionHealthKeyRef.current = recognitionHealthKey
+  useEffect(() => setPolishHealth({ status: 'idle', message: '' }), [polishHealthKey])
+  useEffect(() => setRecognitionHealth({ status: 'idle', message: '' }), [recognitionHealthKey])
+  const checkPolishModel = async () => {
+    const key = polishHealthKey
+    setPolishHealth({ status: 'checking', message: '' })
+    const result = await props.checkPolishModel(state.polishProvider.text, state.polishModel.text, state.polishReasoningEffort.text)
+    if (polishHealthKeyRef.current === key) setPolishHealth({ status: result.status, message: result.message })
+  }
+  const checkRecognitionModel = async () => {
+    const key = recognitionHealthKey
+    setRecognitionHealth({ status: 'checking', message: '' })
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      if (state.asrBackend.text === 'web-speech') {
+        const available = isWebSpeechAvailable()
+        if (recognitionHealthKeyRef.current === key) setRecognitionHealth({
+          status: available ? 'available' : 'unavailable',
+          message: available ? t('recognitionHealthWebSpeechAvailable') : t('recognitionHealthWebSpeechUnavailable')
+        })
+        return
+      }
+      const result = await Promise.race([
+        props.checkRecognitionHealth(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error(t('recognitionHealthTimeout'))), 15_000)
+        })
+      ])
+      if (recognitionHealthKeyRef.current === key) setRecognitionHealth(result === null
+          ? { status: 'unavailable', message: t('recognitionHealthUnavailable') }
+          : {
+              status: result.available ? 'available' : 'unavailable',
+              message: result.available
+                ? state.asrBackend.text === 'cloud-openai' ? t('recognitionHealthConfigured') : t('recognitionHealthAvailable')
+                : localizedErrorText(t, result.detailCode, result.detail, result.detailParams)
+            })
+    } catch (error) {
+      if (recognitionHealthKeyRef.current === key) setRecognitionHealth({
+        status: 'unavailable',
+        message: error instanceof Error ? error.message : String(error)
+      })
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout)
+    }
+  }
   const legacyCredentialSetters: Record<CloudAsrCredentialField, (text: string) => void> = {
     cloudAsrGroqApiKey: props.setApiKey,
     cloudAsrDeepgramApiKey: props.setDeepgramApiKey,
@@ -171,12 +229,22 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   if (!state.available) return null
   const providerOptions = uniqueProviders(routes.routes)
   const localWhisperAccelerations = state.localWhisperAccelerations ?? ['default']
+  const localModelSources: [string, string][] = [
+    ['official', t('officialModelSource')],
+    ['mirror', t('mirrorModelSource')],
+    ['custom', t('customModelSource')]
+  ]
+  const whisperModelIds = availableModelIds(whisper.models ?? [], WHISPER_MODEL_IDS, state.localWhisperModel.text)
+  const senseVoiceModelIds = availableModelIds(whisper.models ?? [], SENSEVOICE_MODEL_IDS, state.localSenseVoiceModel.text)
+  const whisperModelOptions: [string, string][] = whisperModelIds.map((model) => [model, model])
+  const senseVoiceModelOptions: [string, string][] = senseVoiceModelIds.map((model) => [model, t(model === 'small-int8' ? 'senseVoiceSmallInt8' : 'senseVoiceSmallFp32')])
   const modelOptions = routes.routes.filter((route) => route.provider === state.polishProvider.text)
   const selectedEntryId = state.asrBackend.text === 'cloud-openai' ? state.cloudAsrProvider.text : state.asrBackend.text
   const backendMenu: MenuEntry[] = [
     { type: 'label', id: 'group-local', text: t('groupLocal') },
     { id: 'web-speech', label: t('webSpeechBackend') },
     { id: 'local-whisper', label: t('localWhisperBackend') },
+    { id: 'local-sensevoice', label: t('localSenseVoiceBackend') },
     { type: 'separator', id: 'separator-cloud' },
     { type: 'label', id: 'group-cloud', text: t('groupCloud') },
     ...CLOUD_ASR_PROVIDERS.map((provider) => ({ id: provider.id, label: t(provider.providerLabelKey as LocaleKey), icon: providerIcons[provider.id]?.() }))
@@ -189,8 +257,13 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
   ]
   return (
     <section className={styles.section}>
-      <h2 className={styles.title}>{settingsPageLabel(state.settingsDisplayName.text, { plugin: t('displayNamePlugin'), voice: t('displayNameVoice') })}</h2>
-      <p className={styles.intro}>{t('description')}</p>
+      <div className={styles.brand}>
+        <EarsLogo />
+        <div className={styles.brandText}>
+          <h2 className={styles.title}>dsh-ears</h2>
+          <p className={styles.intro}>{t('description')}</p>
+        </div>
+      </div>
       {state.recoveredSettingsFields?.length > 0 ? <p className={styles.notice} role="alert">{t('recoveredSettings')}</p> : null}
       {state.loadFailed ? <p className={styles.notice} role="alert">{t('loadFailed')}</p> : !state.loaded ? null : !state.writable ? <p className={styles.notice}>{t('readOnly')}</p> : state.failed ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('saveFailed')}</p> : null}
       <div className={styles.tabs} role="tablist" aria-label={t('tabs')}>
@@ -223,13 +296,15 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
       </div>
       {activeTab === 'general' ? (
         <div id={`${tabsId}-panel-general`} role="tabpanel" aria-labelledby={`${tabsId}-tab-general`} className={styles.panel}>
-          <SelectRow label={t('displayName')} hint={t('displayNameHint')} value={state.settingsDisplayName.text} options={[['dsh-ears', t('displayNamePlugin')], ['voice', t('displayNameVoice')]]} disabled={!state.writable} invalid={state.settingsDisplayName.invalid} onChange={(value) => props.edit('settingsDisplayName', value)} />
-          <SelectRow label={t('shortcutEnabled')} hint={t('shortcutEnabledHint')} value={state.voiceShortcutEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.voiceShortcutEnabled.invalid} onChange={(value) => props.edit('voiceShortcutEnabled', value)} />
-          {state.voiceShortcutEnabled.text === 'on' ? (
-            <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={!state.writable} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />
-          ) : null}
-          <SelectRow label={t('soundsEnabled')} hint={t('soundsEnabledHint')} value={state.voiceSoundsEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={!state.writable} invalid={state.voiceSoundsEnabled.invalid} onChange={(value) => props.edit('voiceSoundsEnabled', value)} />
-          <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={!state.writable} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} onBlur={props.flush} />
+          <SwitchRow label={t('voiceInputEnabled')} hint={t('voiceInputEnabledHint')} checked={voiceInputEnabled} disabled={!state.loaded || !state.writable} invalid={state.voiceInputEnabled?.invalid ?? false} onChange={(checked) => props.edit('voiceInputEnabled', checked ? 'on' : 'off')} onBlur={props.flush} />
+          <div className={styles.dependentSettings} data-disabled={voiceInputOptionsDisabled ? 'true' : undefined} aria-disabled={voiceInputOptionsDisabled}>
+            <SelectRow label={t('shortcutEnabled')} hint={t('shortcutEnabledHint')} value={state.voiceShortcutEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={voiceInputOptionsDisabled} invalid={state.voiceShortcutEnabled.invalid} onChange={(value) => props.edit('voiceShortcutEnabled', value)} />
+            {state.voiceShortcutEnabled.text === 'on' ? (
+              <ShortcutRecorderRow label={t('shortcut')} hint={t('shortcutHint')} value={state.voiceShortcut.text} disabled={voiceInputOptionsDisabled} invalid={state.voiceShortcut.invalid} onChange={(value) => props.edit('voiceShortcut', value)} onReset={() => props.edit('voiceShortcut', DEFAULT_EARS_SETTINGS.voiceShortcut)} t={t} />
+            ) : null}
+            <SelectRow label={t('soundsEnabled')} hint={t('soundsEnabledHint')} value={state.voiceSoundsEnabled.text} options={[['on', t('polishingOn')], ['off', t('polishingOff')]]} disabled={voiceInputOptionsDisabled} invalid={state.voiceSoundsEnabled.invalid} onChange={(value) => props.edit('voiceSoundsEnabled', value)} />
+            <TextRow label={t('recordingLimit')} hint={t('recordingLimitHint')} value={state.maxRecordingSeconds.text} disabled={voiceInputOptionsDisabled} invalid={state.maxRecordingSeconds.invalid} numeric onChange={(event) => props.edit('maxRecordingSeconds', event.target.value)} onBlur={props.flush} />
+          </div>
         </div>
       ) : activeTab === 'recognition' ? (
         <div id={`${tabsId}-panel-recognition`} role="tabpanel" aria-labelledby={`${tabsId}-tab-recognition`} className={styles.panel}>
@@ -246,9 +321,32 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
             <TextRow label={t('language')} hint={t('webSpeechLanguageHint')} value={state.webSpeechLanguage.text} placeholder={effectiveRecognitionLanguage('', uiLocale)} disabled={!state.writable} invalid={state.webSpeechLanguage.invalid} onChange={(event) => props.edit('webSpeechLanguage', event.target.value)} onBlur={props.flush} />
           ) : null}
           {state.asrBackend.text === 'local-whisper' ? <>
+            <SelectRow label={t('modelSource')} hint={t('modelSourceHint')} value={state.localWhisperModelSource.text} options={localModelSources} disabled={!state.writable} invalid={state.localWhisperModelSource.invalid} onChange={(value) => {
+              if (value === 'official') props.edit('localWhisperModelBaseUrl', DEFAULT_WHISPER_MODEL_BASE_URL)
+              else if (value === 'mirror') props.edit('localWhisperModelBaseUrl', MIRROR_WHISPER_MODEL_BASE_URL)
+              props.edit('localWhisperModelSource', value)
+            }} />
+            <TextRow label={t('modelDownloadBaseUrl')} hint={t('whisperModelDownloadBaseUrlHint')} value={state.localWhisperModelBaseUrl.text} disabled={!state.writable} invalid={state.localWhisperModelBaseUrl.invalid} onChange={(event) => {
+              if (state.localWhisperModelSource.text !== 'custom') props.edit('localWhisperModelSource', 'custom')
+              props.edit('localWhisperModelBaseUrl', event.target.value)
+            }} onBlur={() => { props.flush(); props.refreshLocalModelOptions() }} />
             <SelectRow label={t('localAcceleration')} hint={localWhisperAccelerations.length === 0 ? t('localAccelerationUnavailable') : t('localAccelerationHint')} value={state.localWhisperAcceleration.text} options={localWhisperAccelerations.map((acceleration) => [acceleration, t(`localAcceleration${acceleration[0].toUpperCase()}${acceleration.slice(1)}` as 'localAccelerationDefault' | 'localAccelerationVulkan' | 'localAccelerationCuda')] as [string, string])} disabled={!state.writable || localWhisperAccelerations.length === 0} invalid={state.localWhisperAcceleration.invalid} onChange={(value) => props.edit('localWhisperAcceleration', value)} />
-            <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={WHISPER_MODEL_IDS.map((model) => [model, model] as [string, string])} disabled={!state.writable} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
+            <WhisperModelRow label={t('localModel')} value={state.localWhisperModel.text} options={whisperModelOptions} disabled={!state.writable || whisper.catalogStatus === 'loading'} invalid={state.localWhisperModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localWhisperModel', value)} t={t} />
+            {whisper.catalogError != null ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('localModelCatalogError', { detail: whisper.catalogError })}</p> : null}
             <TextRow label={t('language')} hint={t('asrLanguageHint')} value={state.localWhisperLanguage.text} placeholder="auto" disabled={!state.writable} invalid={state.localWhisperLanguage.invalid} onChange={(event) => props.edit('localWhisperLanguage', event.target.value)} onBlur={props.flush} />
+          </> : null}
+          {state.asrBackend.text === 'local-sensevoice' ? <>
+            <SelectRow label={t('modelSource')} hint={t('modelSourceHint')} value={state.localSenseVoiceModelSource.text} options={localModelSources} disabled={!state.writable} invalid={state.localSenseVoiceModelSource.invalid} onChange={(value) => {
+              if (value === 'official') props.edit('localSenseVoiceModelBaseUrl', DEFAULT_SENSEVOICE_MODEL_BASE_URL)
+              else if (value === 'mirror') props.edit('localSenseVoiceModelBaseUrl', MIRROR_SENSEVOICE_MODEL_BASE_URL)
+              props.edit('localSenseVoiceModelSource', value)
+            }} />
+            <TextRow label={t('modelDownloadBaseUrl')} hint={t('senseVoiceModelDownloadBaseUrlHint')} value={state.localSenseVoiceModelBaseUrl.text} disabled={!state.writable} invalid={state.localSenseVoiceModelBaseUrl.invalid} onChange={(event) => {
+              if (state.localSenseVoiceModelSource.text !== 'custom') props.edit('localSenseVoiceModelSource', 'custom')
+              props.edit('localSenseVoiceModelBaseUrl', event.target.value)
+            }} onBlur={() => { props.flush(); props.refreshLocalModelOptions() }} />
+            <WhisperModelRow variant="sensevoice" label={t('senseVoiceModel')} value={state.localSenseVoiceModel.text} options={senseVoiceModelOptions} disabled={!state.writable || whisper.catalogStatus === 'loading'} invalid={state.localSenseVoiceModel.invalid} status={whisper.status} modelState={whisper.state} writable={state.writable} onDownload={props.downloadModel} onCancelDownload={props.cancelModel} onDeleteModel={props.deleteModel} onChange={(value) => props.edit('localSenseVoiceModel', value)} t={t} />
+            {whisper.catalogError != null ? <p className={`${styles.notice} ${styles.noticeError}`} role="alert">{t('localModelCatalogError', { detail: whisper.catalogError })}</p> : null}
           </> : null}
           {state.asrBackend.text === 'cloud-openai' ? (
             <CloudProviderFields
@@ -265,6 +363,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
               t={t}
             />
           ) : null}
+          <HealthCheckRow label={t('recognitionHealth')} hint={t('recognitionHealthHint')} state={recognitionHealth} disabled={!state.loaded || state.asrBackend.text === ''} onCheck={checkRecognitionModel} t={t} />
         </div>
       ) : activeTab === 'polishing' ? (
         <div id={`${tabsId}-panel-polishing`} role="tabpanel" aria-labelledby={`${tabsId}-tab-polishing`} className={styles.panel}>
@@ -276,6 +375,7 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
               <SelectRow label={t('reasoningEffort')} hint={t('reasoningEffortHint')} value={reasoning.efforts.some((effort) => effort.id === state.polishReasoningEffort.text) ? state.polishReasoningEffort.text : ''} options={[['', t('defaultEffort')], ...reasoning.efforts.map((effort) => [effort.id, effort.name] as [string, string])]} disabled={!state.writable || reasoning.status === 'loading'} invalid={state.polishReasoningEffort.invalid} onChange={(value) => props.edit('polishReasoningEffort', value)} />
             ) : null}
             <PromptRow label={t('polishPrompt')} hint={t('polishPromptHint')} value={state.polishPrompt.text} disabled={!state.writable} invalid={state.polishPrompt.invalid} defaultValue={POLISH_SYSTEM_PROMPT} t={t} onChange={(value) => props.edit('polishPrompt', value)} onReset={() => props.edit('polishPrompt', DEFAULT_EARS_SETTINGS.polishPrompt)} onBlur={props.flush} />
+            <HealthCheckRow label={t('modelHealth')} hint={t('modelHealthHint')} state={polishHealth} disabled={state.polishProvider.text.trim() === '' || state.polishModel.text.trim() === ''} onCheck={checkPolishModel} t={t} />
           </> : null}
         </div>
       ) : (
@@ -284,6 +384,34 @@ export function EarsSettingsSection(props: EarsSettingsSectionProps): ReactNode 
         </div>
       )}
     </section>
+  )
+}
+
+interface HealthCheckState {
+  readonly status: 'idle' | 'checking' | 'available' | 'unavailable'
+  readonly message: string
+}
+
+function HealthCheckRow({ label, hint, state, disabled, onCheck, t }: { label: string; hint: string; state: HealthCheckState; disabled: boolean; onCheck: () => void | Promise<void>; t: Translate }) {
+  const stateText = state.status === 'idle'
+    ? t('healthCheckIdle')
+    : state.status === 'checking'
+      ? t('healthChecking')
+      : state.status === 'available'
+        ? t('healthAvailable')
+        : t('healthUnavailable')
+  const description = (state.status === 'available' || state.status === 'unavailable') && state.message !== '' ? `${stateText}：${state.message}` : stateText
+  return (
+    <RowField label={label} hint={hint} alert={state.status === 'unavailable'}>
+      <div className={styles.healthControl}>
+        <div className={styles.healthStatus} data-state={state.status} aria-live="polite" role={state.status === 'unavailable' ? 'alert' : 'status'}>
+          {description}
+        </div>
+        <button type="button" className={styles.linkButton} disabled={disabled || state.status === 'checking'} onClick={() => void onCheck()}>
+          {state.status === 'checking' ? t('healthChecking') : t('checkNow')}
+        </button>
+      </div>
+    </RowField>
   )
 }
 
@@ -369,17 +497,49 @@ function ValueRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function RowField({ label, hint, invalid, alert, warn, wide = false, children }: { label: string; hint: string; invalid?: boolean; alert?: boolean; warn?: boolean; wide?: boolean; children: ReactNode }) {
+function EarsLogo() {
+  return (
+    <svg className={styles.brandLogo} width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <path d="M18 3.75C10.13 3.75 3.75 9.48 3.75 16.55C3.75 20.16 5.43 23.39 8.19 25.58L7.12 32.25L14.3 29.08C15.48 29.38 16.72 29.55 18 29.55C25.87 29.55 32.25 23.82 32.25 16.75C32.25 9.68 25.87 3.75 18 3.75Z" fill="url(#dsh-ears-settings-wave)" />
+      <rect x="9.25" y="14.25" width="2.5" height="5.5" rx="1.25" fill="white" fillOpacity="0.96" />
+      <rect x="13.75" y="11.75" width="2.5" height="10.5" rx="1.25" fill="white" />
+      <rect x="18.25" y="9.75" width="2.5" height="14.5" rx="1.25" fill="white" />
+      <rect x="22.75" y="12.5" width="2.5" height="9" rx="1.25" fill="white" />
+      <rect x="27.25" y="14.75" width="2.5" height="4.5" rx="1.25" fill="white" fillOpacity="0.96" />
+      <defs>
+        <linearGradient id="dsh-ears-settings-wave" x1="5" y1="5" x2="31" y2="31" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#67C7FE" />
+          <stop offset="1" stopColor="#3F77D8" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function RowField({ label, hint, hintId, invalid, alert, warn, wide = false, children }: { label: string; hint: string; hintId?: string; invalid?: boolean; alert?: boolean; warn?: boolean; wide?: boolean; children: ReactNode }) {
   const showHint = hint !== ''
   const markInvalid = invalid === true
   return (
     <div className={`${styles.row} ${wide ? styles.rowWide : ''}`}>
       <div className={styles.rowText}>
         <div className={styles.rowTitle}>{label}</div>
-        {showHint ? <div className={`${styles.rowDesc} ${markInvalid ? styles.invalid : ''} ${warn === true ? styles.warning : ''}`} {...(alert === true || markInvalid ? { role: 'alert' } : {})}>{hint}</div> : null}
+        {showHint ? <div id={hintId} className={`${styles.rowDesc} ${markInvalid ? styles.invalid : ''} ${warn === true ? styles.warning : ''}`} {...(alert === true || markInvalid ? { role: 'alert' } : {})}>{hint}</div> : null}
       </div>
       <div className={styles.rowControl}>{children}</div>
     </div>
+  )
+}
+
+function SwitchRow({ label, hint, checked, disabled, invalid, onChange, onBlur }: { label: string; hint: string; checked: boolean; disabled: boolean; invalid: boolean; onChange: (checked: boolean) => void; onBlur: () => void }) {
+  const hintId = useId()
+  return (
+    <RowField label={label} hint={hint} hintId={hintId} invalid={invalid}>
+      <button type="button" role="switch" className={styles.switch} aria-label={label} aria-describedby={hintId} aria-checked={checked} aria-invalid={invalid} disabled={disabled} onClick={() => {
+        if (!disabled) onChange(!checked)
+      }} onBlur={onBlur}>
+        <span className={styles.switchThumb} aria-hidden="true" />
+      </button>
+    </RowField>
   )
 }
 
@@ -709,12 +869,12 @@ function DeepgramModelRow({ label, value, service, models, dirty, disabled, inva
   )
 }
 
-function WhisperModelRow({ label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onChange, t }: { label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onChange: (value: string) => void; t: Translate }) {
+function WhisperModelRow({ variant = 'whisper', label, value, options, disabled, invalid, status, modelState, writable, onDownload, onCancelDownload, onDeleteModel, onChange, t }: { variant?: 'whisper' | 'sensevoice'; label: string; value: string; options: [string, string][]; disabled: boolean; invalid: boolean; status: 'loading' | 'ready'; modelState: WhisperModelState; writable: boolean; onDownload: () => void; onCancelDownload: () => void; onDeleteModel: () => void; onChange: (value: string) => void; t: Translate }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(([optionValue]) => optionValue === value)
   const labelText = selected === undefined ? value : selected[1]
   const alert = status === 'ready' && (invalid || !modelState.runtimeAvailable || modelState.error !== null)
-  const statusContent = status === 'loading' ? whisperCheckingContent(t) : whisperStatusContent(modelState, t, writable, onDownload, onCancelDownload, onDeleteModel)
+  const statusContent = status === 'loading' ? localModelCheckingContent(t, variant) : localModelStatusContent(variant, modelState, t, writable, onDownload, onCancelDownload, onDeleteModel)
   return (
     <div className={styles.row}>
       <div className={styles.rowText}>
@@ -748,18 +908,19 @@ function WhisperModelRow({ label, value, options, disabled, invalid, status, mod
   )
 }
 
-function whisperCheckingContent(t: Translate): ReactNode {
-  return <><span className={styles.spinner} aria-hidden="true" /><span>{t('whisperChecking')}</span></>
+function localModelCheckingContent(t: Translate, variant: 'whisper' | 'sensevoice'): ReactNode {
+  return <><span className={styles.spinner} aria-hidden="true" /><span>{t(variant === 'sensevoice' ? 'senseVoiceChecking' : 'whisperChecking')}</span></>
 }
 
-function whisperStatusContent(modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void, onCancelDownload: () => void, onDeleteModel: () => void): ReactNode {
+function localModelStatusContent(variant: 'whisper' | 'sensevoice', modelState: WhisperModelState, t: Translate, writable: boolean, onDownload: () => void, onCancelDownload: () => void, onDeleteModel: () => void): ReactNode {
+  const key = (whisper: LocaleKey, senseVoice: LocaleKey): string => t(variant === 'sensevoice' ? senseVoice : whisper)
   if (!modelState.runtimeAvailable) {
-    const errorText = modelState.error === null ? t('whisperNativeUnavailable') : localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
+    const errorText = modelState.error === null ? key('whisperNativeUnavailable', 'senseVoiceNativeUnavailable') : localizedErrorText(t, modelState.errorCode, modelState.error, modelState.errorParams)
     if (!modelState.downloading) return <span>{errorText}</span>
     const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
     return <>
       <span>{errorText}</span>
-      <span>{percent === null ? t('whisperDownloading') : t('whisperDownloadingProgress', { percent })}</span>
+      <span>{percent === null ? key('whisperDownloading', 'senseVoiceDownloading') : t(variant === 'sensevoice' ? 'senseVoiceDownloadingProgress' : 'whisperDownloadingProgress', { percent })}</span>
       <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
     </>
   }
@@ -770,21 +931,21 @@ function whisperStatusContent(modelState: WhisperModelState, t: Translate, writa
       {modelState.downloading
         ? <button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button>
         : modelState.downloaded
-          ? <WhisperDownloadedActions modelState={modelState} t={t} writable={writable} onDeleteModel={onDeleteModel} />
+          ? <LocalModelDownloadedActions downloadedLabel={key('whisperDownloaded', 'senseVoiceDownloaded')} t={t} writable={writable} onDeleteModel={onDeleteModel} />
           : <button type="button" className={styles.linkButton} disabled={!writable} onClick={onDownload}>{t('retryDownload')}</button>}
     </>
   }
   if (modelState.downloading) {
     const percent = modelState.progress === null ? null : Math.max(0, Math.min(100, Math.round(modelState.progress * 100)))
-    return <><span>{percent === null ? t('whisperDownloading') : t('whisperDownloadingProgress', { percent })}</span><button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button></>
+    return <><span>{percent === null ? key('whisperDownloading', 'senseVoiceDownloading') : t(variant === 'sensevoice' ? 'senseVoiceDownloadingProgress' : 'whisperDownloadingProgress', { percent })}</span><button type="button" className={styles.linkButton} onClick={onCancelDownload}>{t('cancelDownload')}</button></>
   }
   if (modelState.downloaded) {
-    return <WhisperDownloadedActions modelState={modelState} t={t} writable={writable} onDeleteModel={onDeleteModel} />
+    return <LocalModelDownloadedActions downloadedLabel={key('whisperDownloaded', 'senseVoiceDownloaded')} t={t} writable={writable} onDeleteModel={onDeleteModel} />
   }
-  return <><span>{t('whisperNotDownloaded')}</span><button type="button" className={styles.linkButton} disabled={!writable} onClick={onDownload}>{t('clickDownload')}</button></>
+  return <><span>{key('whisperNotDownloaded', 'senseVoiceNotDownloaded')}</span><button type="button" className={styles.linkButton} disabled={!writable} onClick={onDownload}>{t('clickDownload')}</button></>
 }
 
-function WhisperDownloadedActions({ modelState, t, writable, onDeleteModel }: { modelState: WhisperModelState; t: Translate; writable: boolean; onDeleteModel: () => void }) {
+function LocalModelDownloadedActions({ downloadedLabel, t, writable, onDeleteModel }: { downloadedLabel: string; t: Translate; writable: boolean; onDeleteModel: () => void }) {
   const [confirming, setConfirming] = useState(false)
   useEffect(() => {
     if (!confirming) return
@@ -793,7 +954,7 @@ function WhisperDownloadedActions({ modelState, t, writable, onDeleteModel }: { 
   }, [confirming])
   return (
     <>
-      <span>{t('whisperDownloaded')}</span>
+      <span>{downloadedLabel}</span>
       {confirming
         ? <button type="button" className={`${styles.linkButton} ${styles.linkButtonDanger}`} disabled={!writable} onClick={onDeleteModel}>{t('confirmDeleteModel')}</button>
         : <button type="button" className={`${styles.linkButton} ${styles.linkButtonDanger}`} disabled={!writable} onClick={() => setConfirming(true)}>{t('deleteModel')}</button>}
@@ -810,8 +971,17 @@ function uniqueProviders(routes: readonly PolishRoute[]): PolishRoute[] {
   })
 }
 
+function availableModelIds<T extends string>(catalog: readonly string[], supported: readonly T[], selected: string): T[] {
+  const supportedSet = new Set<string>(supported)
+  const source = catalog.length === 0 ? supported : catalog
+  const models = source.filter((model): model is T => supportedSet.has(model))
+  if (supportedSet.has(selected) && !models.includes(selected as T)) models.push(selected as T)
+  return models
+}
+
 function backendHint(backend: string, provider: string, t: Translate): string {
   if (backend === 'local-whisper') return t('backendHintLocalWhisper')
+  if (backend === 'local-sensevoice') return t('backendHintLocalSenseVoice')
   if (backend === 'cloud-openai') {
     return t((cloudProviderEntry(provider)?.backendHintKey ?? 'backendHintCustom') as LocaleKey)
   }

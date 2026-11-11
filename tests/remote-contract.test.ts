@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsViewSchema, remoteTextResultSchema, whisperModelStateSchema } from '../src/remote-contract.js'
+import { asrBackendInfoSchema, cloudProviderModelsViewSchema, earsSettingsPatchSchema, earsSettingsSchema, earsSettingsViewSchema, localModelCatalogSchema, modelHealthResultSchema, remoteTextResultSchema, whisperModelStateSchema } from '../src/remote-contract.js'
 import { TYPERT } from '../src/typert.js'
 import { TYPERT_REMOTE } from '../src/remote.js'
 import { EARS_REMOTE_DESCRIPTORS } from '../src/remote-definitions.js'
-import { MAX_CLOUD_API_KEY_LENGTH } from '../src/config.js'
+import { DEFAULT_EARS_SETTINGS, MAX_CLOUD_API_KEY_LENGTH } from '../src/config.js'
 
 describe('structured error Remote contracts', () => {
   it('accepts optional error codes and interpolation parameters', () => {
@@ -56,6 +56,46 @@ describe('structured error Remote contracts', () => {
 })
 
 describe('settings Remote contract', () => {
+  it('defaults an older settings response to enabled voice input while preserving false', () => {
+    const {
+      voiceInputEnabled: _voiceInputEnabled,
+      localWhisperModelSource: _localWhisperModelSource,
+      localWhisperModelBaseUrl: _localWhisperModelBaseUrl,
+      localSenseVoiceModel: _localSenseVoiceModel,
+      localSenseVoiceModelSource: _localSenseVoiceModelSource,
+      localSenseVoiceModelBaseUrl: _localSenseVoiceModelBaseUrl,
+      ...olderSettings
+    } = DEFAULT_EARS_SETTINGS
+    expect(earsSettingsSchema.parse(olderSettings).voiceInputEnabled).toBe(true)
+    expect(earsSettingsSchema.parse({ ...olderSettings, voiceInputEnabled: false }).voiceInputEnabled).toBe(false)
+    expect(earsSettingsSchema.parse(olderSettings)).toMatchObject({
+      localWhisperModelSource: 'official',
+      localWhisperModelBaseUrl: DEFAULT_EARS_SETTINGS.localWhisperModelBaseUrl,
+      localSenseVoiceModel: 'small-int8',
+      localSenseVoiceModelSource: 'official',
+      localSenseVoiceModelBaseUrl: DEFAULT_EARS_SETTINGS.localSenseVoiceModelBaseUrl
+    })
+  })
+
+  it('validates local model catalogs and manual model health results', () => {
+    expect(localModelCatalogSchema.parse({ backend: 'local-sensevoice', source: 'mirror', models: ['small-int8'] }))
+      .toEqual({ backend: 'local-sensevoice', source: 'mirror', models: ['small-int8'] })
+    expect(modelHealthResultSchema.parse({ status: 'available', message: 'ok' })).toEqual({ status: 'available', message: 'ok' })
+    expect(modelHealthResultSchema.parse({ status: 'unavailable', message: 'timeout' })).toEqual({ status: 'unavailable', message: 'timeout' })
+  })
+
+  it('keeps the voice input patch optional without a default', () => {
+    expect(earsSettingsPatchSchema.parse({})).toEqual({})
+    expect(earsSettingsPatchSchema.parse({ voiceSoundsEnabled: false })).toEqual({ voiceSoundsEnabled: false })
+    expect(earsSettingsPatchSchema.parse({ voiceInputEnabled: false })).toEqual({ voiceInputEnabled: false })
+    expect(earsSettingsPatchSchema.parse({ voiceInputEnabled: true })).toEqual({ voiceInputEnabled: true })
+  })
+
+  it.each([null, 0, 'false'])('rejects a wrong-type input toggle %j in patches and responses', (voiceInputEnabled) => {
+    expect(() => earsSettingsPatchSchema.parse({ voiceInputEnabled })).toThrow()
+    expect(() => earsSettingsSchema.parse({ ...DEFAULT_EARS_SETTINGS, voiceInputEnabled })).toThrow()
+  })
+
   it('accepts the supported local Whisper acceleration values', () => {
     expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'default' })).toEqual({ localWhisperAcceleration: 'default' })
     expect(earsSettingsPatchSchema.parse({ localWhisperAcceleration: 'vulkan' })).toEqual({ localWhisperAcceleration: 'vulkan' })
@@ -278,7 +318,7 @@ describe('settings Remote contract', () => {
     const hostIds = TYPERT.invocations.map((invocation) => invocation.id).sort()
     const clientIds = TYPERT_REMOTE.descriptors.map((descriptor) => descriptor.id).sort()
     expect(clientIds).toEqual(hostIds)
-    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'finishRealtime', 'listCloudProviderModels', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
+    expect(TYPERT_REMOTE.descriptors.filter((descriptor) => descriptor.cancellation !== undefined).map((descriptor) => descriptor.method).sort()).toEqual(['checkForUpdate', 'checkPolishModel', 'finishRealtime', 'listCloudProviderModels', 'listLocalModelOptions', 'polish', 'sendRealtimeAudio', 'startRealtime', 'transcribe', 'updateSettings'])
   })
 
   it('gives every codec the strict create() factory dsh 0.1.7 requires', () => {
@@ -292,7 +332,7 @@ describe('settings Remote contract', () => {
       }
       codecs.push({ subject: `${descriptor.id} result`, codec: descriptor.result })
     }
-    expect(codecs).toHaveLength(36)
+    expect(codecs).toHaveLength(44)
 
     for (const { subject, codec } of codecs) {
       const value = codec as { mode?: unknown; typeSymbol?: unknown; create?: unknown }

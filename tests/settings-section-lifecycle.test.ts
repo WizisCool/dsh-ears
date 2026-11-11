@@ -40,8 +40,13 @@ const cardState: EarsCardState = {
   asrBackend: field('web-speech'),
   webSpeechLanguage: field('en-US'),
   localWhisperModel: field('base'),
+  localWhisperModelSource: field('official'),
+  localWhisperModelBaseUrl: field('https://huggingface.co/ggerganov/whisper.cpp/resolve/main/'),
   localWhisperAcceleration: field('default'),
   localWhisperLanguage: field(''),
+  localSenseVoiceModel: field('small-int8'),
+  localSenseVoiceModelSource: field('official'),
+  localSenseVoiceModelBaseUrl: field('https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice/resolve/main/'),
   cloudAsrProvider: field('groq'),
   cloudAsrGroqApiKey: field(''),
   cloudAsrGroqApiKeyConfigured: false,
@@ -68,6 +73,7 @@ const cardState: EarsCardState = {
   cloudAsrTencentEngineType: field('16k_zh'),
   cloudAsrTencentService: field('recording-file'),
   maxRecordingSeconds: field('120'),
+  voiceInputEnabled: field('on'),
   voiceShortcutEnabled: field('on'),
   voiceShortcut: field('ctrl+shift+space'),
   voiceSoundsEnabled: field('on'),
@@ -273,6 +279,131 @@ describe('EarsSettingsSection lifecycle', () => {
     expect(String(checkingRow?.props?.className ?? '')).not.toContain('invalid')
   })
 })
+
+describe('EarsSettingsSection voice input switch', () => {
+  it('shows the plugin identity and removes the display-name setting', () => {
+    const elements = renderGeneralSettings(cardState)
+    expect(textContent(elements)).toContain('dsh-ears')
+    expect(textContent(elements)).toContain(localeEn.description)
+    expect(textContent(elements)).not.toContain('Display name')
+    expect(elements.some((element) => element.props?.viewBox === '0 0 36 36')).toBe(true)
+  })
+
+  it.each([localeEn, localeZh])('renders an accessible native switch before the shortcut row', (messages) => {
+    const elements = renderGeneralSettings(cardState, { earsT: (key) => messages[key] })
+    const toggleIndex = elements.findIndex((element) => element.props?.role === 'switch')
+    const toggle = elements[toggleIndex]
+    const shortcutIndex = elements.findIndex((element) => element.props?.['aria-label'] === messages.shortcutEnabled)
+    expect(toggle?.type).toBe('button')
+    expect(toggle?.props).toMatchObject({
+      type: 'button',
+      'aria-label': messages.voiceInputEnabled,
+      'aria-checked': true,
+      'aria-invalid': false,
+      disabled: false
+    })
+    expect(shortcutIndex).toBeGreaterThan(toggleIndex)
+    const description = elements.find((element) => element.props?.id === toggle?.props?.['aria-describedby'])
+    expect(textContent(description)).toBe(messages.voiceInputEnabledHint)
+    // Native buttons supply Enter/Space activation without a second key handler.
+    expect(toggle?.props?.onKeyDown).toBeUndefined()
+  })
+
+  it.each([['on', 'off'], ['off', 'on']])('stages only the voice input field from %s to %s and flushes on blur', (current, next) => {
+    const edit = vi.fn()
+    const flush = vi.fn()
+    const elements = renderGeneralSettings({ ...cardState, voiceInputEnabled: field(current) }, { edit, flush })
+    const toggle = elements.find((element) => element.props?.role === 'switch')
+    expect(toggle?.props?.['aria-checked']).toBe(current === 'on')
+    ;(toggle?.props?.onClick as () => void)()
+    expect(edit).toHaveBeenCalledExactlyOnceWith('voiceInputEnabled', next)
+    expect(flush).not.toHaveBeenCalled()
+    ;(toggle?.props?.onBlur as () => void)()
+    expect(flush).toHaveBeenCalledOnce()
+    expect(cardState.voiceShortcutEnabled.text).toBe('on')
+  })
+
+  it.each([{ writable: false }, { loaded: false }])('disables the switch until settings are loaded and writable: %j', (state) => {
+    const edit = vi.fn()
+    const elements = renderGeneralSettings({ ...cardState, ...state }, { edit })
+    const toggle = elements.find((element) => element.props?.role === 'switch')
+    expect(toggle?.props?.disabled).toBe(true)
+    ;(toggle?.props?.onClick as () => void)()
+    expect(edit).not.toHaveBeenCalled()
+  })
+
+  it('defaults older card views to enabled without hiding the shortcut settings', () => {
+    const legacyCard = { ...cardState }
+    delete (legacyCard as Partial<EarsCardState>).voiceInputEnabled
+    const elements = renderGeneralSettings(legacyCard)
+    const toggle = elements.find((element) => element.props?.role === 'switch')
+    expect(toggle?.props?.['aria-checked']).toBe(true)
+    expect(elements.some((element) => element.props?.['aria-label'] === localeEn.shortcutEnabled)).toBe(true)
+  })
+
+  it('locks the settings below voice input when voice input is off', () => {
+    const elements = renderGeneralSettings({ ...cardState, voiceInputEnabled: field('off') })
+    const shortcut = elements.find((element) => element.props?.['aria-label'] === localeEn.shortcutEnabled)
+    expect(shortcut?.props?.disabled).toBe(true)
+    const dependentSettings = elements.find((element) => element.props?.['data-disabled'] === 'true')
+    expect(dependentSettings?.props?.['aria-disabled']).toBe(true)
+    expect(textContent(elements)).toContain(localeEn.shortcut)
+  })
+})
+
+function renderGeneralSettings(state: EarsCardState, overrides: Partial<Parameters<typeof EarsSettingsSection>[0]> = {}): ElementLike[] {
+  reactMocks.useEffect.mockClear()
+  reactMocks.useState.mockReset()
+  reactMocks.useState.mockImplementation((initial) => [initial, vi.fn()])
+  return renderHostElements(EarsSettingsSection({
+    useEarsCard: (selector) => selector(state),
+    useEarsRoutes: (selector) => selector({ status: 'ready', routes: [] }),
+    useEarsReasoning: (selector) => selector({ status: 'ready', efforts: [] }),
+    useEarsWhisper: (selector) => selector({
+      status: 'ready',
+      state: { runtimeAvailable: false, downloaded: false, downloading: false, progress: null, bytes: null, totalBytes: null, error: null }
+    }),
+    useEarsCloudModels: (selector) => selector({ status: 'ready', view: { status: 'unsupported' } }),
+    earsT: (key) => localeEn[key],
+    edit: vi.fn(),
+    setApiKey: vi.fn(),
+    clearApiKey: vi.fn(),
+    undoClearApiKey: vi.fn(),
+    setDeepgramApiKey: vi.fn(),
+    clearDeepgramApiKey: vi.fn(),
+    undoClearDeepgramApiKey: vi.fn(),
+    setCustomApiKey: vi.fn(),
+    clearCustomApiKey: vi.fn(),
+    undoClearCustomApiKey: vi.fn(),
+    setBailianApiKey: vi.fn(),
+    clearBailianApiKey: vi.fn(),
+    undoClearBailianApiKey: vi.fn(),
+    setTencentSecretKey: vi.fn(),
+    clearTencentSecretKey: vi.fn(),
+    undoClearTencentSecretKey: vi.fn(),
+    setMimoApiKey: vi.fn(),
+    clearMimoApiKey: vi.fn(),
+    undoClearMimoApiKey: vi.fn(),
+    setSiliconFlowApiKey: vi.fn(),
+    clearSiliconFlowApiKey: vi.fn(),
+    undoClearSiliconFlowApiKey: vi.fn(),
+    setVolcengineApiKey: vi.fn(),
+    clearVolcengineApiKey: vi.fn(),
+    undoClearVolcengineApiKey: vi.fn(),
+    flush: vi.fn(),
+    refreshRoutes: vi.fn(),
+    retryCloudModels: vi.fn(),
+    refreshLocalModelOptions: vi.fn(),
+    downloadModel: vi.fn(),
+    cancelModel: vi.fn(),
+    deleteModel: vi.fn(),
+    checkPolishModel: vi.fn(async () => ({ status: 'available' as const, message: '' })),
+    checkRecognitionHealth: vi.fn(async () => null),
+    loadAbout: vi.fn(async () => null),
+    checkForUpdate: vi.fn(async () => ({ status: 'unpublished' as const, installed: '0.4.4', latest: null, updateCommand: 'dsh plugin --profile web add dsh-ears' })),
+    ...overrides
+  }))
+}
 
 interface ElementLike {
   type?: unknown

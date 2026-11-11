@@ -6,12 +6,22 @@ describe('parseSettingsField', () => {
   it('parses recording limits and boolean switches', () => {
     expect(parseSettingsField('maxRecordingSeconds', '180')).toBe(180)
     expect(parseSettingsField('polishingEnabled', 'on')).toBe(true)
+    expect(parseSettingsField('voiceInputEnabled', 'on')).toBe(true)
+    expect(parseSettingsField('voiceInputEnabled', 'off')).toBe(false)
     expect(parseSettingsField('voiceShortcutEnabled', 'off')).toBe(false)
     expect(parseSettingsField('webSpeechLanguage', 'en-US')).toBe('en-US')
   })
 })
 
 describe('isSettingsFieldInvalid', () => {
+  it('accepts only on/off values for the voice input switch', () => {
+    expect(isSettingsFieldInvalid('voiceInputEnabled', 'on')).toBe(false)
+    expect(isSettingsFieldInvalid('voiceInputEnabled', 'off')).toBe(false)
+    for (const value of ['', 'true', 'false', '1', 'enabled']) {
+      expect(isSettingsFieldInvalid('voiceInputEnabled', value)).toBe(true)
+    }
+  })
+
   it('rejects unknown backend and provider identifiers', () => {
     expect(isSettingsFieldInvalid('asrBackend', 'future-backend')).toBe(true)
     expect(isSettingsFieldInvalid('asrBackend', 'web-speech')).toBe(false)

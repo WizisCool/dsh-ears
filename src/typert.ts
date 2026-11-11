@@ -38,6 +38,13 @@ export const TYPERT = {
           },
           {
             kind: 'method',
+            name: 'listLocalModelOptions',
+            signature: 'listLocalModelOptions(backend: string, source: string, baseUrl: string, signal: AbortSignal): Promise<LocalModelCatalog>',
+            summary: 'Discover local models available from a selected source.',
+            jsDoc: '/** Discover local models available from a selected source. */'
+          },
+          {
+            kind: 'method',
             name: 'updateSettings',
             signature: 'updateSettings(patch: EarsSettingsPatch, signal: AbortSignal): Promise<EarsSettingsView>',
             summary: 'Update plugin settings when the request has not been cancelled.',
@@ -63,6 +70,13 @@ export const TYPERT = {
             signature: 'listReasoningEfforts(provider: string, model: string): Promise<ReasoningEffortsView>',
             summary: 'List selectable reasoning efforts for one dsh route.',
             jsDoc: '/** List selectable reasoning efforts for one dsh route. */'
+          },
+          {
+            kind: 'method',
+            name: 'checkPolishModel',
+            signature: 'checkPolishModel(provider: string, model: string, reasoningEffort: string, signal: AbortSignal): Promise<ModelHealthResult>',
+            summary: 'Manually check that one dsh model route responds.',
+            jsDoc: '/** Manually check that one dsh model route responds. */'
           },
           {
             kind: 'method',
@@ -142,7 +156,7 @@ export const TYPERT = {
           },
           {
             name: 'EarsSettings',
-            declaration: 'export interface EarsSettings { asrBackend: string; webSpeechLanguage: string; localWhisperModel: string; localWhisperAcceleration: string; localWhisperLanguage: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrGroqLanguage: string; cloudAsrDeepgramApiKey: string; cloudAsrDeepgramModel: string; cloudAsrDeepgramLanguage: string; cloudAsrDeepgramService: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrCustomLanguage: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrBailianLanguage: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; cloudAsrMimoApiKey: string; cloudAsrMimoService: string; cloudAsrMimoCluster: string; cloudAsrMimoModel: string; cloudAsrMimoLanguage: string; cloudAsrSiliconFlowApiKey: string; cloudAsrSiliconFlowModel: string; cloudAsrSiliconFlowLanguage: string; cloudAsrVolcengineApiKey: string; cloudAsrVolcengineService: string; cloudAsrVolcengineRealtimeModel: string; cloudAsrVolcengineRecordingModel: string; cloudAsrVolcengineLanguage: string; maxRecordingSeconds: number; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
+            declaration: 'export interface EarsSettings { asrBackend: string; webSpeechLanguage: string; localWhisperModel: string; localWhisperModelSource: string; localWhisperModelBaseUrl: string; localWhisperAcceleration: string; localWhisperLanguage: string; localSenseVoiceModel: string; localSenseVoiceModelSource: string; localSenseVoiceModelBaseUrl: string; cloudAsrProvider: string; cloudAsrGroqApiKey: string; cloudAsrGroqModel: string; cloudAsrGroqLanguage: string; cloudAsrDeepgramApiKey: string; cloudAsrDeepgramModel: string; cloudAsrDeepgramLanguage: string; cloudAsrDeepgramService: string; cloudAsrCustomApiKey: string; cloudAsrCustomEndpoint: string; cloudAsrCustomModel: string; cloudAsrCustomLanguage: string; cloudAsrBailianApiKey: string; cloudAsrBailianHost: string; cloudAsrBailianModel: string; cloudAsrBailianLanguage: string; cloudAsrTencentAppId: string; cloudAsrTencentSecretId: string; cloudAsrTencentSecretKey: string; cloudAsrTencentEngineType: string; cloudAsrTencentService: string; cloudAsrMimoApiKey: string; cloudAsrMimoService: string; cloudAsrMimoCluster: string; cloudAsrMimoModel: string; cloudAsrMimoLanguage: string; cloudAsrSiliconFlowApiKey: string; cloudAsrSiliconFlowModel: string; cloudAsrSiliconFlowLanguage: string; cloudAsrVolcengineApiKey: string; cloudAsrVolcengineService: string; cloudAsrVolcengineRealtimeModel: string; cloudAsrVolcengineRecordingModel: string; cloudAsrVolcengineLanguage: string; maxRecordingSeconds: number; voiceInputEnabled: boolean; voiceShortcutEnabled: boolean; voiceShortcut: string; voiceSoundsEnabled: boolean; settingsDisplayName: string; polishingEnabled: boolean; polishProvider: string; polishModel: string; polishReasoningEffort: string; polishPrompt: string }'
           },
           {
             name: 'EarsSettingsView',
@@ -175,6 +189,14 @@ export const TYPERT = {
           {
             name: 'WhisperModelState',
             declaration: 'export interface WhisperModelState { runtimeAvailable: boolean; downloaded: boolean; downloading: boolean; progress: number | null; bytes: number | null; totalBytes: number | null; error: string | null; errorCode?: string; errorParams?: Record<string, string | number> }'
+          },
+          {
+            name: 'LocalModelCatalog',
+            declaration: "export interface LocalModelCatalog { backend: 'local-whisper' | 'local-sensevoice'; source: 'official' | 'mirror' | 'custom'; models: string[] }"
+          },
+          {
+            name: 'ModelHealthResult',
+            declaration: "export interface ModelHealthResult { status: 'available' | 'unavailable'; message: string }"
           },
           {
             name: 'CloudProviderModelsView',

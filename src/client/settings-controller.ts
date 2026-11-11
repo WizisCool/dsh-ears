@@ -5,7 +5,7 @@ import type { EarsSettings, WhisperAccelerationId } from '../config.js'
 import { isSettingsFieldInvalid, type FieldName } from './settings-fields.js'
 import { DEFAULT_EARS_SETTINGS } from '../config.js'
 import { CLOUD_ASR_PROVIDERS, cloudAsrCredentialField, cloudAsrFieldFor, type CloudAsrCredentialField } from '../asr/providers.js'
-import type { AboutInfo, AsrBackendInfo, EarsSettingsView, UpdateCheckResult } from '../remote-contract.js'
+import type { AboutInfo, AsrBackendInfo, EarsSettingsView, ModelHealthResult, UpdateCheckResult } from '../remote-contract.js'
 import type { EarsRemote } from '../remote.js'
 import { CloudProviderController, type CloudModelsView } from './cloud-provider-controller.js'
 import { PolishStateController, type ReasoningEffortsState, type RouteState } from './polish-state-controller.js'
@@ -32,8 +32,13 @@ export interface EarsCardState {
   asrBackend: FieldState
   webSpeechLanguage: FieldState
   localWhisperModel: FieldState
+  localWhisperModelSource: FieldState
+  localWhisperModelBaseUrl: FieldState
   localWhisperAcceleration: FieldState
   localWhisperLanguage: FieldState
+  localSenseVoiceModel: FieldState
+  localSenseVoiceModelSource: FieldState
+  localSenseVoiceModelBaseUrl: FieldState
   localWhisperAccelerations: readonly WhisperAccelerationId[]
   cloudAsrProvider: FieldState
   cloudAsrGroqApiKey: FieldState
@@ -86,6 +91,7 @@ export interface EarsCardState {
   cloudAsrTencentEngineType: FieldState
   cloudAsrTencentService: FieldState
   maxRecordingSeconds: FieldState
+  voiceInputEnabled: FieldState
   voiceShortcutEnabled: FieldState
   voiceShortcut: FieldState
   voiceSoundsEnabled: FieldState
@@ -142,7 +148,11 @@ export class EarsSettingsController {
     this.cloudProviderController = new CloudProviderController()
     this.polishStateController = new PolishStateController()
     this.whisperModelController = new WhisperModelController(remote, {
-      currentModel: () => this.currentWhisperModel(),
+      currentModel: () => this.currentLocalModel(),
+      currentBackend: () => this.currentLocalBackend(),
+      currentSource: () => this.currentLocalModelSource(),
+      currentBaseUrl: () => this.currentLocalModelBaseUrl(),
+      fallbackModels: () => this.currentLocalBackend() === 'local-sensevoice' ? ['small-int8', 'small-fp32'] : ['tiny', 'base', 'small', 'medium', 'large', 'turbo'],
       hasPendingAcceleration: () => this.hasPendingWhisperAcceleration()
     })
     this.settingsStore = createSnapshotStore(DEFAULT_EARS_SETTINGS)
@@ -193,10 +203,13 @@ export class EarsSettingsController {
       flush: () => void this.save(),
       discard: () => this.discard(),
       refreshRoutes: () => void this.refreshRoutes(),
+      checkPolishModel: (provider: string, model: string, effort: string) => this.checkPolishModel(provider, model, effort),
+      checkRecognitionHealth: () => this.checkRecognitionHealth(),
       retryCloudModels: () => void this.refreshCloudModels(),
       downloadModel: () => void this.downloadModel(),
       cancelModel: () => void this.cancelModel(),
       deleteModel: () => void this.deleteModel(),
+      refreshLocalModelOptions: () => void this.refreshWhisperState(),
       loadAbout: () => this.loadAbout(),
       checkForUpdate: () => this.checkForUpdate()
     }
@@ -224,11 +237,11 @@ export class EarsSettingsController {
       const result = await this.remote.getSettings()
       if (this.disposed || request !== this.settingsRequest) return
       if (result.ok) {
-        this.settingsView = result.value
+        this.settingsView = { ...result.value, settings: { ...DEFAULT_EARS_SETTINGS, ...result.value.settings } }
         this.cloudProviderController.rememberSettings(result.value.settings)
         const polishSelection = this.polishSelectionForMemory()
         this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
-        this.settingsStore.set(result.value.settings)
+        this.settingsStore.set(this.settingsView.settings)
         this.loaded = true
         this.loadFailed = false
         this.retryAttempted = false
@@ -281,6 +294,36 @@ export class EarsSettingsController {
     this.backendStore.set(this.backendState)
   }
 
+  async checkRecognitionHealth(): Promise<AsrBackendInfo | null> {
+    await this.refreshBackends()
+    if (this.disposed) return null
+    const backend = (this.drafts.get('asrBackend') ?? this.settingsView.settings.asrBackend).trim()
+    const info = this.backendState.backends.find((candidate) => candidate.id === backend)
+    if (info === undefined || (backend !== 'local-whisper' && backend !== 'local-sensevoice')) return info ?? null
+    await this.refreshWhisperState()
+    const modelState = this.whisperModelController.getStore().getSnapshot().state
+    const senseVoice = backend === 'local-sensevoice'
+    const available = modelState.runtimeAvailable && modelState.downloaded && modelState.error === null
+    const detailCode = modelState.errorCode
+      ?? (!modelState.runtimeAvailable ? (senseVoice ? 'senseVoice.nativeUnavailable' : 'backend.localUnavailable') : undefined)
+      ?? (!modelState.downloaded ? (senseVoice ? 'senseVoice.modelNotDownloaded' : 'whisper.modelNotDownloaded') : undefined)
+    return {
+      ...info,
+      available,
+      detail: available ? (senseVoice ? 'SenseVoice is ready' : 'Local Whisper is ready') : modelState.error ?? info.detail,
+      ...(detailCode === undefined ? {} : { detailCode })
+    }
+  }
+
+  async checkPolishModel(provider: string, model: string, effort: string): Promise<ModelHealthResult> {
+    try {
+      const result = await this.remote.checkPolishModel(provider, model, effort)
+      return result.ok ? result.value : { status: 'unavailable', message: result.error.message }
+    } catch (error) {
+      return { status: 'unavailable', message: error instanceof Error ? error.message : 'Model health check failed' }
+    }
+  }
+
   async refreshCloudModels(): Promise<void> {
     await this.cloudProviderController.refresh(this.remote, this.currentCloudAsrProvider(), this.currentCloudAsrService())
   }
@@ -295,6 +338,10 @@ export class EarsSettingsController {
   }
 
   private async downloadModel(): Promise<void> {
+    if (['localWhisperModelSource', 'localWhisperModelBaseUrl', 'localSenseVoiceModel', 'localSenseVoiceModelSource', 'localSenseVoiceModelBaseUrl'].some((field) => this.drafts.has(field as FieldName))) {
+      await this.save()
+      if (this.failed) return
+    }
     await this.whisperModelController.download()
   }
 
@@ -422,8 +469,26 @@ export class EarsSettingsController {
     }
   }
 
-  private currentWhisperModel(): string {
-    return (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+  private currentLocalBackend(): string {
+    return (this.drafts.get('asrBackend') ?? this.settingsView.settings.asrBackend).trim()
+  }
+
+  private currentLocalModel(): string {
+    return this.currentLocalBackend() === 'local-sensevoice'
+      ? (this.drafts.get('localSenseVoiceModel') ?? this.settingsView.settings.localSenseVoiceModel).trim()
+      : (this.drafts.get('localWhisperModel') ?? this.settingsView.settings.localWhisperModel).trim()
+  }
+
+  private currentLocalModelSource(): string {
+    return this.currentLocalBackend() === 'local-sensevoice'
+      ? (this.drafts.get('localSenseVoiceModelSource') ?? this.settingsView.settings.localSenseVoiceModelSource).trim()
+      : (this.drafts.get('localWhisperModelSource') ?? this.settingsView.settings.localWhisperModelSource).trim()
+  }
+
+  private currentLocalModelBaseUrl(): string {
+    return this.currentLocalBackend() === 'local-sensevoice'
+      ? (this.drafts.get('localSenseVoiceModelBaseUrl') ?? this.settingsView.settings.localSenseVoiceModelBaseUrl).trim()
+      : (this.drafts.get('localWhisperModelBaseUrl') ?? this.settingsView.settings.localWhisperModelBaseUrl).trim()
   }
 
   private hasPendingWhisperAcceleration(): boolean {
@@ -466,7 +531,12 @@ export class EarsSettingsController {
     this.failed = false
     this.publishCard()
     if (field === 'polishingEnabled' || field === 'polishProvider' || field === 'polishModel') void this.refreshReasoningEfforts()
-    if (field === 'localWhisperModel' || field === 'localWhisperAcceleration' || (field === 'asrBackend' && text === 'local-whisper')) void this.refreshWhisperState()
+    if (field === 'localWhisperModel'
+      || field === 'localWhisperModelSource'
+      || field === 'localWhisperAcceleration'
+      || field === 'localSenseVoiceModel'
+      || field === 'localSenseVoiceModelSource'
+      || field === 'asrBackend') void this.refreshWhisperState()
     const serviceField = cloudAsrFieldFor(this.currentCloudAsrProvider(), 'service')?.field
     if (field === 'cloudAsrProvider' || field === serviceField || (field === 'asrBackend' && text === 'cloud-openai')) void this.refreshCloudModels()
     this.scheduleSave(SETTINGS_SAVE_DEBOUNCE_MS)
@@ -522,6 +592,7 @@ export class EarsSettingsController {
     if (this.disposed) return
     this.draftRevision += 1
     const refreshWhisper = this.hasPendingWhisperAcceleration()
+      || ['asrBackend', 'localWhisperModel', 'localWhisperModelSource', 'localWhisperModelBaseUrl', 'localWhisperAcceleration', 'localSenseVoiceModel', 'localSenseVoiceModelSource', 'localSenseVoiceModelBaseUrl'].some((field) => this.drafts.has(field as FieldName))
     this.cancelScheduledSave()
     this.saveQueued = false
     this.draftsController.reset()
@@ -556,6 +627,7 @@ export class EarsSettingsController {
     }
     const submission = this.draftsController.buildSubmission()
     const { patch } = submission
+    console.debug('[dsh-ears] Settings save patch:', patch)
     if (Object.keys(patch).length === 0) return
     const submissionRevision = this.draftRevision
     this.inFlightCredentialClears.clear()
@@ -570,16 +642,17 @@ export class EarsSettingsController {
       if (this.disposed) return
       const cloudRelevant = CLOUD_ASR_PROVIDERS.some((provider) => submission.credentialClears.has(provider.credentialField) || submission.drafts.has(provider.credentialField))
       const whisperAccelerationChanged = submission.drafts.has('localWhisperAcceleration')
+      const localModelRelevant = ['asrBackend', 'localWhisperModel', 'localWhisperModelSource', 'localWhisperModelBaseUrl', 'localWhisperAcceleration', 'localSenseVoiceModel', 'localSenseVoiceModelSource', 'localSenseVoiceModelBaseUrl'].some((field) => submission.drafts.has(field as FieldName))
       if (whisperAccelerationChanged) this.whisperModelController.notifyAccelerationChanged()
-      this.settingsView = result.value
+        this.settingsView = { ...result.value, settings: { ...DEFAULT_EARS_SETTINGS, ...result.value.settings } }
       const polishSelection = this.polishSelectionForMemory()
       this.rememberPolishSelection(polishSelection.provider, polishSelection.model, polishSelection.reasoningEffort)
       this.cloudProviderController.rememberSettings(result.value.settings)
-      this.settingsStore.set(result.value.settings)
+      this.settingsStore.set(this.settingsView.settings)
       this.draftsController.reconcile(submission)
       void this.refreshBackends()
       if (cloudRelevant) void this.refreshCloudModels()
-      if (whisperAccelerationChanged) void this.refreshWhisperState()
+      if (localModelRelevant) void this.refreshWhisperState()
     } catch {
       // A newer draft supersedes this request. Keep it eligible for the
       // queued save instead of painting the newer state as failed because an
@@ -609,8 +682,13 @@ export class EarsSettingsController {
     const asrBackend = field('asrBackend', this.drafts.get('asrBackend') ?? current.asrBackend)
     const webSpeechLanguage = field('webSpeechLanguage', this.drafts.get('webSpeechLanguage') ?? current.webSpeechLanguage)
     const localWhisperModel = field('localWhisperModel', this.drafts.get('localWhisperModel') ?? current.localWhisperModel)
+    const localWhisperModelSource = field('localWhisperModelSource', this.drafts.get('localWhisperModelSource') ?? current.localWhisperModelSource)
+    const localWhisperModelBaseUrl = field('localWhisperModelBaseUrl', this.drafts.get('localWhisperModelBaseUrl') ?? current.localWhisperModelBaseUrl)
     const localWhisperAcceleration = field('localWhisperAcceleration', this.drafts.get('localWhisperAcceleration') ?? current.localWhisperAcceleration ?? DEFAULT_EARS_SETTINGS.localWhisperAcceleration)
     const localWhisperLanguage = field('localWhisperLanguage', this.drafts.get('localWhisperLanguage') ?? current.localWhisperLanguage)
+    const localSenseVoiceModel = field('localSenseVoiceModel', this.drafts.get('localSenseVoiceModel') ?? current.localSenseVoiceModel)
+    const localSenseVoiceModelSource = field('localSenseVoiceModelSource', this.drafts.get('localSenseVoiceModelSource') ?? current.localSenseVoiceModelSource)
+    const localSenseVoiceModelBaseUrl = field('localSenseVoiceModelBaseUrl', this.drafts.get('localSenseVoiceModelBaseUrl') ?? current.localSenseVoiceModelBaseUrl)
     const cloudAsrProvider = field('cloudAsrProvider', this.drafts.get('cloudAsrProvider') ?? current.cloudAsrProvider)
     const cloudAsrGroqApiKey = field('cloudAsrGroqApiKey', this.drafts.get('cloudAsrGroqApiKey') ?? '')
     const cloudAsrDeepgramApiKey = field('cloudAsrDeepgramApiKey', this.drafts.get('cloudAsrDeepgramApiKey') ?? '')
@@ -646,6 +724,7 @@ export class EarsSettingsController {
     const cloudAsrTencentEngineType = field('cloudAsrTencentEngineType', this.drafts.get('cloudAsrTencentEngineType') ?? current.cloudAsrTencentEngineType)
     const cloudAsrTencentService = field('cloudAsrTencentService', this.drafts.get('cloudAsrTencentService') ?? current.cloudAsrTencentService)
     const maxRecordingSeconds = field('maxRecordingSeconds', this.drafts.get('maxRecordingSeconds') ?? String(current.maxRecordingSeconds))
+    const voiceInputEnabled = field('voiceInputEnabled', this.drafts.get('voiceInputEnabled') ?? (current.voiceInputEnabled === false ? 'off' : 'on'))
     const voiceShortcutEnabled = field('voiceShortcutEnabled', this.drafts.get('voiceShortcutEnabled') ?? (current.voiceShortcutEnabled === false ? 'off' : 'on'))
     const voiceShortcut = field('voiceShortcut', this.drafts.get('voiceShortcut') ?? (current.voiceShortcut ?? DEFAULT_EARS_SETTINGS.voiceShortcut))
     const voiceSoundsEnabled = field('voiceSoundsEnabled', this.drafts.get('voiceSoundsEnabled') ?? (current.voiceSoundsEnabled === false ? 'off' : 'on'))
@@ -657,7 +736,7 @@ export class EarsSettingsController {
     const defaultReasoningEffort = current.polishReasoningEffort.trim() !== '' ? current.polishReasoningEffort : defaultPolishRoute?.reasoningEffort ?? ''
     const polishReasoningEffort = field('polishReasoningEffort', this.drafts.get('polishReasoningEffort') ?? defaultReasoningEffort)
     const polishPrompt = field('polishPrompt', this.drafts.get('polishPrompt') ?? current.polishPrompt)
-    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperAcceleration, localWhisperLanguage, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrSiliconFlowApiKey, cloudAsrVolcengineApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, cloudAsrSiliconFlowModel, cloudAsrSiliconFlowLanguage, cloudAsrVolcengineService, cloudAsrVolcengineRealtimeModel, cloudAsrVolcengineRecordingModel, cloudAsrVolcengineLanguage, maxRecordingSeconds, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
+    const stagedFields = [asrBackend, webSpeechLanguage, localWhisperModel, localWhisperModelSource, localWhisperModelBaseUrl, localWhisperAcceleration, localWhisperLanguage, localSenseVoiceModel, localSenseVoiceModelSource, localSenseVoiceModelBaseUrl, cloudAsrProvider, cloudAsrGroqApiKey, cloudAsrDeepgramApiKey, cloudAsrCustomApiKey, cloudAsrBailianApiKey, cloudAsrTencentSecretKey, cloudAsrMimoApiKey, cloudAsrSiliconFlowApiKey, cloudAsrVolcengineApiKey, cloudAsrMimoService, cloudAsrMimoCluster, cloudAsrMimoModel, cloudAsrMimoLanguage, cloudAsrCustomEndpoint, cloudAsrCustomModel, cloudAsrCustomLanguage, cloudAsrBailianHost, cloudAsrGroqModel, cloudAsrGroqLanguage, cloudAsrDeepgramModel, cloudAsrDeepgramLanguage, cloudAsrDeepgramService, cloudAsrBailianModel, cloudAsrBailianLanguage, cloudAsrTencentAppId, cloudAsrTencentSecretId, cloudAsrTencentEngineType, cloudAsrTencentService, cloudAsrSiliconFlowModel, cloudAsrSiliconFlowLanguage, cloudAsrVolcengineService, cloudAsrVolcengineRealtimeModel, cloudAsrVolcengineRecordingModel, cloudAsrVolcengineLanguage, maxRecordingSeconds, voiceInputEnabled, voiceShortcutEnabled, voiceShortcut, voiceSoundsEnabled, settingsDisplayName, polishingEnabled, polishProvider, polishModel, polishReasoningEffort, polishPrompt]
     return {
       available: this.settingsView.available,
       writable: this.settingsView.writable,
@@ -671,8 +750,13 @@ export class EarsSettingsController {
       asrBackend,
       webSpeechLanguage,
       localWhisperModel,
+      localWhisperModelSource,
+      localWhisperModelBaseUrl,
       localWhisperAcceleration,
       localWhisperLanguage,
+      localSenseVoiceModel,
+      localSenseVoiceModelSource,
+      localSenseVoiceModelBaseUrl,
       localWhisperAccelerations: this.settingsView.localWhisperAccelerations ?? ['default'],
       cloudAsrProvider,
       cloudAsrGroqApiKey,
@@ -725,6 +809,7 @@ export class EarsSettingsController {
       cloudAsrTencentEngineType,
       cloudAsrTencentService,
       maxRecordingSeconds,
+      voiceInputEnabled,
       voiceShortcutEnabled,
       voiceShortcut,
       voiceSoundsEnabled,
