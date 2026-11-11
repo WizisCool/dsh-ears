@@ -5,9 +5,9 @@
   "icon": "./assets/icon.svg",
   "license": "MIT",
   "author": "Pseudosalieri",
-  "homepage": "https://github.com/WizisCool/dsh-ears#readme",
+  "homepage": "https://github.com/Pseudosalieri/dsh-ears#readme",
   "bugs": {
-    "url": "https://github.com/WizisCool/dsh-ears/issues"
+    "url": "https://github.com/Pseudosalieri/dsh-ears/issues"
   },
   "keywords": [
     "dsh",
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WizisCool/dsh-ears.git"
+    "url": "git+https://github.com/Pseudosalieri/dsh-ears.git"
   },
   "type": "module",
   "engines": {
