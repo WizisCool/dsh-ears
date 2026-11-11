@@ -190,6 +190,31 @@ describe('polish model health check', () => {
       await fiber.dispose()
     }
   })
+
+  it('returns a sanitized provider finish error instead of replacing it with a generic polishing message', async () => {
+    const prepareCall = vi.fn(async (config: Record<string, unknown>) => ({
+      config,
+      stream: async function* () {
+        yield {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: { code: 'AUTH_FAILED', message: 'Invalid bearer YOUR_API_KEY' }
+          }
+        }
+      }
+    }))
+    const context = createContext({ prepareCall })
+    const fiber = await context.plugin(PolishService)
+    try {
+      const service = context.get('dshEarsPolish')
+      if (service === undefined) throw new Error('Polish service is missing')
+      await expect(service.checkPolishModel('test-provider', 'test-model', '', new AbortController().signal))
+        .resolves.toEqual({ status: 'unavailable', message: 'Invalid Bearer [redacted]' })
+    } finally {
+      await fiber.dispose()
+    }
+  })
 })
 
 describe('stored settings recovery', () => {

@@ -1241,7 +1241,11 @@ async function collectText(stream: AsyncIterable<StreamChunk>, maxCharacters: nu
     }
 
     if (chunk.type === 'finish' && (chunk.reason.kind === 'error' || chunk.reason.kind === 'aborted')) {
-      throw new EarsError(EARS_ERROR_CODES.polishRouteFailed, 'The dsh LLM route did not complete polishing')
+      const detail = sanitizeEarsErrorText(chunk.reason.failure.message)
+      throw new EarsError(
+        EARS_ERROR_CODES.polishRouteFailed,
+        detail || 'The dsh LLM route did not complete polishing'
+      )
     }
 
     if (!sawDelta && chunk.type === 'block-end' && chunk.block.type === 'text') {

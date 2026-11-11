@@ -9,6 +9,10 @@ All notable changes to dsh-ears are recorded here.
 - **Agent audio-file transcription tools.** `transcribe_audio_file`, `polish_transcript`, and `export_transcript_file` handle user-provided attachments and explicit paths, preserve SenseVoice/Whisper timestamps, follow the polishing toggle, and export UTF-8 TXT/MD/SRT/VTT/LRC without overwriting existing files.
 - **Local file audio decoding.** Host-side in-process decoders accept WAV, MP3, FLAC, OGG Vorbis, OGG Opus, and WebM with Opus/Vorbis audio, then normalize them to the existing worker format.
 
+### Fixed
+
+- **Model health checks retain provider error details.** LLM error/abort finish chunks now return their sanitized failure message instead of replacing it with a generic polish-route error.
+
 ## [0.4.4] - 2026-11-09
 
 Reported-defect fixes and a compatibility baseline refresh. This patch keeps the dsh `>=0.2.0-rc.1` floor and moves the compile, lockfile, and certification target to dsh `0.2.1-rc.4`. It fixes the composer tooltip repaint loop, a voice stop that could leave the recognition bar stuck, and the in-process native Whisper runtime that could abort the whole Host during GPU cleanup.
