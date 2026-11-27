@@ -68,7 +68,7 @@ importers:
         version: 3.18.5
       '@thesvg/react':
         specifier: ^4.0.4
-        version: 4.0.4(react@18.3.1)
+        version: 4.0.14(react@18.3.1)
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.5
@@ -473,8 +473,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@thesvg/react@4.0.4':
-    resolution: {integrity: sha512-vdsRpS4SkoUo+MiE6PM4AZBQRbUKecgDalAVCPzr3ErpLlHBQ+tSchvH/J6huxxQR+54YNSuQMO7efFd8XTR9w==}
+  '@thesvg/react@4.0.14':
+    resolution: {integrity: sha512-g/6FKZl31qesD0QEps3V7oTqYUrYpRkwOlK2KtyUWv0Kc+idZapRNTYPgxwAisObKPWu6A/e9sdFkpIjP+D07A==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=18'
@@ -1185,18 +1185,22 @@ packages:
   yuku-ast@0.19.0:
     resolution: {integrity: sha512-PyCsiScaelhxBGzL8dyeJkLqvRZycoh78R31Vrt/WqYrm0hMFoKwIw/X7Dx5mBKLWAMlV9I9HEyBOHnj2gZVyw==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-codegen@0.19.0:
     resolution: {integrity: sha512-uymAKHjDuaP4BEpkXC/BSLz4DUEF5oArZ5AuD3888nb2miChjWSgpPdojEJxm3pjpXkgUaCRJQyNAbnMN33wHg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-core@0.19.0:
     resolution: {integrity: sha512-kYK9e1XdfirNhkipzW0wmMcSWcVF/CWnuugodfVYRCUwvoBefweL9HzB96OiKEhsx78V5WbUxbJqlizMX869Qg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   yuku-parser@0.19.0:
     resolution: {integrity: sha512-XrBh9ZiQK5mJVRxZBAvD6LwRyAYrK3MFtH3+onyuxFL5hFD44EC3QOmIC1FjTj6H2MMwq46/NAI+NZxLZPZgxg==}
     engines: {node: '>=14.18.0'}
+    deprecated: 'Yuku is now one package with one core. Use "yuku" instead: https://yuku.fyi/javascript/. Existing installs keep working but get no more fixes.'
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
@@ -1540,7 +1544,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@thesvg/react@4.0.4(react@18.3.1)':
+  '@thesvg/react@4.0.14(react@18.3.1)':
     dependencies:
       react: 18.3.1
 
